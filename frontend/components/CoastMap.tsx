@@ -1,21 +1,35 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
+import { NativeSyntheticEvent, StyleSheet, View } from 'react-native';
+import {
+  Camera,
+  GeoJSONSource,
+  Layer,
+  Map,
+  type PressEventWithFeatures,
+  type StyleSpecification,
+} from '@maplibre/maplibre-react-native';
 
-import type { GeoFeature } from '../lib/api';
+import type { FeatureCollection, GeoFeature } from '../lib/api';
 
-// Centro aproximado de Tenerife
-const TENERIFE_REGION: Region = {
-  latitude: 28.2916,
-  longitude: -16.6291,
-  latitudeDelta: 0.6,
-  longitudeDelta: 0.6,
+// Estilo raster con tiles de OpenStreetMap (sin API key)
+const OSM_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    osm: {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: '© OpenStreetMap contributors',
+    },
+  },
+  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 };
 
-const OUTFALL_COLORS: Record<string, string> = {
-  legal: '#2e7d32',
-  illegal: '#c62828',
-  unknown: '#f9a825',
+// Vista inicial centrada en Tenerife
+const TENERIFE_VIEW = {
+  center: [-16.6291, 28.2916] as [number, number],
+  zoom: 9,
 };
 
 export type Selection =
@@ -23,53 +37,86 @@ export type Selection =
   | { type: 'beach'; feature: GeoFeature; hasAlert: boolean };
 
 type CoastMapProps = {
-  outfalls: GeoFeature[];
-  beaches: GeoFeature[];
-  alertBeachIds: Set<number>;
+  outfalls: FeatureCollection;
+  beaches: FeatureCollection; // con properties.alert ya inyectado
   onSelect: (selection: Selection) => void;
 };
 
-export default function CoastMap({
-  outfalls,
-  beaches,
-  alertBeachIds,
-  onSelect,
-}: CoastMapProps) {
+export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps) {
+  const handlePress =
+    (type: 'outfall' | 'beach') =>
+    (e: NativeSyntheticEvent<PressEventWithFeatures>) => {
+      const feature = e.nativeEvent.features?.[0] as unknown as
+        | GeoFeature
+        | undefined;
+      if (!feature) return;
+      if (type === 'outfall') {
+        onSelect({ type: 'outfall', feature });
+      } else {
+        onSelect({
+          type: 'beach',
+          feature,
+          hasAlert: feature.properties.alert === true,
+        });
+      }
+    };
+
   return (
     <View style={styles.container}>
-      <MapView style={styles.map} initialRegion={TENERIFE_REGION}>
-        {outfalls.map((f) => (
-          <Marker
-            key={`outfall-${f.id}`}
-            coordinate={{
-              longitude: f.geometry.coordinates[0],
-              latitude: f.geometry.coordinates[1],
+      <Map
+        style={styles.map}
+        mapStyle={OSM_STYLE}
+        attributionPosition={{ bottom: 8, right: 8 }}
+      >
+        <Camera initialViewState={TENERIFE_VIEW} />
+
+        <GeoJSONSource
+          id="outfalls"
+          data={outfalls}
+          onPress={handlePress('outfall')}
+        >
+          <Layer
+            id="outfall-points"
+            type="circle"
+            paint={{
+              'circle-radius': 7,
+              'circle-color': [
+                'match',
+                ['get', 'status'],
+                'legal',
+                '#2e7d32',
+                'illegal',
+                '#c62828',
+                '#f9a825',
+              ],
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#ffffff',
             }}
-            pinColor={OUTFALL_COLORS[f.properties.status ?? 'unknown']}
-            onPress={() => onSelect({ type: 'outfall', feature: f })}
           />
-        ))}
-        {beaches.map((f) => {
-          const hasAlert = alertBeachIds.has(f.id);
-          return (
-            <Marker
-              key={`beach-${f.id}`}
-              coordinate={{
-                longitude: f.geometry.coordinates[0],
-                latitude: f.geometry.coordinates[1],
-              }}
-              onPress={() => onSelect({ type: 'beach', feature: f, hasAlert })}
-            >
-              <View
-                style={[
-                  styles.beachDot,
-                  hasAlert ? styles.beachDotAlert : styles.beachDotOk,
-                ]}
-              />
-            </Marker>
-          );
-        })}
-      </MapView>
+        </GeoJSONSource>
+
+        <GeoJSONSource
+          id="beaches"
+          data={beaches}
+          onPress={handlePress('beach')}
+        >
+          <Layer
+            id="beach-points"
+            type="circle"
+            paint={{
+              'circle-radius': 6,
+              'circle-color': [
+                'case',
+                ['get', 'alert'],
+                '#e65100',
+                '#0288d1',
+              ],
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#ffffff',
+            }}
+          />
+        </GeoJSONSource>
+      </Map>
     </View>
   );
 }
@@ -79,20 +126,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   map: {
-    width: '100%',
-    height: '100%',
-  },
-  beachDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  beachDotOk: {
-    backgroundColor: '#0288d1',
-  },
-  beachDotAlert: {
-    backgroundColor: '#e65100',
+    flex: 1,
   },
 });

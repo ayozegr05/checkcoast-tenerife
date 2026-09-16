@@ -6,15 +6,20 @@ import CoastMap, { Selection } from './components/CoastMap';
 import FeatureSheet from './components/FeatureSheet';
 import {
   Alert,
+  FeatureCollection,
   fetchAlerts,
   fetchBeaches,
   fetchOutfalls,
-  GeoFeature,
 } from './lib/api';
 
+const EMPTY_FC: FeatureCollection = {
+  type: 'FeatureCollection',
+  features: [],
+};
+
 export default function App() {
-  const [outfalls, setOutfalls] = useState<GeoFeature[]>([]);
-  const [beaches, setBeaches] = useState<GeoFeature[]>([]);
+  const [outfalls, setOutfalls] = useState<FeatureCollection>(EMPTY_FC);
+  const [beaches, setBeaches] = useState<FeatureCollection>(EMPTY_FC);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,25 +28,31 @@ export default function App() {
   useEffect(() => {
     Promise.all([fetchOutfalls(), fetchBeaches(), fetchAlerts()])
       .then(([o, b, a]) => {
-        setOutfalls(o.features);
-        setBeaches(b.features);
+        setOutfalls(o);
+        setBeaches(b);
         setAlerts(a);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
-  const alertBeachIds = useMemo(
-    () => new Set(alerts.map((a) => a.beach_id)),
-    [alerts],
-  );
+  // Inyecta la flag `alert` en cada feature de playa para el estilo del mapa
+  const beachesFC = useMemo<FeatureCollection>(() => {
+    const ids = new Set(alerts.map((a) => a.beach_id));
+    return {
+      ...beaches,
+      features: beaches.features.map((f) => ({
+        ...f,
+        properties: { ...f.properties, alert: ids.has(f.id) },
+      })),
+    };
+  }, [beaches, alerts]);
 
   return (
     <View style={styles.container}>
       <CoastMap
         outfalls={outfalls}
-        beaches={beaches}
-        alertBeachIds={alertBeachIds}
+        beaches={beachesFC}
         onSelect={setSelection}
       />
 

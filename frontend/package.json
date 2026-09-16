@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@maplibre/maplibre-react-native": "^11.3.10",
     "expo": "~57.0.23",
     "expo-dev-client": "~57.0.19",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
-    "react-native": "0.86.3",
-    "react-native-maps": "1.27.2"
+    "react-native": "0.86.3"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
