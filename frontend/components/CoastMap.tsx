@@ -80,8 +80,18 @@ type CoastMapProps = {
   onSelect: (selection: Selection) => void;
 };
 
+const STATUS_COLORS: Record<string, string> = {
+  legal: '#2e7d32',
+  illegal: '#c62828',
+  unknown: '#f9a825',
+};
+const BEACH_COLOR = '#0288d1';
+const BEACH_ALERT_COLOR = '#e65100';
+
 export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
+  const [showOutfalls, setShowOutfalls] = useState(true);
+  const [showBeaches, setShowBeaches] = useState(true);
 
   const handlePress =
     (type: 'outfall' | 'beach') =>
@@ -110,53 +120,120 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
       >
         <Camera initialViewState={TENERIFE_VIEW} />
 
-        <GeoJSONSource
-          id="outfalls"
-          data={outfalls}
-          onPress={handlePress('outfall')}
-        >
-          <Layer
-            id="outfall-points"
-            type="circle"
-            paint={{
-              'circle-radius': 7,
-              'circle-color': [
-                'match',
-                ['get', 'status'],
-                'legal',
-                '#2e7d32',
-                'illegal',
-                '#c62828',
-                '#f9a825',
-              ],
-              'circle-stroke-width': 2,
-              'circle-stroke-color': '#ffffff',
-            }}
-          />
-        </GeoJSONSource>
+        {showOutfalls && (
+          <GeoJSONSource
+            id="outfalls"
+            data={outfalls}
+            onPress={handlePress('outfall')}
+          >
+            <Layer
+              id="outfall-points"
+              type="circle"
+              paint={{
+                'circle-radius': 8,
+                'circle-color': [
+                  'match',
+                  ['get', 'status'],
+                  'legal',
+                  STATUS_COLORS.legal,
+                  'illegal',
+                  STATUS_COLORS.illegal,
+                  STATUS_COLORS.unknown,
+                ],
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ffffff',
+              }}
+            />
+            <Layer
+              id="outfall-icons"
+              type="symbol"
+              layout={{
+                'text-field': '☣',
+                'text-size': 9,
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
+              }}
+              paint={{ 'text-color': '#ffffff' }}
+            />
+          </GeoJSONSource>
+        )}
 
-        <GeoJSONSource
-          id="beaches"
-          data={beaches}
-          onPress={handlePress('beach')}
-        >
-          <Layer
-            id="beach-points"
-            type="circle"
-            paint={{
-              'circle-radius': 6,
-              'circle-color': [
-                'case',
-                ['get', 'alert'],
-                '#e65100',
-                '#0288d1',
-              ],
-              'circle-stroke-width': 2,
-              'circle-stroke-color': '#ffffff',
-            }}
-          />
-        </GeoJSONSource>
+        {showBeaches && (
+          <GeoJSONSource
+            id="beaches"
+            data={beaches}
+            onPress={handlePress('beach')}
+          >
+            <Layer
+              id="beach-points"
+              type="circle"
+              paint={{
+                'circle-radius': 8,
+                'circle-color': [
+                  'case',
+                  ['get', 'alert'],
+                  BEACH_ALERT_COLOR,
+                  BEACH_COLOR,
+                ],
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ffffff',
+              }}
+            />
+            <Layer
+              id="beach-icons"
+              type="symbol"
+              layout={{
+                'text-field': '🌊',
+                'text-size': 9,
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
+              }}
+            />
+          </GeoJSONSource>
+        )}
       </Map>
+
+      <View style={styles.legend}>
+        <Pressable
+          style={[styles.legendRow, !showOutfalls && styles.legendOff]}
+          onPress={() => setShowOutfalls((v) => !v)}
+        >
+          <Text style={styles.legendTitle}>
+            {showOutfalls ? '☣' : '◌'} Vertidos
+          </Text>
+        </Pressable>
+        <View style={styles.legendSub}>
+          {[
+            [STATUS_COLORS.legal, 'Autorizado'],
+            [STATUS_COLORS.illegal, 'No autorizado'],
+            [STATUS_COLORS.unknown, 'En trámite'],
+          ].map(([color, label]) => (
+            <View key={label} style={styles.swatchRow}>
+              <View style={[styles.dot, { backgroundColor: color }]} />
+              <Text style={styles.swatchText}>{label}</Text>
+            </View>
+          ))}
+        </View>
+        <Pressable
+          style={[styles.legendRow, !showBeaches && styles.legendOff]}
+          onPress={() => setShowBeaches((v) => !v)}
+        >
+          <Text style={styles.legendTitle}>
+            {showBeaches ? '🌊' : '◌'} Playas
+          </Text>
+        </Pressable>
+        <View style={styles.legendSub}>
+          {[
+            [BEACH_COLOR, 'Normal'],
+            [BEACH_ALERT_COLOR, 'Alerta'],
+          ].map(([color, label]) => (
+            <View key={label} style={styles.swatchRow}>
+              <View style={[styles.dot, { backgroundColor: color }]} />
+              <Text style={styles.swatchText}>{label}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
 
       <Pressable
         style={styles.toggle}
@@ -193,5 +270,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#222',
+  },
+  legend: {
+    position: 'absolute',
+    top: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 24,
+    left: 12,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 8,
+    padding: 10,
+    elevation: 4,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legendOff: {
+    opacity: 0.35,
+  },
+  legendTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#222',
+  },
+  legendSub: {
+    marginLeft: 14,
+    marginBottom: 4,
+  },
+  swatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  swatchText: {
+    fontSize: 11,
+    color: '#444',
   },
 });

@@ -34,6 +34,15 @@ export default function App() {
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
+
+    // Refresco periódico de alertas de playa (la API las sincroniza
+    // con Náyade en segundo plano)
+    const timer = setInterval(() => {
+      fetchAlerts()
+        .then(setAlerts)
+        .catch(() => {});
+    }, 5 * 60 * 1000);
+    return () => clearInterval(timer);
   }, []);
 
   // Inyecta la flag `alert` en cada feature de playa para el estilo del mapa
