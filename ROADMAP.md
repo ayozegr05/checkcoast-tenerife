@@ -45,7 +45,7 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 - [x] Puntos de playa (azul) con indicador naranja si hay alerta activa
 - [x] `EXPO_PUBLIC_API_URL` en `.env` / `.env.example`
 - [x] Migración a **MapLibre + OpenStreetMap** (Expo Go SDK 57 trae la key de Google caducada — bug expo/expo#49323; MapLibre elimina la dependencia de Google y encaja con el stack open-data)
-- [ ] Development build con `eas build --profile development` (MapLibre es módulo nativo, no corre en Expo Go)
+- [x] Development build con `eas build --profile development` — APK instalado en Android y funcionando contra la API real
 
 ## Hito 5 — Tiempo real ⬜
 - [ ] Polling (refetch cada N min) o SSE/WebSockets desde FastAPI
