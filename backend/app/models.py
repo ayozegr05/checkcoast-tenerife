@@ -26,8 +26,12 @@ class Outfall(Base):
     __tablename__ = "outfalls"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    external_id: Mapped[str | None] = mapped_column(
+        String(80), unique=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(255))
     municipality: Mapped[str | None] = mapped_column(String(120))
+    kind: Mapped[str | None] = mapped_column(String(80))
     status: Mapped[OutfallStatus] = mapped_column(
         Enum(OutfallStatus), default=OutfallStatus.unknown
     )
@@ -44,6 +48,9 @@ class Beach(Base):
     __tablename__ = "beaches"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    external_id: Mapped[str | None] = mapped_column(
+        String(80), unique=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(255))
     municipality: Mapped[str | None] = mapped_column(String(120))
     geom: Mapped[WKBElement] = mapped_column(

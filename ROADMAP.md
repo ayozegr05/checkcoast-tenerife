@@ -24,12 +24,13 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
   - [x] `BeachStatus`/`Alert`: estado, timestamp, fuente oficial
 - [x] Migración inicial aplicada (`alembic upgrade head`)
 
-## Hito 2 — Ingesta de datos ⬜
-- [ ] `backend/scripts/` con un script por fuente oficial
-- [ ] Emisarios: inventario oficial (MITECO / Gobierno de Canarias)
-- [ ] Playas y alertas: calidad de aguas de baño (Sanidad / Gob. Canarias / ayuntamientos)
-- [ ] Normalizar a SRID 4326 e insertar en PostGIS
-- [ ] Trazabilidad: `source_url` + `fetched_at` por registro
+## Hito 2 — Ingesta de datos ✅
+- [x] `backend/scripts/` con un script por fuente oficial
+- [x] Emisarios: Censo de Vertidos Tierra-Mar 2025 (Gob. Canarias / SITCAN) — 180 puntos en Tenerife
+- [x] Playas: Censo Nacional de Zonas de Aguas de Baño 2025 (MITECO / Náyade) — 61 puntos en Tenerife
+- [x] Normalizar a SRID 4326 e insertar en PostGIS (UTM 28N → WGS84 con pyproj)
+- [x] Trazabilidad: `source_url` + `fetched_at` por registro; upserts idempotentes por `external_id`
+- Nota: alertas de cierre en tiempo real dependen del portal Náyade (sin API pública estable) → se aborda en Hito 5
 
 ## Hito 3 — API REST ⬜
 - [ ] `GET /outfalls` (GeoJSON, filtro `legal|illegal`)
@@ -47,6 +48,7 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 ## Hito 5 — Tiempo real ⬜
 - [ ] Polling (refetch cada N min) o SSE/WebSockets desde FastAPI
 - [ ] Scheduler de ingesta (APScheduler/cron) que refresca estados
+- [ ] Fuente de alertas de cierre de playas: Náyade (portal Struts sin API estable — evaluar scraping, WMS GetFeatureInfo de IDECanarias o fuentes municipales)
 
 ## Hito 6 — Calidad y despliegue ⬜
 - [ ] Tests backend (pytest) + componente (jest-expo)
@@ -63,5 +65,5 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 ---
 
 ### Estado actual
-**Hito activo:** 2 — Ingesta de datos
+**Hito activo:** 3 — API REST
 **Última actualización:** 2026-09-16
