@@ -34,7 +34,8 @@ const OSM_STYLE: StyleSpecification = {
   layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 };
 
-// Estilo raster satélite con Esri World Imagery (gratuito, sin API key)
+// Estilo raster satélite con Esri World Imagery + capa de etiquetas
+// transparente (vista híbrida). Gratuito, sin API key.
 const SATELLITE_STYLE: StyleSpecification = {
   version: 8,
   sources: {
@@ -47,8 +48,20 @@ const SATELLITE_STYLE: StyleSpecification = {
       maxzoom: 19,
       attribution: 'Esri, Maxar, Earthstar Geographics',
     },
+    'esri-labels': {
+      type: 'raster',
+      tiles: [
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+      ],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: 'Esri',
+    },
   },
-  layers: [{ id: 'esri', type: 'raster', source: 'esri' }],
+  layers: [
+    { id: 'esri', type: 'raster', source: 'esri' },
+    { id: 'esri-labels', type: 'raster', source: 'esri-labels' },
+  ],
 };
 
 // Vista inicial centrada en Tenerife
