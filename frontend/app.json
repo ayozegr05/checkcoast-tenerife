@@ -4,6 +4,7 @@
     "slug": "checkcoast-tenerife",
     "version": "1.0.0",
     "orientation": "portrait",
+    "plugins": ["@maplibre/maplibre-react-native"],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
