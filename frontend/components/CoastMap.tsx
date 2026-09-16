@@ -1,5 +1,11 @@
-import React from 'react';
-import { NativeSyntheticEvent, StyleSheet, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  NativeSyntheticEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import {
   Camera,
   GeoJSONSource,
@@ -26,6 +32,23 @@ const OSM_STYLE: StyleSpecification = {
   layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 };
 
+// Estilo raster satélite con Esri World Imagery (gratuito, sin API key)
+const SATELLITE_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    esri: {
+      type: 'raster',
+      tiles: [
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      ],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: 'Esri, Maxar, Earthstar Geographics',
+    },
+  },
+  layers: [{ id: 'esri', type: 'raster', source: 'esri' }],
+};
+
 // Vista inicial centrada en Tenerife
 const TENERIFE_VIEW = {
   center: [-16.6291, 28.2916] as [number, number],
@@ -43,6 +66,8 @@ type CoastMapProps = {
 };
 
 export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps) {
+  const [satellite, setSatellite] = useState(false);
+
   const handlePress =
     (type: 'outfall' | 'beach') =>
     (e: NativeSyntheticEvent<PressEventWithFeatures>) => {
@@ -65,7 +90,7 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
     <View style={styles.container}>
       <Map
         style={styles.map}
-        mapStyle={OSM_STYLE}
+        mapStyle={satellite ? SATELLITE_STYLE : OSM_STYLE}
         attributionPosition={{ bottom: 8, right: 8 }}
       >
         <Camera initialViewState={TENERIFE_VIEW} />
@@ -117,6 +142,17 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
           />
         </GeoJSONSource>
       </Map>
+
+      <Pressable
+        style={styles.toggle}
+        onPress={() => setSatellite((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel="Cambiar vista del mapa"
+      >
+        <Text style={styles.toggleText}>
+          {satellite ? 'Mapa' : 'Satélite'}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -127,5 +163,20 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  toggle: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    elevation: 4,
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#222',
   },
 });

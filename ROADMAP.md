@@ -46,6 +46,7 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 - [x] `EXPO_PUBLIC_API_URL` en `.env` / `.env.example`
 - [x] Migración a **MapLibre + OpenStreetMap** (Expo Go SDK 57 trae la key de Google caducada — bug expo/expo#49323; MapLibre elimina la dependencia de Google y encaja con el stack open-data)
 - [x] Development build con `eas build --profile development` — APK instalado en Android y funcionando contra la API real
+- [x] Botón para alternar vista callejero/satélite (tiles raster Esri World Imagery)
 
 ## Hito 5 — Tiempo real ⬜
 - [ ] Polling (refetch cada N min) o SSE/WebSockets desde FastAPI
