@@ -4,7 +4,9 @@
     "slug": "checkcoast-tenerife",
     "version": "1.0.0",
     "orientation": "portrait",
-    "plugins": ["@maplibre/maplibre-react-native"],
+    "plugins": [
+      "@maplibre/maplibre-react-native"
+    ],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
@@ -22,6 +24,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "fd4c0991-27fb-4812-8424-eb7680035566"
+      }
+    },
+    "owner": "ayozegr"
   }
 }

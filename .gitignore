@@ -23,6 +23,9 @@ yarn-error.*
 .env
 .env.*
 !.env.example
+credentials.json
+credentials/
+*.keystore
 
 # Docker
 *.pid
