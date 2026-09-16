@@ -11,6 +11,7 @@ import {
 import {
   Camera,
   GeoJSONSource,
+  Images,
   Layer,
   Map,
   type PressEventWithFeatures,
@@ -120,6 +121,13 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
       >
         <Camera initialViewState={TENERIFE_VIEW} />
 
+        <Images
+          images={{
+            'icon-beach': require('../assets/icons/beach.png'),
+            'icon-outfall': require('../assets/icons/outfall.png'),
+          }}
+        />
+
         {showOutfalls && (
           <GeoJSONSource
             id="outfalls"
@@ -148,12 +156,11 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
               id="outfall-icons"
               type="symbol"
               layout={{
-                'text-field': '☣',
-                'text-size': 9,
-                'text-allow-overlap': true,
-                'text-ignore-placement': true,
+                'icon-image': 'icon-outfall',
+                'icon-size': 0.22,
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
               }}
-              paint={{ 'text-color': '#ffffff' }}
             />
           </GeoJSONSource>
         )}
@@ -183,10 +190,10 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
               id="beach-icons"
               type="symbol"
               layout={{
-                'text-field': '🌊',
-                'text-size': 9,
-                'text-allow-overlap': true,
-                'text-ignore-placement': true,
+                'icon-image': 'icon-beach',
+                'icon-size': 0.22,
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
               }}
             />
           </GeoJSONSource>
@@ -199,7 +206,7 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
           onPress={() => setShowOutfalls((v) => !v)}
         >
           <Text style={styles.legendTitle}>
-            {showOutfalls ? '☣' : '◌'} Vertidos
+            {showOutfalls ? '☣️' : '◌'} Vertidos
           </Text>
         </Pressable>
         <View style={styles.legendSub}>
@@ -219,7 +226,7 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
           onPress={() => setShowBeaches((v) => !v)}
         >
           <Text style={styles.legendTitle}>
-            {showBeaches ? '🌊' : '◌'} Playas
+            {showBeaches ? '�️' : '◌'} Playas
           </Text>
         </Pressable>
         <View style={styles.legendSub}>
