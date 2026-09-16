@@ -32,12 +32,12 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 - [x] Trazabilidad: `source_url` + `fetched_at` por registro; upserts idempotentes por `external_id`
 - Nota: alertas de cierre en tiempo real dependen del portal Náyade (sin API pública estable) → se aborda en Hito 5
 
-## Hito 3 — API REST ⬜
-- [ ] `GET /outfalls` (GeoJSON, filtro `legal|illegal`)
-- [ ] `GET /beaches` + `GET /beaches/{id}/status`
-- [ ] `GET /alerts` (cierres activos)
-- [ ] Schemas Pydantic, capa routers/servicios
-- [ ] Tests con pytest + TestClient
+## Hito 3 — API REST ✅
+- [x] `GET /outfalls` (GeoJSON, filtros `status` y `kind`)
+- [x] `GET /beaches` + `GET /beaches/{id}/status`
+- [x] `GET /alerts` (cierres/avisos activos según último estado)
+- [x] Schemas Pydantic, capa routers + `queries.py` (último estado por playa)
+- [x] Tests con pytest + TestClient (8 tests)
 
 ## Hito 4 — Frontend: mapa real ⬜
 - [ ] Consumir `/outfalls` y pintar markers (verde legal / rojo ilegal)
@@ -65,5 +65,5 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 ---
 
 ### Estado actual
-**Hito activo:** 3 — API REST
+**Hito activo:** 4 — Frontend: mapa real
 **Última actualización:** 2026-09-16
