@@ -21,6 +21,11 @@ class FeatureCollection(BaseModel):
     features: list[Feature]
 
 
+class BeachStatusIn(BaseModel):
+    status: Literal["open", "closed", "warning"]
+    source_url: str | None = None
+
+
 class BeachStatusOut(BaseModel):
     beach_id: int
     beach_name: str

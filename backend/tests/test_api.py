@@ -67,3 +67,34 @@ def test_alerts_is_list():
     r = client.get("/alerts")
     assert r.status_code == 200
     assert isinstance(r.json(), list)
+
+
+def test_set_beach_status_flow():
+    beaches = client.get("/beaches").json()["features"]
+    beach_id = beaches[0]["id"]
+
+    r = client.post(f"/beaches/{beach_id}/status", json={"status": "closed"})
+    assert r.status_code == 201
+    assert r.json()["status"] == "closed"
+
+    alerts = client.get("/alerts").json()
+    assert any(a["beach_id"] == beach_id for a in alerts)
+
+    # Restaurar a abierta
+    r = client.post(f"/beaches/{beach_id}/status", json={"status": "open"})
+    assert r.status_code == 201
+    alerts = client.get("/alerts").json()
+    assert all(a["beach_id"] != beach_id for a in alerts)
+
+
+def test_set_beach_status_not_found():
+    r = client.post("/beaches/999999/status", json={"status": "closed"})
+    assert r.status_code == 404
+
+
+def test_set_beach_status_invalid():
+    beaches = client.get("/beaches").json()["features"]
+    r = client.post(
+        f"/beaches/{beaches[0]['id']}/status", json={"status": "bogus"}
+    )
+    assert r.status_code == 422

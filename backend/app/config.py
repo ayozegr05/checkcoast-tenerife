@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg2://checkcoast:checkcoast@localhost:5433/checkcoast"
     )
+    # Intervalo de refresco del estado de playas desde Náyade (segundos)
+    nayade_sync_seconds: int = 3600
 
 
 settings = Settings()

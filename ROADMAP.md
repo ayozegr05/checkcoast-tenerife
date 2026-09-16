@@ -48,10 +48,13 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 - [x] Development build con `eas build --profile development` — APK instalado en Android y funcionando contra la API real
 - [x] Botón para alternar vista callejero/satélite (tiles raster Esri World Imagery)
 
-## Hito 5 — Tiempo real ⬜
-- [ ] Polling (refetch cada N min) o SSE/WebSockets desde FastAPI
-- [ ] Scheduler de ingesta (APScheduler/cron) que refresca estados
-- [ ] Fuente de alertas de cierre de playas: Náyade (portal Struts sin API estable — evaluar scraping, WMS GetFeatureInfo de IDECanarias o fuentes municipales)
+## Hito 5 — Tiempo real ✅
+- [x] Scraping de Náyade (Sistema Nacional de Información de Aguas de Baño, Ministerio de Sanidad): listado de zonas prov. 38 → ficha "Muestreos" por zona → incidentes con fecha apertura/cierre. Incidente sin cierre = alerta activa (`closed` si prohíbe el baño, `warning` resto). 60/61 playas casadas por nombre de PM
+- [x] `POST /beaches/{id}/status` — alta manual de estados (respaldo del scraper y demos)
+- [x] Scheduler APScheduler en el lifespan de FastAPI (`NAYADE_SYNC_SECONDS`, 1h por defecto)
+- [x] Polling en la app: refetch de `/alerts` cada 5 min
+- [x] Bonus: reparados 6 nombres de playa con mojibake (`?`) del censo MITECO usando la grafía oficial de Náyade
+- [ ] (extensión futura) Ingesta de prensa local / LLM como fuente secundaria que *proponga* alertas pendientes de confirmación contra la oficial
 
 ## Hito 6 — Calidad y despliegue ⬜
 - [ ] Tests backend (pytest) + componente (jest-expo)
