@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: checkcoast-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: checkcoast
+      POSTGRES_PASSWORD: checkcoast
+      POSTGRES_DB: checkcoast
+    ports:
+      # Puerto externo 5433 para evitar colisiones con Postgres locales en 5432
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U checkcoast -d checkcoast"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
