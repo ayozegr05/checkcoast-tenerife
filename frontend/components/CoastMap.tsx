@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import {
   NativeSyntheticEvent,
+  Platform,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -166,7 +168,7 @@ const styles = StyleSheet.create({
   },
   toggle: {
     position: 'absolute',
-    top: 16,
+    top: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 24,
     right: 16,
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
