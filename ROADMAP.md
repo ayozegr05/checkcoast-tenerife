@@ -39,11 +39,11 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 - [x] Schemas Pydantic, capa routers + `queries.py` (último estado por playa)
 - [x] Tests con pytest + TestClient (8 tests)
 
-## Hito 4 — Frontend: mapa real ⬜
-- [ ] Consumir `/outfalls` y pintar markers (verde legal / rojo ilegal)
-- [ ] Bottom sheet con detalle al pulsar marker
-- [ ] Badges de alertas de cierre en playas
-- [ ] `EXPO_PUBLIC_API_URL` en `.env`
+## Hito 4 — Frontend: mapa real ✅
+- [x] Consumir `/outfalls` y pintar markers (verde legal / rojo ilegal / ámbar en trámite)
+- [x] Panel de detalle (`FeatureSheet`) al pulsar marker
+- [x] Puntos de playa (azul) con indicador naranja si hay alerta activa
+- [x] `EXPO_PUBLIC_API_URL` en `.env` / `.env.example`
 
 ## Hito 5 — Tiempo real ⬜
 - [ ] Polling (refetch cada N min) o SSE/WebSockets desde FastAPI
@@ -65,5 +65,5 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 ---
 
 ### Estado actual
-**Hito activo:** 4 — Frontend: mapa real
+**Hito activo:** 5 — Tiempo real
 **Última actualización:** 2026-09-16

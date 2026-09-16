@@ -2,6 +2,8 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 
+import type { GeoFeature } from '../lib/api';
+
 // Centro aproximado de Tenerife
 const TENERIFE_REGION: Region = {
   latitude: 28.2916,
@@ -10,30 +12,63 @@ const TENERIFE_REGION: Region = {
   longitudeDelta: 0.6,
 };
 
-export type OutfallMarker = {
-  id: string;
-  latitude: number;
-  longitude: number;
-  title: string;
-  isLegal: boolean;
+const OUTFALL_COLORS: Record<string, string> = {
+  legal: '#2e7d32',
+  illegal: '#c62828',
+  unknown: '#f9a825',
 };
+
+export type Selection =
+  | { type: 'outfall'; feature: GeoFeature }
+  | { type: 'beach'; feature: GeoFeature; hasAlert: boolean };
 
 type CoastMapProps = {
-  markers?: OutfallMarker[];
+  outfalls: GeoFeature[];
+  beaches: GeoFeature[];
+  alertBeachIds: Set<number>;
+  onSelect: (selection: Selection) => void;
 };
 
-export default function CoastMap({ markers = [] }: CoastMapProps) {
+export default function CoastMap({
+  outfalls,
+  beaches,
+  alertBeachIds,
+  onSelect,
+}: CoastMapProps) {
   return (
     <View style={styles.container}>
       <MapView style={styles.map} initialRegion={TENERIFE_REGION}>
-        {markers.map((m) => (
+        {outfalls.map((f) => (
           <Marker
-            key={m.id}
-            coordinate={{ latitude: m.latitude, longitude: m.longitude }}
-            title={m.title}
-            pinColor={m.isLegal ? 'green' : 'red'}
+            key={`outfall-${f.id}`}
+            coordinate={{
+              longitude: f.geometry.coordinates[0],
+              latitude: f.geometry.coordinates[1],
+            }}
+            pinColor={OUTFALL_COLORS[f.properties.status ?? 'unknown']}
+            onPress={() => onSelect({ type: 'outfall', feature: f })}
           />
         ))}
+        {beaches.map((f) => {
+          const hasAlert = alertBeachIds.has(f.id);
+          return (
+            <Marker
+              key={`beach-${f.id}`}
+              coordinate={{
+                longitude: f.geometry.coordinates[0],
+                latitude: f.geometry.coordinates[1],
+              }}
+              onPress={() => onSelect({ type: 'beach', feature: f, hasAlert })}
+            >
+              <View
+                style={[
+                  styles.beachDot,
+                  hasAlert ? styles.beachDotAlert : styles.beachDotOk,
+                ]}
+              />
+            </Marker>
+          );
+        })}
       </MapView>
     </View>
   );
@@ -46,5 +81,18 @@ const styles = StyleSheet.create({
   map: {
     width: '100%',
     height: '100%',
+  },
+  beachDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  beachDotOk: {
+    backgroundColor: '#0288d1',
+  },
+  beachDotAlert: {
+    backgroundColor: '#e65100',
   },
 });
