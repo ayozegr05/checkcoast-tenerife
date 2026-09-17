@@ -8,13 +8,14 @@ import {
   fetchBeachIncidents,
   fetchBeachQuality,
 } from '../lib/api';
+import { colors, fonts } from '../lib/theme';
 
 // Estado de playa: usa properties.status (de /beaches + /alerts)
 const BEACH_STATUS: Record<string, { label: string; color: string }> = {
-  closed: { label: 'Cierre activo', color: '#c62828' },
-  warning: { label: 'Aviso activo', color: '#e65100' },
-  unknown: { label: 'Sin datos oficiales', color: '#9e9e9e' },
-  open: { label: 'Sin alertas activas', color: '#0288d1' },
+  closed: { label: 'Cierre activo', color: colors.status.closed },
+  warning: { label: 'Aviso activo', color: colors.status.warning },
+  unknown: { label: 'Sin datos oficiales', color: colors.status.unknown },
+  open: { label: 'Sin alertas activas', color: colors.status.open },
 };
 
 const fmtDate = (iso: string) => {
@@ -36,9 +37,9 @@ const closuresInYears = (incidents: BeachIncident[], years: number) => {
 
 // Color de la evaluación del último análisis
 const evaluationColor = (evaluation: string) => {
-  if (/apta/i.test(evaluation)) return '#2e7d32';
-  if (/prohib/i.test(evaluation)) return '#c62828';
-  return '#e65100';
+  if (/apta/i.test(evaluation)) return colors.status.open;
+  if (/prohib/i.test(evaluation)) return colors.status.closed;
+  return colors.status.warning;
 };
 
 // Umbrales RD 1341/2007 (aguas costeras), UFC/100 mL:
@@ -65,7 +66,11 @@ const classifyValue = (
         ? 'Buena'
         : 'Insuficiente';
   const color =
-    cls === 'Excelente' ? '#2e7d32' : cls === 'Buena' ? '#f9a825' : '#c62828';
+    cls === 'Excelente'
+      ? colors.status.open
+      : cls === 'Buena'
+        ? colors.outfall.unknown
+        : colors.status.closed;
   const pct = Math.round((value / t.good) * 100);
   return { value, cls, color, pct };
 };
@@ -103,8 +108,8 @@ export default function BeachDetail({
     ? 'Sin monitorización oficial'
     : (BEACH_STATUS[beachKey]?.label ?? 'Sin datos oficiales');
   const statusColor = unmonitored
-    ? '#9e9e9e'
-    : (BEACH_STATUS[beachKey]?.color ?? '#9e9e9e');
+    ? colors.status.unmonitored
+    : (BEACH_STATUS[beachKey]?.color ?? colors.status.unknown);
 
   return (
     <View>
@@ -202,7 +207,9 @@ export default function BeachDetail({
           <ScrollView style={styles.historyList} nestedScrollEnabled>
             {incidents.map((inc) => {
               const closure = isClosure(inc);
-              const accent = closure ? '#c62828' : '#f9a825';
+              const accent = closure
+                ? colors.status.closed
+                : colors.outfall.unknown;
               return (
                 <View
                   key={inc.id}
@@ -253,23 +260,24 @@ const styles = StyleSheet.create({
   chipText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: fonts.bold,
   },
   row: {
     fontSize: 13,
-    color: '#444',
+    fontFamily: fonts.regular,
+    color: colors.text,
     marginTop: 4,
   },
   history: {
     marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: colors.border,
     paddingTop: 8,
   },
   historyTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#222',
+    fontFamily: fonts.bold,
+    color: colors.text,
     marginBottom: 4,
   },
   historyList: {
@@ -278,7 +286,7 @@ const styles = StyleSheet.create({
   qualityCard: {
     marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: colors.border,
     paddingTop: 8,
   },
   paramRow: {
@@ -290,19 +298,20 @@ const styles = StyleSheet.create({
   paramLabel: {
     width: 86,
     fontSize: 12,
-    fontWeight: '600',
-    color: '#555',
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
   },
   paramRight: {
     flex: 1,
   },
   paramValue: {
     fontSize: 12,
-    color: '#333',
+    fontFamily: fonts.regular,
+    color: colors.text,
   },
   barTrack: {
     height: 5,
-    backgroundColor: '#eee',
+    backgroundColor: colors.border,
     borderRadius: 3,
     marginTop: 3,
     overflow: 'hidden',
@@ -313,17 +322,18 @@ const styles = StyleSheet.create({
   },
   paramClass: {
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: fonts.semibold,
     marginTop: 1,
   },
   evaluation: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     marginTop: 8,
   },
   staleNote: {
     fontSize: 11,
-    color: '#888',
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
     marginTop: 4,
   },
   incident: {
@@ -331,7 +341,7 @@ const styles = StyleSheet.create({
     paddingLeft: 10,
     paddingVertical: 4,
     marginBottom: 8,
-    backgroundColor: '#fafafa',
+    backgroundColor: colors.background,
     borderRadius: 4,
   },
   incidentHead: {
@@ -348,15 +358,16 @@ const styles = StyleSheet.create({
   incidentTagText: {
     color: '#fff',
     fontSize: 9,
-    fontWeight: '800',
+    fontFamily: fonts.extrabold,
   },
   incidentDates: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#555',
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
   },
   incidentObs: {
     fontSize: 12,
-    color: '#777',
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
   },
 });

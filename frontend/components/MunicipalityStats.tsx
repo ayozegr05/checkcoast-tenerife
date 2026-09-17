@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
+  ImageBackground,
   Modal,
   Platform,
   Pressable,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 
 import { BeachStats, GeoFeature, fetchBeachStats } from '../lib/api';
+import { colors, fonts } from '../lib/theme';
 
 type MuniStats = {
   municipality: string | null;
@@ -36,7 +38,11 @@ const scoreOf = (m: MuniStats) =>
   m.closedNow * 100 + m.warningNow * 20 + m.incidents + m.badSamples;
 
 const barColorOf = (m: MuniStats) =>
-  m.closedNow > 0 ? '#c62828' : m.warningNow > 0 ? '#e65100' : '#0288d1';
+  m.closedNow > 0
+    ? colors.status.closed
+    : m.warningNow > 0
+      ? colors.status.warning
+      : colors.status.open;
 
 export default function MunicipalityStats({
   beaches,
@@ -101,16 +107,22 @@ export default function MunicipalityStats({
   return (
     <Modal animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Incidencias por municipio</Text>
-          <Pressable onPress={onClose} hitSlop={12}>
-            <Text style={styles.close}>✕</Text>
-          </Pressable>
-        </View>
-        <Text style={styles.subtitle}>
-          Ranking por afectación actual e histórica · toca un municipio para
-          ver sus playas
-        </Text>
+        <ImageBackground
+          source={require('../assets/gradient-sea.png')}
+          style={styles.headerBlock}
+          resizeMode="cover"
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Incidencias por municipio</Text>
+            <Pressable onPress={onClose} hitSlop={12}>
+              <Text style={styles.close}>✕</Text>
+            </Pressable>
+          </View>
+          <Text style={styles.subtitle}>
+            Ranking por afectación actual e histórica · toca un municipio
+            para ver sus playas
+          </Text>
+        </ImageBackground>
 
         <FlatList
           data={rows}
@@ -178,9 +190,12 @@ export default function MunicipalityStats({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f7f7',
+    backgroundColor: colors.background,
+  },
+  headerBlock: {
     paddingTop:
-      (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 8,
+      (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 10,
+    paddingBottom: 12,
   },
   header: {
     flexDirection: 'row',
@@ -190,26 +205,26 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#222',
+    fontFamily: fonts.extrabold,
+    color: '#fff',
   },
   close: {
     fontSize: 20,
-    color: '#666',
+    color: 'rgba(255,255,255,0.9)',
   },
   subtitle: {
     fontSize: 12,
-    color: '#777',
+    fontFamily: fonts.regular,
+    color: 'rgba(255,255,255,0.85)',
     paddingHorizontal: 16,
     marginTop: 4,
-    marginBottom: 8,
   },
   list: {
     flex: 1,
     marginTop: 4,
   },
   row: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     marginHorizontal: 12,
     marginBottom: 6,
     borderRadius: 10,
@@ -223,19 +238,20 @@ const styles = StyleSheet.create({
   },
   rowName: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#222',
+    fontFamily: fonts.bold,
+    color: colors.text,
     flex: 1,
   },
   rowBeaches: {
     fontSize: 12,
-    color: '#777',
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
     marginLeft: 8,
   },
   barTrack: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: colors.border,
     marginTop: 8,
     overflow: 'hidden',
   },
@@ -254,24 +270,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
     color: '#fff',
     overflow: 'hidden',
   },
   badgeClosed: {
-    backgroundColor: '#c62828',
+    backgroundColor: colors.status.closed,
   },
   badgeWarning: {
-    backgroundColor: '#e65100',
+    backgroundColor: colors.status.warning,
   },
   rowSub: {
     fontSize: 12,
-    color: '#777',
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
     marginTop: 6,
   },
   empty: {
     textAlign: 'center',
-    color: '#888',
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
     marginTop: 40,
   },
 });

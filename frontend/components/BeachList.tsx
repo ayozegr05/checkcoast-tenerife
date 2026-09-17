@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
+  ImageBackground,
   Modal,
   Platform,
   Pressable,
@@ -15,6 +16,7 @@ import {
 
 import BeachDetail from './BeachDetail';
 import { BeachStats, GeoFeature, fetchBeachStats } from '../lib/api';
+import { colors, fonts } from '../lib/theme';
 
 // Orden de prioridad: lo que necesita atención del bañista primero;
 // las no monitorizadas van al final (no hay estado oficial que ordenar)
@@ -34,13 +36,7 @@ const STATUS_LABELS: Record<string, string> = {
   unmonitored: 'No monitorizada',
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  closed: '#c62828',
-  warning: '#e65100',
-  unknown: '#9e9e9e',
-  open: '#2e7d32',
-  unmonitored: '#9e9e9e',
-};
+const STATUS_COLORS = colors.status;
 
 // "PLAYA ABADES (LOS ABRIGUITOS)" -> "Playa Abades (Los Abriguitos)"
 const capName = (name: string) =>
@@ -254,7 +250,11 @@ export default function BeachList({
       <View style={styles.container}>
         {detail ? (
           <>
-            <View style={styles.header}>
+            <ImageBackground
+              source={require('../assets/gradient-sea.png')}
+              style={styles.header}
+              resizeMode="cover"
+            >
               <Pressable
                 onPress={() => setDetail(null)}
                 hitSlop={12}
@@ -275,7 +275,7 @@ export default function BeachList({
               >
                 <Text style={styles.mapBtnText}>Ver en mapa</Text>
               </Pressable>
-            </View>
+            </ImageBackground>
             <ScrollView style={styles.detailScroll}>
               <View style={styles.mapShotWrap}>
                 <Image
@@ -285,7 +285,19 @@ export default function BeachList({
                   style={styles.mapShot}
                   resizeMode="cover"
                 />
-                <View style={styles.mapDot} />
+                <View
+                  style={[
+                    styles.mapDot,
+                    {
+                      backgroundColor:
+                        STATUS_COLORS[
+                          detail.properties.monitored === false
+                            ? 'unmonitored'
+                            : (detail.properties.status ?? 'unknown')
+                        ],
+                    },
+                  ]}
+                />
                 <Text style={styles.mapCredit}>
                   © Esri, Maxar, Earthstar Geographics
                 </Text>
@@ -300,7 +312,11 @@ export default function BeachList({
           </>
         ) : (
           <>
-        <View style={styles.header}>
+        <ImageBackground
+          source={require('../assets/gradient-sea.png')}
+          style={styles.header}
+          resizeMode="cover"
+        >
           <Text style={styles.title}>Playas monitorizadas</Text>
           <View style={styles.headerRight}>
             {onOpenMunicipalities && (
@@ -318,7 +334,7 @@ export default function BeachList({
               <Text style={styles.close}>✕</Text>
             </Pressable>
           </View>
-        </View>
+        </ImageBackground>
 
         <TextInput
           style={styles.search}
@@ -499,14 +515,16 @@ export default function BeachList({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f7f7f7',
-    paddingTop: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 8,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
+    paddingTop:
+      (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 10,
+    paddingBottom: 12,
   },
   headerRight: {
     flexDirection: 'row',
@@ -514,36 +532,36 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   muniBtn: {
-    backgroundColor: '#0277bd',
+    backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   muniBtnText: {
-    color: '#fff',
+    color: colors.primaryDark,
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   backBtn: {
     marginRight: 4,
   },
   backText: {
     fontSize: 26,
-    fontWeight: '600',
-    color: '#0277bd',
+    fontFamily: fonts.semibold,
+    color: '#fff',
     marginTop: -4,
   },
   mapBtn: {
-    backgroundColor: '#0277bd',
+    backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
     marginLeft: 8,
   },
   mapBtnText: {
-    color: '#fff',
+    color: colors.primaryDark,
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   detailScroll: {
     flex: 1,
@@ -553,7 +571,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: '#e0e0e0',
+    backgroundColor: colors.border,
   },
   mapShot: {
     width: '100%',
@@ -568,7 +586,6 @@ const styles = StyleSheet.create({
     marginTop: -8,
     marginLeft: -8,
     borderRadius: 8,
-    backgroundColor: '#0288d1',
     borderWidth: 3,
     borderColor: '#fff',
   },
@@ -577,6 +594,7 @@ const styles = StyleSheet.create({
     bottom: 4,
     right: 8,
     fontSize: 9,
+    fontFamily: fonts.semibold,
     color: '#fff',
     textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowRadius: 2,
@@ -587,21 +605,24 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#222',
+    fontFamily: fonts.extrabold,
+    color: '#fff',
+    flex: 1,
   },
   close: {
     fontSize: 20,
-    color: '#666',
+    color: 'rgba(255,255,255,0.9)',
   },
   search: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     margin: 12,
     marginBottom: 8,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 15,
+    fontFamily: fonts.regular,
+    color: colors.text,
     elevation: 2,
   },
   chips: {
@@ -613,29 +634,29 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   chip: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
     elevation: 1,
   },
   chipActive: {
-    backgroundColor: '#0277bd',
+    backgroundColor: colors.primary,
   },
   chipText: {
     fontSize: 13,
-    color: '#444',
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
   },
   chipTextActive: {
     color: '#fff',
-    fontWeight: '600',
   },
   list: {
     flex: 1,
     marginTop: 8,
   },
   row: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     marginHorizontal: 12,
     marginBottom: 6,
     borderRadius: 10,
@@ -654,19 +675,20 @@ const styles = StyleSheet.create({
     paddingLeft: 24,
     paddingRight: 12,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: colors.border,
   },
   pmText: {
     flex: 1,
   },
   pmName: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#555',
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
   },
   pmSub: {
     fontSize: 11,
-    color: '#888',
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
     marginTop: 1,
   },
   rowText: {
@@ -674,12 +696,13 @@ const styles = StyleSheet.create({
   },
   rowName: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#222',
+    fontFamily: fonts.bold,
+    color: colors.text,
   },
   rowSub: {
     fontSize: 12,
-    color: '#777',
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
     marginTop: 2,
   },
   badge: {
@@ -691,11 +714,12 @@ const styles = StyleSheet.create({
   badgeText: {
     color: '#fff',
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   empty: {
     textAlign: 'center',
-    color: '#888',
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
     marginTop: 40,
   },
 });

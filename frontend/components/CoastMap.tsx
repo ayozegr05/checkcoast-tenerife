@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   NativeSyntheticEvent,
@@ -21,6 +21,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 
 import type { FeatureCollection, GeoFeature } from '../lib/api';
+import { colors, fonts } from '../lib/theme';
 
 // Estilo raster con tiles de OpenStreetMap (sin API key)
 const OSM_STYLE: StyleSpecification = {
@@ -86,14 +87,8 @@ type CoastMapProps = {
   onOpenMunicipalities?: () => void;
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  legal: '#2e7d32',
-  illegal: '#c62828',
-  unknown: '#f9a825',
-};
-const BEACH_COLOR = '#0288d1';
-const BEACH_ALERT_COLOR = '#e65100';
-const BEACH_UNMONITORED_COLOR = '#9e9e9e';
+const OUTFALL_COLORS = colors.outfall;
+const BEACH_COLORS = colors.status;
 
 export default function CoastMap({
   outfalls,
@@ -106,7 +101,37 @@ export default function CoastMap({
   const [satellite, setSatellite] = useState(false);
   const [showOutfalls, setShowOutfalls] = useState(true);
   const [showBeaches, setShowBeaches] = useState(true);
+  const [pulse, setPulse] = useState(0);
   const cameraRef = useRef<CameraRef>(null);
+
+  // Conteo de alertas vivas para el banner y la capa de pulse
+  const closedCount = beaches.features.filter(
+    (f) => f.properties.status === 'closed',
+  ).length;
+  const warningCount = beaches.features.filter(
+    (f) => f.properties.status === 'warning',
+  ).length;
+  const hasAlerts = closedCount + warningCount > 0;
+
+  const alertBeaches = useMemo<FeatureCollection>(
+    () => ({
+      type: 'FeatureCollection',
+      features: beaches.features.filter(
+        (f) =>
+          f.properties.monitored !== false &&
+          (f.properties.status === 'closed' ||
+            f.properties.status === 'warning'),
+      ),
+    }),
+    [beaches],
+  );
+
+  // Halo que crece y se desvance ~1 ciclo/seg solo si hay alertas
+  useEffect(() => {
+    if (!hasAlerts) return;
+    const t = setInterval(() => setPulse((p) => (p + 0.1) % 1), 110);
+    return () => clearInterval(t);
+  }, [hasAlerts]);
 
   // Vuela a la playa elegida en la lista
   useEffect(() => {
@@ -172,13 +197,33 @@ export default function CoastMap({
                   'match',
                   ['get', 'status'],
                   'legal',
-                  STATUS_COLORS.legal,
+                  OUTFALL_COLORS.legal,
                   'illegal',
-                  STATUS_COLORS.illegal,
-                  STATUS_COLORS.unknown,
+                  OUTFALL_COLORS.illegal,
+                  OUTFALL_COLORS.unknown,
                 ],
                 'icon-halo-color': '#ffffff',
                 'icon-halo-width': 2,
+              }}
+            />
+          </GeoJSONSource>
+        )}
+
+        {showBeaches && hasAlerts && (
+          <GeoJSONSource id="beach-alerts" data={alertBeaches}>
+            <Layer
+              id="beach-pulse"
+              type="circle"
+              paint={{
+                'circle-radius': 10 + pulse * 14,
+                'circle-color': [
+                  'match',
+                  ['get', 'status'],
+                  'closed',
+                  BEACH_COLORS.closed,
+                  BEACH_COLORS.warning,
+                ],
+                'circle-opacity': 0.55 * (1 - pulse),
               }}
             />
           </GeoJSONSource>
@@ -197,11 +242,18 @@ export default function CoastMap({
                 'circle-radius': 8,
                 'circle-color': [
                   'case',
-                  ['get', 'alert'],
-                  BEACH_ALERT_COLOR,
                   ['==', ['get', 'monitored'], false],
-                  BEACH_UNMONITORED_COLOR,
-                  BEACH_COLOR,
+                  BEACH_COLORS.unmonitored,
+                  ['match',
+                    ['get', 'status'],
+                    'closed',
+                    BEACH_COLORS.closed,
+                    'warning',
+                    BEACH_COLORS.warning,
+                    'unknown',
+                    BEACH_COLORS.unknown,
+                    BEACH_COLORS.open,
+                  ],
                 ],
                 'circle-stroke-width': 2,
                 'circle-stroke-color': '#ffffff',
@@ -220,6 +272,39 @@ export default function CoastMap({
           </GeoJSONSource>
         )}
       </Map>
+
+      <View style={styles.bannerWrap} pointerEvents="box-none">
+        <Pressable
+          style={[
+            styles.banner,
+            {
+              backgroundColor: closedCount
+                ? colors.status.closed
+                : warningCount
+                  ? colors.status.warning
+                  : colors.status.open,
+            },
+          ]}
+          onPress={onOpenList}
+          accessibilityRole="button"
+          accessibilityLabel="Resumen del estado de las playas"
+        >
+          <Text style={styles.bannerText}>
+            {closedCount || warningCount
+              ? [
+                  closedCount
+                    ? `${closedCount} ${closedCount === 1 ? 'cerrada' : 'cerradas'}`
+                    : null,
+                  warningCount
+                    ? `${warningCount} ${warningCount === 1 ? 'aviso' : 'avisos'}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+              : 'Todas las playas sin incidencias'}
+          </Text>
+        </Pressable>
+      </View>
 
       <View style={styles.legend}>
         <Pressable
@@ -246,9 +331,9 @@ export default function CoastMap({
         </Pressable>
         <View style={styles.legendSub}>
           {[
-            [STATUS_COLORS.legal, 'Autorizado'],
-            [STATUS_COLORS.illegal, 'No autorizado'],
-            [STATUS_COLORS.unknown, 'En trámite'],
+            [OUTFALL_COLORS.legal, 'Autorizado'],
+            [OUTFALL_COLORS.illegal, 'No autorizado'],
+            [OUTFALL_COLORS.unknown, 'En trámite'],
           ].map(([color, label]) => (
             <View key={label} style={styles.swatchRow}>
               <View style={[styles.dot, { backgroundColor: color }]} />
@@ -280,9 +365,10 @@ export default function CoastMap({
         </Pressable>
         <View style={styles.legendSub}>
           {[
-            [BEACH_COLOR, 'Normal'],
-            [BEACH_ALERT_COLOR, 'Alerta'],
-            [BEACH_UNMONITORED_COLOR, 'Sin monitorizar'],
+            [BEACH_COLORS.open, 'Apta'],
+            [BEACH_COLORS.warning, 'Aviso'],
+            [BEACH_COLORS.closed, 'Cerrada'],
+            [BEACH_COLORS.unmonitored, 'Sin monitorizar'],
           ].map(([color, label]) => (
             <View key={label} style={styles.swatchRow}>
               <View style={[styles.dot, { backgroundColor: color }]} />
@@ -339,9 +425,31 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  controls: {
+  bannerWrap: {
     position: 'absolute',
     top: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 24,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  banner: {
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  bannerText: {
+    color: '#fff',
+    fontSize: 13,
+    fontFamily: fonts.bold,
+  },
+  controls: {
+    position: 'absolute',
+    top: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 68,
     right: 16,
     gap: 8,
     alignItems: 'flex-end',
@@ -362,12 +470,12 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#222',
+    fontFamily: fonts.bold,
+    color: colors.text,
   },
   legend: {
     position: 'absolute',
-    top: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 24,
+    top: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 68,
     left: 12,
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
@@ -386,23 +494,23 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   switchOn: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: colors.primary,
   },
   switchOff: {
-    backgroundColor: '#bdbdbd',
+    backgroundColor: colors.off,
   },
   switchText: {
     color: '#fff',
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: fonts.extrabold,
   },
   legendOff: {
     opacity: 0.35,
   },
   legendTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#222',
+    fontFamily: fonts.bold,
+    color: colors.text,
   },
   legendIcon: {
     width: 16,
@@ -428,6 +536,7 @@ const styles = StyleSheet.create({
   },
   swatchText: {
     fontSize: 11,
-    color: '#444',
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
   },
 });

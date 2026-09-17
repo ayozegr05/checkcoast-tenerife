@@ -1,5 +1,12 @@
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
+import { useFonts } from 'expo-font';
+import {
+  Nunito_400Regular,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+  Nunito_800ExtraBold,
+} from '@expo-google-fonts/nunito';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,6 +29,7 @@ import {
   fetchOutfalls,
 } from './lib/api';
 import { setupPushNotifications } from './lib/notifications';
+import { colors, fonts } from './lib/theme';
 
 const EMPTY_FC: FeatureCollection = {
   type: 'FeatureCollection',
@@ -29,6 +37,12 @@ const EMPTY_FC: FeatureCollection = {
 };
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Nunito_400Regular,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
+  });
   const [outfalls, setOutfalls] = useState<FeatureCollection>(EMPTY_FC);
   const [beaches, setBeaches] = useState<FeatureCollection>(EMPTY_FC);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -136,9 +150,9 @@ export default function App() {
         onOpenMunicipalities={() => setMuniOpen(true)}
       />
 
-      {loading && (
+      {(loading || !fontsLoaded) && (
         <View style={styles.overlay}>
-          <ActivityIndicator size="large" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       )}
       {error && (
@@ -147,8 +161,9 @@ export default function App() {
         </View>
       )}
 
-      {!introDismissed && !loading && !error && (
+      {!introDismissed && !loading && !error && fontsLoaded && (
         <View style={styles.introCard}>
+          <View style={styles.introWave} />
           <Text style={styles.introTitle}>CheckCoast Tenerife</Text>
           <Text style={styles.introText}>
             Estado de las playas y puntos de vertido de la isla, con datos
@@ -209,7 +224,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   overlay: {
     position: 'absolute',
@@ -222,9 +237,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.7)',
   },
   errorText: {
-    color: '#c62828',
+    color: colors.danger,
     paddingHorizontal: 24,
     textAlign: 'center',
+    fontFamily: fonts.semibold,
   },
   introCard: {
     position: 'absolute',
@@ -234,33 +250,47 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.97)',
     borderRadius: 14,
     padding: 20,
+    paddingTop: 14,
     elevation: 10,
     shadowColor: '#000',
     shadowOpacity: 0.25,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
+    overflow: 'hidden',
+  },
+  introWave: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 6,
+    backgroundColor: colors.accent,
+    borderBottomWidth: 3,
+    borderBottomColor: colors.primary,
   },
   introTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0277bd',
+    fontSize: 20,
+    fontFamily: fonts.extrabold,
+    color: colors.primaryDark,
     marginBottom: 8,
   },
   introText: {
     fontSize: 14,
-    color: '#333',
+    fontFamily: fonts.regular,
+    color: colors.text,
     marginBottom: 10,
     lineHeight: 20,
   },
   introHint: {
     fontSize: 13,
-    color: '#555',
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
     marginTop: 2,
   },
   introBtn: {
     marginTop: 14,
     alignSelf: 'flex-end',
-    backgroundColor: '#0277bd',
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 18,
@@ -268,6 +298,6 @@ const styles = StyleSheet.create({
   introBtnText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
 });

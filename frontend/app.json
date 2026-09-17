@@ -9,7 +9,17 @@
       [
         "expo-notifications",
         {
-          "color": "#0288d1"
+          "color": "#086b96"
+        }
+      ],
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 240,
+          "resizeMode": "contain",
+          "backgroundColor": "#075276"
         }
       ]
     ],
@@ -22,7 +32,7 @@
       "package": "com.checkcoast.tenerife",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#075276",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

@@ -69,6 +69,24 @@ Funciones para acercar la app al objetivo: avisar al bañista del estado de cada
 6. [x] **Vista por municipio**: ranking de incidencias agregado por municipio (cerradas/avisos ahora, incidentes totales y último año, muestras no aptas) con barra de severidad; acceso desde botón «Municipios» en el mapa y desde la lista de playas; tocar un municipio abre la lista filtrada
 7. [x] **UX lista de playas**: PMs agrupados por playa (filas expandibles con último análisis e incidentes inline; conteo de playas por nombre base), detalle dentro del modal con foto satélite Esri + «Ver en mapa» + atrás, estado de la lista persistido entre aperturas; `BeachDetail` compartido con `FeatureSheet`
 
+## Hito 5c — Identidad visual 🚧
+
+La app funciona pero se ve genérica (Material por defecto, icono Expo).
+Tres niveles, en orden de impacto/esfuerzo:
+
+1. [x] **Identidad básica**: `lib/theme.ts` con paleta oceánica (mar
+   profundo, turquesa, arena) + Nunito vía `useFonts` + icono/splash
+   check+ola generados (`scripts_gen_icon.py`) + colores de estado
+   unificados mapa/lista/detalle (apta=verde mar)
+2. [x] **UI con carácter**: banner de estado sobre el mapa (pill con
+   cierres/avisos vivos, tap → lista), ficha como bottom-sheet
+   arrastrable (PanResponder+Animated: peek/expandida/deslizar-cerrar),
+   headers con degradado mar (PNG `gradient-sea.png` — evita
+   expo-linear-gradient nativo), halo pulsante en playas con alerta
+3. [ ] **Mapa temático**: basemap vectorial reestilado (OpenFreeMap:
+   mar turquesa, tierra arena) + markers de sombrilla PNG con aro de
+   estado
+
 ## Hito 6 — Calidad y despliegue ⬜
 - [ ] Tests backend (pytest) + componente (jest-expo)
 - [ ] README con instrucciones
