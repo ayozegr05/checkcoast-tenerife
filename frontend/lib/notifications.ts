@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 import { registerDevice } from './api';
 
@@ -38,14 +38,18 @@ export async function setupPushNotifications(): Promise<void> {
   const projectId = Constants.expoConfig?.extra?.eas?.projectId as
     | string
     | undefined;
-  if (!projectId) return;
+  if (!projectId) {
+    Alert.alert('Push debug', 'projectId no encontrado en expoConfig');
+    return;
+  }
 
   try {
     const token = (
       await Notifications.getExpoPushTokenAsync({ projectId })
     ).data;
     await registerDevice(token, Platform.OS);
-  } catch {
-    // token o servicio no disponible en este build/dispositivo
+  } catch (e) {
+    // DEBUG temporal: mostrar por qué falla el registro
+    Alert.alert('Push debug', String(e));
   }
 }

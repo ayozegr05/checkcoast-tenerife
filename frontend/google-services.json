@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "425267609296",
+    "project_id": "checkcoast-7f8f5",
+    "storage_bucket": "checkcoast-7f8f5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:425267609296:android:ba2754097f4ee1585528d5",
+        "android_client_info": {
+          "package_name": "com.checkcoast.tenerife"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBcC_GW16mTpbySwJRnVEbr_2A2tMW5t8o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
