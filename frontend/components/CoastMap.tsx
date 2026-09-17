@@ -163,10 +163,9 @@ export default function CoastMap({
             'pin-warning': require('../assets/icons/pin-warning.png'),
             'pin-closed': require('../assets/icons/pin-closed.png'),
             'pin-unmonitored': require('../assets/icons/pin-unmonitored.png'),
-            'icon-outfall': {
-              source: require('../assets/icons/outfall_sil.png'),
-              sdf: true,
-            },
+            'pin-outfall-legal': require('../assets/icons/pin-outfall-legal.png'),
+            'pin-outfall-illegal': require('../assets/icons/pin-outfall-illegal.png'),
+            'pin-outfall-processing': require('../assets/icons/pin-outfall-processing.png'),
           }}
         />
 
@@ -180,23 +179,19 @@ export default function CoastMap({
               id="outfall-icons"
               type="symbol"
               layout={{
-                'icon-image': 'icon-outfall',
-                'icon-size': 0.5,
-                'icon-allow-overlap': true,
-                'icon-ignore-placement': true,
-              }}
-              paint={{
-                'icon-color': [
+                'icon-image': [
                   'match',
                   ['get', 'status'],
                   'legal',
-                  OUTFALL_COLORS.legal,
+                  'pin-outfall-legal',
                   'illegal',
-                  OUTFALL_COLORS.illegal,
-                  OUTFALL_COLORS.unknown,
+                  'pin-outfall-illegal',
+                  'pin-outfall-processing',
                 ],
-                'icon-halo-color': '#ffffff',
-                'icon-halo-width': 2,
+                'icon-size': 0.36,
+                'icon-anchor': 'bottom',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
               }}
             />
           </GeoJSONSource>
