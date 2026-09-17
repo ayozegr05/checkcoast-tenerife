@@ -66,6 +66,8 @@ Funciones para acercar la app al objetivo: avisar al bañista del estado de cada
 3. [x] **Calidad del agua**: tabla `beach_measurements` (fecha, E. coli, enterococo, evaluación) scrapeada de la pestaña Muestreos de Náyade; `GET /beaches/{id}/quality` + "Último análisis" en el panel de detalle
 4. [ ] **Notificaciones** al cambiar el estado de una playa (`expo-notifications` → requiere nuevo build EAS)
 5. [x] **Capa de playas no monitorizadas** desde OSM (`natural=beach` vía Overpass; +106 playas, dedup vs censo oficial por nombre/distancia; gris en mapa y "No monitorizada" en lista)
+6. [x] **Vista por municipio**: ranking de incidencias agregado por municipio (cerradas/avisos ahora, incidentes totales y último año, muestras no aptas) con barra de severidad; acceso desde botón «Municipios» en el mapa y desde la lista de playas; tocar un municipio abre la lista filtrada
+7. [x] **UX lista de playas**: PMs agrupados por playa (filas expandibles con último análisis e incidentes inline; conteo de playas por nombre base), detalle dentro del modal con foto satélite Esri + «Ver en mapa» + atrás, estado de la lista persistido entre aperturas; `BeachDetail` compartido con `FeatureSheet`
 
 ## Hito 6 — Calidad y despliegue ⬜
 - [ ] Tests backend (pytest) + componente (jest-expo)

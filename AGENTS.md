@@ -25,9 +25,19 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
   - `components/CoastMap.tsx` — mapa OSM/satélite (Esri híbrido),
     capas GeoJSON, leyenda con switches ON/OFF, controles arriba-derecha
   - `components/BeachList.tsx` — buscador, chips municipio, sort
-    estado/cierres/calidad, fly-to al seleccionar
-  - `components/FeatureSheet.tsx` — detalle: estado, calidad del agua
-    (umbrales + % del límite), timeline de incidencias
+    estado/cierres/calidad; agrupa PMs por nombre base+municipio (filas
+    expandibles con datos inline por PM); modal con `visible` (estado
+    persistido); vista detalle interna con foto satélite Esri
+    (`export?bbox=`) + atrás + «Ver en mapa» (fly-to); `initialMunicipality`
+    permite abrirla pre-filtrada
+  - `components/BeachDetail.tsx` — contenido de ficha de playa compartido
+    (FeatureSheet sobre mapa + detalle dentro de BeachList)
+  - `components/MunicipalityStats.tsx` — ranking por municipio (cerradas/
+    avisos activos, incidentes, muestras no aptas) con barra de severidad;
+    agrega `/beaches/stats` en cliente; al tocar un municipio abre
+    `BeachList` filtrada
+  - `components/FeatureSheet.tsx` — hoja overlay sobre el mapa: emisarios
+    inline; playas delega en `BeachDetail`
   - `lib/api.ts` — tipos + fetchers
   - `frontend/AGENTS.md` exige leer docs de Expo v57 antes de escribir código
 - `ROADMAP.md` — hitos 0-5b completados; pendientes: notificaciones push

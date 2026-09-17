@@ -11,6 +11,7 @@ import {
 import BeachList from './components/BeachList';
 import CoastMap, { Selection } from './components/CoastMap';
 import FeatureSheet from './components/FeatureSheet';
+import MunicipalityStats from './components/MunicipalityStats';
 import {
   Alert,
   FeatureCollection,
@@ -33,6 +34,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [listOpen, setListOpen] = useState(false);
+  const [muniOpen, setMuniOpen] = useState(false);
+  const [listMunicipality, setListMunicipality] = useState<string | null>(null);
   const [focus, setFocus] = useState<[number, number] | null>(null);
   const [introDismissed, setIntroDismissed] = useState(false);
 
@@ -74,12 +77,20 @@ export default function App() {
 
   const handleListSelect = (feature: GeoFeature) => {
     setListOpen(false);
+    setListMunicipality(null);
     setSelection({
       type: 'beach',
       feature,
       hasAlert: feature.properties.alert === true,
     });
     setFocus([...feature.geometry.coordinates]);
+  };
+
+  // Al tocar un municipio en el ranking, se abre la lista filtrada por él
+  const handleMunicipalitySelect = (municipality: string | null) => {
+    setMuniOpen(false);
+    setListMunicipality(municipality);
+    setListOpen(true);
   };
 
   return (
@@ -90,6 +101,7 @@ export default function App() {
         focus={focus}
         onSelect={setSelection}
         onOpenList={() => setListOpen(true)}
+        onOpenMunicipalities={() => setMuniOpen(true)}
       />
 
       {loading && (
@@ -115,6 +127,9 @@ export default function App() {
             · «Playas» para buscar por nombre o municipio
           </Text>
           <Text style={styles.introHint}>
+            · «Municipios» para ver dónde hay más incidencias
+          </Text>
+          <Text style={styles.introHint}>
             · Gris = playa sin monitorización oficial
           </Text>
           <Pressable
@@ -127,11 +142,26 @@ export default function App() {
         </View>
       )}
 
-      {listOpen && (
-        <BeachList
+      <BeachList
+        visible={listOpen}
+        beaches={beachesFC.features}
+        initialMunicipality={listMunicipality}
+        onSelect={handleListSelect}
+        onClose={() => {
+          setListOpen(false);
+          setListMunicipality(null);
+        }}
+        onOpenMunicipalities={() => {
+          setListOpen(false);
+          setMuniOpen(true);
+        }}
+      />
+
+      {muniOpen && (
+        <MunicipalityStats
           beaches={beachesFC.features}
-          onSelect={handleListSelect}
-          onClose={() => setListOpen(false)}
+          onSelect={handleMunicipalitySelect}
+          onClose={() => setMuniOpen(false)}
         />
       )}
 

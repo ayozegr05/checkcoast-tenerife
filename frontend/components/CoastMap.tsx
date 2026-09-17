@@ -83,6 +83,7 @@ type CoastMapProps = {
   focus?: [number, number] | null; // [lon, lat] a donde volar la cámara
   onSelect: (selection: Selection) => void;
   onOpenList?: () => void;
+  onOpenMunicipalities?: () => void;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -100,6 +101,7 @@ export default function CoastMap({
   focus,
   onSelect,
   onOpenList,
+  onOpenMunicipalities,
 }: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
   const [showOutfalls, setShowOutfalls] = useState(true);
@@ -313,6 +315,16 @@ export default function CoastMap({
               style={styles.toggleIcon}
             />
             <Text style={styles.toggleText}>Playas</Text>
+          </Pressable>
+        )}
+        {onOpenMunicipalities && (
+          <Pressable
+            style={styles.toggle}
+            onPress={onOpenMunicipalities}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir incidencias por municipio"
+          >
+            <Text style={styles.toggleText}>Municipios</Text>
           </Pressable>
         )}
       </View>
