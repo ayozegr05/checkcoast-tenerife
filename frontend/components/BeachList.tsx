@@ -14,12 +14,14 @@ import {
 
 import type { GeoFeature } from '../lib/api';
 
-// Orden de prioridad: lo que necesita atención del bañista primero
+// Orden de prioridad: lo que necesita atención del bañista primero;
+// las no monitorizadas van al final (no hay estado oficial que ordenar)
 const STATUS_ORDER: Record<string, number> = {
   closed: 0,
   warning: 1,
   unknown: 2,
   open: 3,
+  unmonitored: 4,
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -27,6 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
   warning: 'Aviso',
   unknown: 'Sin datos',
   open: 'Apta',
+  unmonitored: 'No monitorizada',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -34,6 +37,7 @@ const STATUS_COLORS: Record<string, string> = {
   warning: '#e65100',
   unknown: '#9e9e9e',
   open: '#2e7d32',
+  unmonitored: '#9e9e9e',
 };
 
 // "PLAYA ABADES (LOS ABRIGUITOS) PM1" -> "Playa Abades (Los Abriguitos)"
@@ -43,7 +47,10 @@ const displayName = (name: string) =>
     .toLowerCase()
     .replace(/(^|[\s(-])([a-záéíóúñü])/g, (_m, pre: string, c: string) => pre + c.toUpperCase());
 
-const statusOf = (f: GeoFeature) => f.properties.status ?? 'unknown';
+const statusOf = (f: GeoFeature) =>
+  f.properties.monitored === false
+    ? 'unmonitored'
+    : (f.properties.status ?? 'unknown');
 
 export default function BeachList({
   beaches,

@@ -62,6 +62,7 @@ class Beach(Base):
     )
     name: Mapped[str] = mapped_column(String(255))
     municipality: Mapped[str | None] = mapped_column(String(120))
+    monitored: Mapped[bool] = mapped_column(default=True)
     geom: Mapped[WKBElement] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326), nullable=False
     )

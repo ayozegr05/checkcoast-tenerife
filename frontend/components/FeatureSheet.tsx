@@ -44,6 +44,7 @@ export default function FeatureSheet({
   const { feature } = selection;
   const p = feature.properties;
   const isBeach = selection.type === 'beach';
+  const unmonitored = isBeach && p.monitored === false;
 
   const [incidents, setIncidents] = useState<BeachIncident[] | null>(null);
   const [quality, setQuality] = useState<BeachMeasurement[] | null>(null);
@@ -51,26 +52,30 @@ export default function FeatureSheet({
   useEffect(() => {
     setIncidents(null);
     setQuality(null);
-    if (!isBeach) return;
+    if (!isBeach || p.monitored === false) return; // sin datos oficiales
     fetchBeachIncidents(feature.id)
       .then(setIncidents)
       .catch(() => setIncidents([]));
     fetchBeachQuality(feature.id)
       .then(setQuality)
       .catch(() => setQuality([]));
-  }, [isBeach, feature.id]);
+  }, [isBeach, feature.id, p.monitored]);
 
   const beachKey =
     isBeach && selection.hasAlert && p.status === 'open'
       ? 'warning'
       : (p.status ?? 'unknown');
   const statusKey = isBeach ? beachKey : (p.status ?? 'unknown');
-  const statusText = isBeach
-    ? (BEACH_STATUS[beachKey]?.label ?? 'Sin datos oficiales')
-    : STATUS_LABELS[statusKey];
-  const statusColor = isBeach
-    ? (BEACH_STATUS[beachKey]?.color ?? '#9e9e9e')
-    : STATUS_COLORS[statusKey];
+  const statusText = unmonitored
+    ? 'Sin monitorización oficial'
+    : isBeach
+      ? (BEACH_STATUS[beachKey]?.label ?? 'Sin datos oficiales')
+      : STATUS_LABELS[statusKey];
+  const statusColor = unmonitored
+    ? '#9e9e9e'
+    : isBeach
+      ? (BEACH_STATUS[beachKey]?.color ?? '#9e9e9e')
+      : STATUS_COLORS[statusKey];
 
   return (
     <View style={styles.sheet}>
@@ -91,7 +96,12 @@ export default function FeatureSheet({
       {p.municipality ? (
         <Text style={styles.row}>Municipio: {p.municipality}</Text>
       ) : null}
-      {isBeach ? (
+      {unmonitored ? (
+        <Text style={styles.row}>
+          Playa sin controles sanitarios oficiales. Fuente: OpenStreetMap
+          (© colaboradores OSM)
+        </Text>
+      ) : isBeach ? (
         <Text style={styles.row}>
           Fuente: Censo Zonas de Baño 2025 (MITECO) · Incidencias: Náyade
           (Min. Sanidad)

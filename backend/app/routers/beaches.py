@@ -43,6 +43,7 @@ def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
                 properties={
                     "name": beach.name,
                     "municipality": beach.municipality,
+                    "monitored": beach.monitored,
                     "source_url": beach.source_url,
                     "status": status.status.value if status else "unknown",
                     "reported_at": (

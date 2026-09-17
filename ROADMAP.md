@@ -65,7 +65,7 @@ Funciones para acercar la app al objetivo: avisar al bañista del estado de cada
    - Soporte backend: tabla `beach_incidents`, scraper v2 (solo Tenerife + municipios), `GET /beaches/{id}/incidents`, `status` embebido en `/beaches`
 3. [x] **Calidad del agua**: tabla `beach_measurements` (fecha, E. coli, enterococo, evaluación) scrapeada de la pestaña Muestreos de Náyade; `GET /beaches/{id}/quality` + "Último análisis" en el panel de detalle
 4. [ ] **Notificaciones** al cambiar el estado de una playa (`expo-notifications` → requiere nuevo build EAS)
-5. [ ] **Capa de playas no monitorizadas** desde OSM (`natural=beach`) — el censo oficial solo cubre zonas vigiladas
+5. [x] **Capa de playas no monitorizadas** desde OSM (`natural=beach` vía Overpass; +106 playas, dedup vs censo oficial por nombre/distancia; gris en mapa y "No monitorizada" en lista)
 
 ## Hito 6 — Calidad y despliegue ⬜
 - [ ] Tests backend (pytest) + componente (jest-expo)

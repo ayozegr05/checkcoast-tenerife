@@ -91,6 +91,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 const BEACH_COLOR = '#0288d1';
 const BEACH_ALERT_COLOR = '#e65100';
+const BEACH_UNMONITORED_COLOR = '#9e9e9e';
 
 export default function CoastMap({
   outfalls,
@@ -194,6 +195,8 @@ export default function CoastMap({
                   'case',
                   ['get', 'alert'],
                   BEACH_ALERT_COLOR,
+                  ['==', ['get', 'monitored'], false],
+                  BEACH_UNMONITORED_COLOR,
                   BEACH_COLOR,
                 ],
                 'circle-stroke-width': 2,
@@ -251,6 +254,7 @@ export default function CoastMap({
           {[
             [BEACH_COLOR, 'Normal'],
             [BEACH_ALERT_COLOR, 'Alerta'],
+            [BEACH_UNMONITORED_COLOR, 'Sin monitorizar'],
           ].map(([color, label]) => (
             <View key={label} style={styles.swatchRow}>
               <View style={[styles.dot, { backgroundColor: color }]} />

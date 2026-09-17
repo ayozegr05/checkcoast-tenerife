@@ -7,6 +7,7 @@ export type GeoFeature = {
   properties: {
     name: string;
     municipality?: string | null;
+    monitored?: boolean;
     kind?: string | null;
     status?: string | null;
     source_url?: string | null;

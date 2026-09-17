@@ -282,6 +282,9 @@ def _persist(
         beach.municipality = municipality
     if "?" in beach.name:
         beach.name = pm.raw_name
+    # Una playa OSM que casa con un PM de Náyade sí está monitorizada
+    if not beach.monitored:
+        beach.monitored = True
 
     existing_inc = {(i.opened_at, i.observations) for i in beach.incidents}
     for inc in pm.incidents:
@@ -331,6 +334,7 @@ def run() -> tuple[int, int]:
 
     db = SessionLocal()
     updated = seen = 0
+    matched: set[int] = set()
     try:
         beaches = {_normalize(b.name): b for b in db.query(Beach).all()}
         latest = _latest_status_map(db)
@@ -343,8 +347,11 @@ def run() -> tuple[int, int]:
                 for norm_pm, pm in _fetch_zone_pms(http, cod).items():
                     seen += 1
                     beach = _find_beach(norm_pm, beaches)
-                    if beach is None:
+                    # Una playa no puede casar con dos PMs en la misma
+                    # pasada (Náyade repite nombres entre zonas)
+                    if beach is None or beach.id in matched:
                         continue
+                    matched.add(beach.id)
                     if _persist(db, beach, pm, info.municipality, latest):
                         updated += 1
                         latest[beach.id] = _state_from_incidents(pm.incidents)
