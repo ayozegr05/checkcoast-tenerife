@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Image,
   NativeSyntheticEvent,
   Platform,
   Pressable,
@@ -203,9 +204,11 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
           style={[styles.legendRow, !showOutfalls && styles.legendOff]}
           onPress={() => setShowOutfalls((v) => !v)}
         >
-          <Text style={styles.legendTitle}>
-            {showOutfalls ? '☣️' : '◌'} Vertidos
-          </Text>
+          <Image
+            source={require('../assets/icons/outfall.png')}
+            style={styles.legendIcon}
+          />
+          <Text style={styles.legendTitle}>Vertidos</Text>
         </Pressable>
         <View style={styles.legendSub}>
           {[
@@ -223,9 +226,11 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
           style={[styles.legendRow, !showBeaches && styles.legendOff]}
           onPress={() => setShowBeaches((v) => !v)}
         >
-          <Text style={styles.legendTitle}>
-            {showBeaches ? '�️' : '◌'} Playas
-          </Text>
+          <Image
+            source={require('../assets/icons/beach.png')}
+            style={styles.legendIcon}
+          />
+          <Text style={styles.legendTitle}>Playas</Text>
         </Pressable>
         <View style={styles.legendSub}>
           {[
@@ -296,6 +301,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#222',
+  },
+  legendIcon: {
+    width: 16,
+    height: 16,
+    marginRight: 6,
   },
   legendSub: {
     marginLeft: 14,
