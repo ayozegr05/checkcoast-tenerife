@@ -38,11 +38,48 @@ const fmtDate = (iso: string) => {
 const isClosure = (inc: BeachIncident) =>
   /prohib/i.test(inc.observations ?? '');
 
+// Cierres cuya apertura cayó dentro de los últimos `years` años
+const closuresInYears = (incidents: BeachIncident[], years: number) => {
+  const cutoff = Date.now() - years * 365.25 * 24 * 3600 * 1000;
+  return incidents.filter(
+    (i) => isClosure(i) && Date.parse(i.opened_at) >= cutoff,
+  ).length;
+};
+
 // Color de la evaluación del último análisis
 const evaluationColor = (evaluation: string) => {
   if (/apta/i.test(evaluation)) return '#2e7d32';
   if (/prohib/i.test(evaluation)) return '#c62828';
   return '#e65100';
+};
+
+// Umbrales RD 1341/2007 (aguas costeras), UFC/100 mL:
+// [excelente, buena] — por encima de "buena" es insuficiente/mala
+const QUALITY_THRESHOLDS: Record<
+  'ecoli' | 'enterococci',
+  { excellent: number; good: number; label: string }
+> = {
+  ecoli: { excellent: 250, good: 500, label: 'E. coli' },
+  enterococci: { excellent: 100, good: 200, label: 'Enterococo' },
+};
+
+const classifyValue = (
+  param: 'ecoli' | 'enterococci',
+  raw: string | null,
+) => {
+  const value = parseFloat(raw ?? '');
+  if (Number.isNaN(value)) return null;
+  const t = QUALITY_THRESHOLDS[param];
+  const cls =
+    value <= t.excellent
+      ? 'Excelente'
+      : value <= t.good
+        ? 'Buena'
+        : 'Insuficiente';
+  const color =
+    cls === 'Excelente' ? '#2e7d32' : cls === 'Buena' ? '#f9a825' : '#c62828';
+  const pct = Math.round((value / t.good) * 100);
+  return { value, cls, color, pct };
 };
 
 export default function FeatureSheet({
@@ -124,22 +161,52 @@ export default function FeatureSheet({
       )}
 
       {isBeach && quality !== null && quality.length > 0 && (
-        <View style={styles.history}>
+        <View style={styles.qualityCard}>
           <Text style={styles.historyTitle}>
-            Último análisis ({fmtDate(quality[0].sampled_at)})
+            Calidad del agua · {fmtDate(quality[0].sampled_at)}
           </Text>
-          <Text style={styles.incidentObs}>
-            E. coli: {quality[0].ecoli ?? '—'} · Enterococo:{' '}
-            {quality[0].enterococci ?? '—'}
-          </Text>
+          {(['ecoli', 'enterococci'] as const).map((param) => {
+            const raw = quality[0][param];
+            const info = classifyValue(param, raw);
+            return (
+              <View key={param} style={styles.paramRow}>
+                <Text style={styles.paramLabel}>
+                  {QUALITY_THRESHOLDS[param].label}
+                </Text>
+                <View style={styles.paramRight}>
+                  <Text style={styles.paramValue}>{raw ?? '—'}</Text>
+                  {info && (
+                    <>
+                      <View style={styles.barTrack}>
+                        <View
+                          style={[
+                            styles.barFill,
+                            {
+                              width: `${Math.min(info.pct, 100)}%`,
+                              backgroundColor: info.color,
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text
+                        style={[styles.paramClass, { color: info.color }]}
+                      >
+                        {info.cls} · {info.pct}% del límite
+                      </Text>
+                    </>
+                  )}
+                </View>
+              </View>
+            );
+          })}
           {quality[0].evaluation ? (
             <Text
               style={[
-                styles.incidentObs,
+                styles.evaluation,
                 { color: evaluationColor(quality[0].evaluation) },
               ]}
             >
-              Evaluación: {quality[0].evaluation}
+              {quality[0].evaluation}
             </Text>
           ) : null}
         </View>
@@ -153,6 +220,10 @@ export default function FeatureSheet({
           <Text style={styles.incidentObs}>
             {incidents.filter(isClosure).length} cierres ·{' '}
             {incidents.filter((i) => !isClosure(i)).length} avisos
+            {'\n'}
+            Cerrada {closuresInYears(incidents, 1)} vez
+            {closuresInYears(incidents, 1) === 1 ? '' : 'es'} el último año
+            · {closuresInYears(incidents, 5)} en los últimos 5 años
           </Text>
           <ScrollView style={styles.historyList} nestedScrollEnabled>
             {incidents.map((inc) => (
@@ -235,6 +306,52 @@ const styles = StyleSheet.create({
   },
   historyList: {
     maxHeight: 140,
+  },
+  qualityCard: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 8,
+  },
+  paramRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 8,
+  },
+  paramLabel: {
+    width: 86,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#555',
+  },
+  paramRight: {
+    flex: 1,
+  },
+  paramValue: {
+    fontSize: 12,
+    color: '#333',
+  },
+  barTrack: {
+    height: 5,
+    backgroundColor: '#eee',
+    borderRadius: 3,
+    marginTop: 3,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: 5,
+    borderRadius: 3,
+  },
+  paramClass: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  evaluation: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
   },
   incident: {
     paddingVertical: 4,

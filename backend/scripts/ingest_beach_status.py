@@ -232,15 +232,32 @@ def _fetch_zone_pms(
     return _parse_pms(html)
 
 
-def _state_from_incidents(incidents: list[Incident]) -> BeachState:
+def _derive_state(pm: PmData) -> BeachState:
+    """Estado actual: incidentes abiertos primero; si no los hay, manda la
+    evaluación de la última medición (Náyade a veces publica la prohibición
+    en el análisis sin crear incidente)."""
     state = BeachState.open
-    for inc in incidents:
+    for inc in pm.incidents:
         if inc.closed is not None:
             continue  # incidente ya resuelto
         obs = _normalize(inc.observations)
         if "PROHIBIDO" in obs or "PROHIBICION" in obs:
             return BeachState.closed
         state = BeachState.warning
+    if state is BeachState.open and pm.measurements:
+        latest_meas = max(pm.measurements, key=lambda m: m.sampled)
+        # un incidente cerrado tras la medición invalida su evaluación
+        latest_close = max(
+            (i.closed for i in pm.incidents if i.closed is not None),
+            default=None,
+        )
+        if latest_close is not None and latest_close >= latest_meas.sampled:
+            return state
+        eval_norm = _normalize(latest_meas.evaluation)
+        if "PROHIBID" in eval_norm:
+            return BeachState.closed
+        if "SIN CALIFICAR" in eval_norm or "RECOMEND" in eval_norm:
+            state = BeachState.warning
     return state
 
 
@@ -313,7 +330,7 @@ def _persist(
                 )
             )
 
-    state = _state_from_incidents(pm.incidents)
+    state = _derive_state(pm)
     if latest.get(beach.id) != state:
         db.add(
             BeachStatus(
@@ -354,7 +371,7 @@ def run() -> tuple[int, int]:
                     matched.add(beach.id)
                     if _persist(db, beach, pm, info.municipality, latest):
                         updated += 1
-                        latest[beach.id] = _state_from_incidents(pm.incidents)
+                        latest[beach.id] = _derive_state(pm)
             except requests.RequestException as e:
                 print(f"  zona {cod}: error {e}")
             time.sleep(0.3)  # ser amable con el portal

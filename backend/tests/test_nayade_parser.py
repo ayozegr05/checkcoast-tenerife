@@ -3,7 +3,7 @@
 from datetime import date
 
 from app.models import BeachState
-from scripts.ingest_beach_status import _parse_pms, _state_from_incidents
+from scripts.ingest_beach_status import _parse_pms, _derive_state
 
 PM_TMPL = """
 <table class="tablaform">
@@ -62,10 +62,7 @@ def _html(blocks: list[tuple[str, list[tuple[str, str, str]]]]) -> str:
 
 
 def _states(html: str) -> dict[str, BeachState]:
-    return {
-        pm: _state_from_incidents(d.incidents)
-        for pm, d in _parse_pms(html).items()
-    }
+    return {pm: _derive_state(d) for pm, d in _parse_pms(html).items()}
 
 
 def test_pm_without_incidents_is_open():
@@ -142,6 +139,54 @@ def test_measurements_parsed():
     assert m.ecoli == "40 UFC/100 mL"
     assert m.enterococci == "9 UFC/100 mL"
     assert m.evaluation == "Zona Apta para el baño"
+
+
+def test_latest_measurement_prohibition_closes_beach():
+    """Un análisis con evaluación 'prohibido' cierra la playa aunque no
+    exista incidente (caso real: El Cabezo PM1, 09/09/2026)."""
+    meas = MEAS_ROW.format(
+        fecha="09/09/2026",
+        ecoli="30 UFC/100 mL",
+        entero="410 UFC/100 mL",
+        obs="Zona donde queda prohibido el baño temporalmente",
+    )
+    html = PM_TMPL.format(name="PLAYA TEST PM1", rows="", meas_rows=meas)
+    assert _states(html)["PLAYA TEST PM1"] == BeachState.closed
+
+
+def test_apta_measurement_is_open():
+    meas = MEAS_ROW.format(
+        fecha="09/09/2026",
+        ecoli="40 UFC/100 mL",
+        entero="9 UFC/100 mL",
+        obs="Zona Apta para el baño",
+    )
+    html = PM_TMPL.format(name="PLAYA TEST PM1", rows="", meas_rows=meas)
+    assert _states(html)["PLAYA TEST PM1"] == BeachState.open
+
+
+def test_ungraded_latest_measurement_is_warning():
+    meas = MEAS_ROW.format(
+        fecha="09/09/2026", ecoli="--", entero="--", obs="Sin Calificar"
+    )
+    html = PM_TMPL.format(name="PLAYA TEST PM1", rows="", meas_rows=meas)
+    assert _states(html)["PLAYA TEST PM1"] == BeachState.warning
+
+
+def test_incident_closed_after_measurement_wins():
+    """Si el incidente se cerró después de la última medición mala,
+    la playa está abierta (la medición quedó superada)."""
+    meas = MEAS_ROW.format(
+        fecha="02/09/2026",
+        ecoli="800 UFC/100 mL",
+        entero="80 UFC/100 mL",
+        obs="Zona donde queda prohibido el baño temporalmente",
+    )
+    inc = ROW.format(
+        apertura="02/09/2026", cierre="03/09/2026", obs="prohibido el baño"
+    )
+    html = PM_TMPL.format(name="PLAYA TEST PM1", rows=inc, meas_rows=meas)
+    assert _states(html)["PLAYA TEST PM1"] == BeachState.open
 
 
 def test_incident_rows_are_not_measurements():
