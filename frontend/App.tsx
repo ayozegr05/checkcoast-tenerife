@@ -10,7 +10,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
+  NativeModules,
   StyleSheet,
   Text,
   View,
@@ -19,6 +19,7 @@ import {
 import BeachList from './components/BeachList';
 import CoastMap, { Selection } from './components/CoastMap';
 import FeatureSheet from './components/FeatureSheet';
+import IntroCard from './components/IntroCard';
 import MunicipalityStats from './components/MunicipalityStats';
 import OutfallList from './components/OutfallList';
 import {
@@ -36,6 +37,17 @@ const EMPTY_FC: FeatureCollection = {
   type: 'FeatureCollection',
   features: [],
 };
+
+// AsyncStorage es nativo: si el build instalado no lleva el módulo ni
+// se toca — la card de bienvenida sale en cada arranque, como antes.
+// En el próximo build con el módulo la preferencia persiste sola.
+const INTRO_SEEN_KEY = 'checkcoast.intro_seen';
+const storage: {
+  getItem: (k: string) => Promise<string | null>;
+  setItem: (k: string, v: string) => Promise<void>;
+} | null = NativeModules.RNCAsyncStorage
+  ? require('@react-native-async-storage/async-storage').default
+  : null;
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -57,7 +69,7 @@ export default function App() {
     string | null | undefined
   >(undefined);
   const [focus, setFocus] = useState<[number, number] | null>(null);
-  const [introDismissed, setIntroDismissed] = useState(false);
+  const [introVisible, setIntroVisible] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchOutfalls(), fetchBeaches(), fetchAlerts()])
@@ -78,6 +90,24 @@ export default function App() {
     }, 5 * 60 * 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // La card de bienvenida solo se muestra en el primer arranque;
+  // también se puede reabrir desde el botón de ayuda del mapa
+  useEffect(() => {
+    if (!storage) {
+      setIntroVisible(true);
+      return;
+    }
+    storage
+      .getItem(INTRO_SEEN_KEY)
+      .then((seen) => setIntroVisible(!seen))
+      .catch(() => setIntroVisible(true));
+  }, []);
+
+  const closeIntro = (dontShow: boolean) => {
+    setIntroVisible(false);
+    if (dontShow) storage?.setItem(INTRO_SEEN_KEY, '1').catch(() => {});
+  };
 
   // Inyecta `alert` y el status vivo (de /alerts) en cada feature de playa
   const beachesFC = useMemo<FeatureCollection>(() => {
@@ -161,6 +191,7 @@ export default function App() {
         onOpenList={() => setListOpen(true)}
         onOpenMunicipalities={() => setMuniOpen(true)}
         onOpenOutfalls={() => setOutfallListOpen(true)}
+        onOpenHelp={() => setIntroVisible(true)}
       />
 
       {(loading || !fontsLoaded) && (
@@ -174,35 +205,8 @@ export default function App() {
         </View>
       )}
 
-      {!introDismissed && !loading && !error && fontsLoaded && (
-        <View style={styles.introCard}>
-          <View style={styles.introWave} />
-          <Text style={styles.introTitle}>CheckCoast Tenerife</Text>
-          <Text style={styles.introText}>
-            Estado de las playas y puntos de vertido de la isla, con datos
-            oficiales actualizados.
-          </Text>
-          <Text style={styles.introHint}>· Toca un punto para ver su detalle</Text>
-          <Text style={styles.introHint}>
-            · «Playas» para buscar por nombre o municipio
-          </Text>
-          <Text style={styles.introHint}>
-            · «Municipios» para ver dónde hay más incidencias
-          </Text>
-          <Text style={styles.introHint}>
-            · «Vertidos» para ver los emisarios y su situación legal
-          </Text>
-          <Text style={styles.introHint}>
-            · Gris = playa sin monitorización oficial
-          </Text>
-          <Pressable
-            style={styles.introBtn}
-            onPress={() => setIntroDismissed(true)}
-            accessibilityRole="button"
-          >
-            <Text style={styles.introBtnText}>Entendido</Text>
-          </Pressable>
-        </View>
+      {introVisible && !loading && !error && fontsLoaded && (
+        <IntroCard onClose={closeIntro} />
       )}
 
       <BeachList
@@ -267,63 +271,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     textAlign: 'center',
     fontFamily: fonts.semibold,
-  },
-  introCard: {
-    position: 'absolute',
-    left: 24,
-    right: 24,
-    top: '30%',
-    backgroundColor: 'rgba(255,255,255,0.97)',
-    borderRadius: 14,
-    padding: 20,
-    paddingTop: 14,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    overflow: 'hidden',
-  },
-  introWave: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 6,
-    backgroundColor: colors.accent,
-    borderBottomWidth: 3,
-    borderBottomColor: colors.primary,
-  },
-  introTitle: {
-    fontSize: 20,
-    fontFamily: fonts.extrabold,
-    color: colors.primaryDark,
-    marginBottom: 8,
-  },
-  introText: {
-    fontSize: 14,
-    fontFamily: fonts.regular,
-    color: colors.text,
-    marginBottom: 10,
-    lineHeight: 20,
-  },
-  introHint: {
-    fontSize: 13,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  introBtn: {
-    marginTop: 14,
-    alignSelf: 'flex-end',
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 18,
-  },
-  introBtnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: fonts.bold,
   },
 });

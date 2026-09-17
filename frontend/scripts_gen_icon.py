@@ -323,10 +323,36 @@ def draw_townhall_icon():
     img.save("assets/icons/icon-townhall.png")
 
 
+def draw_help_icon():
+    """Salvavidas (ayuda en el mar) para el boton Ayuda de la topbar."""
+    img = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    for i in range(8):
+        col = (214, 69, 65) if i % 2 == 0 else WHITE
+        d.pieslice([6, 6, 90, 90], start=i * 45 - 22, end=(i + 1) * 45 - 22,
+                   fill=col)
+    d.ellipse([6, 6, 90, 90], outline=NAVY, width=4)
+    d.ellipse([30, 30, 66, 66], fill=(0, 0, 0, 0), outline=NAVY, width=4)
+    img.save("assets/icons/icon-help.png")
+
+
+def draw_alert_icon():
+    """Triangulo de alerta blanco para el pill de avisos del mapa."""
+    img = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.polygon([(48, 12), (88, 80), (8, 80)], fill=WHITE)
+    # exclamacion recortada en el color de fondo (hueco transparente)
+    d.rounded_rectangle([44, 34, 52, 60], radius=4, fill=(0, 0, 0, 0))
+    d.ellipse([44, 65, 52, 73], fill=(0, 0, 0, 0))
+    img.save("assets/icons/icon-alert.png")
+
+
 draw_map_icon()
 draw_satellite_icon()
 draw_faucet_icon()
 draw_wave_icon()
 draw_townhall_icon()
+draw_help_icon()
+draw_alert_icon()
 
 print("assets generados")

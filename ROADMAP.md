@@ -89,20 +89,87 @@ Tres niveles, en orden de impacto/esfuerzo:
    azul pizarra); toggle satélite Esri intacto. Markers: chinchetas
    `pin-{estado}.png` generadas (aro de color + sombrilla navy)
 
-## Hito 6 — Calidad y despliegue ⬜
-- [ ] Tests backend (pytest) + componente (jest-expo)
-- [ ] README con instrucciones
-- [ ] CI básico (GitHub Actions: lint + tests)
-- [ ] Servicio `api` dockerizado en compose
-- [ ] Deploy backend (VPS/Railway/Fly) + app vía EAS Build
+## Hito 5d — Datos completos y refinado UI ✅
 
-## Hito 7 — Portfolio polish ⬜
-- [ ] Screenshots/GIF de la app
-- [ ] Diagrama de arquitectura en README
-- [ ] Documentar decisiones técnicas
+- [x] **Municipios completos**: `assign_municipalities.py` + GeoJSON de
+  límites de los 31 municipios (OSM admin_level=8) → punto-en-polígono
+  con PostGIS; 107 playas asignadas, "Sin municipio" eliminado;
+  enganchado al ingest OSM para futuras playas
+- [x] **Grafías naturales**: `Rosario (El)` → `El Rosario`,
+  `Orotava (La)` → `La Orotava`, `Realejos (Los)` → `Los Realejos`;
+  scraper Náyade normaliza al parsear (sin riesgo de duplicados)
+- [x] **Conteo correcto en ranking**: las playas no monitorizadas suman
+  al conteo de playas por municipio (Adeje 9→18); incidentes siguen
+  saliendo solo de las oficiales
+- [x] **Lista de Vertidos** (`OutfallList`): botón en topbar, 180
+  emisarios con conteos por estado, chips de estado y municipio,
+  búsqueda, orden por severidad, tap → vuela al punto y abre ficha
+- [x] **Terminología censo**: `unknown` mostrado como "En trámite" (valor
+  oficial `EstExpVC` del censo) en lista, leyenda y ficha; mapping
+  explícito en `ingest_outfalls.py`
+- [x] **Navegación**: ranking → lista filtrada → atrás vuelve al ranking;
+  fix de estado residual (ficha vieja al reabrir lista tras "Ver en mapa");
+  filtro de tres estados (undefined/null/string)
+- [x] **Topbar**: barra redondeada con chips con borde por sección
+  (Playas · Vertidos · Municipios | Satélite | Ayuda), pill de aviso
+  integrado debajo con borde blanco interno e icono de alerta
+- [x] **Leyenda**: abajo-izquierda, filas "Vertidos"/"Playas" como
+  cabecera-botón con switch ON/OFF
+- [x] **Pins definitivos**: playa = sombrilla Twemoji 🏖️ teñida del
+  color de estado; vertido = grifo + gota separada cayendo del caño
+- [x] **Iconos topbar**: mapa/satélite, ayuntamiento (Municipios), grifo
+  (Vertidos), salvavidas (Ayuda) — todos en `scripts_gen_icon.py`
+- [x] **IntroCard temática**: header degradado mar, hints con iconos
+  reales, checkbox "No volver a mostrar" + AsyncStorage (persistencia
+  activa tras próxima build), re-apertura desde botón Ayuda
+
+## Hito 6 — Funcionalidades y datos ⬜
+
+Esfuerzo: **S** <1h · **M** 2-4h · **L** medio día+
+
+| # | Tarea | Esfuerzo |
+|---|-------|----------|
+| 6.1 | [ ] **Distancia vertido↔playa**: en ficha de vertido, "a 350 m de Playa X" (ST_Distance PostGIS, nearest beach) — convierte el dato en historia | M |
+| 6.2 | [ ] **Gráfica histórica de calidad**: mini-gráfica E. coli/enterococo por fecha en `BeachDetail` (~3.200 mediciones ya en BD) | M |
+| 6.3 | [ ] **Favoritos + notificaciones dirigidas**: marcar playas favoritas (AsyncStorage + `beach_ids` en `POST /devices`), push solo de esas playas | L |
+| 6.4 | [ ] **Filtro por estado en lista de playas**: chips cerrada/aviso/sin datos/apta/no monitorizada | S |
+| 6.5 | [ ] **Búsqueda desde el mapa**: campo en topbar que busque playas/vertidos/municipios y vuele al punto | M |
+| 6.6 | [ ] **Compartir estado de playa** (Share API: texto + deep-link) | S |
+| 6.7 | [ ] (extensión) Timeline de incidentes por municipio en la ficha del municipio | M |
+
+## Hito 7 — Pulido visual ⬜
+
+| # | Tarea | Esfuerzo |
+|---|-------|----------|
+| 7.1 | [ ] Cabecera de ficha teñida por estado (degradado rojo/naranja/verde sutil) | S |
+| 7.2 | [ ] Top 3 del ranking destacado (badge/medalla visual) | S |
+| 7.3 | [ ] Skeletons de carga en listas (en vez de spinner/nada) | S |
+| 7.4 | [ ] Animación de entrada de la card (slide-up ~200ms, Reanimated) | S |
+| 7.5 | [ ] Accessibility labels en controles principales | M |
+
+## Hito 8 — Calidad y despliegue ⬜
+
+| # | Tarea | Esfuerzo |
+|---|-------|----------|
+| 8.1 | [ ] **Build EAS de validación**: verificar push notifications + AsyncStorage en build real | M |
+| 8.2 | [ ] **Dockerizar API**: servicio `api` en docker-compose | M |
+| 8.3 | [ ] **Deploy backend** (Railway/Fly/Render) + Postgres PostGIS + migrar datos → app apuntando a URL real (requisito para notifs en producción) | M |
+| 8.4 | [ ] **CI básico**: GitHub Actions con `pytest` + `tsc --noEmit` en push | S |
+| 8.5 | [ ] Tests frontend mínimos (jest-expo): lógica agrupación PM→playa, orden por estado | M |
+| 8.6 | [ ] Actualizar a Node 22 LTS (Expo pide ≥20.19.4, hoy 20.12.2) | S |
+| 8.7 | [ ] Revocar token de Expo expuesto en sesión anterior *(usuario, en expo.dev)* | S |
+
+## Hito 9 — Portfolio ⬜
+
+| # | Tarea | Esfuerzo |
+|---|-------|----------|
+| 9.1 | [ ] README completo: qué es, features, stack, fuentes de datos, cómo ejecutar | M |
+| 9.2 | [ ] Screenshots/GIF de la app (mapa, ranking, vertidos, ficha) | S |
+| 9.3 | [ ] Diagrama de arquitectura (Expo → FastAPI → PostGIS ← scrapers/fuentes) | S |
+| 9.4 | [ ] Documentar decisiones técnicas (MapLibre vs Google, SDF teñido, scraper Náyade, PM↔playa) | S |
 
 ---
 
 ### Estado actual
-**Hito activo:** 6 — Calidad y despliegue
+**Hito activo:** 6 — Funcionalidades y datos (UI estabilizada; pendiente commit del bloque topbar/leyenda/IntroCard)
 **Última actualización:** 2026-09-17

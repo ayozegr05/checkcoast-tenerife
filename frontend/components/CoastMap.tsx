@@ -77,6 +77,7 @@ type CoastMapProps = {
   onOpenList?: () => void;
   onOpenMunicipalities?: () => void;
   onOpenOutfalls?: () => void;
+  onOpenHelp?: () => void;
 };
 
 const OUTFALL_COLORS = colors.outfall;
@@ -91,6 +92,7 @@ export default function CoastMap({
   onOpenList,
   onOpenMunicipalities,
   onOpenOutfalls,
+  onOpenHelp,
 }: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
   const [showOutfalls, setShowOutfalls] = useState(true);
@@ -313,7 +315,84 @@ export default function CoastMap({
         )}
       </Map>
 
-      <View style={styles.bannerWrap} pointerEvents="box-none">
+      <View style={styles.topBlock} pointerEvents="box-none">
+        <View style={styles.topbar}>
+          {onOpenList && (
+            <Pressable
+              style={styles.topbarBtn}
+              onPress={onOpenList}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir lista de playas"
+            >
+              <Image
+                source={require('../assets/icons/beach.png')}
+                style={styles.topbarIcon}
+              />
+              <Text style={styles.topbarLabel}>Playas</Text>
+            </Pressable>
+          )}
+          {onOpenOutfalls && (
+            <Pressable
+              style={styles.topbarBtn}
+              onPress={onOpenOutfalls}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir lista de vertidos"
+            >
+              <Image
+                source={require('../assets/icons/icon-faucet.png')}
+                style={styles.topbarIcon}
+              />
+              <Text style={styles.topbarLabel}>Vertidos</Text>
+            </Pressable>
+          )}
+          {onOpenMunicipalities && (
+            <Pressable
+              style={styles.topbarBtn}
+              onPress={onOpenMunicipalities}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir incidencias por municipio"
+            >
+              <Image
+                source={require('../assets/icons/icon-townhall.png')}
+                style={styles.topbarIcon}
+              />
+              <Text style={styles.topbarLabel}>Municipios</Text>
+            </Pressable>
+          )}
+          <View style={styles.topbarDivider} />
+          <Pressable
+            style={styles.topbarBtn}
+            onPress={() => setSatellite((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel="Cambiar vista del mapa"
+          >
+            <Image
+              source={
+                satellite
+                  ? require('../assets/icons/icon-map.png')
+                  : require('../assets/icons/icon-satellite.png')
+              }
+              style={styles.topbarIcon}
+            />
+            <Text style={styles.topbarLabel}>
+              {satellite ? 'Mapa' : 'Satélite'}
+            </Text>
+          </Pressable>
+          {onOpenHelp && (
+            <Pressable
+              style={styles.topbarBtn}
+              onPress={onOpenHelp}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir ayuda"
+            >
+              <Image
+                source={require('../assets/icons/icon-help.png')}
+                style={styles.topbarIcon}
+              />
+              <Text style={styles.topbarLabel}>Ayuda</Text>
+            </Pressable>
+          )}
+        </View>
         <Pressable
           style={[
             styles.banner,
@@ -350,6 +429,12 @@ export default function CoastMap({
           accessibilityRole="button"
           accessibilityLabel="Resumen del estado de las playas"
         >
+          {(closedCount > 0 || warningCount > 0) && (
+            <Image
+              source={require('../assets/icons/icon-alert.png')}
+              style={styles.bannerIcon}
+            />
+          )}
           <Text style={styles.bannerText}>
             {closedCount || warningCount
               ? [
@@ -367,7 +452,7 @@ export default function CoastMap({
         </Pressable>
       </View>
 
-      <View style={styles.legend}>
+      <View style={styles.legend} pointerEvents="box-none">
         <Pressable
           style={[styles.legendRow, !showOutfalls && styles.legendOff]}
           onPress={() => setShowOutfalls((v) => !v)}
@@ -403,7 +488,11 @@ export default function CoastMap({
           ))}
         </View>
         <Pressable
-          style={[styles.legendRow, !showBeaches && styles.legendOff]}
+          style={[
+            styles.legendRow,
+            styles.legendRowGap,
+            !showBeaches && styles.legendOff,
+          ]}
           onPress={() => setShowBeaches((v) => !v)}
           accessibilityRole="switch"
           accessibilityState={{ checked: showBeaches }}
@@ -439,68 +528,6 @@ export default function CoastMap({
         </View>
       </View>
 
-      <View style={styles.controls}>
-        <Pressable
-          style={styles.toggle}
-          onPress={() => setSatellite((v) => !v)}
-          accessibilityRole="button"
-          accessibilityLabel="Cambiar vista del mapa"
-        >
-          <Image
-            source={
-              satellite
-                ? require('../assets/icons/icon-map.png')
-                : require('../assets/icons/icon-satellite.png')
-            }
-            style={styles.toggleIcon}
-          />
-          <Text style={styles.toggleText}>
-            {satellite ? 'Mapa' : 'Satélite'}
-          </Text>
-        </Pressable>
-        {onOpenList && (
-          <Pressable
-            style={styles.toggle}
-            onPress={onOpenList}
-            accessibilityRole="button"
-            accessibilityLabel="Abrir lista de playas"
-          >
-            <Image
-              source={require('../assets/icons/beach.png')}
-              style={styles.toggleIcon}
-            />
-            <Text style={styles.toggleText}>Playas</Text>
-          </Pressable>
-        )}
-        {onOpenOutfalls && (
-          <Pressable
-            style={styles.toggle}
-            onPress={onOpenOutfalls}
-            accessibilityRole="button"
-            accessibilityLabel="Abrir lista de vertidos"
-          >
-            <Image
-              source={require('../assets/icons/icon-faucet.png')}
-              style={styles.toggleIcon}
-            />
-            <Text style={styles.toggleText}>Vertidos</Text>
-          </Pressable>
-        )}
-        {onOpenMunicipalities && (
-          <Pressable
-            style={styles.toggle}
-            onPress={onOpenMunicipalities}
-            accessibilityRole="button"
-            accessibilityLabel="Abrir incidencias por municipio"
-          >
-            <Image
-              source={require('../assets/icons/icon-townhall.png')}
-              style={styles.toggleIcon}
-            />
-            <Text style={styles.toggleText}>Municipios</Text>
-          </Pressable>
-        )}
-      </View>
     </View>
   );
 }
@@ -512,67 +539,103 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  bannerWrap: {
+  // Bloque superior: barra de botones + pill de avisos apilados
+  topBlock: {
     position: 'absolute',
-    top: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 24,
-    left: 0,
-    right: 0,
+    top: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 8,
+    left: 12,
+    right: 12,
     alignItems: 'center',
+    gap: 8,
   },
-  banner: {
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
+  topbar: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
     elevation: 4,
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
+  topbarBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 58,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  topbarIcon: {
+    width: 22,
+    height: 22,
+  },
+  topbarLabel: {
+    fontSize: 10,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+    marginTop: 2,
+  },
+  topbarDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: colors.border,
+    marginVertical: 4,
+  },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.75)',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  bannerIcon: {
+    width: 15,
+    height: 15,
+    marginRight: 7,
+  },
   bannerText: {
     color: '#fff',
     fontSize: 13,
     fontFamily: fonts.bold,
   },
-  controls: {
-    position: 'absolute',
-    top: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 68,
-    right: 16,
-    gap: 8,
-    alignItems: 'flex-end',
-  },
-  toggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    elevation: 4,
-  },
-  toggleIcon: {
-    width: 16,
-    height: 16,
-    marginRight: 6,
-  },
-  toggleText: {
-    fontSize: 14,
-    fontFamily: fonts.bold,
-    color: colors.text,
-  },
   legend: {
     position: 'absolute',
-    top: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 68,
+    bottom: 12,
     left: 12,
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
     padding: 10,
     elevation: 4,
   },
+  legendRowGap: {
+    marginTop: 8,
+  },
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
     minWidth: 140,
+    backgroundColor: colors.surface,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 5,
+    paddingHorizontal: 7,
+    elevation: 1,
   },
   legendSwitch: {
     marginLeft: 'auto',
@@ -606,7 +669,8 @@ const styles = StyleSheet.create({
   },
   legendSub: {
     marginLeft: 14,
-    marginBottom: 4,
+    marginTop: 4,
+    marginBottom: 2,
   },
   swatchRow: {
     flexDirection: 'row',
