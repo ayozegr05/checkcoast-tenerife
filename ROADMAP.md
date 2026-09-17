@@ -56,15 +56,16 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 - [x] Bonus: reparados 6 nombres de playa con mojibake (`?`) del censo MITECO usando la grafía oficial de Náyade
 - [ ] (extensión futura) Ingesta de prensa local / LLM como fuente secundaria que *proponga* alertas pendientes de confirmación contra la oficial
 
-## Hito 5b — Orientación al bañista ✅
-- [x] Tabla `beach_incidents` (apertura/cierre/observación/fuente) + migración; el scraper los guarda deduplicados
-- [x] Scraper v2: pestaña Localización de Náyade → filtra solo zonas de Tenerife y rellena `municipality` (60/61 playas)
-- [x] `GET /beaches/{id}/incidents` + `status`/`reported_at` embebidos en cada feature de `/beaches`
-- [x] Frontend: pantalla de lista de playas (buscador, orden por estado — cerradas/avisos primero, filtro por municipio) con fly-to al seleccionar
-- [x] Frontend: historial de incidencias en el panel de detalle de la playa
-- [ ] (futuro) Capa de playas no monitorizadas desde OSM (`natural=beach`) — el censo oficial solo cubre zonas vigiladas
-- [ ] (futuro) Notificaciones push al cerrar una playa (`expo-notifications` → requiere nuevo build EAS)
-- [ ] (futuro) Calidad del agua: últimos análisis / clasificación anual desde Náyade
+## Hito 5b — Orientación al bañista 🚧
+
+Funciones para acercar la app al objetivo: avisar al bañista del estado de cada playa.
+
+1. [x] **Lista de playas** con buscador, orden por estado (cerradas primero) y filtro por municipio — vista rápida "¿dónde me baño hoy?"
+2. [x] **Historial de incidentes** en el panel de detalle (fechas y motivo de cada cierre)
+   - Soporte backend: tabla `beach_incidents`, scraper v2 (solo Tenerife + municipios), `GET /beaches/{id}/incidents`, `status` embebido en `/beaches`
+3. [x] **Calidad del agua**: tabla `beach_measurements` (fecha, E. coli, enterococo, evaluación) scrapeada de la pestaña Muestreos de Náyade; `GET /beaches/{id}/quality` + "Último análisis" en el panel de detalle
+4. [ ] **Notificaciones** al cambiar el estado de una playa (`expo-notifications` → requiere nuevo build EAS)
+5. [ ] **Capa de playas no monitorizadas** desde OSM (`natural=beach`) — el censo oficial solo cubre zonas vigiladas
 
 ## Hito 6 — Calidad y despliegue ⬜
 - [ ] Tests backend (pytest) + componente (jest-expo)

@@ -12,6 +12,21 @@ PM_TMPL = """
       <td class="nombreCampoNI">{name}  </td>
    </tr>
 </table>
+<table class="tablaform">
+   <tr>
+      <td class="apartadotabla">Muestreos:</td>
+      <td>&nbsp;</td>
+   </tr>
+   <tr>
+      <td>&nbsp;</td>
+      <td class="nombreCampoNI">Fecha Toma</td>
+      <td class="nombreCampoNI">Escherichia coli</td>
+      <td class="nombreCampoNI">Enterococo</td>
+      <td class="nombreCampoNI">Observaciones</td>
+      <td>&nbsp;</td>
+   </tr>
+   {meas_rows}
+</table>
 <!--INFORMACION INCIDENCIA -->
    <tr><td class="nombreCampoNI">Fecha Apertura Incidente</td>
        <td class="nombreCampoNI">Fecha Cierre Incidente</td>
@@ -27,6 +42,14 @@ ROW = (
     '<td class="valorCampoI">{obs}</td></tr>'
 )
 
+MEAS_ROW = (
+    '<tr><td width="5%">&nbsp;</td>'
+    '<td class="valorCampoI">{fecha}</td>'
+    '<td class="valorCampoI">{ecoli}</td>'
+    '<td class="valorCampoI">{entero}</td>'
+    '<td class="valorCampoI">{obs}</td></tr>'
+)
+
 
 def _html(blocks: list[tuple[str, list[tuple[str, str, str]]]]) -> str:
     parts = []
@@ -34,14 +57,14 @@ def _html(blocks: list[tuple[str, list[tuple[str, str, str]]]]) -> str:
         body = "".join(
             ROW.format(apertura=a, cierre=c, obs=o) for a, c, o in rows
         )
-        parts.append(PM_TMPL.format(name=name, rows=body))
+        parts.append(PM_TMPL.format(name=name, rows=body, meas_rows=""))
     return "\n".join(parts)
 
 
 def _states(html: str) -> dict[str, BeachState]:
     return {
-        pm: _state_from_incidents(incs)
-        for pm, (_raw, incs) in _parse_pms(html).items()
+        pm: _state_from_incidents(d.incidents)
+        for pm, d in _parse_pms(html).items()
     }
 
 
@@ -100,7 +123,32 @@ def test_incident_dates_and_observations_parsed():
     html = _html(
         [("PLAYA TEST PM1", [("02/09/2026", "03/09/2026", "prohibido el baño")])]
     )
-    inc = _parse_pms(html)["PLAYA TEST PM1"][1][0]
+    inc = _parse_pms(html)["PLAYA TEST PM1"].incidents[0]
     assert inc.opened == date(2026, 9, 2)
     assert inc.closed == date(2026, 9, 3)
     assert "prohibido" in inc.observations
+
+
+def test_measurements_parsed():
+    meas = MEAS_ROW.format(
+        fecha="09/09/2026",
+        ecoli="40 UFC/100 mL",
+        entero="9 UFC/100 mL",
+        obs="Zona Apta para el baño",
+    )
+    html = PM_TMPL.format(name="PLAYA TEST PM1", rows="", meas_rows=meas)
+    m = _parse_pms(html)["PLAYA TEST PM1"].measurements[0]
+    assert m.sampled == date(2026, 9, 9)
+    assert m.ecoli == "40 UFC/100 mL"
+    assert m.enterococci == "9 UFC/100 mL"
+    assert m.evaluation == "Zona Apta para el baño"
+
+
+def test_incident_rows_are_not_measurements():
+    """Las filas de incidentes (también con fecha) no deben colarse como
+    muestreos — el parser de muestreos se acota a antes de INCIDENCIA."""
+    inc = ROW.format(
+        apertura="02/09/2026", cierre="--", obs="prohibido el baño"
+    )
+    html = PM_TMPL.format(name="PLAYA TEST PM1", rows=inc, meas_rows="")
+    assert _parse_pms(html)["PLAYA TEST PM1"].measurements == []

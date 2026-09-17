@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { BeachIncident, fetchBeachIncidents } from '../lib/api';
+import {
+  BeachIncident,
+  BeachMeasurement,
+  fetchBeachIncidents,
+  fetchBeachQuality,
+} from '../lib/api';
 import type { Selection } from './CoastMap';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -41,13 +46,18 @@ export default function FeatureSheet({
   const isBeach = selection.type === 'beach';
 
   const [incidents, setIncidents] = useState<BeachIncident[] | null>(null);
+  const [quality, setQuality] = useState<BeachMeasurement[] | null>(null);
 
   useEffect(() => {
     setIncidents(null);
+    setQuality(null);
     if (!isBeach) return;
     fetchBeachIncidents(feature.id)
       .then(setIncidents)
       .catch(() => setIncidents([]));
+    fetchBeachQuality(feature.id)
+      .then(setQuality)
+      .catch(() => setQuality([]));
   }, [isBeach, feature.id]);
 
   const beachKey =
@@ -90,6 +100,23 @@ export default function FeatureSheet({
         <Text style={styles.row}>
           Fuente: Censo de Vertidos 2025 (Gob. Canarias)
         </Text>
+      )}
+
+      {isBeach && quality !== null && quality.length > 0 && (
+        <View style={styles.history}>
+          <Text style={styles.historyTitle}>
+            Último análisis ({fmtDate(quality[0].sampled_at)})
+          </Text>
+          <Text style={styles.incidentObs}>
+            E. coli: {quality[0].ecoli ?? '—'} · Enterococo:{' '}
+            {quality[0].enterococci ?? '—'}
+          </Text>
+          {quality[0].evaluation ? (
+            <Text style={styles.incidentObs}>
+              Evaluación: {quality[0].evaluation}
+            </Text>
+          ) : null}
+        </View>
       )}
 
       {isBeach && incidents !== null && incidents.length > 0 && (

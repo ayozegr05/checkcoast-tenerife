@@ -33,7 +33,13 @@ import requests
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from app.models import Beach, BeachIncident, BeachState, BeachStatus
+from app.models import (
+    Beach,
+    BeachIncident,
+    BeachMeasurement,
+    BeachState,
+    BeachStatus,
+)
 
 BASE = "https://nayadeciudadano.sanidad.gob.es/Splayas/ciudadano"
 SOURCE_URL = f"{BASE}/indexCiudadanoAction.do"
@@ -58,11 +64,19 @@ RE_INCIDENT = re.compile(
     r'<td class="valorCampoI">([^<]*)</td>\s*'
     r'<td class="valorCampoI">([^<]*)</td>'
 )
+# Fila de muestreo: Fecha Toma | E. coli | Enterococo | Observaciones
+RE_MEASURE = re.compile(
+    r'<td class="valorCampoI">(\d{2}/\d{2}/\d{4})</td>\s*'
+    r'<td class="valorCampoI">([^<]*)</td>\s*'
+    r'<td class="valorCampoI">([^<]*)</td>\s*'
+    r'<td class="valorCampoI">([^<]*)</td>'
+)
 RE_FIELD = (
     lambda label: rf'{label}:</td>\s*'
     r'<td[^>]*class="valorCampoI"[^>]*>([^<]*)</td>'
 )
 INCIDENT_BLOCK = ("<!--INFORMACION INCIDENCIA -->", "<!--FIN INFORMACION INCIDENCIA -->")
+MUESTREOS_MARK = '<td class="apartadotabla">Muestreos:</td>'
 
 
 @dataclass
@@ -73,10 +87,25 @@ class Incident:
 
 
 @dataclass
+class Measurement:
+    sampled: date
+    ecoli: str
+    enterococci: str
+    evaluation: str
+
+
+@dataclass
+class PmData:
+    raw_name: str
+    incidents: list[Incident] = field(default_factory=list)
+    measurements: list[Measurement] = field(default_factory=list)
+
+
+@dataclass
 class ZoneInfo:
     island: str
     municipality: str
-    pms: dict[str, tuple[str, list[Incident]]] = field(default_factory=dict)
+    pms: dict[str, PmData] = field(default_factory=dict)
 
 
 def _normalize(name: str) -> str:
@@ -94,10 +123,18 @@ def _parse_date(s: str) -> date | None:
 
 
 def _post(session: requests.Session, action: str, **data) -> str:
-    resp = session.post(f"{BASE}/{action}", data=data, timeout=60)
-    resp.raise_for_status()
-    resp.encoding = "latin1"
-    return resp.text
+    """POST con reintentos — el portal devuelve 500 intermitentes."""
+    for attempt in range(4):
+        try:
+            resp = session.post(f"{BASE}/{action}", data=data, timeout=60)
+            resp.raise_for_status()
+            resp.encoding = "latin1"
+            return resp.text
+        except requests.RequestException:
+            if attempt == 3:
+                raise
+            time.sleep(5 * (attempt + 1))
+    raise AssertionError("unreachable")
 
 
 def _fetch_zones(session: requests.Session) -> dict[str, str]:
@@ -150,23 +187,45 @@ def _parse_incidents(block: str) -> list[Incident]:
     ]
 
 
-def _parse_pms(html: str) -> dict[str, tuple[str, list[Incident]]]:
-    """Pestaña Muestreos: {PM normalizado: (nombre raw, incidentes)}."""
-    pms: dict[str, tuple[str, list[Incident]]] = {}
+def _parse_measurements(block: str) -> list[Measurement]:
+    """Filas de muestreo de un bloque de PM.
+
+    La tabla "Muestreos:" va antes del bloque de incidentes; cada fila
+    es Fecha Toma | E. coli | Enterococo | Observaciones.
+    """
+    muestreos = block.split(MUESTREOS_MARK, 1)
+    if len(muestreos) < 2:
+        return []
+    section = muestreos[1].split(INCIDENT_BLOCK[0], 1)[0]
+    return [
+        Measurement(
+            sampled=datetime.strptime(m.group(1), "%d/%m/%Y").date(),
+            ecoli=m.group(2).strip(),
+            enterococci=m.group(3).strip(),
+            evaluation=m.group(4).strip(),
+        )
+        for m in RE_MEASURE.finditer(section)
+    ]
+
+
+def _parse_pms(html: str) -> dict[str, PmData]:
+    """Pestaña Muestreos: {PM normalizado: PmData}."""
+    pms: dict[str, PmData] = {}
     marks = list(RE_PM.finditer(html))
     for i, pm in enumerate(marks):
         end = marks[i + 1].start() if i + 1 < len(marks) else len(html)
-        raw_name = pm.group(1).strip()
-        pms[_normalize(raw_name)] = (
-            raw_name,
-            _parse_incidents(html[pm.start() : end]),
+        block = html[pm.start() : end]
+        pms[_normalize(pm.group(1).strip())] = PmData(
+            raw_name=pm.group(1).strip(),
+            incidents=_parse_incidents(block),
+            measurements=_parse_measurements(block),
         )
     return pms
 
 
 def _fetch_zone_pms(
     session: requests.Session, cod_zona: str
-) -> dict[str, tuple[str, list[Incident]]]:
+) -> dict[str, PmData]:
     html = _post(
         session, "ciudadanoVerZonaAction.do", **_zone_body(cod_zona, "3")
     )
@@ -213,21 +272,20 @@ def _find_beach(
 def _persist(
     db: Session,
     beach: Beach,
-    raw_pm: str,
+    pm: PmData,
     municipality: str,
-    incidents: list[Incident],
     latest: dict[int, BeachState],
 ) -> bool:
-    """Actualiza municipio/nombre, upsert de incidentes y estado.
+    """Actualiza municipio/nombre, upsert de incidentes/muestreos y estado.
     Devuelve True si el estado cambió."""
     if not beach.municipality and municipality:
         beach.municipality = municipality
     if "?" in beach.name:
-        beach.name = raw_pm
+        beach.name = pm.raw_name
 
-    existing = {(i.opened_at, i.observations) for i in beach.incidents}
-    for inc in incidents:
-        if (inc.opened, inc.observations) not in existing:
+    existing_inc = {(i.opened_at, i.observations) for i in beach.incidents}
+    for inc in pm.incidents:
+        if (inc.opened, inc.observations) not in existing_inc:
             db.add(
                 BeachIncident(
                     beach_id=beach.id,
@@ -238,7 +296,21 @@ def _persist(
                 )
             )
 
-    state = _state_from_incidents(incidents)
+    existing_meas = {m.sampled_at for m in beach.measurements}
+    for meas in pm.measurements:
+        if meas.sampled not in existing_meas:
+            db.add(
+                BeachMeasurement(
+                    beach_id=beach.id,
+                    sampled_at=meas.sampled,
+                    ecoli=meas.ecoli,
+                    enterococci=meas.enterococci,
+                    evaluation=meas.evaluation,
+                    source_url=SOURCE_URL,
+                )
+            )
+
+    state = _state_from_incidents(pm.incidents)
     if latest.get(beach.id) != state:
         db.add(
             BeachStatus(
@@ -268,18 +340,14 @@ def run() -> tuple[int, int]:
                 info = _fetch_zone_info(http, cod)
                 if _normalize(info.island) != "TENERIFE":
                     continue
-                for norm_pm, (raw_pm, incs) in _fetch_zone_pms(
-                    http, cod
-                ).items():
+                for norm_pm, pm in _fetch_zone_pms(http, cod).items():
                     seen += 1
                     beach = _find_beach(norm_pm, beaches)
                     if beach is None:
                         continue
-                    if _persist(
-                        db, beach, raw_pm, info.municipality, incs, latest
-                    ):
+                    if _persist(db, beach, pm, info.municipality, latest):
                         updated += 1
-                        latest[beach.id] = _state_from_incidents(incs)
+                        latest[beach.id] = _state_from_incidents(pm.incidents)
             except requests.RequestException as e:
                 print(f"  zona {cod}: error {e}")
             time.sleep(0.3)  # ser amable con el portal

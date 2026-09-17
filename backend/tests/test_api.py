@@ -73,6 +73,19 @@ def test_beach_incidents_not_found():
     assert r.status_code == 404
 
 
+def test_beach_quality():
+    beaches = client.get("/beaches").json()["features"]
+    beach_id = beaches[0]["id"]
+    r = client.get(f"/beaches/{beach_id}/quality")
+    assert r.status_code == 200
+    assert isinstance(r.json(), list)
+
+
+def test_beach_quality_not_found():
+    r = client.get("/beaches/999999/quality")
+    assert r.status_code == 404
+
+
 def test_beach_status_known_id():
     beaches = client.get("/beaches").json()["features"]
     beach_id = beaches[0]["id"]

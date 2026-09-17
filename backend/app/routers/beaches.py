@@ -3,10 +3,17 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Beach, BeachIncident, BeachState, BeachStatus
+from app.models import (
+    Beach,
+    BeachIncident,
+    BeachMeasurement,
+    BeachState,
+    BeachStatus,
+)
 from app.queries import beaches_with_latest_status
 from app.schemas import (
     BeachIncidentOut,
+    BeachMeasurementOut,
     BeachStatusIn,
     BeachStatusOut,
     Feature,
@@ -71,6 +78,36 @@ def beach_incidents(
             opened_at=row.opened_at,
             closed_at=row.closed_at,
             observations=row.observations,
+            source_url=row.source_url,
+        )
+        for row in rows
+    ]
+
+
+@router.get(
+    "/beaches/{beach_id}/quality",
+    response_model=list[BeachMeasurementOut],
+)
+def beach_quality(
+    beach_id: int, db: Session = Depends(get_db)
+) -> list[BeachMeasurementOut]:
+    """Análisis de calidad del agua, más reciente primero."""
+    if db.get(Beach, beach_id) is None:
+        raise HTTPException(status_code=404, detail="Beach not found")
+    rows = (
+        db.query(BeachMeasurement)
+        .filter(BeachMeasurement.beach_id == beach_id)
+        .order_by(BeachMeasurement.sampled_at.desc())
+        .all()
+    )
+    return [
+        BeachMeasurementOut(
+            id=row.id,
+            beach_id=row.beach_id,
+            sampled_at=row.sampled_at,
+            ecoli=row.ecoli,
+            enterococci=row.enterococci,
+            evaluation=row.evaluation,
             source_url=row.source_url,
         )
         for row in rows

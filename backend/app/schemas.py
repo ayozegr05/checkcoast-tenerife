@@ -43,6 +43,16 @@ class BeachIncidentOut(BaseModel):
     source_url: str | None
 
 
+class BeachMeasurementOut(BaseModel):
+    id: int
+    beach_id: int
+    sampled_at: date
+    ecoli: str | None
+    enterococci: str | None
+    evaluation: str | None
+    source_url: str | None
+
+
 class AlertOut(BaseModel):
     beach_id: int
     beach_name: str

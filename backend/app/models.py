@@ -79,6 +79,12 @@ class Beach(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    measurements: Mapped[list["BeachMeasurement"]] = relationship(
+        back_populates="beach",
+        order_by="desc(BeachMeasurement.sampled_at)",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class BeachStatus(Base):
@@ -120,4 +126,31 @@ class BeachIncident(Base):
 
     beach: Mapped[Beach] = relationship(
         back_populates="incidents", passive_deletes=True
+    )
+
+
+class BeachMeasurement(Base):
+    """Resultado de un muestreo de calidad del agua en una playa.
+
+    Náyade publica por cada punto de muestreo: fecha de toma, E. coli,
+    enterococo y observación ("Zona Apta para el baño", etc.).
+    """
+
+    __tablename__ = "beach_measurements"
+    __table_args__ = (
+        UniqueConstraint("beach_id", "sampled_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    beach_id: Mapped[int] = mapped_column(
+        ForeignKey("beaches.id", ondelete="CASCADE"), index=True
+    )
+    sampled_at: Mapped[date] = mapped_column(Date)
+    ecoli: Mapped[str | None] = mapped_column(String(80))
+    enterococci: Mapped[str | None] = mapped_column(String(80))
+    evaluation: Mapped[str | None] = mapped_column(Text)
+    source_url: Mapped[str | None] = mapped_column(Text)
+
+    beach: Mapped[Beach] = relationship(
+        back_populates="measurements", passive_deletes=True
     )
