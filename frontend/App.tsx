@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
+import * as Notifications from 'expo-notifications';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -20,6 +21,7 @@ import {
   fetchBeaches,
   fetchOutfalls,
 } from './lib/api';
+import { setupPushNotifications } from './lib/notifications';
 
 const EMPTY_FC: FeatureCollection = {
   type: 'FeatureCollection',
@@ -74,6 +76,36 @@ export default function App() {
       })),
     };
   }, [beaches, alerts]);
+
+  // Push: registro del token + al tocar la notificación abrir la playa
+  const beachesRef = useRef(beachesFC);
+  beachesRef.current = beachesFC;
+  useEffect(() => {
+    setupPushNotifications();
+    const sub = Notifications.addNotificationResponseReceivedListener(
+      (resp) => {
+        const id = (
+          resp.notification.request.content.data as
+            | { beach_id?: number }
+            | undefined
+        )?.beach_id;
+        const f =
+          id != null
+            ? beachesRef.current.features.find((x) => x.id === id)
+            : undefined;
+        if (!f) return;
+        setListOpen(false);
+        setMuniOpen(false);
+        setSelection({
+          type: 'beach',
+          feature: f,
+          hasAlert: f.properties.alert === true,
+        });
+        setFocus([...f.geometry.coordinates]);
+      },
+    );
+    return () => sub.remove();
+  }, []);
 
   const handleListSelect = (feature: GeoFeature) => {
     setListOpen(false);

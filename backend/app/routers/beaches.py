@@ -176,6 +176,10 @@ def set_beach_status(
     db.add(status)
     db.commit()
     db.refresh(status)
+
+    from app.notify import notify_beach_status
+
+    notify_beach_status(db, beach, status.status)
     return BeachStatusOut(
         beach_id=beach.id,
         beach_name=beach.name,

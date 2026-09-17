@@ -76,3 +76,13 @@ export const fetchBeachIncidents = (beachId: number) =>
 export const fetchBeachQuality = (beachId: number) =>
   getJson<BeachMeasurement[]>(`/beaches/${beachId}/quality`);
 export const fetchBeachStats = () => getJson<BeachStats[]>('/beaches/stats');
+
+// Registro del Expo push token en el backend (idempotente)
+export const registerDevice = (token: string, platform: string) =>
+  fetch(`${API_URL}/devices`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, platform }),
+  }).then((res) => {
+    if (!res.ok) throw new Error(`API /devices: HTTP ${res.status}`);
+  });

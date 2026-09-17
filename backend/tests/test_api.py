@@ -136,3 +136,32 @@ def test_set_beach_status_invalid():
         f"/beaches/{beaches[0]['id']}/status", json={"status": "bogus"}
     )
     assert r.status_code == 422
+
+
+def test_register_device_idempotent():
+    from app.db import SessionLocal
+    from app.models import DeviceToken
+
+    token = "ExponentPushToken[pytest-test-token]"
+    try:
+        r = client.post(
+            "/devices", json={"token": token, "platform": "android"}
+        )
+        assert r.status_code == 201
+        assert r.json()["ok"] is True
+        # Idempotente: mismo token no duplica
+        r = client.post("/devices", json={"token": token})
+        assert r.status_code == 201
+        db = SessionLocal()
+        assert db.query(DeviceToken).filter_by(token=token).count() == 1
+        db.close()
+    finally:
+        db = SessionLocal()
+        db.query(DeviceToken).filter_by(token=token).delete()
+        db.commit()
+        db.close()
+
+
+def test_register_device_invalid_token():
+    r = client.post("/devices", json={"token": "not-an-expo-token"})
+    assert r.status_code == 400

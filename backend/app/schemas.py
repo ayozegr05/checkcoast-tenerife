@@ -64,6 +64,11 @@ class BeachStatsOut(BaseModel):
     latest_sampled_at: date | None
 
 
+class DeviceIn(BaseModel):
+    token: str
+    platform: str | None = None
+
+
 class AlertOut(BaseModel):
     beach_id: int
     beach_name: str

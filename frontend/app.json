@@ -5,7 +5,13 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "plugins": [
-      "@maplibre/maplibre-react-native"
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-notifications",
+        {
+          "color": "#0288d1"
+        }
+      ]
     ],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

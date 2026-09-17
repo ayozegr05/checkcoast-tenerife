@@ -155,3 +155,20 @@ class BeachMeasurement(Base):
     beach: Mapped[Beach] = relationship(
         back_populates="measurements", passive_deletes=True
     )
+
+
+class DeviceToken(Base):
+    """Expo push token de un dispositivo con la app instalada.
+
+    Se registra al arrancar la app y se usa para avisar de cambios de
+    estado de playas vía Expo Push Service.
+    """
+
+    __tablename__ = "device_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    platform: Mapped[str | None] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

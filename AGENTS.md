@@ -8,8 +8,11 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
 
 - `backend/` — FastAPI + SQLAlchemy 2 + GeoAlchemy2 + Alembic, Python 3.12
   - `app/models.py` — `Outfall`, `Beach` (+`monitored`), `BeachStatus`,
-    `BeachIncident`, `BeachMeasurement`
-  - `app/routers/` — `outfalls.py`, `beaches.py`, `alerts.py`
+    `BeachIncident`, `BeachMeasurement`, `DeviceToken`
+  - `app/routers/` — `outfalls.py`, `beaches.py`, `alerts.py`,
+    `devices.py` (`POST /devices` registra Expo push tokens)
+  - `app/notify.py` — push vía Expo Push Service al cambiar estado de
+    playa (scraper + POST manual); purga tokens DeviceNotRegistered
   - `app/queries.py` — `beaches_with_latest_status` (join último estado)
   - `app/main.py` — lifespan con APScheduler (`_sync_beach_statuses` cada
     `NAYADE_SYNC_SECONDS`, 1 h por defecto; envuelto en try/except)
@@ -18,7 +21,7 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     `ingest_osm_beaches.py` (Overpass)
   - `alembic/` — migraciones (`alembic upgrade head`)
   - `tests/` — pytest: `test_api.py`, `test_nayade_parser.py`,
-    `test_osm_ingest.py` (33 tests)
+    `test_osm_ingest.py` (35 tests)
 - `frontend/` — Expo SDK 57 + React Native + TypeScript + MapLibre
   - `App.tsx` — fetch inicial (outfalls/beaches/alerts), polling
     `/alerts` cada 5 min, tarjeta de bienvenida, BeachList modal
@@ -38,7 +41,9 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     `BeachList` filtrada
   - `components/FeatureSheet.tsx` — hoja overlay sobre el mapa: emisarios
     inline; playas delega en `BeachDetail`
-  - `lib/api.ts` — tipos + fetchers
+  - `lib/api.ts` — tipos + fetchers (+`registerDevice`)
+  - `lib/notifications.ts` — `setupPushNotifications`: canal `alerts`,
+    permiso, Expo push token → `POST /devices`; handler foreground
   - `frontend/AGENTS.md` exige leer docs de Expo v57 antes de escribir código
 - `ROADMAP.md` — hitos 0-5b completados; pendientes: notificaciones push
   (punto 4, requiere rebuild EAS), Hito 6 (calidad/deploy), Hito 7 (portfolio)
@@ -123,7 +128,8 @@ npx tsc --noEmit                                        # typecheck
 
 ## Pendiente inmediato
 
-- Punto 4 del Hito 5b: notificaciones push (`expo-notifications` es
-  nativo → requiere nuevo build EAS)
+- Push implementado (Hito 5b completo) — requiere `eas build --profile
+  development` + reinstalar para que el token se registre en el
+  dispositivo; FCM lo gestiona EAS credentials
 - Hito 6: README, CI, dockerizar API, deploy backend
 - Hito 7: screenshots, diagrama arquitectura

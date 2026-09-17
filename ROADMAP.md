@@ -56,7 +56,7 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 - [x] Bonus: reparados 6 nombres de playa con mojibake (`?`) del censo MITECO usando la grafía oficial de Náyade
 - [ ] (extensión futura) Ingesta de prensa local / LLM como fuente secundaria que *proponga* alertas pendientes de confirmación contra la oficial
 
-## Hito 5b — Orientación al bañista 🚧
+## Hito 5b — Orientación al bañista ✅
 
 Funciones para acercar la app al objetivo: avisar al bañista del estado de cada playa.
 
@@ -64,7 +64,7 @@ Funciones para acercar la app al objetivo: avisar al bañista del estado de cada
 2. [x] **Historial de incidentes** en el panel de detalle (fechas y motivo de cada cierre)
    - Soporte backend: tabla `beach_incidents`, scraper v2 (solo Tenerife + municipios), `GET /beaches/{id}/incidents`, `status` embebido en `/beaches`
 3. [x] **Calidad del agua**: tabla `beach_measurements` (fecha, E. coli, enterococo, evaluación) scrapeada de la pestaña Muestreos de Náyade; `GET /beaches/{id}/quality` + "Último análisis" en el panel de detalle
-4. [ ] **Notificaciones** al cambiar el estado de una playa (`expo-notifications` → requiere nuevo build EAS)
+4. [x] **Notificaciones** al cambiar el estado de una playa: `POST /devices` registra Expo push tokens, `notify.py` envía vía Expo Push Service desde el scraper y el POST manual (cierre/aviso/reapertura, con `beach_id` para deep-link); frontend registra el token al arrancar, canal Android `alerts`, tap abre la ficha. **Requiere nuevo `eas build --profile development` para funcionar** (módulo nativo)
 5. [x] **Capa de playas no monitorizadas** desde OSM (`natural=beach` vía Overpass; +106 playas, dedup vs censo oficial por nombre/distancia; gris en mapa y "No monitorizada" en lista)
 6. [x] **Vista por municipio**: ranking de incidencias agregado por municipio (cerradas/avisos ahora, incidentes totales y último año, muestras no aptas) con barra de severidad; acceso desde botón «Municipios» en el mapa y desde la lista de playas; tocar un municipio abre la lista filtrada
 7. [x] **UX lista de playas**: PMs agrupados por playa (filas expandibles con último análisis e incidentes inline; conteo de playas por nombre base), detalle dentro del modal con foto satélite Esri + «Ver en mapa» + atrás, estado de la lista persistido entre aperturas; `BeachDetail` compartido con `FeatureSheet`

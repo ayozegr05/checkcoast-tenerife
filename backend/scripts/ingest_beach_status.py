@@ -352,6 +352,7 @@ def run() -> tuple[int, int]:
     db = SessionLocal()
     updated = seen = 0
     matched: set[int] = set()
+    changed: list[tuple[Beach, BeachState]] = []
     try:
         beaches = {_normalize(b.name): b for b in db.query(Beach).all()}
         latest = _latest_status_map(db)
@@ -371,12 +372,19 @@ def run() -> tuple[int, int]:
                     matched.add(beach.id)
                     if _persist(db, beach, pm, info.municipality, latest):
                         updated += 1
-                        latest[beach.id] = _derive_state(pm)
+                        state = _derive_state(pm)
+                        latest[beach.id] = state
+                        changed.append((beach, state))
             except requests.RequestException as e:
                 print(f"  zona {cod}: error {e}")
             time.sleep(0.3)  # ser amable con el portal
 
         db.commit()
+        # Push a los dispositivos registrados, tras confirmar el commit
+        from app.notify import notify_beach_status
+
+        for beach, state in changed:
+            notify_beach_status(db, beach, state)
     except Exception:
         db.rollback()
         raise
