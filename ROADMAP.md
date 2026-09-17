@@ -83,9 +83,11 @@ Tres niveles, en orden de impacto/esfuerzo:
    arrastrable (PanResponder+Animated: peek/expandida/deslizar-cerrar),
    headers con degradado mar (PNG `gradient-sea.png` — evita
    expo-linear-gradient nativo), halo pulsante en playas con alerta
-3. [ ] **Mapa temático**: basemap vectorial reestilado (OpenFreeMap:
-   mar turquesa, tierra arena) + markers de sombrilla PNG con aro de
-   estado
+3. [x] **Mapa temático**: basemap vectorial OpenFreeMap (OpenMapTiles)
+   retenido con la paleta via `scripts_gen_mapstyle.py` →
+   `assets/mapstyle-sea.json` (mar turquesa, tierra arena, etiquetas
+   azul pizarra); toggle satélite Esri intacto. Markers: chinchetas
+   `pin-{estado}.png` generadas (aro de color + sombrilla navy)
 
 ## Hito 6 — Calidad y despliegue ⬜
 - [ ] Tests backend (pytest) + componente (jest-expo)

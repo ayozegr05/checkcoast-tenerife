@@ -22,21 +22,11 @@ import {
 
 import type { FeatureCollection, GeoFeature } from '../lib/api';
 import { colors, fonts } from '../lib/theme';
+import seaStyle from '../assets/mapstyle-sea.json';
 
-// Estilo raster con tiles de OpenStreetMap (sin API key)
-const OSM_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      maxzoom: 19,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
-  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
-};
+// Estilo vectorial tematico (OpenFreeMap/OpenMapTiles retenido con la
+// paleta oceanica por scripts_gen_mapstyle.py). Sin API key.
+const SEA_STYLE = seaStyle as unknown as StyleSpecification;
 
 // Estilo raster satélite con Esri World Imagery + capa de etiquetas
 // transparente (vista híbrida). Gratuito, sin API key.
@@ -162,14 +152,17 @@ export default function CoastMap({
     <View style={styles.container}>
       <Map
         style={styles.map}
-        mapStyle={satellite ? SATELLITE_STYLE : OSM_STYLE}
+        mapStyle={satellite ? SATELLITE_STYLE : SEA_STYLE}
         attributionPosition={{ bottom: 8, right: 8 }}
       >
         <Camera ref={cameraRef} initialViewState={TENERIFE_VIEW} />
 
         <Images
           images={{
-            'icon-beach': require('../assets/icons/beach.png'),
+            'pin-open': require('../assets/icons/pin-open.png'),
+            'pin-warning': require('../assets/icons/pin-warning.png'),
+            'pin-closed': require('../assets/icons/pin-closed.png'),
+            'pin-unmonitored': require('../assets/icons/pin-unmonitored.png'),
             'icon-outfall': {
               source: require('../assets/icons/outfall_sil.png'),
               sdf: true,
@@ -236,35 +229,27 @@ export default function CoastMap({
             onPress={handlePress('beach')}
           >
             <Layer
-              id="beach-points"
-              type="circle"
-              paint={{
-                'circle-radius': 8,
-                'circle-color': [
-                  'case',
-                  ['==', ['get', 'monitored'], false],
-                  BEACH_COLORS.unmonitored,
-                  ['match',
-                    ['get', 'status'],
-                    'closed',
-                    BEACH_COLORS.closed,
-                    'warning',
-                    BEACH_COLORS.warning,
-                    'unknown',
-                    BEACH_COLORS.unknown,
-                    BEACH_COLORS.open,
-                  ],
-                ],
-                'circle-stroke-width': 2,
-                'circle-stroke-color': '#ffffff',
-              }}
-            />
-            <Layer
-              id="beach-icons"
+              id="beach-pins"
               type="symbol"
               layout={{
-                'icon-image': 'icon-beach',
-                'icon-size': 0.22,
+                'icon-image': [
+                  'case',
+                  ['==', ['get', 'monitored'], false],
+                  'pin-unmonitored',
+                  [
+                    'match',
+                    ['get', 'status'],
+                    'closed',
+                    'pin-closed',
+                    'warning',
+                    'pin-warning',
+                    'unknown',
+                    'pin-unmonitored',
+                    'pin-open',
+                  ],
+                ],
+                'icon-size': 0.42,
+                'icon-anchor': 'bottom',
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
               }}

@@ -95,4 +95,64 @@ for x in range(W):
     gd.line([(x, 0), (x, H)], fill=lerp(DEEP, TURQ, x / W))
 grad.save("assets/gradient-sea.png")
 
+
+# --- pins de playa: chincheta circular blanca + aro de estado + sombrilla ---
+NAVY = (22, 50, 63)  # #16323f
+
+PIN_COLORS = {
+    "open": (13, 148, 136),       # #0d9488
+    "warning": (230, 81, 0),      # #e65100
+    "closed": (198, 40, 40),      # #c62828
+    "unmonitored": (143, 163, 173),  # #8fa3ad
+}
+
+
+def pin_shape(d, s, scale, color):
+    """Circulo con cola (chincheta). `scale` encoge alrededor de (48,48)."""
+    c = s / 96
+
+    def t(x, y):
+        return (48 * c + (x - 48) * scale * c, 48 * c + (y - 48) * scale * c)
+
+    # circulo: (10,2)-(86,78); cola: (26,60)-(70,60)-(48,94)
+    e = [t(10, 2), t(86, 78)]
+    d.ellipse([e[0][0], e[0][1], e[1][0], e[1][1]], fill=color)
+    d.polygon([t(26, 60), t(70, 60), t(48, 94)], fill=color)
+
+
+def umbrella(img, cx, cy, r, color):
+    """Sombrilla: cupula semicircular con borde festoneado + palo."""
+    d = ImageDraw.Draw(img)
+    # cupula
+    d.pieslice([cx - r, cy - r, cx + r, cy + r], 180, 360, fill=color)
+    # festones: recorta 3 semicirculos del borde inferior
+    erase = Image.new("L", img.size, 0)
+    de = ImageDraw.Draw(erase)
+    for fx in (-0.66, 0.0, 0.66):
+        ex = cx + fx * r
+        er = r * 0.34
+        de.ellipse([ex - er, cy - er * 0.5, ex + er, cy + er * 1.5],
+                   fill=255)
+    img.paste(0, (0, 0), erase)
+    d = ImageDraw.Draw(img)
+    # palo + gancho
+    pw = max(2, int(r * 0.16))
+    d.line([(cx, cy), (cx, cy + r * 1.15)], fill=color, width=pw)
+    d.arc([cx, cy + r * 0.9, cx + r * 0.45, cy + r * 1.35],
+          270, 450, fill=color, width=pw)
+
+
+def make_pin(name, status_color):
+    s = 96
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    pin_shape(d, s, 1.0, status_color)   # cuerpo con color de estado
+    pin_shape(d, s, 0.78, WHITE)         # interior blanco -> aro visible
+    umbrella(img, 48, 36, 15, NAVY)
+    img.save(f"assets/icons/pin-{name}.png")
+
+
+for name, col in PIN_COLORS.items():
+    make_pin(name, col)
+
 print("assets generados")
