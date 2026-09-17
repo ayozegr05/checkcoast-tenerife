@@ -123,10 +123,7 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
 
         <Images
           images={{
-            'icon-beach': {
-              source: require('../assets/icons/beach_sil.png'),
-              sdf: true,
-            },
+            'icon-beach': require('../assets/icons/beach.png'),
             'icon-outfall': {
               source: require('../assets/icons/outfall_sil.png'),
               sdf: true,
@@ -173,23 +170,28 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
             onPress={handlePress('beach')}
           >
             <Layer
-              id="beach-icons"
-              type="symbol"
-              layout={{
-                'icon-image': 'icon-beach',
-                'icon-size': 0.5,
-                'icon-allow-overlap': true,
-                'icon-ignore-placement': true,
-              }}
+              id="beach-points"
+              type="circle"
               paint={{
-                'icon-color': [
+                'circle-radius': 8,
+                'circle-color': [
                   'case',
                   ['get', 'alert'],
                   BEACH_ALERT_COLOR,
                   BEACH_COLOR,
                 ],
-                'icon-halo-color': '#ffffff',
-                'icon-halo-width': 2,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ffffff',
+              }}
+            />
+            <Layer
+              id="beach-icons"
+              type="symbol"
+              layout={{
+                'icon-image': 'icon-beach',
+                'icon-size': 0.22,
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
               }}
             />
           </GeoJSONSource>
