@@ -34,6 +34,17 @@ const fmtDate = (iso: string) => {
   return `${d}/${m}/${y}`;
 };
 
+// Un incidente es "cierre" si la observación prohíbe el baño
+const isClosure = (inc: BeachIncident) =>
+  /prohib/i.test(inc.observations ?? '');
+
+// Color de la evaluación del último análisis
+const evaluationColor = (evaluation: string) => {
+  if (/apta/i.test(evaluation)) return '#2e7d32';
+  if (/prohib/i.test(evaluation)) return '#c62828';
+  return '#e65100';
+};
+
 export default function FeatureSheet({
   selection,
   onClose,
@@ -122,7 +133,12 @@ export default function FeatureSheet({
             {quality[0].enterococci ?? '—'}
           </Text>
           {quality[0].evaluation ? (
-            <Text style={styles.incidentObs}>
+            <Text
+              style={[
+                styles.incidentObs,
+                { color: evaluationColor(quality[0].evaluation) },
+              ]}
+            >
               Evaluación: {quality[0].evaluation}
             </Text>
           ) : null}
@@ -133,6 +149,10 @@ export default function FeatureSheet({
         <View style={styles.history}>
           <Text style={styles.historyTitle}>
             Historial de incidencias ({incidents.length})
+          </Text>
+          <Text style={styles.incidentObs}>
+            {incidents.filter(isClosure).length} cierres ·{' '}
+            {incidents.filter((i) => !isClosure(i)).length} avisos
           </Text>
           <ScrollView style={styles.historyList} nestedScrollEnabled>
             {incidents.map((inc) => (

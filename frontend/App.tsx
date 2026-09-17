@@ -2,7 +2,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -35,6 +34,7 @@ export default function App() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const [focus, setFocus] = useState<[number, number] | null>(null);
+  const [introDismissed, setIntroDismissed] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchOutfalls(), fetchBeaches(), fetchAlerts()])
@@ -89,6 +89,7 @@ export default function App() {
         beaches={beachesFC}
         focus={focus}
         onSelect={setSelection}
+        onOpenList={() => setListOpen(true)}
       />
 
       {loading && (
@@ -102,18 +103,29 @@ export default function App() {
         </View>
       )}
 
-      <Pressable
-        style={styles.listButton}
-        onPress={() => setListOpen(true)}
-        accessibilityRole="button"
-        accessibilityLabel="Abrir lista de playas"
-      >
-        <Image
-          source={require('./assets/icons/beach.png')}
-          style={styles.listButtonIcon}
-        />
-        <Text style={styles.listButtonText}>Playas</Text>
-      </Pressable>
+      {!introDismissed && !loading && !error && (
+        <View style={styles.introCard}>
+          <Text style={styles.introTitle}>CheckCoast Tenerife</Text>
+          <Text style={styles.introText}>
+            Estado de las playas y puntos de vertido de la isla, con datos
+            oficiales actualizados.
+          </Text>
+          <Text style={styles.introHint}>· Toca un punto para ver su detalle</Text>
+          <Text style={styles.introHint}>
+            · «Playas» para buscar por nombre o municipio
+          </Text>
+          <Text style={styles.introHint}>
+            · Gris = playa sin monitorización oficial
+          </Text>
+          <Pressable
+            style={styles.introBtn}
+            onPress={() => setIntroDismissed(true)}
+            accessibilityRole="button"
+          >
+            <Text style={styles.introBtnText}>Entendido</Text>
+          </Pressable>
+        </View>
+      )}
 
       {listOpen && (
         <BeachList
@@ -152,26 +164,48 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     textAlign: 'center',
   },
-  listButton: {
+  introCard: {
     position: 'absolute',
-    bottom: 24,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 24,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    elevation: 4,
+    left: 24,
+    right: 24,
+    top: '30%',
+    backgroundColor: 'rgba(255,255,255,0.97)',
+    borderRadius: 14,
+    padding: 20,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
   },
-  listButtonIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 6,
+  introTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0277bd',
+    marginBottom: 8,
   },
-  listButtonText: {
+  introText: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 10,
+    lineHeight: 20,
+  },
+  introHint: {
+    fontSize: 13,
+    color: '#555',
+    marginTop: 2,
+  },
+  introBtn: {
+    marginTop: 14,
+    alignSelf: 'flex-end',
+    backgroundColor: '#0277bd',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+  },
+  introBtnText: {
+    color: '#fff',
     fontSize: 14,
     fontWeight: '700',
-    color: '#222',
   },
 });

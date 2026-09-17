@@ -82,6 +82,7 @@ type CoastMapProps = {
   beaches: FeatureCollection; // con properties.alert ya inyectado
   focus?: [number, number] | null; // [lon, lat] a donde volar la cámara
   onSelect: (selection: Selection) => void;
+  onOpenList?: () => void;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -98,6 +99,7 @@ export default function CoastMap({
   beaches,
   focus,
   onSelect,
+  onOpenList,
 }: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
   const [showOutfalls, setShowOutfalls] = useState(true);
@@ -221,12 +223,24 @@ export default function CoastMap({
         <Pressable
           style={[styles.legendRow, !showOutfalls && styles.legendOff]}
           onPress={() => setShowOutfalls((v) => !v)}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: showOutfalls }}
         >
           <Image
             source={require('../assets/icons/outfall.png')}
             style={styles.legendIcon}
           />
           <Text style={styles.legendTitle}>Vertidos</Text>
+          <View
+            style={[
+              styles.legendSwitch,
+              showOutfalls ? styles.switchOn : styles.switchOff,
+            ]}
+          >
+            <Text style={styles.switchText}>
+              {showOutfalls ? 'ON' : 'OFF'}
+            </Text>
+          </View>
         </Pressable>
         <View style={styles.legendSub}>
           {[
@@ -243,12 +257,24 @@ export default function CoastMap({
         <Pressable
           style={[styles.legendRow, !showBeaches && styles.legendOff]}
           onPress={() => setShowBeaches((v) => !v)}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: showBeaches }}
         >
           <Image
             source={require('../assets/icons/beach.png')}
             style={styles.legendIcon}
           />
           <Text style={styles.legendTitle}>Playas</Text>
+          <View
+            style={[
+              styles.legendSwitch,
+              showBeaches ? styles.switchOn : styles.switchOff,
+            ]}
+          >
+            <Text style={styles.switchText}>
+              {showBeaches ? 'ON' : 'OFF'}
+            </Text>
+          </View>
         </Pressable>
         <View style={styles.legendSub}>
           {[
@@ -264,16 +290,32 @@ export default function CoastMap({
         </View>
       </View>
 
-      <Pressable
-        style={styles.toggle}
-        onPress={() => setSatellite((v) => !v)}
-        accessibilityRole="button"
-        accessibilityLabel="Cambiar vista del mapa"
-      >
-        <Text style={styles.toggleText}>
-          {satellite ? 'Mapa' : 'Satélite'}
-        </Text>
-      </Pressable>
+      <View style={styles.controls}>
+        <Pressable
+          style={styles.toggle}
+          onPress={() => setSatellite((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel="Cambiar vista del mapa"
+        >
+          <Text style={styles.toggleText}>
+            {satellite ? 'Mapa' : 'Satélite'}
+          </Text>
+        </Pressable>
+        {onOpenList && (
+          <Pressable
+            style={styles.toggle}
+            onPress={onOpenList}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir lista de playas"
+          >
+            <Image
+              source={require('../assets/icons/beach.png')}
+              style={styles.toggleIcon}
+            />
+            <Text style={styles.toggleText}>Playas</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -285,15 +327,26 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  toggle: {
+  controls: {
     position: 'absolute',
     top: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 24,
     right: 16,
+    gap: 8,
+    alignItems: 'flex-end',
+  },
+  toggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 14,
     elevation: 4,
+  },
+  toggleIcon: {
+    width: 16,
+    height: 16,
+    marginRight: 6,
   },
   toggleText: {
     fontSize: 14,
@@ -312,6 +365,24 @@ const styles = StyleSheet.create({
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 140,
+  },
+  legendSwitch: {
+    marginLeft: 'auto',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  switchOn: {
+    backgroundColor: '#2e7d32',
+  },
+  switchOff: {
+    backgroundColor: '#bdbdbd',
+  },
+  switchText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
   legendOff: {
     opacity: 0.35,
