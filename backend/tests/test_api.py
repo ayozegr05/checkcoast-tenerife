@@ -48,6 +48,31 @@ def test_beaches_geojson():
     assert len(data["features"]) > 0
 
 
+def test_beaches_include_status_and_municipality():
+    features = client.get("/beaches").json()["features"]
+    for f in features:
+        assert f["properties"]["status"] in (
+            "open", "closed", "warning", "unknown"
+        )
+    # La ingesta de Náyade rellena municipality en las playas casadas
+    assert any(f["properties"]["municipality"] for f in features)
+
+
+def test_beach_incidents():
+    beaches = client.get("/beaches").json()["features"]
+    beach_id = beaches[0]["id"]
+    r = client.get(f"/beaches/{beach_id}/incidents")
+    assert r.status_code == 200
+    for inc in r.json():
+        assert inc["beach_id"] == beach_id
+        assert inc["opened_at"]
+
+
+def test_beach_incidents_not_found():
+    r = client.get("/beaches/999999/incidents")
+    assert r.status_code == 404
+
+
 def test_beach_status_known_id():
     beaches = client.get("/beaches").json()["features"]
     beach_id = beaches[0]["id"]

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel
@@ -31,6 +31,15 @@ class BeachStatusOut(BaseModel):
     beach_name: str
     status: str
     reported_at: datetime | None
+    source_url: str | None
+
+
+class BeachIncidentOut(BaseModel):
+    id: int
+    beach_id: int
+    opened_at: date
+    closed_at: date | None
+    observations: str | None
     source_url: str | None
 
 

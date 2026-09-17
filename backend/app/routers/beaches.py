@@ -3,9 +3,10 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Beach, BeachState, BeachStatus
+from app.models import Beach, BeachIncident, BeachState, BeachStatus
 from app.queries import beaches_with_latest_status
 from app.schemas import (
+    BeachIncidentOut,
     BeachStatusIn,
     BeachStatusOut,
     Feature,
@@ -19,11 +20,8 @@ router = APIRouter(tags=["beaches"])
 @router.get("/beaches", response_model=FeatureCollection)
 def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
     rows = (
-        db.query(
-            Beach.id,
-            Beach.name,
-            Beach.municipality,
-            Beach.source_url,
+        beaches_with_latest_status(db)
+        .add_columns(
             func.ST_X(Beach.geom).label("lon"),
             func.ST_Y(Beach.geom).label("lat"),
         )
@@ -33,17 +31,50 @@ def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
     return FeatureCollection(
         features=[
             Feature(
-                id=row.id,
-                geometry=PointGeometry(coordinates=[row.lon, row.lat]),
+                id=beach.id,
+                geometry=PointGeometry(coordinates=[lon, lat]),
                 properties={
-                    "name": row.name,
-                    "municipality": row.municipality,
-                    "source_url": row.source_url,
+                    "name": beach.name,
+                    "municipality": beach.municipality,
+                    "source_url": beach.source_url,
+                    "status": status.status.value if status else "unknown",
+                    "reported_at": (
+                        status.reported_at.isoformat() if status else None
+                    ),
                 },
             )
-            for row in rows
+            for beach, status, lon, lat in rows
         ]
     )
+
+
+@router.get(
+    "/beaches/{beach_id}/incidents",
+    response_model=list[BeachIncidentOut],
+)
+def beach_incidents(
+    beach_id: int, db: Session = Depends(get_db)
+) -> list[BeachIncidentOut]:
+    """Histórico de incidentes de una playa, más reciente primero."""
+    if db.get(Beach, beach_id) is None:
+        raise HTTPException(status_code=404, detail="Beach not found")
+    rows = (
+        db.query(BeachIncident)
+        .filter(BeachIncident.beach_id == beach_id)
+        .order_by(BeachIncident.opened_at.desc())
+        .all()
+    )
+    return [
+        BeachIncidentOut(
+            id=row.id,
+            beach_id=row.beach_id,
+            opened_at=row.opened_at,
+            closed_at=row.closed_at,
+            observations=row.observations,
+            source_url=row.source_url,
+        )
+        for row in rows
+    ]
 
 
 @router.post(

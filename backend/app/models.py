@@ -1,8 +1,17 @@
 import enum
-from datetime import datetime
+from datetime import date, datetime
 
 from geoalchemy2 import Geometry, WKBElement
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import (
+    Date,
+    DateTime,
+    Enum,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -64,6 +73,12 @@ class Beach(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    incidents: Mapped[list["BeachIncident"]] = relationship(
+        back_populates="beach",
+        order_by="desc(BeachIncident.opened_at)",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class BeachStatus(Base):
@@ -80,3 +95,29 @@ class BeachStatus(Base):
     source_url: Mapped[str | None] = mapped_column(Text)
 
     beach: Mapped[Beach] = relationship(back_populates="statuses")
+
+
+class BeachIncident(Base):
+    """Incidente oficial de una zona de baño (cierre, aviso...).
+
+    Registrado en Náyade con fecha de apertura y de cierre; un incidente
+    sin `closed_at` está activo ahora mismo.
+    """
+
+    __tablename__ = "beach_incidents"
+    __table_args__ = (
+        UniqueConstraint("beach_id", "opened_at", "observations"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    beach_id: Mapped[int] = mapped_column(
+        ForeignKey("beaches.id", ondelete="CASCADE"), index=True
+    )
+    opened_at: Mapped[date] = mapped_column(Date)
+    closed_at: Mapped[date | None] = mapped_column(Date)
+    observations: Mapped[str | None] = mapped_column(Text)
+    source_url: Mapped[str | None] = mapped_column(Text)
+
+    beach: Mapped[Beach] = relationship(
+        back_populates="incidents", passive_deletes=True
+    )

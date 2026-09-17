@@ -1,6 +1,7 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { BeachIncident, fetchBeachIncidents } from '../lib/api';
 import type { Selection } from './CoastMap';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -15,6 +16,19 @@ const STATUS_COLORS: Record<string, string> = {
   unknown: '#f9a825',
 };
 
+// Estado de playa: usa properties.status (de /beaches + /alerts)
+const BEACH_STATUS: Record<string, { label: string; color: string }> = {
+  closed: { label: 'Cierre activo', color: '#c62828' },
+  warning: { label: 'Aviso activo', color: '#e65100' },
+  unknown: { label: 'Sin datos oficiales', color: '#9e9e9e' },
+  open: { label: 'Sin alertas activas', color: '#0288d1' },
+};
+
+const fmtDate = (iso: string) => {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+};
+
 export default function FeatureSheet({
   selection,
   onClose,
@@ -24,19 +38,29 @@ export default function FeatureSheet({
 }) {
   const { feature } = selection;
   const p = feature.properties;
+  const isBeach = selection.type === 'beach';
 
-  const statusKey =
-    selection.type === 'outfall'
-      ? (p.status ?? 'unknown')
-      : selection.hasAlert
-        ? 'illegal'
-        : 'legal';
-  const statusText =
-    selection.type === 'outfall'
-      ? STATUS_LABELS[p.status ?? 'unknown']
-      : selection.hasAlert
-        ? 'Alerta de cierre activa'
-        : 'Sin alertas activas';
+  const [incidents, setIncidents] = useState<BeachIncident[] | null>(null);
+
+  useEffect(() => {
+    setIncidents(null);
+    if (!isBeach) return;
+    fetchBeachIncidents(feature.id)
+      .then(setIncidents)
+      .catch(() => setIncidents([]));
+  }, [isBeach, feature.id]);
+
+  const beachKey =
+    isBeach && selection.hasAlert && p.status === 'open'
+      ? 'warning'
+      : (p.status ?? 'unknown');
+  const statusKey = isBeach ? beachKey : (p.status ?? 'unknown');
+  const statusText = isBeach
+    ? (BEACH_STATUS[beachKey]?.label ?? 'Sin datos oficiales')
+    : STATUS_LABELS[statusKey];
+  const statusColor = isBeach
+    ? (BEACH_STATUS[beachKey]?.color ?? '#9e9e9e')
+    : STATUS_COLORS[statusKey];
 
   return (
     <View style={styles.sheet}>
@@ -49,7 +73,7 @@ export default function FeatureSheet({
         </Pressable>
       </View>
 
-      <View style={[styles.chip, { backgroundColor: STATUS_COLORS[statusKey] }]}>
+      <View style={[styles.chip, { backgroundColor: statusColor }]}>
         <Text style={styles.chipText}>{statusText}</Text>
       </View>
 
@@ -57,14 +81,36 @@ export default function FeatureSheet({
       {p.municipality ? (
         <Text style={styles.row}>Municipio: {p.municipality}</Text>
       ) : null}
-      {selection.type === 'outfall' ? (
+      {isBeach ? (
         <Text style={styles.row}>
-          Fuente: Censo de Vertidos 2025 (Gob. Canarias)
+          Fuente: Censo Zonas de Baño 2025 (MITECO) · Incidencias: Náyade
+          (Min. Sanidad)
         </Text>
       ) : (
         <Text style={styles.row}>
-          Fuente: Censo Zonas de Baño 2025 (MITECO)
+          Fuente: Censo de Vertidos 2025 (Gob. Canarias)
         </Text>
+      )}
+
+      {isBeach && incidents !== null && incidents.length > 0 && (
+        <View style={styles.history}>
+          <Text style={styles.historyTitle}>
+            Historial de incidencias ({incidents.length})
+          </Text>
+          <ScrollView style={styles.historyList} nestedScrollEnabled>
+            {incidents.map((inc) => (
+              <View key={inc.id} style={styles.incident}>
+                <Text style={styles.incidentDates}>
+                  {fmtDate(inc.opened_at)} →{' '}
+                  {inc.closed_at ? fmtDate(inc.closed_at) : 'activo'}
+                </Text>
+                {inc.observations ? (
+                  <Text style={styles.incidentObs}>{inc.observations}</Text>
+                ) : null}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
       )}
     </View>
   );
@@ -117,5 +163,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#444',
     marginTop: 4,
+  },
+  history: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 8,
+  },
+  historyTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#222',
+    marginBottom: 4,
+  },
+  historyList: {
+    maxHeight: 140,
+  },
+  incident: {
+    paddingVertical: 4,
+  },
+  incidentDates: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#555',
+  },
+  incidentObs: {
+    fontSize: 12,
+    color: '#777',
   },
 });

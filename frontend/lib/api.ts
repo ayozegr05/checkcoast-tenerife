@@ -20,6 +20,15 @@ export type FeatureCollection = {
   features: GeoFeature[];
 };
 
+export type BeachIncident = {
+  id: number;
+  beach_id: number;
+  opened_at: string; // YYYY-MM-DD
+  closed_at: string | null;
+  observations: string | null;
+  source_url: string | null;
+};
+
 export type Alert = {
   beach_id: number;
   beach_name: string;
@@ -40,3 +49,5 @@ async function getJson<T>(path: string): Promise<T> {
 export const fetchOutfalls = () => getJson<FeatureCollection>('/outfalls');
 export const fetchBeaches = () => getJson<FeatureCollection>('/beaches');
 export const fetchAlerts = () => getJson<Alert[]>('/alerts');
+export const fetchBeachIncidents = (beachId: number) =>
+  getJson<BeachIncident[]>(`/beaches/${beachId}/incidents`);

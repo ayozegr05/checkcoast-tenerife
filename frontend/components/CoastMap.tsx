@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Image,
   NativeSyntheticEvent,
@@ -15,6 +15,7 @@ import {
   Images,
   Layer,
   Map,
+  type CameraRef,
   type PressEventWithFeatures,
   type StyleSpecification,
 } from '@maplibre/maplibre-react-native';
@@ -79,6 +80,7 @@ export type Selection =
 type CoastMapProps = {
   outfalls: FeatureCollection;
   beaches: FeatureCollection; // con properties.alert ya inyectado
+  focus?: [number, number] | null; // [lon, lat] a donde volar la cámara
   onSelect: (selection: Selection) => void;
 };
 
@@ -90,10 +92,23 @@ const STATUS_COLORS: Record<string, string> = {
 const BEACH_COLOR = '#0288d1';
 const BEACH_ALERT_COLOR = '#e65100';
 
-export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps) {
+export default function CoastMap({
+  outfalls,
+  beaches,
+  focus,
+  onSelect,
+}: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
   const [showOutfalls, setShowOutfalls] = useState(true);
   const [showBeaches, setShowBeaches] = useState(true);
+  const cameraRef = useRef<CameraRef>(null);
+
+  // Vuela a la playa elegida en la lista
+  useEffect(() => {
+    if (focus) {
+      cameraRef.current?.flyTo({ center: focus, zoom: 13, duration: 1500 });
+    }
+  }, [focus]);
 
   const handlePress =
     (type: 'outfall' | 'beach') =>
@@ -120,7 +135,7 @@ export default function CoastMap({ outfalls, beaches, onSelect }: CoastMapProps)
         mapStyle={satellite ? SATELLITE_STYLE : OSM_STYLE}
         attributionPosition={{ bottom: 8, right: 8 }}
       >
-        <Camera initialViewState={TENERIFE_VIEW} />
+        <Camera ref={cameraRef} initialViewState={TENERIFE_VIEW} />
 
         <Images
           images={{

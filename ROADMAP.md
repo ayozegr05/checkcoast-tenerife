@@ -56,6 +56,16 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 - [x] Bonus: reparados 6 nombres de playa con mojibake (`?`) del censo MITECO usando la grafía oficial de Náyade
 - [ ] (extensión futura) Ingesta de prensa local / LLM como fuente secundaria que *proponga* alertas pendientes de confirmación contra la oficial
 
+## Hito 5b — Orientación al bañista ✅
+- [x] Tabla `beach_incidents` (apertura/cierre/observación/fuente) + migración; el scraper los guarda deduplicados
+- [x] Scraper v2: pestaña Localización de Náyade → filtra solo zonas de Tenerife y rellena `municipality` (60/61 playas)
+- [x] `GET /beaches/{id}/incidents` + `status`/`reported_at` embebidos en cada feature de `/beaches`
+- [x] Frontend: pantalla de lista de playas (buscador, orden por estado — cerradas/avisos primero, filtro por municipio) con fly-to al seleccionar
+- [x] Frontend: historial de incidencias en el panel de detalle de la playa
+- [ ] (futuro) Capa de playas no monitorizadas desde OSM (`natural=beach`) — el censo oficial solo cubre zonas vigiladas
+- [ ] (futuro) Notificaciones push al cerrar una playa (`expo-notifications` → requiere nuevo build EAS)
+- [ ] (futuro) Calidad del agua: últimos análisis / clasificación anual desde Náyade
+
 ## Hito 6 — Calidad y despliegue ⬜
 - [ ] Tests backend (pytest) + componente (jest-expo)
 - [ ] README con instrucciones
@@ -71,5 +81,5 @@ Documento vivo del proyecto. Se actualiza a medida que avanzamos.
 ---
 
 ### Estado actual
-**Hito activo:** 5 — Tiempo real
-**Última actualización:** 2026-09-16
+**Hito activo:** 6 — Calidad y despliegue
+**Última actualización:** 2026-09-17

@@ -1,12 +1,21 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
+import BeachList from './components/BeachList';
 import CoastMap, { Selection } from './components/CoastMap';
 import FeatureSheet from './components/FeatureSheet';
 import {
   Alert,
   FeatureCollection,
+  GeoFeature,
   fetchAlerts,
   fetchBeaches,
   fetchOutfalls,
@@ -24,6 +33,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
+  const [listOpen, setListOpen] = useState(false);
+  const [focus, setFocus] = useState<[number, number] | null>(null);
 
   useEffect(() => {
     Promise.all([fetchOutfalls(), fetchBeaches(), fetchAlerts()])
@@ -45,23 +56,38 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Inyecta la flag `alert` en cada feature de playa para el estilo del mapa
+  // Inyecta `alert` y el status vivo (de /alerts) en cada feature de playa
   const beachesFC = useMemo<FeatureCollection>(() => {
-    const ids = new Set(alerts.map((a) => a.beach_id));
+    const byId = new Map(alerts.map((a) => [a.beach_id, a.status]));
     return {
       ...beaches,
       features: beaches.features.map((f) => ({
         ...f,
-        properties: { ...f.properties, alert: ids.has(f.id) },
+        properties: {
+          ...f.properties,
+          status: byId.get(f.id) ?? f.properties.status,
+          alert: byId.has(f.id),
+        },
       })),
     };
   }, [beaches, alerts]);
+
+  const handleListSelect = (feature: GeoFeature) => {
+    setListOpen(false);
+    setSelection({
+      type: 'beach',
+      feature,
+      hasAlert: feature.properties.alert === true,
+    });
+    setFocus([...feature.geometry.coordinates]);
+  };
 
   return (
     <View style={styles.container}>
       <CoastMap
         outfalls={outfalls}
         beaches={beachesFC}
+        focus={focus}
         onSelect={setSelection}
       />
 
@@ -74,6 +100,27 @@ export default function App() {
         <View style={styles.overlay}>
           <Text style={styles.errorText}>Error cargando datos: {error}</Text>
         </View>
+      )}
+
+      <Pressable
+        style={styles.listButton}
+        onPress={() => setListOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir lista de playas"
+      >
+        <Image
+          source={require('./assets/icons/beach.png')}
+          style={styles.listButtonIcon}
+        />
+        <Text style={styles.listButtonText}>Playas</Text>
+      </Pressable>
+
+      {listOpen && (
+        <BeachList
+          beaches={beachesFC.features}
+          onSelect={handleListSelect}
+          onClose={() => setListOpen(false)}
+        />
       )}
 
       {selection && (
@@ -104,5 +151,27 @@ const styles = StyleSheet.create({
     color: '#c62828',
     paddingHorizontal: 24,
     textAlign: 'center',
+  },
+  listButton: {
+    position: 'absolute',
+    bottom: 24,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    elevation: 4,
+  },
+  listButtonIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 6,
+  },
+  listButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#222',
   },
 });
