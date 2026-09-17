@@ -157,6 +157,12 @@ def _zone_body(cod_zona: str, pestanya: str) -> dict:
     }
 
 
+def _natural_municipality(name: str) -> str:
+    """"Orotava (La)" → "La Orotava" (grafía natural, no la del censo)."""
+    m = re.match(r"^(.*) \((El|La|Los|Las)\)$", name)
+    return f"{m.group(2)} {m.group(1)}" if m else name
+
+
 def _fetch_zone_info(session: requests.Session, cod_zona: str) -> ZoneInfo:
     """Pestaña Localización: isla y municipio de la zona."""
     html = _post(
@@ -166,7 +172,9 @@ def _fetch_zone_info(session: requests.Session, cod_zona: str) -> ZoneInfo:
     muni = re.search(RE_FIELD("Municipio"), html)
     return ZoneInfo(
         island=(isla.group(1).strip() if isla else ""),
-        municipality=(muni.group(1).strip() if muni else ""),
+        municipality=(
+            _natural_municipality(muni.group(1).strip()) if muni else ""
+        ),
     )
 
 

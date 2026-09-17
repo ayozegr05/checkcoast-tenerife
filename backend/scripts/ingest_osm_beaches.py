@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
 from app.models import Beach
+from scripts.assign_municipalities import assign_municipalities
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 USER_AGENT = "CheckCoastBot/0.1 (civic data ingestion; contact: local dev)"
@@ -155,6 +156,8 @@ def main() -> None:
                 )
             )
             created += 1
+        # Municipio por proximidad geográfica (límites OSM de la isla)
+        assign_municipalities(db)
         db.commit()
     except Exception:
         db.rollback()

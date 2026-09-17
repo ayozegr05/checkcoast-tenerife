@@ -33,6 +33,8 @@ _to_wgs84 = Transformer.from_crs("EPSG:32628", "EPSG:4326", always_xy=True)
 _STATUS_MAP = {
     "Autorizado": OutfallStatus.legal,
     "No autorizado": OutfallStatus.illegal,
+    # "En Trámite" y cualquier valor nuevo caen en unknown — la app lo
+    # muestra como "En trámite"
 }
 
 
