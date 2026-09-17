@@ -125,48 +125,46 @@ Tres niveles, en orden de impacto/esfuerzo:
 
 ## Hito 6 — Funcionalidades y datos ⬜
 
-Esfuerzo: **S** <1h · **M** 2-4h · **L** medio día+
-
-| # | Tarea | Esfuerzo |
-|---|-------|----------|
-| 6.1 | [ ] **Distancia vertido↔playa**: en ficha de vertido, "a 350 m de Playa X" (ST_Distance PostGIS, nearest beach) — convierte el dato en historia | M |
-| 6.2 | [ ] **Gráfica histórica de calidad**: mini-gráfica E. coli/enterococo por fecha en `BeachDetail` (~3.200 mediciones ya en BD) | M |
-| 6.3 | [ ] **Favoritos + notificaciones dirigidas**: marcar playas favoritas (AsyncStorage + `beach_ids` en `POST /devices`), push solo de esas playas | L |
-| 6.4 | [ ] **Filtro por estado en lista de playas**: chips cerrada/aviso/sin datos/apta/no monitorizada | S |
-| 6.5 | [ ] **Búsqueda desde el mapa**: campo en topbar que busque playas/vertidos/municipios y vuele al punto | M |
-| 6.6 | [ ] **Compartir estado de playa** (Share API: texto + deep-link) | S |
-| 6.7 | [ ] (extensión) Timeline de incidentes por municipio en la ficha del municipio | M |
+| # | Tarea | Estado | Esfuerzo |
+|---|-------|--------|----------|
+| 6.1 | **Distancia vertido↔playa**: en ficha de vertido, "a 350 m de Playa X" (ST_Distance PostGIS, nearest beach) — convierte el dato en historia | Pendiente | 🟡 Medio |
+| 6.2 | **Gráfica histórica de calidad**: mini-gráfica E. coli/enterococo por fecha en `BeachDetail` (~3.200 mediciones ya en BD) | Pendiente | 🟡 Medio |
+| 6.3 | **Favoritos + notificaciones dirigidas**: marcar playas favoritas (AsyncStorage + `beach_ids` en `POST /devices`), push solo de esas playas | Pendiente | 🔴 Alto |
+| 6.4 | **Filtro por estado en lista de playas**: chips cerrada/aviso/sin datos/apta/no monitorizada | Pendiente | 🟢 Trivial |
+| 6.5 | **Búsqueda desde el mapa**: campo en topbar que busque playas/vertidos/municipios y vuele al punto | Pendiente | 🟡 Medio |
+| 6.6 | **Compartir estado de playa** (Share API: texto + deep-link) | Pendiente | 🟢 Trivial |
+| 6.7 | (extensión) Timeline de incidentes por municipio en la ficha del municipio | Pendiente | 🟡 Medio |
 
 ## Hito 7 — Pulido visual ⬜
 
-| # | Tarea | Esfuerzo |
-|---|-------|----------|
-| 7.1 | [ ] Cabecera de ficha teñida por estado (degradado rojo/naranja/verde sutil) | S |
-| 7.2 | [ ] Top 3 del ranking destacado (badge/medalla visual) | S |
-| 7.3 | [ ] Skeletons de carga en listas (en vez de spinner/nada) | S |
-| 7.4 | [ ] Animación de entrada de la card (slide-up ~200ms, Reanimated) | S |
-| 7.5 | [ ] Accessibility labels en controles principales | M |
+| # | Tarea | Estado | Esfuerzo |
+|---|-------|--------|----------|
+| 7.1 | Cabecera de ficha teñida por estado (degradado rojo/naranja/verde sutil) | Pendiente | 🟢 Trivial |
+| 7.2 | Top 3 del ranking destacado (badge/medalla visual) | Pendiente | 🟢 Trivial |
+| 7.3 | Skeletons de carga en listas (en vez de spinner/nada) | Pendiente | 🟢 Trivial |
+| 7.4 | Animación de entrada de la card (slide-up ~200ms, Reanimated) | Pendiente | 🟢 Trivial |
+| 7.5 | Accessibility labels en controles principales | Pendiente | 🟡 Medio |
 
 ## Hito 8 — Calidad y despliegue ⬜
 
-| # | Tarea | Esfuerzo |
-|---|-------|----------|
-| 8.1 | [ ] **Build EAS de validación**: verificar push notifications + AsyncStorage en build real | M |
-| 8.2 | [ ] **Dockerizar API**: servicio `api` en docker-compose | M |
-| 8.3 | [ ] **Deploy backend** (Railway/Fly/Render) + Postgres PostGIS + migrar datos → app apuntando a URL real (requisito para notifs en producción) | M |
-| 8.4 | [ ] **CI básico**: GitHub Actions con `pytest` + `tsc --noEmit` en push | S |
-| 8.5 | [ ] Tests frontend mínimos (jest-expo): lógica agrupación PM→playa, orden por estado | M |
-| 8.6 | [ ] Actualizar a Node 22 LTS (Expo pide ≥20.19.4, hoy 20.12.2) | S |
-| 8.7 | [ ] Revocar token de Expo expuesto en sesión anterior *(usuario, en expo.dev)* | S |
+| # | Tarea | Estado | Esfuerzo |
+|---|-------|--------|----------|
+| 8.1 | **Build EAS de validación**: verificar push notifications + AsyncStorage en build real | Pendiente | 🟡 Medio |
+| 8.2 | **Dockerizar API**: servicio `api` en docker-compose | Pendiente | 🟡 Medio |
+| 8.3 | **Deploy backend** (Railway/Fly/Render) + Postgres PostGIS + migrar datos → app apuntando a URL real (requisito para notifs en producción) | Pendiente | 🔴 Medio-alto |
+| 8.4 | **CI básico**: GitHub Actions con `pytest` + `tsc --noEmit` en push | Pendiente | 🟢 Trivial |
+| 8.5 | Tests frontend mínimos (jest-expo): lógica agrupación PM→playa, orden por estado | Pendiente | 🟡 Medio |
+| 8.6 | Actualizar a Node 22 LTS (Expo pide ≥20.19.4, hoy 20.12.2) | Pendiente | 🟢 Trivial |
+| 8.7 | Revocar token de Expo expuesto en sesión anterior *(usuario, en expo.dev)* | Pendiente | 🟢 Trivial |
 
 ## Hito 9 — Portfolio ⬜
 
-| # | Tarea | Esfuerzo |
-|---|-------|----------|
-| 9.1 | [ ] README completo: qué es, features, stack, fuentes de datos, cómo ejecutar | M |
-| 9.2 | [ ] Screenshots/GIF de la app (mapa, ranking, vertidos, ficha) | S |
-| 9.3 | [ ] Diagrama de arquitectura (Expo → FastAPI → PostGIS ← scrapers/fuentes) | S |
-| 9.4 | [ ] Documentar decisiones técnicas (MapLibre vs Google, SDF teñido, scraper Náyade, PM↔playa) | S |
+| # | Tarea | Estado | Esfuerzo |
+|---|-------|--------|----------|
+| 9.1 | README completo: qué es, features, stack, fuentes de datos, cómo ejecutar | Pendiente | 🟡 Medio |
+| 9.2 | Screenshots/GIF de la app (mapa, ranking, vertidos, ficha) | Pendiente | 🟢 Trivial |
+| 9.3 | Diagrama de arquitectura (Expo → FastAPI → PostGIS ← scrapers/fuentes) | Pendiente | 🟢 Trivial |
+| 9.4 | Documentar decisiones técnicas (MapLibre vs Google, SDF teñido, scraper Náyade, PM↔playa) | Pendiente | 🟢 Trivial |
 
 ---
 
