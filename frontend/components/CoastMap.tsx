@@ -72,9 +72,11 @@ type CoastMapProps = {
   outfalls: FeatureCollection;
   beaches: FeatureCollection; // con properties.alert ya inyectado
   focus?: [number, number] | null; // [lon, lat] a donde volar la cámara
+  selectionActive: boolean; // hay card abierta -> al cerrar restaura vista
   onSelect: (selection: Selection) => void;
   onOpenList?: () => void;
   onOpenMunicipalities?: () => void;
+  onOpenOutfalls?: () => void;
 };
 
 const OUTFALL_COLORS = colors.outfall;
@@ -84,15 +86,47 @@ export default function CoastMap({
   outfalls,
   beaches,
   focus,
+  selectionActive,
   onSelect,
   onOpenList,
   onOpenMunicipalities,
+  onOpenOutfalls,
 }: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
   const [showOutfalls, setShowOutfalls] = useState(true);
   const [showBeaches, setShowBeaches] = useState(true);
   const [pulse, setPulse] = useState(0);
   const cameraRef = useRef<CameraRef>(null);
+  // Vista actual + vista guardada antes de volar a un pin (para restaurar
+  // al cerrar la card)
+  const lastView = useRef<{ center: [number, number]; zoom: number }>({
+    center: TENERIFE_VIEW.center,
+    zoom: TENERIFE_VIEW.zoom,
+  });
+  const savedView = useRef<{
+    center: [number, number];
+    zoom: number;
+  } | null>(null);
+  const prevSelection = useRef(selectionActive);
+
+  const saveView = () => {
+    // Solo guarda si venimos de mapa libre: al cambiar de playa con la
+    // card ya abierta no machaca la posicion original
+    if (!selectionActive) savedView.current = { ...lastView.current };
+  };
+
+  // Card cerrada -> vuelve a la vista previa al toque del pin
+  useEffect(() => {
+    if (prevSelection.current && !selectionActive && savedView.current) {
+      cameraRef.current?.flyTo({
+        center: savedView.current.center,
+        zoom: savedView.current.zoom,
+        duration: 800,
+      });
+      savedView.current = null;
+    }
+    prevSelection.current = selectionActive;
+  }, [selectionActive]);
 
   // Conteo de alertas vivas para el banner y la capa de pulse
   const closedCount = beaches.features.filter(
@@ -126,8 +160,14 @@ export default function CoastMap({
   // Vuela a la playa elegida en la lista
   useEffect(() => {
     if (focus) {
-      cameraRef.current?.flyTo({ center: focus, zoom: 13, duration: 1500 });
+      saveView();
+      cameraRef.current?.flyTo({
+        center: [focus[0], focus[1] - 0.014],
+        zoom: 13,
+        duration: 1500,
+      });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
   const handlePress =
@@ -137,6 +177,17 @@ export default function CoastMap({
         | GeoFeature
         | undefined;
       if (!feature) return;
+      saveView();
+      // Zoom de detalle + centro desplazado al sur: el pin queda justo
+      // por encima de la card flotante.
+      const [lon, lat] = (
+        feature.geometry as { coordinates: [number, number] }
+      ).coordinates;
+      cameraRef.current?.flyTo({
+        center: [lon, lat - (type === 'beach' ? 0.014 : 0.03)],
+        zoom: type === 'beach' ? 13 : 12,
+        duration: 900,
+      });
       if (type === 'outfall') {
         onSelect({ type: 'outfall', feature });
       } else {
@@ -154,6 +205,15 @@ export default function CoastMap({
         style={styles.map}
         mapStyle={satellite ? SATELLITE_STYLE : SEA_STYLE}
         attributionPosition={{ bottom: 8, right: 8 }}
+        onRegionDidChange={(e) => {
+          const vs = e.nativeEvent as unknown as {
+            center: [number, number];
+            zoom: number;
+          };
+          if (vs?.center && typeof vs.zoom === 'number') {
+            lastView.current = { center: vs.center, zoom: vs.zoom };
+          }
+        }}
       >
         <Camera ref={cameraRef} initialViewState={TENERIFE_VIEW} />
 
@@ -203,7 +263,7 @@ export default function CoastMap({
               id="beach-pulse"
               type="circle"
               paint={{
-                'circle-radius': 10 + pulse * 14,
+                'circle-radius': 14 + pulse * 26,
                 'circle-color': [
                   'match',
                   ['get', 'status'],
@@ -211,7 +271,7 @@ export default function CoastMap({
                   BEACH_COLORS.closed,
                   BEACH_COLORS.warning,
                 ],
-                'circle-opacity': 0.55 * (1 - pulse),
+                'circle-opacity': 0.6 * (1 - pulse),
               }}
             />
           </GeoJSONSource>
@@ -265,7 +325,28 @@ export default function CoastMap({
                   : colors.status.open,
             },
           ]}
-          onPress={onOpenList}
+          onPress={() => {
+            // Con alertas: vuela a la mas grave y abre su ficha.
+            // Sin alertas: abre la lista general.
+            const top =
+              alertBeaches.features.find(
+                (f) => f.properties.status === 'closed',
+              ) ?? alertBeaches.features[0];
+            if (top) {
+              saveView();
+              const [lon, lat] = (
+                top.geometry as { coordinates: [number, number] }
+              ).coordinates;
+              cameraRef.current?.flyTo({
+                center: [lon, lat - 0.014],
+                zoom: 13,
+                duration: 1200,
+              });
+              onSelect({ type: 'beach', feature: top, hasAlert: true });
+            } else {
+              onOpenList?.();
+            }
+          }}
           accessibilityRole="button"
           accessibilityLabel="Resumen del estado de las playas"
         >
@@ -294,7 +375,7 @@ export default function CoastMap({
           accessibilityState={{ checked: showOutfalls }}
         >
           <Image
-            source={require('../assets/icons/outfall.png')}
+            source={require('../assets/icons/icon-faucet.png')}
             style={styles.legendIcon}
           />
           <Text style={styles.legendTitle}>Vertidos</Text>
@@ -365,6 +446,14 @@ export default function CoastMap({
           accessibilityRole="button"
           accessibilityLabel="Cambiar vista del mapa"
         >
+          <Image
+            source={
+              satellite
+                ? require('../assets/icons/icon-map.png')
+                : require('../assets/icons/icon-satellite.png')
+            }
+            style={styles.toggleIcon}
+          />
           <Text style={styles.toggleText}>
             {satellite ? 'Mapa' : 'Satélite'}
           </Text>
@@ -383,6 +472,20 @@ export default function CoastMap({
             <Text style={styles.toggleText}>Playas</Text>
           </Pressable>
         )}
+        {onOpenOutfalls && (
+          <Pressable
+            style={styles.toggle}
+            onPress={onOpenOutfalls}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir lista de vertidos"
+          >
+            <Image
+              source={require('../assets/icons/icon-faucet.png')}
+              style={styles.toggleIcon}
+            />
+            <Text style={styles.toggleText}>Vertidos</Text>
+          </Pressable>
+        )}
         {onOpenMunicipalities && (
           <Pressable
             style={styles.toggle}
@@ -390,6 +493,10 @@ export default function CoastMap({
             accessibilityRole="button"
             accessibilityLabel="Abrir incidencias por municipio"
           >
+            <Image
+              source={require('../assets/icons/icon-townhall.png')}
+              style={styles.toggleIcon}
+            />
             <Text style={styles.toggleText}>Municipios</Text>
           </Pressable>
         )}

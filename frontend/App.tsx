@@ -20,6 +20,7 @@ import BeachList from './components/BeachList';
 import CoastMap, { Selection } from './components/CoastMap';
 import FeatureSheet from './components/FeatureSheet';
 import MunicipalityStats from './components/MunicipalityStats';
+import OutfallList from './components/OutfallList';
 import {
   Alert,
   FeatureCollection,
@@ -51,7 +52,10 @@ export default function App() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const [muniOpen, setMuniOpen] = useState(false);
-  const [listMunicipality, setListMunicipality] = useState<string | null>(null);
+  const [outfallListOpen, setOutfallListOpen] = useState(false);
+  const [listMunicipality, setListMunicipality] = useState<
+    string | null | undefined
+  >(undefined);
   const [focus, setFocus] = useState<[number, number] | null>(null);
   const [introDismissed, setIntroDismissed] = useState(false);
 
@@ -123,12 +127,19 @@ export default function App() {
 
   const handleListSelect = (feature: GeoFeature) => {
     setListOpen(false);
-    setListMunicipality(null);
+    setMuniOpen(false);
+    setListMunicipality(undefined);
     setSelection({
       type: 'beach',
       feature,
       hasAlert: feature.properties.alert === true,
     });
+    setFocus([...feature.geometry.coordinates]);
+  };
+
+  const handleOutfallSelect = (feature: GeoFeature) => {
+    setOutfallListOpen(false);
+    setSelection({ type: 'outfall', feature });
     setFocus([...feature.geometry.coordinates]);
   };
 
@@ -145,9 +156,11 @@ export default function App() {
         outfalls={outfalls}
         beaches={beachesFC}
         focus={focus}
+        selectionActive={!!selection}
         onSelect={setSelection}
         onOpenList={() => setListOpen(true)}
         onOpenMunicipalities={() => setMuniOpen(true)}
+        onOpenOutfalls={() => setOutfallListOpen(true)}
       />
 
       {(loading || !fontsLoaded) && (
@@ -177,6 +190,9 @@ export default function App() {
             · «Municipios» para ver dónde hay más incidencias
           </Text>
           <Text style={styles.introHint}>
+            · «Vertidos» para ver los emisarios y su situación legal
+          </Text>
+          <Text style={styles.introHint}>
             · Gris = playa sin monitorización oficial
           </Text>
           <Pressable
@@ -196,12 +212,22 @@ export default function App() {
         onSelect={handleListSelect}
         onClose={() => {
           setListOpen(false);
-          setListMunicipality(null);
+          // Si la lista venia del ranking de municipios, al cerrar se
+          // vuelve a el en vez de salir al mapa
+          if (listMunicipality !== undefined) setMuniOpen(true);
+          setListMunicipality(undefined);
         }}
         onOpenMunicipalities={() => {
           setListOpen(false);
           setMuniOpen(true);
         }}
+      />
+
+      <OutfallList
+        visible={outfallListOpen}
+        outfalls={outfalls.features}
+        onSelect={handleOutfallSelect}
+        onClose={() => setOutfallListOpen(false)}
       />
 
       {muniOpen && (

@@ -140,20 +140,21 @@ export default function BeachList({
   visible,
   onSelect,
   onClose,
-  initialMunicipality = null,
+  initialMunicipality,
   onOpenMunicipalities,
 }: {
   beaches: GeoFeature[];
   visible: boolean;
   onSelect: (feature: GeoFeature) => void;
   onClose: () => void;
+  // undefined = sin filtro (Todos); null = "Sin municipio"
   initialMunicipality?: string | null;
   onOpenMunicipalities?: () => void;
 }) {
   const [query, setQuery] = useState('');
-  const [municipality, setMunicipality] = useState<string | null>(
-    initialMunicipality,
-  );
+  const [municipality, setMunicipality] = useState<
+    string | null | undefined
+  >(initialMunicipality);
   const [sortMode, setSortMode] = useState<SortMode>('estado');
   const [stats, setStats] = useState<Map<number, BeachStats>>(new Map());
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -163,8 +164,16 @@ export default function BeachList({
   // expansión y orden se conservan entre aperturas. El municipio solo se
   // impone cuando llega uno nuevo desde el ranking de municipios
   useEffect(() => {
-    if (initialMunicipality) setMunicipality(initialMunicipality);
+    if (initialMunicipality !== undefined)
+      setMunicipality(initialMunicipality);
   }, [initialMunicipality]);
+
+  // Al cerrarse el modal el detalle se descarta: reabrir la lista (p. ej.
+  // desde el ranking de municipios) debe mostrar la lista, no la ficha
+  // anterior
+  useEffect(() => {
+    if (!visible) setDetail(null);
+  }, [visible]);
 
   // Stats frescas cada vez que se abre
   useEffect(() => {
@@ -193,7 +202,10 @@ export default function BeachList({
     const filtered = beaches.filter(
       (f) =>
         (!q || f.properties.name.toLowerCase().includes(q)) &&
-        (!municipality || f.properties.municipality === municipality),
+        (municipality === undefined ||
+          (municipality === null
+            ? f.properties.municipality == null
+            : f.properties.municipality === municipality)),
     );
     const map = new Map<string, BeachGroup>();
     for (const f of filtered) {
@@ -352,13 +364,16 @@ export default function BeachList({
           contentContainerStyle={styles.chipsContent}
         >
           <Pressable
-            style={[styles.chip, municipality === null && styles.chipActive]}
-            onPress={() => setMunicipality(null)}
+            style={[
+              styles.chip,
+              municipality === undefined && styles.chipActive,
+            ]}
+            onPress={() => setMunicipality(undefined)}
           >
             <Text
               style={[
                 styles.chipText,
-                municipality === null && styles.chipTextActive,
+                municipality === undefined && styles.chipTextActive,
               ]}
             >
               Todos
@@ -368,7 +383,9 @@ export default function BeachList({
             <Pressable
               key={m}
               style={[styles.chip, municipality === m && styles.chipActive]}
-              onPress={() => setMunicipality(municipality === m ? null : m)}
+              onPress={() =>
+                setMunicipality(municipality === m ? undefined : m)
+              }
             >
               <Text
                 style={[
@@ -380,6 +397,26 @@ export default function BeachList({
               </Text>
             </Pressable>
           ))}
+          {beaches.some((f) => f.properties.municipality == null) && (
+            <Pressable
+              style={[
+                styles.chip,
+                municipality === null && styles.chipActive,
+              ]}
+              onPress={() =>
+                setMunicipality(municipality === null ? undefined : null)
+              }
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  municipality === null && styles.chipTextActive,
+                ]}
+              >
+                Sin municipio
+              </Text>
+            </Pressable>
+          )}
         </ScrollView>
 
         <ScrollView

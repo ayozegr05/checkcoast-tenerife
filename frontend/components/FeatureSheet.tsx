@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   PanResponder,
@@ -17,13 +17,15 @@ import { colors, fonts } from '../lib/theme';
 const STATUS_LABELS: Record<string, string> = {
   legal: 'Autorizado',
   illegal: 'No autorizado',
-  unknown: 'En trámite / sin datos',
+  unknown: 'En trámite',
 };
 
 const STATUS_COLORS = colors.outfall;
 
-// Hoja arrastrable estilo bottom-sheet: peek (~45%) -> expandida (~88%)
-// -> cerrada (deslizar abajo). Sin deps nativas: PanResponder + Animated.
+// Card flotante arrastrable: peek (~42% alto) -> expandida (~86%) ->
+// cerrada (deslizar abajo). Anima la ALTURA (no translateY) para que la
+// card termine dentro de pantalla y se vea el mar debajo.
+// Sin deps nativas: PanResponder + Animated.
 export default function FeatureSheet({
   selection,
   onClose,
@@ -37,39 +39,41 @@ export default function FeatureSheet({
   const statusKey = p.status ?? 'unknown';
 
   const winH = useWindowDimensions().height;
-  const FULL_TY = Math.round(winH * 0.12); // expandida
-  const PEEK_TY = Math.round(winH * 0.55); // peek
-  const ty = useRef(new Animated.Value(winH)).current; // oculta abajo
-  const snapped = useRef(PEEK_TY);
+  const CARD_TOP = Math.round(winH * 0.45); // borde superior fijo
+  // Tope: la card nunca pasa de 14px sobre el borde inferior
+  const CARD_MAX = Math.round(winH - CARD_TOP - 14);
+  const HEADER_H = 64; // asa + titulo aprox
+  const [bodyH, setBodyH] = useState(0);
+  // Peek = altura del contenido (con minimo razonable y tope CARD_MAX)
+  const peek = Math.max(170, Math.min(CARD_MAX, bodyH + HEADER_H));
+  const h = useRef(new Animated.Value(0)).current; // cerrada = alto 0
+  const snapped = useRef(0);
+  const expanded = useRef(false);
   const closing = useRef(false);
 
-  // Entrada: sube hasta peek al montar
-  useEffect(() => {
-    Animated.spring(ty, {
-      toValue: PEEK_TY,
-      useNativeDriver: true,
-      damping: 20,
-      stiffness: 200,
-    }).start();
-  }, [PEEK_TY, ty]);
-
-  const snapTo = (target: number) => {
+  const snapTo = (target: number, isExpanded = false) => {
     snapped.current = target;
-    Animated.spring(ty, {
+    expanded.current = isExpanded;
+    Animated.spring(h, {
       toValue: target,
-      useNativeDriver: true,
+      useNativeDriver: false,
       damping: 22,
       stiffness: 260,
     }).start();
   };
 
+  // Peek se reajusta cuando el contenido termina de medirse/cargar
+  useEffect(() => {
+    if (!expanded.current && !closing.current) snapTo(peek);
+  }, [peek]);
+
   const dismiss = () => {
     if (closing.current) return;
     closing.current = true;
-    Animated.timing(ty, {
-      toValue: winH,
-      duration: 200,
-      useNativeDriver: true,
+    Animated.timing(h, {
+      toValue: 0,
+      duration: 180,
+      useNativeDriver: false,
     }).start(({ finished }) => finished && onClose());
   };
 
@@ -77,25 +81,26 @@ export default function FeatureSheet({
     PanResponder.create({
       onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > 6,
       onPanResponderMove: (_e, g) => {
-        const y = Math.max(
-          FULL_TY - 30,
-          Math.min(winH, snapped.current + g.dy),
+        // Arrastrar hacia abajo (dy>0) encoge la card
+        const nh = Math.max(
+          60,
+          Math.min(CARD_MAX, snapped.current - g.dy),
         );
-        ty.setValue(y);
+        h.setValue(nh);
       },
       onPanResponderRelease: (_e, g) => {
-        const y = snapped.current + g.dy;
-        const mid = (FULL_TY + PEEK_TY) / 2;
-        if (y > PEEK_TY + 90 || g.vy > 1.4) dismiss();
-        else if (y < mid || g.vy < -1.2) snapTo(FULL_TY);
-        else snapTo(PEEK_TY);
+        const nh = snapped.current - g.dy;
+        const mid = (peek + CARD_MAX) / 2;
+        if (nh < peek * 0.55 || g.vy > 1.4) dismiss();
+        else if (nh > mid || g.vy < -1.2) snapTo(CARD_MAX, true);
+        else snapTo(peek);
       },
     }),
   ).current;
 
   return (
     <Animated.View
-      style={[styles.sheet, { height: winH * 0.88, transform: [{ translateY: ty }] }]}
+      style={[styles.sheet, { top: CARD_TOP, height: h }]}
     >
       {/* Zona de agarre: asa + cabecera responden al arrastre */}
       <View {...pan.panHandlers}>
@@ -114,6 +119,7 @@ export default function FeatureSheet({
         style={styles.body}
         contentContainerStyle={styles.bodyContent}
         showsVerticalScrollIndicator={false}
+        onContentSizeChange={(_w, ch) => setBodyH(ch)}
       >
         {isBeach ? (
           <BeachDetail feature={feature} hasAlert={selection.hasAlert} />
@@ -149,12 +155,10 @@ export default function FeatureSheet({
 const styles = StyleSheet.create({
   sheet: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+    left: 10,
+    right: 10,
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderRadius: 18,
     shadowColor: '#000',
     shadowOpacity: 0.25,
     shadowRadius: 12,

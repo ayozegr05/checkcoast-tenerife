@@ -64,8 +64,6 @@ export default function MunicipalityStats({
   const rows = useMemo(() => {
     const byMuni = new Map<string, MuniAcc>();
     for (const f of beaches) {
-      // Las no monitorizadas no tienen estado oficial ni stats que agregar
-      if (f.properties.monitored === false) continue;
       const municipality = f.properties.municipality ?? null;
       const name = municipality ?? 'Sin municipio';
       const m =
@@ -80,15 +78,19 @@ export default function MunicipalityStats({
           closuresLastYear: 0,
           badSamples: 0,
         };
-      m.points += 1;
+      // El conteo de playas incluye todas las catalogadas;
+      // solo las monitorizadas tienen estado oficial ni stats
       m.beachNames.add(baseName(f.properties.name));
-      if (f.properties.status === 'closed') m.closedNow += 1;
-      else if (f.properties.status === 'warning') m.warningNow += 1;
-      const st = stats.get(f.id);
-      if (st) {
-        m.incidents += st.closures + st.warnings;
-        m.closuresLastYear += st.closures_last_year;
-        m.badSamples += st.bad_samples;
+      if (f.properties.monitored !== false) {
+        m.points += 1;
+        if (f.properties.status === 'closed') m.closedNow += 1;
+        else if (f.properties.status === 'warning') m.warningNow += 1;
+        const st = stats.get(f.id);
+        if (st) {
+          m.incidents += st.closures + st.warnings;
+          m.closuresLastYear += st.closures_last_year;
+          m.badSamples += st.bad_samples;
+        }
       }
       byMuni.set(name, m);
     }
@@ -128,12 +130,20 @@ export default function MunicipalityStats({
           data={rows}
           keyExtractor={(m) => m.name}
           style={styles.list}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <Pressable
               style={styles.row}
               onPress={() => onSelect(item.municipality)}
             >
               <View style={styles.rowHeader}>
+                <View
+                  style={[
+                    styles.rank,
+                    { backgroundColor: barColorOf(item) },
+                  ]}
+                >
+                  <Text style={styles.rankText}>{index + 1}</Text>
+                </View>
                 <Text style={styles.rowName}>{item.name}</Text>
                 <Text style={styles.rowBeaches}>
                   {item.beaches}{' '}
@@ -234,7 +244,20 @@ const styles = StyleSheet.create({
   rowHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'baseline',
+    alignItems: 'center',
+  },
+  rank: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  rankText: {
+    fontSize: 11,
+    fontFamily: fonts.extrabold,
+    color: '#fff',
   },
   rowName: {
     fontSize: 15,

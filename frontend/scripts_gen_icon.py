@@ -1,7 +1,7 @@
 # Genera icono + splash tematicos: silueta de Tenerife + olas blancas
 # sobre degradado mar. La silueta sale del GeoJSON real de Nominatim/OSM.
 # Uso: python scripts_gen_icon.py  (desde frontend/, con Pillow)
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 import json
 import math
 import urllib.request
@@ -75,7 +75,7 @@ def wave_poly(cx, cy, half_w, amp, wavelength, thickness):
     return top + bottom
 
 
-def draw_faucet(d, pt, s):
+def draw_faucet(d, pt, s, drops=2):
     """Grifo blanco goteando, a la derecha de la isla, sobre las olas."""
 
     def rr(x0, y0, x1, y1, r):
@@ -89,7 +89,7 @@ def draw_faucet(d, pt, s):
     rr(599, 370, 681, 398, 13)   # cruceta del mango
     rr(707, 468, 744, 534, 13)   # caño que baja
     rr(701, 526, 748, 545, 10)   # boca del caño
-    for cx, cy, r in ((725, 594, 14), (725, 645, 9)):
+    for cx, cy, r in ((725, 594, 14), (725, 645, 9))[:drops]:
         d.polygon([pt(cx - r, cy - r * 0.4), pt(cx + r, cy - r * 0.4),
                    pt(cx, cy - r * 2.4)], fill=WHITE)
         d.ellipse([pt(cx - r, cy - r)[0], pt(cx - r, cy - r)[1],
@@ -166,13 +166,34 @@ def umbrella(img, cx, cy, r, canopy=RED):
           250, 430, fill=NAVY, width=pw)
 
 
+def wave_glyph(color, size=40):
+    """Ola Twemoji 1f30a (la de WhatsApp) teñida de `color`."""
+    src = Image.open("assets/icons/wave-twemoji.png").convert("RGBA")
+    alpha = src.split()[3]
+    tinted = Image.new("RGBA", src.size, color)
+    tinted.putalpha(alpha)
+    tinted.thumbnail((size, size), Image.LANCZOS)
+    return tinted
+
+
+def beach_glyph(color, size=40):
+    """Silueta del beach Twemoji (sombrilla+arena) teñida de `color`."""
+    src = Image.open("assets/icons/beach.png").convert("RGBA")
+    alpha = src.split()[3]
+    tinted = Image.new("RGBA", src.size, color)
+    tinted.putalpha(alpha)
+    tinted.thumbnail((size, size), Image.LANCZOS)
+    return tinted
+
+
 def make_pin(name, status_color):
     s = 96
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     pin_shape(d, s, 1.0, status_color)
     pin_shape(d, s, 0.78, WHITE)
-    umbrella(img, 48, 36, 15, canopy=status_color)
+    wave = beach_glyph(status_color, 42)
+    img.alpha_composite(wave, (48 - wave.width // 2, 34 - wave.height // 2))
     img.save(f"assets/icons/pin-{name}.png")
 
 
@@ -184,18 +205,18 @@ OUTFALL_COLORS = {
 }
 
 
-def outfall_symbol(size, color):
-    """Extrae el glifo oscuro de outfall.png y lo tiñe de `color`."""
-    src = Image.open("assets/icons/outfall.png").convert("RGBA")
-    sym = Image.new("RGBA", src.size, (0, 0, 0, 0))
-    px, sp = src.load(), sym.load()
-    for y in range(src.size[1]):
-        for x in range(src.size[0]):
-            r, g, b, a = px[x, y]
-            lum = (r + g + b) // 3
-            if a and lum < 170:
-                sp[x, y] = color + (min(255, (170 - lum) * 3),)
-    return sym.resize((size, size), Image.LANCZOS)
+def faucet_glyph(color, size=30, drops=2, bold=False):
+    """El grifo del icono de app recortado y teñido de `color`."""
+    layer = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
+    draw_faucet(ImageDraw.Draw(layer), lambda x, y: (x, y), 1.0, drops=drops)
+    layer = layer.crop(layer.getbbox())
+    layer.thumbnail((size, size), Image.LANCZOS)
+    alpha = layer.split()[3]
+    if bold:
+        alpha = alpha.filter(ImageFilter.MaxFilter(5))
+    tinted = Image.new("RGBA", layer.size, color)
+    tinted.putalpha(alpha)
+    return tinted
 
 
 def make_outfall_pin(name, status_color):
@@ -204,8 +225,14 @@ def make_outfall_pin(name, status_color):
     d = ImageDraw.Draw(img)
     pin_shape(d, s, 1.0, status_color)
     pin_shape(d, s, 0.78, WHITE)
-    sym = outfall_symbol(30, status_color)
-    img.alpha_composite(sym, (33, 21))
+    sym = faucet_glyph(status_color, 30, drops=0, bold=True)
+    img.alpha_composite(sym, (48 - sym.width // 2, 14))
+    # gota suelta bajo el caño
+    dg = ImageDraw.Draw(img)
+    cx, cy, r = 60, 58, 5
+    dg.polygon([(cx - r, cy - r * 0.3), (cx + r, cy - r * 0.3),
+                (cx, cy - r * 1.8)], fill=status_color)
+    dg.ellipse([cx - r, cy - r, cx + r, cy + r], fill=status_color)
     img.save(f"assets/icons/pin-outfall-{name}.png")
 
 
@@ -235,5 +262,71 @@ for name, col in PIN_COLORS.items():
 
 for name, col in OUTFALL_COLORS.items():
     make_outfall_pin(name, col)
+
+
+# --- iconos del toggle de vista: mapa plegado / antena parabolica ---
+def draw_map_icon():
+    s = 96
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    for p in (
+        [(16, 24), (42, 14), (42, 72), (16, 82)],
+        [(42, 14), (68, 24), (68, 82), (42, 72)],
+        [(68, 24), (92, 14), (92, 72), (68, 82)],
+    ):
+        d.polygon(p, fill=NAVY)
+    d.line([(42, 14), (42, 72)], fill=WHITE, width=4)
+    d.line([(68, 24), (68, 82)], fill=WHITE, width=4)
+    img.save("assets/icons/icon-map.png")
+
+
+def draw_satellite_icon():
+    s = 96
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.pieslice([-16, 16, 96, 116], 270, 360, fill=NAVY)    # parabolica
+    d.line([(40, 62), (88, 12)], fill=NAVY, width=11)     # brazo
+    d.ellipse([82, 0, 100, 18], fill=NAVY)                # alimentador
+    d.arc([84, -12, 110, 14], 260, 350, fill=NAVY, width=7)  # señal 1
+    d.arc([72, -24, 112, 24], 260, 350, fill=NAVY, width=7)  # señal 2
+    img.save("assets/icons/icon-satellite.png")
+
+
+def draw_faucet_icon():
+    """Grifo standalone en navy para la leyenda del mapa."""
+    sym = faucet_glyph(NAVY, 84, bold=True)
+    img = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    img.alpha_composite(
+        sym, (48 - sym.width // 2, 48 - sym.height // 2)
+    )
+    img.save("assets/icons/icon-faucet.png")
+
+
+def draw_wave_icon():
+    """Ola Twemoji tal cual (azul) para la leyenda del mapa."""
+    src = Image.open("assets/icons/wave-twemoji.png").convert("RGBA")
+    img = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    wave = src.resize((72, 72), Image.LANCZOS)
+    img.alpha_composite(wave, (12, 12))
+    img.save("assets/icons/icon-wave.png")
+
+
+def draw_townhall_icon():
+    """Ayuntamiento: fronton + columnas, navy, para el boton Municipios."""
+    img = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.polygon([(48, 14), (20, 36), (76, 36)], fill=NAVY)   # fronton
+    d.rectangle([24, 36, 72, 42], fill=NAVY)               # entablamento
+    for x in (27, 40, 53, 66):
+        d.rectangle([x, 44, x + 6, 68], fill=NAVY)         # columnas
+    d.rectangle([20, 70, 76, 76], fill=NAVY)               # base
+    img.save("assets/icons/icon-townhall.png")
+
+
+draw_map_icon()
+draw_satellite_icon()
+draw_faucet_icon()
+draw_wave_icon()
+draw_townhall_icon()
 
 print("assets generados")
