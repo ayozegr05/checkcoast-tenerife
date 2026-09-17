@@ -53,6 +53,17 @@ class BeachMeasurementOut(BaseModel):
     source_url: str | None
 
 
+class BeachStatsOut(BaseModel):
+    beach_id: int
+    closures: int  # incidentes con prohibición de baño
+    warnings: int  # resto de incidentes
+    closures_last_year: int
+    bad_samples: int  # mediciones con evaluación "prohibido"
+    total_samples: int
+    latest_evaluation: str | None
+    latest_sampled_at: date | None
+
+
 class AlertOut(BaseModel):
     beach_id: int
     beach_name: str

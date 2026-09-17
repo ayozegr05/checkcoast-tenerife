@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -14,6 +16,7 @@ from app.queries import beaches_with_latest_status
 from app.schemas import (
     BeachIncidentOut,
     BeachMeasurementOut,
+    BeachStatsOut,
     BeachStatusIn,
     BeachStatusOut,
     Feature,
@@ -54,6 +57,42 @@ def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
             for beach, status, lon, lat in rows
         ]
     )
+
+
+@router.get("/beaches/stats", response_model=list[BeachStatsOut])
+def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
+    """Agregados por playa monitorizada para el ranking:
+    cierres totales / último año, muestras no aptas y última evaluación."""
+    year_ago = date.today() - timedelta(days=365)
+    stats: list[BeachStatsOut] = []
+    for beach in db.query(Beach).filter(Beach.monitored.is_(True)):
+        closures = warnings = closures_last_year = 0
+        for inc in beach.incidents:
+            if inc.observations and "prohib" in inc.observations.lower():
+                closures += 1
+                if inc.opened_at >= year_ago:
+                    closures_last_year += 1
+            else:
+                warnings += 1
+        bad = sum(
+            1
+            for m in beach.measurements
+            if m.evaluation and "prohib" in m.evaluation.lower()
+        )
+        latest = beach.measurements[0] if beach.measurements else None
+        stats.append(
+            BeachStatsOut(
+                beach_id=beach.id,
+                closures=closures,
+                warnings=warnings,
+                closures_last_year=closures_last_year,
+                bad_samples=bad,
+                total_samples=len(beach.measurements),
+                latest_evaluation=latest.evaluation if latest else None,
+                latest_sampled_at=latest.sampled_at if latest else None,
+            )
+        )
+    return stats
 
 
 @router.get(

@@ -226,17 +226,40 @@ export default function FeatureSheet({
             · {closuresInYears(incidents, 5)} en los últimos 5 años
           </Text>
           <ScrollView style={styles.historyList} nestedScrollEnabled>
-            {incidents.map((inc) => (
-              <View key={inc.id} style={styles.incident}>
-                <Text style={styles.incidentDates}>
-                  {fmtDate(inc.opened_at)} →{' '}
-                  {inc.closed_at ? fmtDate(inc.closed_at) : 'activo'}
-                </Text>
-                {inc.observations ? (
-                  <Text style={styles.incidentObs}>{inc.observations}</Text>
-                ) : null}
-              </View>
-            ))}
+            {incidents.map((inc) => {
+              const closure = isClosure(inc);
+              const accent = closure ? '#c62828' : '#f9a825';
+              return (
+                <View
+                  key={inc.id}
+                  style={[styles.incident, { borderLeftColor: accent }]}
+                >
+                  <View style={styles.incidentHead}>
+                    <Text style={styles.incidentDates}>
+                      {fmtDate(inc.opened_at)} →{' '}
+                      {inc.closed_at ? fmtDate(inc.closed_at) : 'hoy'}
+                    </Text>
+                    <View
+                      style={[
+                        styles.incidentTag,
+                        { backgroundColor: accent },
+                      ]}
+                    >
+                      <Text style={styles.incidentTagText}>
+                        {inc.closed_at
+                          ? closure
+                            ? 'CIERRE'
+                            : 'AVISO'
+                          : 'ACTIVA'}
+                      </Text>
+                    </View>
+                  </View>
+                  {inc.observations ? (
+                    <Text style={styles.incidentObs}>{inc.observations}</Text>
+                  ) : null}
+                </View>
+              );
+            })}
           </ScrollView>
         </View>
       )}
@@ -354,7 +377,28 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   incident: {
+    borderLeftWidth: 3,
+    paddingLeft: 10,
     paddingVertical: 4,
+    marginBottom: 8,
+    backgroundColor: '#fafafa',
+    borderRadius: 4,
+  },
+  incidentHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 4,
+  },
+  incidentTag: {
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  incidentTagText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '800',
   },
   incidentDates: {
     fontSize: 12,

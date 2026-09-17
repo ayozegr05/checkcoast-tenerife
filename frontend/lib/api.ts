@@ -40,6 +40,17 @@ export type BeachMeasurement = {
   source_url: string | null;
 };
 
+export type BeachStats = {
+  beach_id: number;
+  closures: number;
+  warnings: number;
+  closures_last_year: number;
+  bad_samples: number;
+  total_samples: number;
+  latest_evaluation: string | null;
+  latest_sampled_at: string | null;
+};
+
 export type Alert = {
   beach_id: number;
   beach_name: string;
@@ -64,3 +75,4 @@ export const fetchBeachIncidents = (beachId: number) =>
   getJson<BeachIncident[]>(`/beaches/${beachId}/incidents`);
 export const fetchBeachQuality = (beachId: number) =>
   getJson<BeachMeasurement[]>(`/beaches/${beachId}/quality`);
+export const fetchBeachStats = () => getJson<BeachStats[]>('/beaches/stats');

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Modal,
@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-import type { GeoFeature } from '../lib/api';
+import { BeachStats, GeoFeature, fetchBeachStats } from '../lib/api';
 
 // Orden de prioridad: lo que necesita atención del bañista primero;
 // las no monitorizadas van al final (no hay estado oficial que ordenar)
@@ -52,6 +52,29 @@ const statusOf = (f: GeoFeature) =>
     ? 'unmonitored'
     : (f.properties.status ?? 'unknown');
 
+type SortMode = 'estado' | 'cierres' | 'calidad';
+
+const SORT_LABELS: Record<SortMode, string> = {
+  estado: 'Estado',
+  cierres: 'Más cierres',
+  calidad: 'Peor calidad',
+};
+
+// Puntuación de calidad: peor = evaluación mala + más muestras no aptas
+const qualityScore = (s: BeachStats | undefined): number => {
+  if (!s) return -1;
+  const evalScore = s.latest_evaluation
+    ? /prohib/i.test(s.latest_evaluation)
+      ? 3
+      : /calificar|recomend/i.test(s.latest_evaluation)
+        ? 2
+        : /apta/i.test(s.latest_evaluation)
+          ? 0
+          : 1
+    : 1;
+  return evalScore * 1000 + s.bad_samples;
+};
+
 export default function BeachList({
   beaches,
   onSelect,
@@ -63,6 +86,16 @@ export default function BeachList({
 }) {
   const [query, setQuery] = useState('');
   const [municipality, setMunicipality] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>('estado');
+  const [stats, setStats] = useState<Map<number, BeachStats>>(new Map());
+
+  useEffect(() => {
+    fetchBeachStats()
+      .then((rows) =>
+        setStats(new Map(rows.map((s) => [s.beach_id, s]))),
+      )
+      .catch(() => {});
+  }, []);
 
   const municipalities = useMemo(
     () =>
@@ -73,18 +106,36 @@ export default function BeachList({
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return beaches
-      .filter(
-        (f) =>
-          (!q || f.properties.name.toLowerCase().includes(q)) &&
-          (!municipality || f.properties.municipality === municipality),
-      )
-      .sort(
+    const filtered = beaches.filter(
+      (f) =>
+        (!q || f.properties.name.toLowerCase().includes(q)) &&
+        (!municipality || f.properties.municipality === municipality),
+    );
+    const byName = (a: GeoFeature, b: GeoFeature) =>
+      a.properties.name.localeCompare(b.properties.name);
+    if (sortMode === 'cierres') {
+      return filtered.sort(
         (a, b) =>
-          (STATUS_ORDER[statusOf(a)] ?? 9) - (STATUS_ORDER[statusOf(b)] ?? 9) ||
-          a.properties.name.localeCompare(b.properties.name),
+          (stats.get(b.id)?.closures_last_year ?? 0) -
+            (stats.get(a.id)?.closures_last_year ?? 0) ||
+          (stats.get(b.id)?.closures ?? 0) -
+            (stats.get(a.id)?.closures ?? 0) ||
+          byName(a, b),
       );
-  }, [beaches, query, municipality]);
+    }
+    if (sortMode === 'calidad') {
+      return filtered.sort(
+        (a, b) =>
+          qualityScore(stats.get(b.id)) - qualityScore(stats.get(a.id)) ||
+          byName(a, b),
+      );
+    }
+    return filtered.sort(
+      (a, b) =>
+        (STATUS_ORDER[statusOf(a)] ?? 9) - (STATUS_ORDER[statusOf(b)] ?? 9) ||
+        byName(a, b),
+    );
+  }, [beaches, query, municipality, sortMode, stats]);
 
   return (
     <Modal animationType="slide" onRequestClose={onClose}>
@@ -142,23 +193,52 @@ export default function BeachList({
           ))}
         </ScrollView>
 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chips}
+          contentContainerStyle={styles.chipsContent}
+        >
+          {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
+            <Pressable
+              key={mode}
+              style={[styles.chip, sortMode === mode && styles.chipActive]}
+              onPress={() => setSortMode(mode)}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  sortMode === mode && styles.chipTextActive,
+                ]}
+              >
+                {SORT_LABELS[mode]}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
         <FlatList
           data={visible}
           keyExtractor={(f) => String(f.id)}
           style={styles.list}
           renderItem={({ item }) => {
             const status = statusOf(item);
+            const st = stats.get(item.id);
             return (
               <Pressable style={styles.row} onPress={() => onSelect(item)}>
                 <View style={styles.rowText}>
                   <Text style={styles.rowName}>
                     {displayName(item.properties.name)}
                   </Text>
-                  {item.properties.municipality ? (
-                    <Text style={styles.rowSub}>
-                      {item.properties.municipality}
-                    </Text>
-                  ) : null}
+                  <Text style={styles.rowSub}>
+                    {item.properties.municipality ?? 'Sin municipio'}
+                    {st && st.closures + st.warnings > 0
+                      ? ` · ${st.closures} cierres · ${st.warnings} avisos`
+                      : ''}
+                    {st && st.bad_samples > 0
+                      ? ` · ${st.bad_samples} muestras no aptas`
+                      : ''}
+                  </Text>
                 </View>
                 <View
                   style={[
