@@ -40,6 +40,17 @@ export type BeachMeasurement = {
   source_url: string | null;
 };
 
+export type MunicipalityIncident = {
+  id: number;
+  beach_id: number;
+  beach_name: string;
+  municipality: string | null;
+  kind: 'closure' | 'warning';
+  opened_at: string; // YYYY-MM-DD
+  closed_at: string | null;
+  observations: string | null;
+};
+
 export type BeachStats = {
   beach_id: number;
   closures: number;
@@ -96,6 +107,10 @@ export const fetchOutfallNearestBeach = (outfallId: number) =>
   getJson<OutfallNearestBeach>(`/outfalls/${outfallId}/nearest-beach`);
 export const fetchBeachNearbyOutfalls = (beachId: number) =>
   getJson<BeachNearbyOutfall[]>(`/beaches/${beachId}/nearby-outfalls`);
+export const fetchMunicipalityIncidents = (municipality: string) =>
+  getJson<MunicipalityIncident[]>(
+    `/incidents?municipality=${encodeURIComponent(municipality)}`,
+  );
 
 // Registro del Expo push token en el backend (idempotente)
 export const registerDevice = (token: string, platform: string) =>

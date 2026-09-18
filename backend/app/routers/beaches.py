@@ -24,6 +24,7 @@ from app.schemas import (
     BeachStatusOut,
     Feature,
     FeatureCollection,
+    MunicipalityIncidentOut,
     PointGeometry,
 )
 
@@ -96,6 +97,39 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
             )
         )
     return stats
+
+
+@router.get("/incidents", response_model=list[MunicipalityIncidentOut])
+def municipality_incidents(
+    municipality: str = Query(..., description="Nombre del municipio"),
+    db: Session = Depends(get_db),
+) -> list[MunicipalityIncidentOut]:
+    """Todos los incidentes de las playas de un municipio, más reciente
+    primero. Alimenta la línea temporal del ranking municipal."""
+    rows = (
+        db.query(BeachIncident, Beach)
+        .join(Beach, BeachIncident.beach_id == Beach.id)
+        .filter(Beach.municipality == municipality)
+        .order_by(BeachIncident.opened_at.desc())
+        .all()
+    )
+    return [
+        MunicipalityIncidentOut(
+            id=inc.id,
+            beach_id=inc.beach_id,
+            beach_name=beach.name,
+            municipality=beach.municipality,
+            kind=(
+                "closure"
+                if inc.observations and "prohib" in inc.observations.lower()
+                else "warning"
+            ),
+            opened_at=inc.opened_at,
+            closed_at=inc.closed_at,
+            observations=inc.observations,
+        )
+        for inc, beach in rows
+    ]
 
 
 @router.get(

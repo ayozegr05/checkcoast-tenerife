@@ -11,7 +11,13 @@ import {
   View,
 } from 'react-native';
 
-import { BeachStats, GeoFeature, fetchBeachStats } from '../lib/api';
+import {
+  BeachStats,
+  GeoFeature,
+  MunicipalityIncident,
+  fetchBeachStats,
+  fetchMunicipalityIncidents,
+} from '../lib/api';
 import { colors, fonts } from '../lib/theme';
 
 type MuniStats = {
@@ -44,6 +50,24 @@ const barColorOf = (m: MuniStats) =>
       ? colors.status.warning
       : colors.status.open;
 
+const fmtDate = (iso: string) => iso.split('-').reverse().join('/');
+
+// Duración en días naturales incluyendo el día de apertura
+const durationDays = (inc: MunicipalityIncident) => {
+  const end = inc.closed_at ? new Date(inc.closed_at) : new Date();
+  return Math.max(
+    1,
+    Math.round(
+      (end.getTime() - new Date(inc.opened_at).getTime()) / 86400000,
+    ) + 1,
+  );
+};
+
+const displayBeachName = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/(^|[\s(-])([a-záéíóúñü])/g, (_m, pre: string, c: string) => pre + c.toUpperCase());
+
 export default function MunicipalityStats({
   beaches,
   onSelect,
@@ -54,12 +78,26 @@ export default function MunicipalityStats({
   onClose: () => void;
 }) {
   const [stats, setStats] = useState<Map<number, BeachStats>>(new Map());
+  const [detail, setDetail] = useState<MuniStats | null>(null);
+  const [incidents, setIncidents] = useState<MunicipalityIncident[] | null>(
+    null,
+  );
 
   useEffect(() => {
     fetchBeachStats()
       .then((rows) => setStats(new Map(rows.map((s) => [s.beach_id, s]))))
       .catch(() => {});
   }, []);
+
+  // Línea temporal de incidentes del municipio abierto; solo las playas
+  // monitorizadas tienen incidentes, así que "Sin municipio" no tiene
+  useEffect(() => {
+    setIncidents(null);
+    if (!detail?.municipality) return;
+    fetchMunicipalityIncidents(detail.municipality)
+      .then(setIncidents)
+      .catch(() => setIncidents([]));
+  }, [detail]);
 
   const rows = useMemo(() => {
     const byMuni = new Map<string, MuniAcc>();
@@ -107,8 +145,109 @@ export default function MunicipalityStats({
   const maxScore = Math.max(1, ...rows.map(scoreOf));
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose}>
+    <Modal
+      animationType="slide"
+      onRequestClose={detail ? () => setDetail(null) : onClose}
+    >
       <View style={styles.container}>
+        {detail ? (
+          <>
+            <ImageBackground
+              source={require('../assets/gradient-sea.png')}
+              style={styles.headerBlock}
+              resizeMode="cover"
+            >
+              <View style={styles.header}>
+                <Pressable
+                  onPress={() => setDetail(null)}
+                  hitSlop={12}
+                  style={styles.backBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Volver al ranking"
+                >
+                  <Text style={styles.backText}>‹</Text>
+                </Pressable>
+                <Text style={styles.title} numberOfLines={1}>
+                  {detail.name}
+                </Text>
+                <Pressable
+                  onPress={() => onSelect(detail.municipality)}
+                  style={styles.listBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver playas del municipio"
+                >
+                  <Text style={styles.listBtnText}>Ver playas</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.subtitle}>
+                Línea temporal de incidentes · más reciente primero
+              </Text>
+            </ImageBackground>
+
+            <FlatList
+              data={incidents ?? []}
+              keyExtractor={(inc) => String(inc.id)}
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
+              renderItem={({ item: inc, index }) => (
+                <View style={styles.tlItem}>
+                  <View style={styles.tlRail}>
+                    <View
+                      style={[
+                        styles.tlDot,
+                        {
+                          backgroundColor:
+                            inc.kind === 'closure'
+                              ? colors.status.closed
+                              : colors.status.warning,
+                        },
+                      ]}
+                    />
+                    {index < (incidents?.length ?? 0) - 1 && (
+                      <View style={styles.tlLine} />
+                    )}
+                  </View>
+                  <View style={styles.tlBody}>
+                    <View style={styles.tlHeader}>
+                      <Text style={styles.tlBeach} numberOfLines={1}>
+                        {displayBeachName(inc.beach_name)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.badge,
+                          inc.kind === 'closure'
+                            ? styles.badgeClosed
+                            : styles.badgeWarning,
+                        ]}
+                      >
+                        {inc.kind === 'closure' ? 'Cierre' : 'Aviso'}
+                      </Text>
+                    </View>
+                    <Text style={styles.tlDates}>
+                      {fmtDate(inc.opened_at)}
+                      {' → '}
+                      {inc.closed_at ? fmtDate(inc.closed_at) : 'activo'}
+                      {' · '}
+                      {durationDays(inc)}{' '}
+                      {durationDays(inc) === 1 ? 'día' : 'días'}
+                    </Text>
+                    {inc.observations ? (
+                      <Text style={styles.tlObs}>{inc.observations}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.empty}>
+                  {incidents === null
+                    ? 'Cargando incidentes...'
+                    : 'Sin incidentes registrados'}
+                </Text>
+              }
+            />
+          </>
+        ) : (
+          <>
         <ImageBackground
           source={require('../assets/gradient-sea.png')}
           style={styles.headerBlock}
@@ -122,7 +261,7 @@ export default function MunicipalityStats({
           </View>
           <Text style={styles.subtitle}>
             Ranking por afectación actual e histórica · toca un municipio
-            para ver sus playas
+            para ver su línea temporal
           </Text>
         </ImageBackground>
 
@@ -134,7 +273,7 @@ export default function MunicipalityStats({
           renderItem={({ item, index }) => (
             <Pressable
               style={styles.row}
-              onPress={() => onSelect(item.municipality)}
+              onPress={() => setDetail(item)}
             >
               <View style={styles.rowHeader}>
                 <View
@@ -193,6 +332,8 @@ export default function MunicipalityStats({
             <Text style={styles.empty}>Sin datos de municipios</Text>
           }
         />
+          </>
+        )}
       </View>
     </Modal>
   );
@@ -318,5 +459,81 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textFaint,
     marginTop: 40,
+  },
+  backBtn: {
+    marginRight: 4,
+  },
+  backText: {
+    fontSize: 26,
+    fontFamily: fonts.semibold,
+    color: '#fff',
+    marginTop: -4,
+  },
+  listBtn: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginLeft: 8,
+  },
+  listBtnText: {
+    color: colors.primaryDark,
+    fontSize: 12,
+    fontFamily: fonts.bold,
+  },
+  tlItem: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+  },
+  tlRail: {
+    width: 20,
+    alignItems: 'center',
+  },
+  tlDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginTop: 14,
+    borderWidth: 2,
+    borderColor: '#fff',
+    elevation: 1,
+  },
+  tlLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: colors.border,
+  },
+  tlBody: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 12,
+    marginLeft: 6,
+    marginBottom: 10,
+    elevation: 1,
+  },
+  tlHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  tlBeach: {
+    fontSize: 14,
+    fontFamily: fonts.bold,
+    color: colors.text,
+    flex: 1,
+    marginRight: 8,
+  },
+  tlDates: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+    marginTop: 4,
+  },
+  tlObs: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    marginTop: 4,
   },
 });

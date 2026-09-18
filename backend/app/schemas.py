@@ -43,6 +43,17 @@ class BeachIncidentOut(BaseModel):
     source_url: str | None
 
 
+class MunicipalityIncidentOut(BaseModel):
+    id: int
+    beach_id: int
+    beach_name: str
+    municipality: str | None
+    kind: str  # "closure" (prohibición) | "warning" (resto)
+    opened_at: date
+    closed_at: date | None
+    observations: str | None
+
+
 class BeachMeasurementOut(BaseModel):
     id: int
     beach_id: int
