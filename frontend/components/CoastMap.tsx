@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
+  Keyboard,
   NativeSyntheticEvent,
   Platform,
   Pressable,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import {
@@ -83,6 +85,21 @@ type CoastMapProps = {
 const OUTFALL_COLORS = colors.outfall;
 const BEACH_COLORS = colors.status;
 
+// "PLAYA ABADES (LOS ABRIGUITOS)" -> "Playa Abades (Los Abriguitos)"
+const capName = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/(^|[\s(-])([a-záéíóúñü])/g, (_m, pre: string, c: string) => pre + c.toUpperCase());
+
+type SearchItem = {
+  key: string;
+  kind: 'beach' | 'outfall' | 'municipality';
+  label: string;
+  sub: string;
+  feature?: GeoFeature;
+  center?: [number, number];
+};
+
 export default function CoastMap({
   outfalls,
   beaches,
@@ -95,6 +112,8 @@ export default function CoastMap({
   onOpenHelp,
 }: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const [showOutfalls, setShowOutfalls] = useState(true);
   const [showBeaches, setShowBeaches] = useState(true);
   const [pulse, setPulse] = useState(0);
@@ -171,6 +190,91 @@ export default function CoastMap({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
+
+  // Resultados del buscador: playas, vertidos y municipios que
+  // contienen la query (mínimo 2 caracteres)
+  const searchResults = useMemo<SearchItem[]>(() => {
+    const q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const items: SearchItem[] = [];
+    for (const f of beaches.features) {
+      if (f.properties.name.toLowerCase().includes(q)) {
+        items.push({
+          key: `b${f.id}`,
+          kind: 'beach',
+          label: capName(f.properties.name),
+          sub: f.properties.municipality ?? 'Playa',
+          feature: f,
+        });
+      }
+    }
+    for (const f of outfalls.features) {
+      if ((f.properties.name ?? '').toLowerCase().includes(q)) {
+        items.push({
+          key: `o${f.id}`,
+          kind: 'outfall',
+          label: capName(f.properties.name ?? ''),
+          sub: 'Vertido',
+          feature: f,
+        });
+      }
+    }
+    const munis = new Set(
+      beaches.features
+        .map((f) => f.properties.municipality)
+        .filter((m): m is string => !!m),
+    );
+    for (const m of munis) {
+      if (m.toLowerCase().includes(q)) {
+        const pts = beaches.features.filter(
+          (f) => f.properties.municipality === m,
+        );
+        items.push({
+          key: `m${m}`,
+          kind: 'municipality',
+          label: m,
+          sub: 'Municipio',
+          center: [
+            pts.reduce((s, f) => s + f.geometry.coordinates[0], 0) /
+              pts.length,
+            pts.reduce((s, f) => s + f.geometry.coordinates[1], 0) /
+              pts.length,
+          ],
+        });
+      }
+    }
+    return items.slice(0, 8);
+  }, [query, beaches, outfalls]);
+
+  const pickResult = (item: SearchItem) => {
+    setQuery('');
+    setSearchOpen(false);
+    Keyboard.dismiss();
+    saveView();
+    if (item.feature) {
+      const [lon, lat] = item.feature.geometry.coordinates;
+      cameraRef.current?.flyTo({
+        center: [lon, lat - (item.kind === 'beach' ? 0.014 : 0.03)],
+        zoom: item.kind === 'beach' ? 13 : 12,
+        duration: 1200,
+      });
+      onSelect(
+        item.kind === 'beach'
+          ? {
+              type: 'beach',
+              feature: item.feature,
+              hasAlert: item.feature.properties.alert === true,
+            }
+          : { type: 'outfall', feature: item.feature },
+      );
+    } else if (item.center) {
+      cameraRef.current?.flyTo({
+        center: item.center,
+        zoom: 11,
+        duration: 1400,
+      });
+    }
+  };
 
   const handlePress =
     (type: 'outfall' | 'beach') =>
@@ -359,6 +463,21 @@ export default function CoastMap({
               <Text style={styles.topbarLabel}>Municipios</Text>
             </Pressable>
           )}
+          <Pressable
+            style={styles.topbarBtn}
+            onPress={() => {
+              setSearchOpen((v) => !v);
+              setQuery('');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Buscar playa, vertido o municipio"
+          >
+            <Image
+              source={require('../assets/icons/icon-search.png')}
+              style={styles.topbarIcon}
+            />
+            <Text style={styles.topbarLabel}>Buscar</Text>
+          </Pressable>
           <View style={styles.topbarDivider} />
           <Pressable
             style={styles.topbarBtn}
@@ -450,6 +569,38 @@ export default function CoastMap({
               : 'Todas las playas sin incidencias'}
           </Text>
         </Pressable>
+        {searchOpen && (
+          <View style={styles.searchWrap}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar playa, vertido o municipio..."
+              placeholderTextColor={colors.textFaint}
+              value={query}
+              onChangeText={setQuery}
+              autoFocus
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+            {searchResults.length > 0 && (
+              <View style={styles.searchResults}>
+                {searchResults.map((item) => (
+                  <Pressable
+                    key={item.key}
+                    style={styles.searchRow}
+                    onPress={() => pickResult(item)}
+                  >
+                    <Text style={styles.searchLabel} numberOfLines={1}>
+                      {item.label}
+                    </Text>
+                    <Text style={styles.searchSub} numberOfLines={1}>
+                      {item.sub}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
       </View>
 
       <View style={styles.legend} pointerEvents="box-none">
@@ -612,6 +763,47 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontFamily: fonts.bold,
+  },
+  searchWrap: {
+    alignSelf: 'stretch',
+  },
+  searchInput: {
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    fontSize: 14,
+    fontFamily: fonts.regular,
+    color: colors.text,
+    elevation: 4,
+  },
+  searchResults: {
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 12,
+    marginTop: 6,
+    paddingVertical: 4,
+    elevation: 6,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 10,
+  },
+  searchLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+  },
+  searchSub: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
   },
   legend: {
     position: 'absolute',
