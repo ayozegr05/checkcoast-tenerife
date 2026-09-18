@@ -548,11 +548,7 @@ export default function CoastMap({
               layout={{
                 'text-field': ['get', 'pointLabel'],
                 'text-size': 11,
-                'text-font': [
-                  'Noto Sans Regular',
-                  'Open Sans Regular',
-                  'Arial Unicode MS Regular',
-                ],
+                'text-font': ['Noto Sans Bold'],
                 'text-offset': [0, 1.1],
                 'text-anchor': 'top',
                 'text-allow-overlap': true,
