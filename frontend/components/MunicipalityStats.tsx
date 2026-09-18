@@ -20,6 +20,7 @@ import {
 } from '../lib/api';
 import { displayBeachName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
+import Skeleton from './Skeleton';
 
 type MuniStats = {
   municipality: string | null;
@@ -239,11 +240,27 @@ export default function MunicipalityStats({
                 </View>
               )}
               ListEmptyComponent={
-                <Text style={styles.empty}>
-                  {incidents === null
-                    ? 'Cargando incidentes...'
-                    : 'Sin incidentes registrados'}
-                </Text>
+                incidents === null ? (
+                  <View>
+                    {[0, 1, 2].map((i) => (
+                      <View key={i} style={styles.tlItem}>
+                        <View style={styles.tlRail}>
+                          <Skeleton style={styles.tlDotSkeleton} />
+                          {i < 2 && <View style={styles.tlLine} />}
+                        </View>
+                        <View style={styles.tlBody}>
+                          <Skeleton style={styles.tlSkeletonTitle} />
+                          <Skeleton style={styles.tlSkeletonLine} />
+                          <Skeleton style={styles.tlSkeletonLineShort} />
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.empty}>
+                    Sin incidentes registrados
+                  </Text>
+                )
               }
             />
           </>
@@ -275,6 +292,11 @@ export default function MunicipalityStats({
             <Pressable
               style={styles.row}
               onPress={() => setDetail(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name}, posición ${index + 1} de ${
+                rows.length
+              }, ${item.beaches} playas, ${item.incidents} incidentes`}
+              accessibilityHint="Ver línea temporal de incidentes"
             >
               <View style={styles.rowHeader}>
                 <View
@@ -510,6 +532,26 @@ const styles = StyleSheet.create({
     flex: 1,
     width: 2,
     backgroundColor: colors.border,
+  },
+  tlDotSkeleton: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginTop: 14,
+  },
+  tlSkeletonTitle: {
+    width: '55%',
+    height: 13,
+  },
+  tlSkeletonLine: {
+    width: '85%',
+    height: 10,
+    marginTop: 9,
+  },
+  tlSkeletonLineShort: {
+    width: '65%',
+    height: 10,
+    marginTop: 6,
   },
   tlBody: {
     flex: 1,

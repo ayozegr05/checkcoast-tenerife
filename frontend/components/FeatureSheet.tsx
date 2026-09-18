@@ -189,7 +189,12 @@ export default function FeatureSheet({
           <Text style={styles.title} numberOfLines={2}>
             {title}
           </Text>
-          <Pressable onPress={dismiss} hitSlop={12}>
+          <Pressable
+            onPress={dismiss}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar ficha"
+          >
             <Text style={styles.close}>✕</Text>
           </Pressable>
         </View>
@@ -214,6 +219,12 @@ export default function FeatureSheet({
                     key={m.id}
                     style={styles.pmRow}
                     onPress={() => setChosenPm(m)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${
+                      beachPointLabel(m.properties.name) ??
+                      displayBeachName(m.properties.name)
+                    }, ${BEACH_STATUS_TEXT[k]}`}
+                    accessibilityHint="Abrir ficha de este punto de muestreo"
                   >
                     <View
                       style={[
@@ -238,7 +249,12 @@ export default function FeatureSheet({
           ) : (
             <View>
               {members.length > 1 && (
-                <Pressable onPress={() => setChosenPm(null)} hitSlop={6}>
+                <Pressable
+                  onPress={() => setChosenPm(null)}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Volver a los ${members.length} puntos de muestreo`}
+                >
                   <Text style={styles.pmBack}>
                     ‹ {members.length} puntos de muestreo
                   </Text>

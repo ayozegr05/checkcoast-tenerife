@@ -20,6 +20,7 @@ import {
 } from '../lib/api';
 import { displayBeachName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
+import Skeleton from './Skeleton';
 
 // Estado de playa: usa properties.status (de /beaches + /alerts)
 const BEACH_STATUS: Record<string, { label: string; color: string }> = {
@@ -150,6 +151,7 @@ export default function BeachDetail({
   const [chartParam, setChartParam] = useState<'ecoli' | 'enterococci'>(
     'ecoli',
   );
+  const [chartW, setChartW] = useState(0);
 
   useEffect(() => {
     setIncidents(null);
@@ -198,6 +200,13 @@ export default function BeachDetail({
       return { ...d, yearLabel };
     });
   }, [quality, chartParam]);
+
+  // Ancho de columna: repartir el ancho de la card entre las muestras;
+  // mínimo 8px — si hay muchas, sigue habiendo scroll horizontal
+  const colW =
+    chartW > 0 && chartData.length > 0
+      ? Math.max(8, chartW / chartData.length)
+      : 8;
 
   const beachKey =
     hasAlert && p.status === 'open' ? 'warning' : (p.status ?? 'unknown');
@@ -263,6 +272,20 @@ export default function BeachDetail({
         </Text>
       )}
 
+      {/* Mientras llega el histórico, placeholder con la forma de la
+          tarjeta de calidad + gráfica (las playas OSM no fetchean) */}
+      {!unmonitored && quality === null && (
+        <View style={styles.qualityCard}>
+          <Skeleton style={{ width: 150, height: 13 }} />
+          <Skeleton style={{ width: '92%', height: 10, marginTop: 10 }} />
+          <Skeleton style={{ width: '78%', height: 10, marginTop: 8 }} />
+          <Skeleton
+            style={{ width: '100%', height: CHART_H, marginTop: 12 }}
+          />
+          <Skeleton style={{ width: '60%', height: 10, marginTop: 14 }} />
+        </View>
+      )}
+
       {quality !== null && quality.length > 0 && (
         <View style={styles.qualityCard}>
           <Text style={styles.historyTitle}>
@@ -321,7 +344,12 @@ export default function BeachDetail({
           ) : null}
 
           {chartData.length >= 2 && (
-            <View style={styles.chartBlock}>
+            <View
+              style={styles.chartBlock}
+              onLayout={(e) =>
+                setChartW(e.nativeEvent.layout.width)
+              }
+            >
               <View style={styles.chartHead}>
                 <Text style={styles.historyTitle}>Evolución</Text>
                 <View style={styles.chartToggle}>
@@ -333,6 +361,11 @@ export default function BeachDetail({
                         styles.toggleChip,
                         chartParam === param && styles.toggleChipOn,
                       ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ver evolución de ${QUALITY_THRESHOLDS[param].label}`}
+                      accessibilityState={{
+                        selected: chartParam === param,
+                      }}
                     >
                       <Text
                         style={[
@@ -371,12 +404,19 @@ export default function BeachDetail({
                             ? colors.outfall.unknown
                             : colors.status.closed;
                       return (
-                        <View key={i} style={styles.barCol}>
+                        <View
+                          key={i}
+                          style={[
+                            styles.barCol,
+                            { width: colW, marginRight: 0 },
+                          ]}
+                        >
                           <View
                             style={[
                               styles.bar,
                               {
                                 height: barH(d.value),
+                                width: Math.max(3, colW - 2),
                                 backgroundColor: color,
                               },
                             ]}
@@ -402,7 +442,7 @@ export default function BeachDetail({
                               styles.incidentTick,
                               {
                                 left: Math.round(
-                                  pos * (chartData.length - 1) * 8,
+                                  pos * (chartData.length - 1) * colW,
                                 ),
                               },
                             ]}
@@ -413,7 +453,10 @@ export default function BeachDetail({
                   </View>
                   <View style={styles.yearRow}>
                     {chartData.map((d, i) => (
-                      <View key={i} style={styles.yearCol}>
+                      <View
+                        key={i}
+                        style={[styles.yearCol, { width: colW }]}
+                      >
                         {d.yearLabel ? (
                           <Text style={styles.yearText}>
                             {d.yearLabel}

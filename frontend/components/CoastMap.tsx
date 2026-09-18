@@ -733,6 +733,7 @@ export default function CoastMap({
               autoFocus
               autoCorrect={false}
               returnKeyType="search"
+              accessibilityLabel="Buscar playa, vertido o municipio"
             />
             {searchResults.length > 0 && (
               <View style={styles.searchResults}>
@@ -741,6 +742,9 @@ export default function CoastMap({
                     key={item.key}
                     style={styles.searchRow}
                     onPress={() => pickResult(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.label}, ${item.sub}`}
+                    accessibilityHint="Centrar en el mapa"
                   >
                     <Text style={styles.searchLabel} numberOfLines={1}>
                       {item.label}
@@ -761,6 +765,7 @@ export default function CoastMap({
           style={[styles.legendRow, !showOutfalls && styles.legendOff]}
           onPress={() => setShowOutfalls((v) => !v)}
           accessibilityRole="switch"
+          accessibilityLabel="Capa de vertidos"
           accessibilityState={{ checked: showOutfalls }}
         >
           <Image
@@ -799,6 +804,7 @@ export default function CoastMap({
           ]}
           onPress={() => setShowBeaches((v) => !v)}
           accessibilityRole="switch"
+          accessibilityLabel="Capa de playas"
           accessibilityState={{ checked: showBeaches }}
         >
           <Image
@@ -868,11 +874,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
   },
   topbarBtn: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 2,
     paddingVertical: 4,
-    minWidth: 58,
     borderRadius: 8,
     borderWidth: 2,
     borderColor: colors.border,
@@ -882,7 +888,7 @@ const styles = StyleSheet.create({
     height: 22,
   },
   topbarLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: fonts.semibold,
     color: colors.text,
     marginTop: 2,

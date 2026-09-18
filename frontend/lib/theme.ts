@@ -35,6 +35,9 @@ export const colors = {
   danger: '#c62828',
   on: '#2e7d32',
   off: '#bdbdbd',
+
+  // Skeleton de carga — "sea-glass", hijo claro del océano del mapa
+  skeleton: '#c3e3ea',
 };
 
 // Familias Nunito cargadas en App.tsx con useFonts

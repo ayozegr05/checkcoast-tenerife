@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import BeachDetail from './BeachDetail';
+import Skeleton from './Skeleton';
 import { BeachStats, GeoFeature, fetchBeachStats } from '../lib/api';
 import {
   beachBaseName,
@@ -155,6 +156,12 @@ export default function BeachList({
   const [stats, setStats] = useState<Map<number, BeachStats>>(new Map());
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<GeoFeature | null>(null);
+  const [shotLoaded, setShotLoaded] = useState(false);
+
+  // La foto satélite de Esri tarda en llegar: skeleton hasta que carga
+  useEffect(() => {
+    setShotLoaded(false);
+  }, [detail]);
 
   // El componente queda montado (Modal visible): búsqueda, filtro,
   // expansión y orden se conservan entre aperturas. El municipio solo se
@@ -300,12 +307,22 @@ export default function BeachList({
             </ImageBackground>
             <ScrollView style={styles.detailScroll}>
               <View style={styles.mapShotWrap}>
+                {!shotLoaded && (
+                  <Skeleton style={styles.mapShotSkeleton} />
+                )}
+                {!shotLoaded && (
+                  <Text style={styles.mapShotLoading}>
+                    Cargando vista satélite…
+                  </Text>
+                )}
                 <Image
                   source={{
                     uri: satelliteShot(detail.geometry.coordinates),
                   }}
                   style={styles.mapShot}
                   resizeMode="cover"
+                  onLoad={() => setShotLoaded(true)}
+                  accessibilityLabel="Vista satélite de la zona de la playa"
                 />
                 <View
                   style={[
@@ -352,7 +369,12 @@ export default function BeachList({
                 <Text style={styles.muniBtnText}>Por municipio</Text>
               </Pressable>
             )}
-            <Pressable onPress={onClose} hitSlop={12}>
+            <Pressable
+              onPress={onClose}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar lista de playas"
+            >
               <Text style={styles.close}>✕</Text>
             </Pressable>
           </View>
@@ -365,6 +387,7 @@ export default function BeachList({
           onChangeText={setQuery}
           autoCorrect={false}
           clearButtonMode="while-editing"
+          accessibilityLabel="Buscar playa por nombre"
         />
 
         <ScrollView
@@ -379,6 +402,9 @@ export default function BeachList({
               municipality === undefined && styles.chipActive,
             ]}
             onPress={() => setMunicipality(undefined)}
+            accessibilityRole="button"
+            accessibilityLabel="Mostrar todas las playas"
+            accessibilityState={{ selected: municipality === undefined }}
           >
             <Text
               style={[
@@ -396,6 +422,9 @@ export default function BeachList({
               onPress={() =>
                 setMunicipality(municipality === m ? undefined : m)
               }
+              accessibilityRole="button"
+              accessibilityLabel={`Filtrar por municipio ${m}`}
+              accessibilityState={{ selected: municipality === m }}
             >
               <Text
                 style={[
@@ -416,6 +445,9 @@ export default function BeachList({
               onPress={() =>
                 setMunicipality(municipality === null ? undefined : null)
               }
+              accessibilityRole="button"
+              accessibilityLabel="Filtrar por playas sin municipio"
+              accessibilityState={{ selected: municipality === null }}
             >
               <Text
                 style={[
@@ -440,6 +472,9 @@ export default function BeachList({
               key={mode}
               style={[styles.chip, sortMode === mode && styles.chipActive]}
               onPress={() => setSortMode(mode)}
+              accessibilityRole="button"
+              accessibilityLabel={`Ordenar por ${SORT_LABELS[mode]}`}
+              accessibilityState={{ selected: sortMode === mode }}
             >
               <Text
                 style={[
@@ -463,6 +498,9 @@ export default function BeachList({
               onPress={() =>
                 setStatusFilter(statusFilter === s ? undefined : s)
               }
+              accessibilityRole="button"
+              accessibilityLabel={`Filtrar por estado ${STATUS_LABELS[s]}`}
+              accessibilityState={{ selected: statusFilter === s }}
             >
               <View
                 style={[
@@ -501,6 +539,22 @@ export default function BeachList({
                     g.members.length === 1
                       ? setDetail(g.members[0])
                       : setExpandedKey(expanded ? null : g.key)
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`${displayName(g.name)}, ${
+                    g.municipality ?? 'sin municipio'
+                  }, ${STATUS_LABELS[status]}${
+                    g.members.length > 1
+                      ? `, ${g.members.length} puntos de muestreo`
+                      : ''
+                  }`}
+                  accessibilityHint={
+                    g.members.length > 1
+                      ? 'Toca para ver los puntos de muestreo'
+                      : 'Toca para abrir la ficha'
+                  }
+                  accessibilityState={
+                    g.members.length > 1 ? { expanded } : undefined
                   }
                 >
                   <View style={styles.rowText}>
@@ -552,6 +606,12 @@ export default function BeachList({
                         key={f.id}
                         style={styles.pmRow}
                         onPress={() => setDetail(f)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${
+                          beachPointLabel(f.properties.name) ??
+                          displayName(f.properties.name)
+                        }, ${STATUS_LABELS[fStatus]}`}
+                        accessibilityHint="Abrir ficha del punto de muestreo"
                       >
                         <View style={styles.pmText}>
                           <Text style={styles.pmName}>
@@ -653,6 +713,23 @@ const styles = StyleSheet.create({
   mapShot: {
     width: '100%',
     height: 190,
+  },
+  mapShotSkeleton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 190,
+    borderRadius: 0,
+  },
+  mapShotLoading: {
+    position: 'absolute',
+    top: '50%',
+    alignSelf: 'center',
+    marginTop: -8,
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
   },
   mapDot: {
     position: 'absolute',
