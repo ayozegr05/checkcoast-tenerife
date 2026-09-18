@@ -336,11 +336,17 @@ export default function BeachDetail({
                             : colors.status.closed;
                       return (
                         <View key={i} style={styles.barCol}>
+                          {duringIncident(d.date) && (
+                            <View
+                              style={[
+                                styles.incidentDot,
+                                { bottom: barH(d.value) + 3 },
+                              ]}
+                            />
+                          )}
                           <View
                             style={[
                               styles.bar,
-                              duringIncident(d.date) &&
-                                styles.barIncident,
                               {
                                 height: barH(d.value),
                                 backgroundColor: color,
@@ -369,7 +375,7 @@ export default function BeachDetail({
                 oficial · línea azul = límite normativo (
                 {QUALITY_THRESHOLDS[chartParam].good} UFC/100 mL)
                 {incidentRanges.length > 0
-                  ? ' · borde rojo = muestreo durante un incidente'
+                  ? ' · punto rojo = muestreo durante un incidente'
                   : ''}
               </Text>
             </View>
@@ -622,9 +628,13 @@ const styles = StyleSheet.create({
     width: 6,
     borderRadius: 2,
   },
-  barIncident: {
-    borderWidth: 1.5,
-    borderColor: colors.status.closed,
+  incidentDot: {
+    position: 'absolute',
+    alignSelf: 'center',
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.status.closed,
   },
   chartFoot: {
     fontSize: 10,
