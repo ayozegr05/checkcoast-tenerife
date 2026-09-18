@@ -169,6 +169,20 @@ Tres niveles, en orden de impacto/esfuerzo:
 | 8.6 | Actualizar a Node 22 LTS (Expo pide ≥20.19.4, hoy 20.12.2) | Pendiente | 🟢 Trivial |
 | 8.7 | Revocar token de Expo expuesto en sesión anterior *(usuario, en expo.dev)* | Pendiente | 🟢 Trivial |
 
+## Hito 8.5 — Contexto de prensa (LLM) ⬜
+
+Responder "¿por qué está cerrada?" que Náyade no contesta: noticias
+locales → LLM extrae playa/evento/causa → se muestra etiquetado como
+"según prensa" (nunca mezclado con el estado oficial).
+
+| # | Tarea | Estado | Esfuerzo |
+|---|-------|--------|----------|
+| 8.5.1 | **Fuente de noticias**: GDELT API (gratuita, JSON) o RSS prensa canaria — NO scraping de webs | Pendiente | 🟡 Medio |
+| 8.5.2 | **Extracción LLM**: `extract_event(article) → {beach, municipio, tipo, causa}` — **Gemini 2.5 Flash free tier** (~1.500 req/día, sin tarjeta), thinking desactivado, salida JSON forzada por esquema; LLM detrás de interfaz para cambiar de proveedor | Pendiente | 🟡 Medio |
+| 8.5.3 | **Matching conservador**: ligar artículo↔playa por nombre normalizado + municipio (reusar lógica OSM); solo mostrar con confianza alta | Pendiente | 🔴 La parte difícil |
+| 8.5.4 | **Backend**: tabla `news_item` + job APScheduler + `GET /beaches/{id}/news` | Pendiente | 🟡 Medio |
+| 8.5.5 | **Frontend**: caja "En la prensa" en ficha de playa (titular + fuente + fecha + enlace, etiqueta "según prensa") | Pendiente | 🟢 Trivial |
+
 ## Hito 9 — Portfolio ⬜
 
 | # | Tarea | Estado | Esfuerzo |
@@ -181,5 +195,5 @@ Tres niveles, en orden de impacto/esfuerzo:
 ---
 
 ### Estado actual
-**Hito activo:** 8 — Calidad y despliegue (Hito 7 cerrado: cabeceras por estado, podio, skeletons shimmer, card destacada, accessibility)
+**Hito activo:** 8.5 — Contexto de prensa LLM (decidido: prensa antes que deploy; Gemini 2.5 Flash free tier) — luego Hito 8 (Hito 7 cerrado)
 **Última actualización:** 2026-09-17
