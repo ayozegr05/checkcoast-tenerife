@@ -51,6 +51,14 @@ export type BeachStats = {
   latest_sampled_at: string | null;
 };
 
+export type BeachNearbyOutfall = {
+  outfall_id: number;
+  name: string;
+  kind: string | null;
+  status: 'legal' | 'illegal' | 'unknown';
+  distance_m: number;
+};
+
 export type OutfallNearestBeach = {
   outfall_id: number;
   beach_id: number;
@@ -86,6 +94,8 @@ export const fetchBeachQuality = (beachId: number) =>
 export const fetchBeachStats = () => getJson<BeachStats[]>('/beaches/stats');
 export const fetchOutfallNearestBeach = (outfallId: number) =>
   getJson<OutfallNearestBeach>(`/outfalls/${outfallId}/nearest-beach`);
+export const fetchBeachNearbyOutfalls = (beachId: number) =>
+  getJson<BeachNearbyOutfall[]>(`/beaches/${beachId}/nearby-outfalls`);
 
 // Registro del Expo push token en el backend (idempotente)
 export const registerDevice = (token: string, platform: string) =>

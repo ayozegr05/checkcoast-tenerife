@@ -72,6 +72,14 @@ class OutfallNearestBeachOut(BaseModel):
     distance_m: float
 
 
+class BeachNearbyOutfallOut(BaseModel):
+    outfall_id: int
+    name: str
+    kind: str | None
+    status: str
+    distance_m: float
+
+
 class DeviceIn(BaseModel):
     token: str
     platform: str | None = None

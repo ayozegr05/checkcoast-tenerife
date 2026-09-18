@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from geoalchemy2 import Geography
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -11,11 +12,13 @@ from app.models import (
     BeachMeasurement,
     BeachState,
     BeachStatus,
+    Outfall,
 )
 from app.queries import beaches_with_latest_status
 from app.schemas import (
     BeachIncidentOut,
     BeachMeasurementOut,
+    BeachNearbyOutfallOut,
     BeachStatsOut,
     BeachStatusIn,
     BeachStatusOut,
@@ -149,6 +152,57 @@ def beach_quality(
             enterococci=row.enterococci,
             evaluation=row.evaluation,
             source_url=row.source_url,
+        )
+        for row in rows
+    ]
+
+
+@router.get(
+    "/beaches/{beach_id}/nearby-outfalls",
+    response_model=list[BeachNearbyOutfallOut],
+)
+def beach_nearby_outfalls(
+    beach_id: int,
+    radius_m: int = Query(
+        1000, ge=50, le=10000, description="Radio de búsqueda en metros"
+    ),
+    db: Session = Depends(get_db),
+) -> list[BeachNearbyOutfallOut]:
+    """Emisarios catalogados dentro del radio de la playa, ordenados por
+    distancia (metros reales, geography). Contextualiza qué vertidos
+    amenazan cada zona de baño."""
+    if db.get(Beach, beach_id) is None:
+        raise HTTPException(status_code=404, detail="Beach not found")
+    distance = func.ST_Distance(
+        Beach.geom.cast(Geography), Outfall.geom.cast(Geography)
+    ).label("distance_m")
+    rows = (
+        db.query(
+            Outfall.id,
+            Outfall.name,
+            Outfall.kind,
+            Outfall.status,
+            distance,
+        )
+        .filter(Beach.id == beach_id)
+        .filter(
+            func.ST_DWithin(
+                Beach.geom.cast(Geography),
+                Outfall.geom.cast(Geography),
+                radius_m,
+            )
+        )
+        .order_by("distance_m")
+        .limit(5)
+        .all()
+    )
+    return [
+        BeachNearbyOutfallOut(
+            outfall_id=row.id,
+            name=row.name,
+            kind=row.kind,
+            status=row.status.value,
+            distance_m=row.distance_m,
         )
         for row in rows
     ]

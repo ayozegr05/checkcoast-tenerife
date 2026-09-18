@@ -10,8 +10,10 @@ import {
 import {
   BeachIncident,
   BeachMeasurement,
+  BeachNearbyOutfall,
   GeoFeature,
   fetchBeachIncidents,
+  fetchBeachNearbyOutfalls,
   fetchBeachQuality,
 } from '../lib/api';
 import { colors, fonts } from '../lib/theme';
@@ -116,6 +118,15 @@ const fmtMonth = (iso: string) => {
   return `${MONTHS[parseInt(m, 10) - 1]} ${y}`;
 };
 
+const fmtDistance = (m: number) =>
+  m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
+
+const OUTFALL_STATUS_LABELS: Record<string, string> = {
+  legal: 'Autorizado',
+  illegal: 'No autorizado',
+  unknown: 'En trámite',
+};
+
 // Contenido de la ficha de playa, compartido entre la hoja sobre el mapa
 // (FeatureSheet) y la vista detalle dentro de la lista (BeachList)
 export default function BeachDetail({
@@ -130,6 +141,7 @@ export default function BeachDetail({
 
   const [incidents, setIncidents] = useState<BeachIncident[] | null>(null);
   const [quality, setQuality] = useState<BeachMeasurement[] | null>(null);
+  const [nearby, setNearby] = useState<BeachNearbyOutfall[] | null>(null);
   const [chartParam, setChartParam] = useState<'ecoli' | 'enterococci'>(
     'ecoli',
   );
@@ -137,6 +149,10 @@ export default function BeachDetail({
   useEffect(() => {
     setIncidents(null);
     setQuality(null);
+    setNearby(null);
+    fetchBeachNearbyOutfalls(feature.id)
+      .then(setNearby)
+      .catch(() => setNearby([]));
     if (unmonitored) return; // sin datos oficiales
     fetchBeachIncidents(feature.id)
       .then(setIncidents)
@@ -150,10 +166,20 @@ export default function BeachDetail({
   // parseables (descarta "—" y filas sin medicion del parametro)
   const chartData = useMemo(() => {
     if (!quality) return [];
-    return [...quality]
+    const rows = [...quality]
       .reverse()
       .map((m) => ({ date: m.sampled_at, value: numValue(m[chartParam]) }))
-      .filter((d): d is { date: string; value: number } => d.value !== null);
+      .filter(
+        (d): d is { date: string; value: number } => d.value !== null,
+      );
+    // Etiqueta de año bajo la primera barra de cada año
+    let lastYear = '';
+    return rows.map((d) => {
+      const year = d.date.slice(0, 4);
+      const yearLabel = year !== lastYear ? year : null;
+      lastYear = year;
+      return { ...d, yearLabel };
+    });
   }, [quality, chartParam]);
 
   const beachKey =
@@ -273,49 +299,90 @@ export default function BeachDetail({
                 horizontal
                 showsHorizontalScrollIndicator={false}
               >
-                <View style={styles.chartArea}>
-                  <View
-                    style={[
-                      styles.limitLine,
-                      {
-                        bottom: barH(
-                          QUALITY_THRESHOLDS[chartParam].good,
-                        ),
-                      },
-                    ]}
-                  />
-                  {chartData.map((d, i) => {
-                    const t = QUALITY_THRESHOLDS[chartParam];
-                    const color =
-                      d.value <= t.excellent
-                        ? colors.status.open
-                        : d.value <= t.good
-                          ? colors.outfall.unknown
-                          : colors.status.closed;
-                    return (
-                      <View key={i} style={styles.barCol}>
-                        <View
-                          style={[
-                            styles.bar,
-                            {
-                              height: barH(d.value),
-                              backgroundColor: color,
-                            },
-                          ]}
-                        />
+                <View>
+                  <View style={styles.chartArea}>
+                    <View
+                      style={[
+                        styles.limitLine,
+                        {
+                          bottom: barH(
+                            QUALITY_THRESHOLDS[chartParam].good,
+                          ),
+                        },
+                      ]}
+                    />
+                    {chartData.map((d, i) => {
+                      const t = QUALITY_THRESHOLDS[chartParam];
+                      const color =
+                        d.value <= t.excellent
+                          ? colors.status.open
+                          : d.value <= t.good
+                            ? colors.outfall.unknown
+                            : colors.status.closed;
+                      return (
+                        <View key={i} style={styles.barCol}>
+                          <View
+                            style={[
+                              styles.bar,
+                              {
+                                height: barH(d.value),
+                                backgroundColor: color,
+                              },
+                            ]}
+                          />
+                        </View>
+                      );
+                    })}
+                  </View>
+                  <View style={styles.yearRow}>
+                    {chartData.map((d, i) => (
+                      <View key={i} style={styles.yearCol}>
+                        {d.yearLabel ? (
+                          <Text style={styles.yearText}>
+                            {d.yearLabel}
+                          </Text>
+                        ) : null}
                       </View>
-                    );
-                  })}
+                    ))}
+                  </View>
                 </View>
               </ScrollView>
               <Text style={styles.chartFoot}>
-                {fmtMonth(chartData[0].date)} →{' '}
-                {fmtMonth(chartData[chartData.length - 1].date)} ·{' '}
-                {chartData.length} muestras · línea discontinua = límite
-                normativo
+                {chartData.length} muestreos · cada barra = un análisis
+                oficial · línea roja = límite normativo (
+                {QUALITY_THRESHOLDS[chartParam].good} UFC/100 mL)
               </Text>
             </View>
           )}
+        </View>
+      )}
+
+      {nearby !== null && nearby.length > 0 && (
+        <View style={styles.history}>
+          <Text style={styles.historyTitle}>
+            Emisarios cercanos ({nearby.length})
+          </Text>
+          {nearby.map((o) => {
+            const accent =
+              colors.outfall[o.status] ?? colors.status.unknown;
+            return (
+              <View
+                key={o.outfall_id}
+                style={[styles.outfallRow, { borderLeftColor: accent }]}
+              >
+                <View style={styles.outfallRowBody}>
+                  <Text style={styles.outfallName} numberOfLines={1}>
+                    {o.name}
+                  </Text>
+                  <Text style={styles.outfallMeta}>
+                    {OUTFALL_STATUS_LABELS[o.status] ?? 'En trámite'} · a{' '}
+                    {fmtDistance(o.distance_m)}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+          <Text style={styles.chartFoot}>En un radio de 1 km</Text>
         </View>
       )}
 
@@ -509,10 +576,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    borderTopWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.status.closed,
-    opacity: 0.6,
+    height: 1.5,
+    backgroundColor: colors.status.closed,
+    opacity: 0.8,
+  },
+  yearRow: {
+    flexDirection: 'row',
+    marginTop: 2,
+  },
+  yearCol: {
+    width: 8,
+    alignItems: 'flex-start',
+  },
+  yearText: {
+    fontSize: 7,
+    fontFamily: fonts.semibold,
+    color: colors.textFaint,
   },
   barCol: {
     justifyContent: 'flex-end',
@@ -528,6 +607,28 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textFaint,
     marginTop: 4,
+  },
+  outfallRow: {
+    borderLeftWidth: 3,
+    paddingLeft: 10,
+    paddingVertical: 4,
+    marginBottom: 6,
+    backgroundColor: colors.background,
+    borderRadius: 4,
+  },
+  outfallRowBody: {
+    paddingRight: 4,
+  },
+  outfallName: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+  },
+  outfallMeta: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 1,
   },
   incident: {
     borderLeftWidth: 3,
