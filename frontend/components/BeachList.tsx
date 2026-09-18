@@ -61,10 +61,25 @@ const statusOf = (f: GeoFeature) =>
     : (f.properties.status ?? 'unknown');
 
 // Una playa extensa tiene varios puntos de muestreo (PM1, PM2...) con
-// registros oficiales separados: la lista los agrupa bajo el nombre base
-const baseName = (name: string) => name.replace(/\s+PM\d+$/, '');
+// registros oficiales separados: la lista los agrupa bajo el nombre
+// base. Los romanos finales también son variantes de la misma playa
+// (Troya I / Troya II son un único arenal con dos PMs)
+const baseName = (name: string) =>
+  name
+    .replace(/\s+PM\d+$/, '')
+    .replace(/\s+(I|II|III|IV)\s*(?=\))/, '')
+    .replace(/\s+(I|II|III|IV)(?=\s*\(|\s*$)/, '');
 
-const pmLabel = (name: string) => name.match(/\s+(PM\d+)$/)?.[1] ?? null;
+const pmLabel = (name: string) => {
+  const pm = name.match(/\s+(PM\d+)$/)?.[1];
+  const roman = name
+    .replace(/\s+PM\d+$/, '')
+    .split('(')[0]
+    .trimEnd()
+    .match(/\s+(I|II|III|IV)$/)?.[1];
+  const label = [roman, pm].filter(Boolean).join(' · ');
+  return label || null;
+};
 
 const pmNum = (name: string) => {
   const m = name.match(/PM(\d+)$/);

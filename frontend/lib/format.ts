@@ -20,6 +20,10 @@ const ACCENTS: Record<string, string> = {
   camison: 'camisón',
   jaquita: 'jaquita',
   almaciga: 'almáciga',
+  // variantes con el carácter corrupto de la fuente ya eliminado
+  amricas: 'américas',
+  camisn: 'camisón',
+  gimar: 'güímar',
 };
 
 // Capitaliza estilo español: "Playa de las Gaviotas", "Paseo de las
@@ -29,6 +33,7 @@ export const capName = (name: string) => {
   let prev = '';
   return name
     .toLowerCase()
+    .replace(/�/g, '')
     .split(/([a-záéíóúñü]+)/i)
     .map((p) => {
       if (!/^[a-záéíóúñü]+$/i.test(p)) return p;
