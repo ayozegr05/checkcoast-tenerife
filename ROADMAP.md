@@ -181,5 +181,5 @@ Tres niveles, en orden de impacto/esfuerzo:
 ---
 
 ### Estado actual
-**Hito activo:** 7 — Pulido visual (Hito 6 cerrado; 6.3 aplazada por decisión: las alertas no saturan y conocer toda la isla ayuda a elegir playa)
+**Hito activo:** 8 — Calidad y despliegue (Hito 7 cerrado: cabeceras por estado, podio, skeletons shimmer, card destacada, accessibility)
 **Última actualización:** 2026-09-17
