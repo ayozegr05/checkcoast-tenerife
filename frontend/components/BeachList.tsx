@@ -447,6 +447,7 @@ export default function BeachList({
           data={groups}
           keyExtractor={(g) => g.key}
           style={styles.list}
+          contentContainerStyle={styles.listContent}
           renderItem={({ item: g }) => {
             const status = worstStatusOf(g);
             const expanded = expandedKey === g.key;
@@ -638,7 +639,7 @@ const styles = StyleSheet.create({
   },
   detailBody: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
+    paddingBottom: Platform.OS === 'android' ? 44 : 24,
   },
   title: {
     fontSize: 18,
@@ -691,6 +692,9 @@ const styles = StyleSheet.create({
   list: {
     flex: 1,
     marginTop: 8,
+  },
+  listContent: {
+    paddingBottom: Platform.OS === 'android' ? 34 : 8, // barra de gestos
   },
   row: {
     backgroundColor: colors.surface,

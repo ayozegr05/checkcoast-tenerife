@@ -83,9 +83,11 @@ const classifyValue = (
   return { value, cls, color, pct };
 };
 
-// Valores tipo "<10" o ">24000": el dígito es lo que cuenta
+// Valores tipo "<10" o ">24000 UFC/100 mL": quitar solo el prefijo no
+// numérico y parseFloat se queda con el número (no quitar dígitos de la
+// unidad "100 mL" — inflaría el valor ×1000)
 const numValue = (raw: string | null) => {
-  const v = parseFloat((raw ?? '').replace(/[^\d.]/g, ''));
+  const v = parseFloat((raw ?? '').replace(/^[^\d.]*/, ''));
   return Number.isNaN(v) ? null : v;
 };
 
@@ -576,9 +578,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    height: 1.5,
-    backgroundColor: colors.status.closed,
-    opacity: 0.8,
+    height: 2,
+    backgroundColor: colors.primaryDark,
+    opacity: 0.85,
   },
   yearRow: {
     flexDirection: 'row',

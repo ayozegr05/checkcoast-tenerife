@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
   },
   legend: {
     position: 'absolute',
-    bottom: 12,
+    bottom: Platform.OS === 'android' ? 42 : 12, // por encima de la barra de gestos
     left: 12,
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 8,

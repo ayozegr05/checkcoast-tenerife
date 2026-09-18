@@ -226,6 +226,7 @@ export default function OutfallList({
           data={rows}
           keyExtractor={(f) => String(f.id)}
           style={styles.list}
+          contentContainerStyle={styles.listContent}
           renderItem={({ item: f }) => {
             const s = f.properties.status ?? 'unknown';
             return (
@@ -332,6 +333,9 @@ const styles = StyleSheet.create({
   list: {
     flex: 1,
     marginTop: 4,
+  },
+  listContent: {
+    paddingBottom: Platform.OS === 'android' ? 34 : 8, // barra de gestos
   },
   row: {
     backgroundColor: colors.surface,

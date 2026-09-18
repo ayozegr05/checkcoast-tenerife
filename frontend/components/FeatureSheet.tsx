@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -47,8 +48,9 @@ export default function FeatureSheet({
 
   const winH = useWindowDimensions().height;
   const CARD_TOP = Math.round(winH * 0.45); // borde superior fijo
-  // Tope: la card nunca pasa de 14px sobre el borde inferior
-  const CARD_MAX = Math.round(winH - CARD_TOP - 14);
+  // Margen inferior: barra de gestos de Android (~30px) + respiro
+  const NAV_INSET = Platform.OS === 'android' ? 30 : 0;
+  const CARD_MAX = Math.round(winH - CARD_TOP - 14 - NAV_INSET);
   const HEADER_H = 64; // asa + titulo aprox
   const [bodyH, setBodyH] = useState(0);
   // Peek = altura del contenido (con minimo razonable y tope CARD_MAX)

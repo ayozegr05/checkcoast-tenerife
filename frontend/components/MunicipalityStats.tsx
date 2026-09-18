@@ -130,6 +130,7 @@ export default function MunicipalityStats({
           data={rows}
           keyExtractor={(m) => m.name}
           style={styles.list}
+          contentContainerStyle={styles.listContent}
           renderItem={({ item, index }) => (
             <Pressable
               style={styles.row}
@@ -232,6 +233,9 @@ const styles = StyleSheet.create({
   list: {
     flex: 1,
     marginTop: 4,
+  },
+  listContent: {
+    paddingBottom: Platform.OS === 'android' ? 34 : 8, // barra de gestos
   },
   row: {
     backgroundColor: colors.surface,
