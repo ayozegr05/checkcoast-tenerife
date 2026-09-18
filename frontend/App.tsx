@@ -126,6 +126,18 @@ export default function App() {
     };
   }, [beaches, alerts]);
 
+  // Puntos de muestreo pintados en el mapa mientras la card de una
+  // playa agrupada está abierta (selector de PMs o ficha de un PM)
+  const pmPointsFC = useMemo<FeatureCollection>(
+    () =>
+      selection?.type === 'beach' &&
+      selection.members &&
+      selection.members.length > 1
+        ? { type: 'FeatureCollection', features: selection.members }
+        : EMPTY_FC,
+    [selection],
+  );
+
   // Push: registro del token + al tocar la notificación abrir la playa
   const beachesRef = useRef(beachesFC);
   beachesRef.current = beachesFC;
@@ -208,6 +220,7 @@ export default function App() {
         beaches={beachesFC}
         focus={focus}
         selectionActive={!!selection}
+        pmPoints={pmPointsFC}
         onSelect={setSelection}
         onOpenList={() => setListOpen(true)}
         onOpenMunicipalities={() => setMuniOpen(true)}

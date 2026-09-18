@@ -83,6 +83,9 @@ type CoastMapProps = {
   beaches: FeatureCollection; // con properties.alert ya inyectado
   focus?: [number, number] | null; // [lon, lat] a donde volar la cámara
   selectionActive: boolean; // hay card abierta -> al cerrar restaura vista
+  // Puntos de muestreo de la playa seleccionada (capa temporal de
+  // dots coloreados por estado mientras la card está abierta)
+  pmPoints?: FeatureCollection;
   onSelect: (selection: Selection) => void;
   onOpenList?: () => void;
   onOpenMunicipalities?: () => void;
@@ -108,6 +111,7 @@ export default function CoastMap({
   beaches,
   focus,
   selectionActive,
+  pmPoints,
   onSelect,
   onOpenList,
   onOpenMunicipalities,
@@ -505,6 +509,37 @@ export default function CoastMap({
                 'icon-anchor': 'bottom',
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
+              }}
+            />
+          </GeoJSONSource>
+        )}
+
+        {/* Dots de los puntos de muestreo de la playa abierta */}
+        {pmPoints && pmPoints.features.length > 0 && (
+          <GeoJSONSource id="pm-points" data={pmPoints}>
+            <Layer
+              id="pm-dots"
+              type="circle"
+              paint={{
+                'circle-radius': 7,
+                'circle-color': [
+                  'case',
+                  ['==', ['get', 'monitored'], false],
+                  BEACH_COLORS.unmonitored,
+                  [
+                    'match',
+                    ['get', 'status'],
+                    'closed',
+                    BEACH_COLORS.closed,
+                    'warning',
+                    BEACH_COLORS.warning,
+                    'unknown',
+                    BEACH_COLORS.unknown,
+                    BEACH_COLORS.open,
+                  ],
+                ],
+                'circle-stroke-color': '#ffffff',
+                'circle-stroke-width': 2.5,
               }}
             />
           </GeoJSONSource>
