@@ -392,7 +392,7 @@ export default function BeachDetail({
                 oficial · línea azul = límite normativo (
                 {QUALITY_THRESHOLDS[chartParam].good} UFC/100 mL)
                 {incidentRanges.length > 0
-                  ? ' · rombo rojo en el eje = cierre/aviso'
+                  ? ' · línea roja = cierre/aviso'
                   : ''}
               </Text>
             </View>
@@ -647,12 +647,11 @@ const styles = StyleSheet.create({
   },
   incidentTick: {
     position: 'absolute',
+    top: 0,
     bottom: -5,
-    width: 8,
-    height: 8,
-    borderRadius: 1.5,
-    transform: [{ rotate: '45deg' }],
+    width: 1.5,
     backgroundColor: colors.status.closed,
+    opacity: 0.75,
   },
   chartFoot: {
     fontSize: 10,

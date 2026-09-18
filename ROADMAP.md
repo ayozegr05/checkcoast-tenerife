@@ -122,6 +122,17 @@ Tres niveles, en orden de impacto/esfuerzo:
 - [x] **IntroCard temática**: header degradado mar, hints con iconos
   reales, checkbox "No volver a mostrar" + AsyncStorage (persistencia
   activa tras próxima build), re-apertura desde botón Ayuda
+- [x] **Contexto vertido↔playa** (6.1): `GET /outfalls/{id}/nearest-beach`
+  y `GET /beaches/{id}/nearby-outfalls` (ST_Distance geography) —
+  "a 350 m de Playa X" en la ficha del vertido y "Emisarios cercanos"
+  en la de playa
+- [x] **Gráfica de evolución** (6.2): barras log-escala por muestreo en
+  `BeachDetail`, línea de límite normativo, etiquetas de año, línea
+  roja vertical marcando incidentes interpolada por fecha
+- [x] **Cobertura OSM ampliada**: `natural=beach` también en relations
+  (multipolígonos de Anaga) → +23 playas (Benijo, Roque de las Bodegas,
+  Tachero, Antequera...); mirrors de Overpass con fallback;
+  `add_manual_beaches.py` para zonas sin tag OSM (Almáciga, El Tablado)
 
 ## Hito 6 — Funcionalidades y datos ⬜
 

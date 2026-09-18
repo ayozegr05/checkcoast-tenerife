@@ -24,7 +24,11 @@ from app.db import SessionLocal
 from app.models import Beach
 from scripts.assign_municipalities import assign_municipalities
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+]
 USER_AGENT = "CheckCoastBot/0.1 (civic data ingestion; contact: local dev)"
 
 SOURCE_URL = "https://www.openstreetmap.org/copyright"
@@ -41,6 +45,7 @@ QUERY = """
 (
   node["natural"="beach"]({s},{w},{n},{e});
   way["natural"="beach"]({s},{w},{n},{e});
+  relation["natural"="beach"]({s},{w},{n},{e});
 );
 out center tags;
 """
@@ -69,13 +74,24 @@ def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 def _fetch_osm_beaches() -> list[dict]:
     """Elementos natural=beach con nombre en el bbox de Tenerife."""
     s, w, n, e = TENERIFE_BBOX
-    resp = requests.post(
-        OVERPASS_URL,
-        data={"data": QUERY.format(s=s, w=w, n=n, e=e)},
-        headers={"User-Agent": USER_AGENT},
-        timeout=120,
-    )
-    resp.raise_for_status()
+    # Overpass se satura a menudo: probar mirrors hasta que uno responda
+    resp = None
+    last_err: Exception | None = None
+    for url in OVERPASS_URLS:
+        try:
+            resp = requests.post(
+                url,
+                data={"data": QUERY.format(s=s, w=w, n=n, e=e)},
+                headers={"User-Agent": USER_AGENT},
+                timeout=120,
+            )
+            resp.raise_for_status()
+            break
+        except requests.RequestException as exc:
+            last_err = exc
+            print(f"Overpass {url} falló: {exc}")
+    if resp is None:
+        raise last_err  # type: ignore[misc]
     elements = resp.json()["elements"]
 
     beaches = []
@@ -156,7 +172,9 @@ def main() -> None:
                 )
             )
             created += 1
-        # Municipio por proximidad geográfica (límites OSM de la isla)
+        # Municipio por proximidad geográfica (límites OSM de la isla).
+        # flush primero: el UPDATE raw debe ver las playas recién añadidas
+        db.flush()
         assign_municipalities(db)
         db.commit()
     except Exception:
