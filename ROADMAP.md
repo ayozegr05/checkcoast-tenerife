@@ -143,7 +143,7 @@ Tres niveles, en orden de impacto/esfuerzo:
 | 6.3 | **Favoritos + notificaciones dirigidas**: marcar playas favoritas (AsyncStorage + `beach_ids` en `POST /devices`), push solo de esas playas | Pendiente | 🔴 Alto |
 | 6.4 | **Filtro por estado en lista de playas**: chips cerrada/aviso/sin datos/apta/no monitorizada | ✅ Hecho (`e657ef7`) | 🟢 Trivial |
 | 6.5 | **Búsqueda desde el mapa**: campo en topbar que busque playas/vertidos/municipios y vuele al punto | Pendiente | 🟡 Medio |
-| 6.6 | **Compartir estado de playa** (Share API: texto + deep-link) | Pendiente | 🟢 Trivial |
+| 6.6 | **Compartir estado de playa** (Share API: texto + deep-link) | ✅ Hecho (`a79d91c`) | 🟢 Trivial |
 | 6.7 | (extensión) Timeline de incidentes por municipio en la ficha del municipio | ✅ Hecho (`066ba2b`) | 🟡 Medio |
 
 ## Hito 7 — Pulido visual ⬜
