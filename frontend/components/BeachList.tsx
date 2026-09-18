@@ -156,6 +156,9 @@ export default function BeachList({
     string | null | undefined
   >(initialMunicipality);
   const [sortMode, setSortMode] = useState<SortMode>('estado');
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(
+    undefined,
+  );
   const [stats, setStats] = useState<Map<number, BeachStats>>(new Map());
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<GeoFeature | null>(null);
@@ -189,6 +192,16 @@ export default function BeachList({
     () =>
       [...new Set(beaches.map((f) => f.properties.municipality).filter(Boolean))]
         .sort() as string[],
+    [beaches],
+  );
+
+  // Estados presentes en los datos, en orden de severidad: solo se
+  // muestran chips de filtro para lo que realmente hay en la lista
+  const presentStatuses = useMemo(
+    () =>
+      [...new Set(beaches.map(statusOf))].sort(
+        (a, b) => (STATUS_ORDER[a] ?? 9) - (STATUS_ORDER[b] ?? 9),
+      ),
     [beaches],
   );
 
@@ -250,8 +263,12 @@ export default function BeachList({
             (STATUS_ORDER[worstStatusOf(b)] ?? 9) || byName(a, b),
       );
     }
-    return arr;
-  }, [beaches, query, municipality, sortMode, stats]);
+    // El filtro de estado casa con la peor condición del grupo: es el
+    // estado que muestra la pastilla de cada fila
+    return statusFilter === undefined
+      ? arr
+      : arr.filter((g) => worstStatusOf(g) === statusFilter);
+  }, [beaches, query, municipality, sortMode, statusFilter, stats]);
 
   return (
     <Modal
@@ -438,6 +455,35 @@ export default function BeachList({
                 ]}
               >
                 {SORT_LABELS[mode]}
+              </Text>
+            </Pressable>
+          ))}
+          <View style={styles.chipDivider} />
+          {presentStatuses.map((s) => (
+            <Pressable
+              key={s}
+              style={[
+                styles.chip,
+                styles.chipStatus,
+                statusFilter === s && styles.chipActive,
+              ]}
+              onPress={() =>
+                setStatusFilter(statusFilter === s ? undefined : s)
+              }
+            >
+              <View
+                style={[
+                  styles.chipDot,
+                  { backgroundColor: STATUS_COLORS[s] },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.chipText,
+                  statusFilter === s && styles.chipTextActive,
+                ]}
+              >
+                {STATUS_LABELS[s]}
               </Text>
             </Pressable>
           ))}
@@ -688,6 +734,21 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#fff',
+  },
+  chipDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginVertical: 6,
+  },
+  chipStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  chipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   list: {
     flex: 1,
