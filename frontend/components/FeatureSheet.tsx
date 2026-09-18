@@ -181,7 +181,7 @@ export default function FeatureSheet({
         {...pan.panHandlers}
         style={[
           styles.headerZone,
-          { backgroundColor: `${accent}14`, borderTopColor: accent },
+          { backgroundColor: `${accent}26`, borderTopColor: accent },
         ]}
       >
         <View style={styles.handle} />

@@ -152,7 +152,7 @@ Tres niveles, en orden de impacto/esfuerzo:
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
 | 7.1 | Cabecera de ficha teñida por estado (degradado rojo/naranja/verde sutil) | ✅ Hecho (tinta 8% + línea de acento superior en playas y vertidos) | 🟢 Trivial |
-| 7.2 | Top 3 del ranking destacado (badge/medalla visual) | Pendiente | 🟢 Trivial |
+| 7.2 | Top 3 del ranking destacado (badge/medalla visual) | ✅ Hecho (círculo oro/plata/bronce en el podio, neutro desde el 4º; la barra sigue marcando la severidad) | 🟢 Trivial |
 | 7.3 | Skeletons de carga en listas (en vez de spinner/nada) | Pendiente | 🟢 Trivial |
 | 7.4 | Animación de entrada de la card (slide-up ~200ms) | ✅ Hecho (spring de apertura de la bottom-sheet; + borde y sombra reforzados para destacar del mapa/leyenda) | 🟢 Trivial |
 | 7.5 | Accessibility labels en controles principales | Pendiente | 🟡 Medio |
