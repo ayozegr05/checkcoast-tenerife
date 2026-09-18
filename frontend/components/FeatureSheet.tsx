@@ -75,10 +75,13 @@ export default function FeatureSheet({
   const beachFeature = chosenPm ?? feature;
 
   const winH = useWindowDimensions().height;
-  const CARD_TOP = Math.round(winH * 0.45); // borde superior fijo
-  // Margen inferior: barra de gestos de Android (~30px) + respiro
+  // Card anclada ABAJO: al expandir crece hacia arriba hasta ~92% de
+  // pantalla. Antes el top estaba fijo al 45% y el máximo era solo
+  // ~55%, así que "Ver más" no expandía de verdad.
   const NAV_INSET = Platform.OS === 'android' ? 30 : 0;
-  const CARD_MAX = Math.round(winH - CARD_TOP - 14 - NAV_INSET);
+  const CARD_BOTTOM = 14 + NAV_INSET; // flota sobre la barra de gestos
+  const TOP_MARGIN = Math.round(winH * 0.08);
+  const CARD_MAX = Math.round(winH - CARD_BOTTOM - TOP_MARGIN);
   const HEADER_H = 64; // asa + titulo aprox
   const [bodyH, setBodyH] = useState(0);
   // Peek = altura del contenido (con minimo razonable y tope CARD_MAX)
@@ -165,7 +168,7 @@ export default function FeatureSheet({
 
   return (
     <Animated.View
-      style={[styles.sheet, { top: CARD_TOP, height: h }]}
+      style={[styles.sheet, { bottom: CARD_BOTTOM, height: h }]}
     >
       {/* Zona de agarre: asa + cabecera responden al arrastre */}
       <View {...pan.panHandlers}>
@@ -296,6 +299,7 @@ export default function FeatureSheet({
           <Text style={styles.moreText}>Ver más ⌄</Text>
         </Pressable>
       )}
+
     </Animated.View>
   );
 }
@@ -430,18 +434,21 @@ const styles = StyleSheet.create({
   },
   moreBtn: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    paddingVertical: 9,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    bottom: 10,
+    alignSelf: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
   moreText: {
     fontSize: 12,
     fontFamily: fonts.bold,
-    color: colors.primary,
+    color: '#fff',
   },
 });
