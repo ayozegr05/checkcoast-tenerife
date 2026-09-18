@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     height: CHART_H,
-    marginTop: 8,
+    marginTop: 4,
     paddingRight: 4,
   },
   limitLine: {

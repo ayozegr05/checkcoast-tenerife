@@ -87,6 +87,8 @@ export default function FeatureSheet({
   const snapped = useRef(0);
   const expanded = useRef(false);
   const closing = useRef(false);
+  // Estado espejo de expanded para re-render (el ref no dispara render)
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Playa mas cercana al vertido (contexto de impacto)
   const [nearest, setNearest] = useState<OutfallNearestBeach | null>(null);
@@ -101,6 +103,7 @@ export default function FeatureSheet({
   const snapTo = (target: number, isExpanded = false) => {
     snapped.current = target;
     expanded.current = isExpanded;
+    setIsExpanded(isExpanded);
     Animated.spring(h, {
       toValue: target,
       useNativeDriver: false,
@@ -280,6 +283,19 @@ export default function FeatureSheet({
           </View>
         )}
       </ScrollView>
+
+      {/* "Ver más": insinúa que hay contenido debajo y expande la card
+          (solo si el contenido no cabe en el peek) */}
+      {bodyH + HEADER_H > CARD_MAX + 8 && !isExpanded && (
+        <Pressable
+          style={styles.moreBtn}
+          onPress={() => snapTo(CARD_MAX, true)}
+          accessibilityRole="button"
+          accessibilityLabel="Ver más contenido de la ficha"
+        >
+          <Text style={styles.moreText}>Ver más ⌄</Text>
+        </Pressable>
+      )}
     </Animated.View>
   );
 }
@@ -296,6 +312,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: -4 },
     elevation: 10,
+    overflow: 'hidden',
   },
   handle: {
     alignSelf: 'center',
@@ -410,5 +427,21 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     color: colors.primary,
     marginTop: 8,
+  },
+  moreBtn: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  moreText: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    color: colors.primary,
   },
 });
