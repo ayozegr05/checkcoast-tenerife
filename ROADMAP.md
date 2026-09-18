@@ -127,8 +127,8 @@ Tres niveles, en orden de impacto/esfuerzo:
 
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
-| 6.1 | **Distancia vertido↔playa**: en ficha de vertido, "a 350 m de Playa X" (ST_Distance PostGIS, nearest beach) — convierte el dato en historia | Pendiente | 🟡 Medio |
-| 6.2 | **Gráfica histórica de calidad**: mini-gráfica E. coli/enterococo por fecha en `BeachDetail` (~3.200 mediciones ya en BD) | Pendiente | 🟡 Medio |
+| 6.1 | **Distancia vertido↔playa**: en ficha de vertido, "a 350 m de Playa X" (ST_Distance PostGIS, nearest beach) — convierte el dato en historia | ✅ Hecho (`GET /outfalls/{id}/nearest-beach` + caja destacada en FeatureSheet) | 🟡 Medio |
+| 6.2 | **Gráfica histórica de calidad**: mini-gráfica E. coli/enterococo por fecha en `BeachDetail` (~3.200 mediciones ya en BD) | ✅ Hecho (barras log-escala coloreadas por clase + línea de límite normativo, Views planos sin deps nativas) | 🟡 Medio |
 | 6.3 | **Favoritos + notificaciones dirigidas**: marcar playas favoritas (AsyncStorage + `beach_ids` en `POST /devices`), push solo de esas playas | Pendiente | 🔴 Alto |
 | 6.4 | **Filtro por estado en lista de playas**: chips cerrada/aviso/sin datos/apta/no monitorizada | Pendiente | 🟢 Trivial |
 | 6.5 | **Búsqueda desde el mapa**: campo en topbar que busque playas/vertidos/municipios y vuele al punto | Pendiente | 🟡 Medio |

@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from geoalchemy2 import Geography
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Outfall, OutfallStatus
-from app.schemas import Feature, FeatureCollection, PointGeometry
+from app.models import Beach, Outfall, OutfallStatus
+from app.schemas import (
+    Feature,
+    FeatureCollection,
+    OutfallNearestBeachOut,
+    PointGeometry,
+)
 
 router = APIRouter(tags=["outfalls"])
 
@@ -52,3 +58,38 @@ def list_outfalls(
         for row in q.all()
     ]
     return FeatureCollection(features=features)
+
+
+@router.get(
+    "/outfalls/{outfall_id}/nearest-beach",
+    response_model=OutfallNearestBeachOut,
+)
+def outfall_nearest_beach(
+    outfall_id: int, db: Session = Depends(get_db)
+) -> OutfallNearestBeachOut:
+    """Playa catalogada más cercana al vertido, con distancia en metros
+    (geography). Contextualiza el impacto del vertido sobre el baño."""
+    outfall = db.get(Outfall, outfall_id)
+    if outfall is None:
+        raise HTTPException(status_code=404, detail="Outfall not found")
+    row = (
+        db.query(
+            Beach.id,
+            Beach.name,
+            Beach.municipality,
+            func.ST_Distance(
+                Beach.geom.cast(Geography),
+                Outfall.geom.cast(Geography),
+            ).label("distance_m"),
+        )
+        .filter(Outfall.id == outfall_id)
+        .order_by("distance_m")
+        .first()
+    )
+    return OutfallNearestBeachOut(
+        outfall_id=outfall.id,
+        beach_id=row.id,
+        beach_name=row.name,
+        municipality=row.municipality,
+        distance_m=row.distance_m,
+    )

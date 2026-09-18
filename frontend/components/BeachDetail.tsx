@@ -1,5 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import {
   BeachIncident,
@@ -75,6 +81,41 @@ const classifyValue = (
   return { value, cls, color, pct };
 };
 
+// Valores tipo "<10" o ">24000": el dígito es lo que cuenta
+const numValue = (raw: string | null) => {
+  const v = parseFloat((raw ?? '').replace(/[^\d.]/g, ''));
+  return Number.isNaN(v) ? null : v;
+};
+
+// Gráfica de evolución: barras log-escala (los valores van de <1 a
+// >24000 UFC/100 mL) coloreadas por clase + línea del límite normativo
+const CHART_H = 88;
+const LOG_CAP = 100000;
+const barH = (v: number) =>
+  Math.max(
+    3,
+    Math.round((CHART_H * Math.log10(Math.max(v, 1))) / Math.log10(LOG_CAP)),
+  );
+
+const MONTHS = [
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
+];
+const fmtMonth = (iso: string) => {
+  const [y, m] = iso.split('-');
+  return `${MONTHS[parseInt(m, 10) - 1]} ${y}`;
+};
+
 // Contenido de la ficha de playa, compartido entre la hoja sobre el mapa
 // (FeatureSheet) y la vista detalle dentro de la lista (BeachList)
 export default function BeachDetail({
@@ -89,6 +130,9 @@ export default function BeachDetail({
 
   const [incidents, setIncidents] = useState<BeachIncident[] | null>(null);
   const [quality, setQuality] = useState<BeachMeasurement[] | null>(null);
+  const [chartParam, setChartParam] = useState<'ecoli' | 'enterococci'>(
+    'ecoli',
+  );
 
   useEffect(() => {
     setIncidents(null);
@@ -101,6 +145,16 @@ export default function BeachDetail({
       .then(setQuality)
       .catch(() => setQuality([]));
   }, [feature.id, unmonitored]);
+
+  // Serie temporal para la grafica: mas antigua primero, solo valores
+  // parseables (descarta "—" y filas sin medicion del parametro)
+  const chartData = useMemo(() => {
+    if (!quality) return [];
+    return [...quality]
+      .reverse()
+      .map((m) => ({ date: m.sampled_at, value: numValue(m[chartParam]) }))
+      .filter((d): d is { date: string; value: number } => d.value !== null);
+  }, [quality, chartParam]);
 
   const beachKey =
     hasAlert && p.status === 'open' ? 'warning' : (p.status ?? 'unknown');
@@ -188,6 +242,80 @@ export default function BeachDetail({
               muestra
             </Text>
           ) : null}
+
+          {chartData.length >= 2 && (
+            <View style={styles.chartBlock}>
+              <View style={styles.chartHead}>
+                <Text style={styles.historyTitle}>Evolución</Text>
+                <View style={styles.chartToggle}>
+                  {(['ecoli', 'enterococci'] as const).map((param) => (
+                    <Pressable
+                      key={param}
+                      onPress={() => setChartParam(param)}
+                      style={[
+                        styles.toggleChip,
+                        chartParam === param && styles.toggleChipOn,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.toggleChipText,
+                          chartParam === param && styles.toggleChipTextOn,
+                        ]}
+                      >
+                        {QUALITY_THRESHOLDS[param].label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+              >
+                <View style={styles.chartArea}>
+                  <View
+                    style={[
+                      styles.limitLine,
+                      {
+                        bottom: barH(
+                          QUALITY_THRESHOLDS[chartParam].good,
+                        ),
+                      },
+                    ]}
+                  />
+                  {chartData.map((d, i) => {
+                    const t = QUALITY_THRESHOLDS[chartParam];
+                    const color =
+                      d.value <= t.excellent
+                        ? colors.status.open
+                        : d.value <= t.good
+                          ? colors.outfall.unknown
+                          : colors.status.closed;
+                    return (
+                      <View key={i} style={styles.barCol}>
+                        <View
+                          style={[
+                            styles.bar,
+                            {
+                              height: barH(d.value),
+                              backgroundColor: color,
+                            },
+                          ]}
+                        />
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+              <Text style={styles.chartFoot}>
+                {fmtMonth(chartData[0].date)} →{' '}
+                {fmtMonth(chartData[chartData.length - 1].date)} ·{' '}
+                {chartData.length} muestras · línea discontinua = límite
+                normativo
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -332,6 +460,71 @@ const styles = StyleSheet.create({
   },
   staleNote: {
     fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    marginTop: 4,
+  },
+  chartBlock: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 8,
+  },
+  chartHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  chartToggle: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  toggleChip: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  toggleChipOn: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  toggleChipText: {
+    fontSize: 10,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+  },
+  toggleChipTextOn: {
+    color: '#fff',
+  },
+  chartArea: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: CHART_H,
+    marginTop: 8,
+    paddingRight: 4,
+  },
+  limitLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    borderTopWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.status.closed,
+    opacity: 0.6,
+  },
+  barCol: {
+    justifyContent: 'flex-end',
+    height: CHART_H,
+    marginRight: 2,
+  },
+  bar: {
+    width: 6,
+    borderRadius: 2,
+  },
+  chartFoot: {
+    fontSize: 10,
     fontFamily: fonts.regular,
     color: colors.textFaint,
     marginTop: 4,

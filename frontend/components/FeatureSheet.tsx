@@ -12,6 +12,10 @@ import {
 
 import BeachDetail from './BeachDetail';
 import type { Selection } from './CoastMap';
+import {
+  OutfallNearestBeach,
+  fetchOutfallNearestBeach,
+} from '../lib/api';
 import { colors, fonts } from '../lib/theme';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -21,6 +25,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS = colors.outfall;
+
+const fmtDistance = (m: number) =>
+  m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
 
 // Card flotante arrastrable: peek (~42% alto) -> expandida (~86%) ->
 // cerrada (deslizar abajo). Anima la ALTURA (no translateY) para que la
@@ -50,6 +57,16 @@ export default function FeatureSheet({
   const snapped = useRef(0);
   const expanded = useRef(false);
   const closing = useRef(false);
+
+  // Playa mas cercana al vertido (contexto de impacto)
+  const [nearest, setNearest] = useState<OutfallNearestBeach | null>(null);
+  useEffect(() => {
+    if (isBeach) return;
+    setNearest(null);
+    fetchOutfallNearestBeach(feature.id)
+      .then(setNearest)
+      .catch(() => setNearest(null));
+  }, [feature.id, isBeach]);
 
   const snapTo = (target: number, isExpanded = false) => {
     snapped.current = target;
@@ -142,6 +159,25 @@ export default function FeatureSheet({
             {p.municipality ? (
               <Text style={styles.row}>Municipio: {p.municipality}</Text>
             ) : null}
+            {nearest ? (
+              <View
+                style={[
+                  styles.nearestBox,
+                  {
+                    borderLeftColor:
+                      STATUS_COLORS[statusKey] ?? colors.status.unknown,
+                  },
+                ]}
+              >
+                <Text style={styles.nearestText}>
+                  Playa más cercana:{' '}
+                  <Text style={styles.nearestName}>
+                    {nearest.beach_name}
+                  </Text>
+                  {' · '}a {fmtDistance(nearest.distance_m)}
+                </Text>
+              </View>
+            ) : null}
             <Text style={styles.row}>
               Fuente: Censo de Vertidos 2025 (Gob. Canarias)
             </Text>
@@ -217,5 +253,22 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.text,
     marginTop: 4,
+  },
+  nearestBox: {
+    marginTop: 8,
+    borderLeftWidth: 3,
+    paddingLeft: 10,
+    paddingVertical: 6,
+    backgroundColor: colors.background,
+    borderRadius: 4,
+  },
+  nearestText: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+  },
+  nearestName: {
+    fontFamily: fonts.bold,
+    color: colors.text,
   },
 });

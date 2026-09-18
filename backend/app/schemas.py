@@ -64,6 +64,14 @@ class BeachStatsOut(BaseModel):
     latest_sampled_at: date | None
 
 
+class OutfallNearestBeachOut(BaseModel):
+    outfall_id: int
+    beach_id: int
+    beach_name: str
+    municipality: str | None
+    distance_m: float
+
+
 class DeviceIn(BaseModel):
     token: str
     platform: str | None = None
