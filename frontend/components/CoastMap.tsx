@@ -542,6 +542,28 @@ export default function CoastMap({
                 'circle-stroke-width': 2.5,
               }}
             />
+            <Layer
+              id="pm-dot-labels"
+              type="symbol"
+              layout={{
+                'text-field': ['get', 'pointLabel'],
+                'text-size': 11,
+                'text-font': [
+                  'Noto Sans Regular',
+                  'Open Sans Regular',
+                  'Arial Unicode MS Regular',
+                ],
+                'text-offset': [0, 1.1],
+                'text-anchor': 'top',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
+              }}
+              paint={{
+                'text-color': colors.text,
+                'text-halo-color': '#ffffff',
+                'text-halo-width': 2,
+              }}
+            />
           </GeoJSONSource>
         )}
       </Map>

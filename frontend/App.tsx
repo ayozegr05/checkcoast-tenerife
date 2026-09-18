@@ -31,6 +31,7 @@ import {
   fetchBeaches,
   fetchOutfalls,
 } from './lib/api';
+import { beachPointLabel } from './lib/format';
 import { setupPushNotifications } from './lib/notifications';
 import { colors, fonts } from './lib/theme';
 
@@ -133,7 +134,16 @@ export default function App() {
       selection?.type === 'beach' &&
       selection.members &&
       selection.members.length > 1
-        ? { type: 'FeatureCollection', features: selection.members }
+        ? {
+            type: 'FeatureCollection',
+            features: selection.members.map((m) => ({
+              ...m,
+              properties: {
+                ...m.properties,
+                pointLabel: beachPointLabel(m.properties.name) ?? '',
+              },
+            })),
+          }
         : EMPTY_FC,
     [selection],
   );
