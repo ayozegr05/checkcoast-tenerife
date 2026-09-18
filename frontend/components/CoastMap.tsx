@@ -23,7 +23,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 
 import type { FeatureCollection, GeoFeature } from '../lib/api';
-import { displayBeachName } from '../lib/format';
+import { beachBaseName, displayBeachName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 import seaStyle from '../assets/mapstyle-sea.json';
 
@@ -144,11 +144,75 @@ export default function CoastMap({
     prevSelection.current = selectionActive;
   }, [selectionActive]);
 
-  // Conteo de alertas vivas para el banner y la capa de pulse
-  const closedCount = beaches.features.filter(
+  // Agrupación por playa: cada punto de muestreo (PM1, PM2, Troya I/II)
+  // es un registro oficial distinto, pero el mapa dibuja UN pin por
+  // playa en el centroide, coloreado por el peor estado del grupo.
+  // La ficha que se abre es la del PM peor parado (representante).
+  const beachGroups = useMemo(() => {
+    // globalThis.Map: "Map" aquí es el componente de MapLibre
+    const groups = new globalThis.Map<
+      string,
+      {
+        members: GeoFeature[];
+        rep: GeoFeature;
+        center: [number, number];
+      }
+    >();
+    for (const f of beaches.features) {
+      const key = `${f.properties.municipality ?? ''}|${beachBaseName(
+        f.properties.name,
+      ).toUpperCase()}`;
+      const g = groups.get(key) ?? { members: [], rep: f, center: [0, 0] as [number, number] };
+      g.members.push(f);
+      groups.set(key, g);
+    }
+    const rank = (f: GeoFeature) => {
+      const s =
+        f.properties.monitored === false
+          ? 'unmonitored'
+          : (f.properties.status ?? 'unknown');
+      return (
+        { closed: 0, warning: 1, unknown: 2, open: 3, unmonitored: 4 }[s] ??
+        5
+      );
+    };
+    for (const g of groups.values()) {
+      g.rep = g.members.reduce(
+        (a, b) => (rank(b) < rank(a) ? b : a),
+        g.members[0],
+      );
+      const n = g.members.length;
+      g.center = [
+        g.members.reduce((s, f) => s + f.geometry.coordinates[0], 0) / n,
+        g.members.reduce((s, f) => s + f.geometry.coordinates[1], 0) / n,
+      ];
+    }
+    return groups;
+  }, [beaches]);
+
+  // Un pin por playa: geometría del centroide + propiedades del PM
+  // representante (peor estado) + groupKey para resolver al pulsar
+  const groupedBeaches = useMemo<FeatureCollection>(
+    () => ({
+      type: 'FeatureCollection',
+      features: [...beachGroups.entries()].map(([key, g]) => ({
+        ...g.rep,
+        geometry: { type: 'Point' as const, coordinates: g.center },
+        properties: {
+          ...g.rep.properties,
+          groupKey: key,
+          members: g.members.length,
+        },
+      })),
+    }),
+    [beachGroups],
+  );
+
+  // Conteo de alertas vivas: por playa (grupo), no por punto de muestreo
+  const closedCount = groupedBeaches.features.filter(
     (f) => f.properties.status === 'closed',
   ).length;
-  const warningCount = beaches.features.filter(
+  const warningCount = groupedBeaches.features.filter(
     (f) => f.properties.status === 'warning',
   ).length;
   const hasAlerts = closedCount + warningCount > 0;
@@ -156,14 +220,14 @@ export default function CoastMap({
   const alertBeaches = useMemo<FeatureCollection>(
     () => ({
       type: 'FeatureCollection',
-      features: beaches.features.filter(
+      features: groupedBeaches.features.filter(
         (f) =>
           f.properties.monitored !== false &&
           (f.properties.status === 'closed' ||
             f.properties.status === 'warning'),
       ),
     }),
-    [beaches],
+    [groupedBeaches],
   );
 
   // Halo que crece y se desvance ~1 ciclo/seg solo si hay alertas
@@ -192,14 +256,25 @@ export default function CoastMap({
     const q = query.trim().toLowerCase();
     if (q.length < 2) return [];
     const items: SearchItem[] = [];
-    for (const f of beaches.features) {
-      if (f.properties.name.toLowerCase().includes(q)) {
+    // Playas agrupadas como en el mapa: "troya" da UN resultado
+    // (casa también por el nombre de cualquiera de sus PMs)
+    for (const [key, g] of beachGroups) {
+      const label = displayBeachName(
+        beachBaseName(g.rep.properties.name),
+      );
+      const hay = [label, ...g.members.map((m) => m.properties.name)]
+        .join(' ')
+        .toLowerCase();
+      if (hay.includes(q)) {
         items.push({
-          key: `b${f.id}`,
+          key: `b${key}`,
           kind: 'beach',
-          label: displayBeachName(f.properties.name),
-          sub: f.properties.municipality ?? 'Playa',
-          feature: f,
+          label,
+          sub:
+            (g.rep.properties.municipality ?? 'Playa') +
+            (g.members.length > 1 ? ` · ${g.members.length} PMs` : ''),
+          feature: g.rep,
+          center: g.center,
         });
       }
     }
@@ -239,7 +314,7 @@ export default function CoastMap({
       }
     }
     return items.slice(0, 8);
-  }, [query, beaches, outfalls]);
+  }, [query, beachGroups, outfalls]);
 
   const pickResult = (item: SearchItem) => {
     setQuery('');
@@ -247,7 +322,8 @@ export default function CoastMap({
     Keyboard.dismiss();
     saveView();
     if (item.feature) {
-      const [lon, lat] = item.feature.geometry.coordinates;
+      // Playa agrupada: vuela al centroide; ficha del PM representante
+      const [lon, lat] = item.center ?? item.feature.geometry.coordinates;
       cameraRef.current?.flyTo({
         center: [lon, lat - (item.kind === 'beach' ? 0.014 : 0.03)],
         zoom: item.kind === 'beach' ? 13 : 12,
@@ -292,10 +368,16 @@ export default function CoastMap({
       if (type === 'outfall') {
         onSelect({ type: 'outfall', feature });
       } else {
+        // El pin es el grupo: se abre la ficha del PM peor parado
+        const groupKey = (
+          feature.properties as { groupKey?: string }
+        ).groupKey;
+        const g = groupKey ? beachGroups.get(groupKey) : undefined;
+        const rep = g?.rep ?? feature;
         onSelect({
           type: 'beach',
-          feature,
-          hasAlert: feature.properties.alert === true,
+          feature: rep,
+          hasAlert: rep.properties.alert === true,
         });
       }
     };
@@ -381,7 +463,7 @@ export default function CoastMap({
         {showBeaches && (
           <GeoJSONSource
             id="beaches"
-            data={beaches}
+            data={groupedBeaches}
             onPress={handlePress('beach')}
           >
             <Layer

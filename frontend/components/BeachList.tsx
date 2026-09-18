@@ -16,7 +16,7 @@ import {
 
 import BeachDetail from './BeachDetail';
 import { BeachStats, GeoFeature, fetchBeachStats } from '../lib/api';
-import { displayBeachName } from '../lib/format';
+import { beachBaseName, displayBeachName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 
 // Orden de prioridad: lo que necesita atención del bañista primero;
@@ -60,16 +60,8 @@ const statusOf = (f: GeoFeature) =>
     ? 'unmonitored'
     : (f.properties.status ?? 'unknown');
 
-// Una playa extensa tiene varios puntos de muestreo (PM1, PM2...) con
-// registros oficiales separados: la lista los agrupa bajo el nombre
-// base. Los romanos finales también son variantes de la misma playa
-// (Troya I / Troya II son un único arenal con dos PMs)
-const baseName = (name: string) =>
-  name
-    .replace(/\s+PM\d+$/, '')
-    .replace(/\s+(I|II|III|IV)\s*(?=\))/, '')
-    .replace(/\s+(I|II|III|IV)(?=\s*\(|\s*$)/, '');
-
+// Etiqueta del punto dentro del grupo expandido: "PM3", y si la playa
+// se subdivide por romano (Troya I/II) se antepone: "I · PM3"
 const pmLabel = (name: string) => {
   const pm = name.match(/\s+(PM\d+)$/)?.[1];
   const roman = name
@@ -111,7 +103,7 @@ type BeachGroup = {
 // El grupo solo es seguro dentro del mismo municipio: Náyade repite
 // nombres entre zonas distintas ("Caleta de Negros")
 const groupKeyOf = (f: GeoFeature) =>
-  `${f.properties.municipality ?? ''}|${baseName(
+  `${f.properties.municipality ?? ''}|${beachBaseName(
     f.properties.name,
   ).toUpperCase()}`;
 
@@ -236,7 +228,7 @@ export default function BeachList({
       const g =
         map.get(key) ?? {
           key,
-          name: baseName(f.properties.name),
+          name: beachBaseName(f.properties.name),
           municipality: f.properties.municipality ?? null,
           members: [],
         };

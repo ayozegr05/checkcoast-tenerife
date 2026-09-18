@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
     marginTop: 8,
     marginBottom: 4,
   },
@@ -545,15 +545,15 @@ const styles = StyleSheet.create({
   shareBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: 5,
+    backgroundColor: '#1a7f96', // azul océano del estilo del mapa
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   shareIcon: {
-    width: 16,
-    height: 16,
+    width: 13,
+    height: 13,
   },
   shareText: {
     color: '#fff',

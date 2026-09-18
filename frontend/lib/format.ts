@@ -9,6 +9,9 @@
 
 const CONNECTORS = new Set(['de', 'del', 'y', 'e', 'en', 'a', 'o', 'u']);
 const ARTICLES = new Set(['el', 'la', 'los', 'las']);
+// Números romanos de nombres compuestos ("Troya II", "Américas I"):
+// siempre en mayúsculas, no "Ii".
+const ROMANS = new Set(['i', 'ii', 'iii', 'iv', 'v', 'vi']);
 
 // La fuente omite acentos en mayúsculas; los restauramos en los
 // topónimos conocidos al capitalizar.
@@ -38,6 +41,10 @@ export const capName = (name: string) => {
     .map((p) => {
       if (!/^[a-záéíóúñü]+$/i.test(p)) return p;
       const w = ACCENTS[p] ?? p;
+      if (ROMANS.has(w)) {
+        prev = w;
+        return w.toUpperCase();
+      }
       const lower = prev !== '' && (CONNECTORS.has(w) || (ARTICLES.has(w) && prev === 'de'));
       const out = lower ? w : w[0].toUpperCase() + w.slice(1);
       prev = w;
@@ -63,3 +70,13 @@ export const displayBeachName = (name: string) => {
   }
   return capName(`${m[1]} ${base}`);
 };
+
+// Nombre base de agrupación: una playa extensa tiene varios puntos de
+// muestreo oficiales (PM1, PM2...) y variantes con romano (Troya I/II
+// son un único arenal). Lista y mapa agrupan por esta clave.
+// "PLAYA TROYA I (AMÉRICAS I) PM3" -> "PLAYA TROYA (AMÉRICAS)"
+export const beachBaseName = (name: string) =>
+  name
+    .replace(/\s+PM\d+$/, '')
+    .replace(/\s+(I|II|III|IV)\s*(?=\))/, '')
+    .replace(/\s+(I|II|III|IV)(?=\s*\(|\s*$)/, '');
