@@ -164,6 +164,19 @@ export default function BeachDetail({
       .catch(() => setQuality([]));
   }, [feature.id, unmonitored]);
 
+  // Intervalos de incidentes [apertura, cierre]: las barras de
+  // muestreos tomados durante un incidente se marcan con borde rojo
+  const incidentRanges = useMemo(
+    () =>
+      (incidents ?? []).map((i) => ({
+        from: i.opened_at,
+        to: i.closed_at ?? '9999-12-31',
+      })),
+    [incidents],
+  );
+  const duringIncident = (iso: string) =>
+    incidentRanges.some((r) => iso >= r.from && iso <= r.to);
+
   // Serie temporal para la grafica: mas antigua primero, solo valores
   // parseables (descarta "—" y filas sin medicion del parametro)
   const chartData = useMemo(() => {
@@ -326,6 +339,8 @@ export default function BeachDetail({
                           <View
                             style={[
                               styles.bar,
+                              duringIncident(d.date) &&
+                                styles.barIncident,
                               {
                                 height: barH(d.value),
                                 backgroundColor: color,
@@ -351,8 +366,11 @@ export default function BeachDetail({
               </ScrollView>
               <Text style={styles.chartFoot}>
                 {chartData.length} muestreos · cada barra = un análisis
-                oficial · línea roja = límite normativo (
+                oficial · línea azul = límite normativo (
                 {QUALITY_THRESHOLDS[chartParam].good} UFC/100 mL)
+                {incidentRanges.length > 0
+                  ? ' · borde rojo = muestreo durante un incidente'
+                  : ''}
               </Text>
             </View>
           )}
@@ -603,6 +621,10 @@ const styles = StyleSheet.create({
   bar: {
     width: 6,
     borderRadius: 2,
+  },
+  barIncident: {
+    borderWidth: 1.5,
+    borderColor: colors.status.closed,
   },
   chartFoot: {
     fontSize: 10,
