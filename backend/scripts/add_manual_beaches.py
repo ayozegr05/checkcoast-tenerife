@@ -22,7 +22,7 @@ from scripts.assign_municipalities import assign_municipalities
 # (external_id, nombre, lat, lon)
 MANUAL_BEACHES: list[tuple[str, str, float, float]] = [
     ("manual-almaciga", "Playa de Almáciga", 28.5725, -16.1918),
-    ("manual-el-tablado", "Playa del Tablado", 28.2495, -16.3970),
+    ("manual-el-tablado", "Playa del Tablado", 28.2418, -16.3960),
 ]
 
 SOURCE_URL = "https://www.openstreetmap.org/copyright"
