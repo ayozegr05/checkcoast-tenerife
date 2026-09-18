@@ -13,11 +13,16 @@ import {
 
 import BeachDetail from './BeachDetail';
 import type { Selection } from './CoastMap';
+import type { GeoFeature } from '../lib/api';
 import {
   OutfallNearestBeach,
   fetchOutfallNearestBeach,
 } from '../lib/api';
-import { displayBeachName } from '../lib/format';
+import {
+  beachBaseName,
+  beachPointLabel,
+  displayBeachName,
+} from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -27,6 +32,20 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS = colors.outfall;
+
+// Estado de playa para el selector de puntos de muestreo
+const beachStatusKey = (f: GeoFeature) =>
+  f.properties.monitored === false
+    ? 'unmonitored'
+    : (f.properties.status ?? 'unknown');
+
+const BEACH_STATUS_TEXT: Record<string, string> = {
+  closed: 'Cierre activo',
+  warning: 'Aviso activo',
+  open: 'Sin alertas activas',
+  unknown: 'Sin datos oficiales',
+  unmonitored: 'Sin monitorizar',
+};
 
 const fmtDistance = (m: number) =>
   m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
@@ -46,6 +65,14 @@ export default function FeatureSheet({
   const p = feature.properties;
   const isBeach = selection.type === 'beach';
   const statusKey = p.status ?? 'unknown';
+
+  // Selector de PMs: si la playa agrupada tiene varios puntos de
+  // muestreo, la card muestra primero la lista y el usuario elige
+  const members = isBeach ? (selection.members ?? []) : [];
+  const [chosenPm, setChosenPm] = useState<GeoFeature | null>(null);
+  useEffect(() => setChosenPm(null), [selection]);
+  const showPmPicker = isBeach && members.length > 1 && !chosenPm;
+  const beachFeature = chosenPm ?? feature;
 
   const winH = useWindowDimensions().height;
   const CARD_TOP = Math.round(winH * 0.45); // borde superior fijo
@@ -97,6 +124,21 @@ export default function FeatureSheet({
     }).start(({ finished }) => finished && onClose());
   };
 
+  // Título: el picker muestra el nombre de la playa; el detalle el
+  // del punto elegido (Teresitas -> "… · PM2" porque sus PMs se llaman
+  // igual; Troya ya se distingue por el romano)
+  const stripPm = (n: string) => n.replace(/\s+PM\d+$/, '');
+  const sameBase =
+    members.length > 1 &&
+    new Set(members.map((m) => stripPm(m.properties.name))).size === 1;
+  const pmSuffix =
+    chosenPm && sameBase
+      ? ` · ${chosenPm.properties.name.match(/PM\d+$/)?.[0] ?? ''}`
+      : '';
+  const title = showPmPicker
+    ? displayBeachName(beachBaseName(p.name))
+    : displayBeachName(stripPm(beachFeature.properties.name)) + pmSuffix;
+
   const pan = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > 6,
@@ -127,7 +169,7 @@ export default function FeatureSheet({
         <View style={styles.handle} />
         <View style={styles.header}>
           <Text style={styles.title} numberOfLines={2}>
-            {displayBeachName(p.name)}
+            {title}
           </Text>
           <Pressable onPress={dismiss} hitSlop={12}>
             <Text style={styles.close}>✕</Text>
@@ -142,7 +184,58 @@ export default function FeatureSheet({
         onContentSizeChange={(_w, ch) => setBodyH(ch)}
       >
         {isBeach ? (
-          <BeachDetail feature={feature} hasAlert={selection.hasAlert} />
+          showPmPicker ? (
+            <View>
+              <Text style={styles.pmHint}>
+                {members.length} puntos de muestreo oficiales
+              </Text>
+              {members.map((m) => {
+                const k = beachStatusKey(m);
+                return (
+                  <Pressable
+                    key={m.id}
+                    style={styles.pmRow}
+                    onPress={() => setChosenPm(m)}
+                  >
+                    <View
+                      style={[
+                        styles.pmDot,
+                        { backgroundColor: colors.status[k] },
+                      ]}
+                    />
+                    <View style={styles.pmText}>
+                      <Text style={styles.pmName}>
+                        {beachPointLabel(m.properties.name) ??
+                          displayBeachName(m.properties.name)}
+                      </Text>
+                      <Text style={styles.pmStatus}>
+                        {BEACH_STATUS_TEXT[k]}
+                      </Text>
+                    </View>
+                    <Text style={styles.pmChevron}>›</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <View>
+              {members.length > 1 && (
+                <Pressable onPress={() => setChosenPm(null)} hitSlop={6}>
+                  <Text style={styles.pmBack}>
+                    ‹ {members.length} puntos de muestreo
+                  </Text>
+                </Pressable>
+              )}
+              <BeachDetail
+                feature={beachFeature}
+                hasAlert={
+                  chosenPm
+                    ? chosenPm.properties.alert === true
+                    : selection.hasAlert
+                }
+              />
+            </View>
+          )
         ) : (
           <View>
             <View
@@ -273,5 +366,49 @@ const styles = StyleSheet.create({
   nearestName: {
     fontFamily: fonts.bold,
     color: colors.text,
+  },
+  pmHint: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  pmRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  pmDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  pmText: {
+    flex: 1,
+  },
+  pmName: {
+    fontSize: 14,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+  },
+  pmStatus: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 1,
+  },
+  pmChevron: {
+    fontSize: 18,
+    color: colors.textFaint,
+  },
+  pmBack: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    color: colors.primary,
+    marginTop: 8,
   },
 });

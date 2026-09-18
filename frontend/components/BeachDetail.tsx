@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
     marginTop: 8,
     marginBottom: 4,
   },
@@ -548,8 +548,10 @@ const styles = StyleSheet.create({
     gap: 5,
     backgroundColor: '#1a7f96', // azul océano del estilo del mapa
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#11586b',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
   },
   shareIcon: {
     width: 13,

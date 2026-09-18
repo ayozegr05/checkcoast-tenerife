@@ -80,3 +80,16 @@ export const beachBaseName = (name: string) =>
     .replace(/\s+PM\d+$/, '')
     .replace(/\s+(I|II|III|IV)\s*(?=\))/, '')
     .replace(/\s+(I|II|III|IV)(?=\s*\(|\s*$)/, '');
+
+// Etiqueta del punto de muestreo dentro de su playa: "PM3"; si la
+// playa se subdivide por romano (Troya I/II) se antepone: "II · PM3"
+export const beachPointLabel = (name: string) => {
+  const pm = name.match(/\s+(PM\d+)$/)?.[1];
+  const roman = name
+    .replace(/\s+PM\d+$/, '')
+    .split('(')[0]
+    .trimEnd()
+    .match(/\s+(I|II|III|IV)$/)?.[1];
+  const label = [roman, pm].filter(Boolean).join(' · ');
+  return label || null;
+};

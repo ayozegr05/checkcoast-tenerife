@@ -16,7 +16,11 @@ import {
 
 import BeachDetail from './BeachDetail';
 import { BeachStats, GeoFeature, fetchBeachStats } from '../lib/api';
-import { beachBaseName, displayBeachName } from '../lib/format';
+import {
+  beachBaseName,
+  beachPointLabel,
+  displayBeachName,
+} from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 
 // Orden de prioridad: lo que necesita atención del bañista primero;
@@ -59,19 +63,6 @@ const statusOf = (f: GeoFeature) =>
   f.properties.monitored === false
     ? 'unmonitored'
     : (f.properties.status ?? 'unknown');
-
-// Etiqueta del punto dentro del grupo expandido: "PM3", y si la playa
-// se subdivide por romano (Troya I/II) se antepone: "I · PM3"
-const pmLabel = (name: string) => {
-  const pm = name.match(/\s+(PM\d+)$/)?.[1];
-  const roman = name
-    .replace(/\s+PM\d+$/, '')
-    .split('(')[0]
-    .trimEnd()
-    .match(/\s+(I|II|III|IV)$/)?.[1];
-  const label = [roman, pm].filter(Boolean).join(' · ');
-  return label || null;
-};
 
 const pmNum = (name: string) => {
   const m = name.match(/PM(\d+)$/);
@@ -564,7 +555,7 @@ export default function BeachList({
                       >
                         <View style={styles.pmText}>
                           <Text style={styles.pmName}>
-                            {pmLabel(f.properties.name) ??
+                            {beachPointLabel(f.properties.name) ??
                               displayName(f.properties.name)}
                           </Text>
                           {pmSub ? (

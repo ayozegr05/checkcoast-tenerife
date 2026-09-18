@@ -69,7 +69,14 @@ const TENERIFE_VIEW = {
 
 export type Selection =
   | { type: 'outfall'; feature: GeoFeature }
-  | { type: 'beach'; feature: GeoFeature; hasAlert: boolean };
+  | {
+      type: 'beach';
+      feature: GeoFeature;
+      hasAlert: boolean;
+      // Puntos de muestreo del grupo (si la playa tiene varios PMs):
+      // la card muestra primero un selector para elegir cuál ver
+      members?: GeoFeature[];
+    };
 
 type CoastMapProps = {
   outfalls: FeatureCollection;
@@ -92,6 +99,7 @@ type SearchItem = {
   label: string;
   sub: string;
   feature?: GeoFeature;
+  members?: GeoFeature[];
   center?: [number, number];
 };
 
@@ -177,6 +185,10 @@ export default function CoastMap({
       );
     };
     for (const g of groups.values()) {
+      // Orden estable del selector de PMs (PM1<PM2, Troya I<II)
+      g.members.sort((a, b) =>
+        a.properties.name.localeCompare(b.properties.name),
+      );
       g.rep = g.members.reduce(
         (a, b) => (rank(b) < rank(a) ? b : a),
         g.members[0],
@@ -274,6 +286,7 @@ export default function CoastMap({
             (g.rep.properties.municipality ?? 'Playa') +
             (g.members.length > 1 ? ` · ${g.members.length} PMs` : ''),
           feature: g.rep,
+          members: g.members,
           center: g.center,
         });
       }
@@ -335,6 +348,7 @@ export default function CoastMap({
               type: 'beach',
               feature: item.feature,
               hasAlert: item.feature.properties.alert === true,
+              members: item.members,
             }
           : { type: 'outfall', feature: item.feature },
       );
@@ -378,6 +392,7 @@ export default function CoastMap({
           type: 'beach',
           feature: rep,
           hasAlert: rep.properties.alert === true,
+          members: g?.members,
         });
       }
     };
@@ -617,7 +632,15 @@ export default function CoastMap({
                 zoom: 13,
                 duration: 1200,
               });
-              onSelect({ type: 'beach', feature: top, hasAlert: true });
+              const gk = (
+                top.properties as { groupKey?: string }
+              ).groupKey;
+              onSelect({
+                type: 'beach',
+                feature: top,
+                hasAlert: true,
+                members: gk ? beachGroups.get(gk)?.members : undefined,
+              });
             } else {
               onOpenList?.();
             }
