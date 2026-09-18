@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 
 import requests
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
@@ -77,6 +78,9 @@ RE_FIELD = (
 )
 INCIDENT_BLOCK = ("<!--INFORMACION INCIDENCIA -->", "<!--FIN INFORMACION INCIDENCIA -->")
 MUESTREOS_MARK = '<td class="apartadotabla">Muestreos:</td>'
+
+# Clave arbitraria para el advisory lock de Postgres entre procesos
+_SYNC_LOCK_KEY = 727001
 
 
 @dataclass
@@ -294,6 +298,21 @@ def _find_beach(
     return None
 
 
+def _foreign_municipality(beach: Beach, zone_municipality: str) -> bool:
+    """True si este PM homónimo pertenece a otra zona/municipio.
+
+    Náyade repite nombres de PM entre zonas ("Caleta de Negros"): la playa
+    solo acepta el PM de la zona de su propio municipio, para que siempre
+    gane la misma zona y el estado no oscile. Si alguno de los dos
+    municipios es desconocido no se puede discriminar -> no se filtra.
+    """
+    if not beach.municipality or not zone_municipality:
+        return False
+    return _normalize(_natural_municipality(beach.municipality)) != _normalize(
+        zone_municipality
+    )
+
+
 def _persist(
     db: Session,
     beach: Beach,
@@ -359,6 +378,17 @@ def run() -> tuple[int, int]:
 
     db = SessionLocal()
     updated = seen = 0
+    # Lock de transacción: solo una ingesta a la vez (scheduler + script
+    # manual + instancia duplicada de uvicorn). Se libera solo al hacer
+    # commit/rollback, sin dejar locks huérfanos en el pool.
+    locked = db.execute(
+        text("SELECT pg_try_advisory_xact_lock(:k)"),
+        {"k": _SYNC_LOCK_KEY},
+    ).scalar()
+    if not locked:
+        print("  sync de Náyade ya en marcha; se omite esta pasada")
+        db.close()
+        return 0, 0
     matched: set[int] = set()
     changed: list[tuple[Beach, BeachState]] = []
     try:
@@ -376,6 +406,10 @@ def run() -> tuple[int, int]:
                     # Una playa no puede casar con dos PMs en la misma
                     # pasada (Náyade repite nombres entre zonas)
                     if beach is None or beach.id in matched:
+                        continue
+                    # PM homónimo de otra zona: solo gana la zona del
+                    # municipio de la playa -> matching determinista
+                    if _foreign_municipality(beach, info.municipality):
                         continue
                     matched.add(beach.id)
                     if _persist(db, beach, pm, info.municipality, latest):

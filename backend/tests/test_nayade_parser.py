@@ -2,8 +2,12 @@
 
 from datetime import date
 
-from app.models import BeachState
-from scripts.ingest_beach_status import _parse_pms, _derive_state
+from app.models import Beach, BeachState
+from scripts.ingest_beach_status import (
+    _foreign_municipality,
+    _parse_pms,
+    _derive_state,
+)
 
 PM_TMPL = """
 <table class="tablaform">
@@ -197,3 +201,27 @@ def test_incident_rows_are_not_measurements():
     )
     html = PM_TMPL.format(name="PLAYA TEST PM1", rows=inc, meas_rows="")
     assert _parse_pms(html)["PLAYA TEST PM1"].measurements == []
+
+
+def test_foreign_municipality_rejects_same_named_pm():
+    """Un PM homónimo de otra zona no casa con la playa: evita que
+    'Caleta de Negros' de otro municipio sobreescriba su estado."""
+    beach = Beach(name="Caleta de Negros", municipality="Santa Cruz de Tenerife")
+    assert _foreign_municipality(beach, "Granadilla de Abona") is True
+    assert _foreign_municipality(beach, "Santa Cruz de Tenerife") is False
+
+
+def test_foreign_municipality_normalizes_article_forms():
+    """'Orotava (La)' (grafía censo) casa con 'La Orotava' (grafía Náyade)."""
+    beach = Beach(name="X", municipality="Orotava (La)")
+    assert _foreign_municipality(beach, "La Orotava") is False
+
+
+def test_foreign_municipality_unknown_side_does_not_filter():
+    """Sin municipio en la playa o en la zona no se puede discriminar."""
+    assert _foreign_municipality(
+        Beach(name="X", municipality=None), "Adeje"
+    ) is False
+    assert _foreign_municipality(
+        Beach(name="X", municipality="Adeje"), ""
+    ) is False
