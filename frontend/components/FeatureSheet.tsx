@@ -17,6 +17,7 @@ import {
   OutfallNearestBeach,
   fetchOutfallNearestBeach,
 } from '../lib/api';
+import { displayBeachName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -126,7 +127,7 @@ export default function FeatureSheet({
         <View style={styles.handle} />
         <View style={styles.header}>
           <Text style={styles.title} numberOfLines={2}>
-            {p.name}
+            {displayBeachName(p.name)}
           </Text>
           <Pressable onPress={dismiss} hitSlop={12}>
             <Text style={styles.close}>✕</Text>
@@ -174,7 +175,7 @@ export default function FeatureSheet({
                 <Text style={styles.nearestText}>
                   Playa más cercana:{' '}
                   <Text style={styles.nearestName}>
-                    {nearest.beach_name}
+                    {displayBeachName(nearest.beach_name)}
                   </Text>
                   {' · '}a {fmtDistance(nearest.distance_m)}
                 </Text>

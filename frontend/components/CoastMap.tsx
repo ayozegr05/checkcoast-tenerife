@@ -23,6 +23,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 
 import type { FeatureCollection, GeoFeature } from '../lib/api';
+import { displayBeachName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 import seaStyle from '../assets/mapstyle-sea.json';
 
@@ -84,12 +85,6 @@ type CoastMapProps = {
 
 const OUTFALL_COLORS = colors.outfall;
 const BEACH_COLORS = colors.status;
-
-// "PLAYA ABADES (LOS ABRIGUITOS)" -> "Playa Abades (Los Abriguitos)"
-const capName = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/(^|[\s(-])([a-záéíóúñü])/g, (_m, pre: string, c: string) => pre + c.toUpperCase());
 
 type SearchItem = {
   key: string;
@@ -202,7 +197,7 @@ export default function CoastMap({
         items.push({
           key: `b${f.id}`,
           kind: 'beach',
-          label: capName(f.properties.name),
+          label: displayBeachName(f.properties.name),
           sub: f.properties.municipality ?? 'Playa',
           feature: f,
         });
@@ -213,7 +208,7 @@ export default function CoastMap({
         items.push({
           key: `o${f.id}`,
           kind: 'outfall',
-          label: capName(f.properties.name ?? ''),
+          label: displayBeachName(f.properties.name ?? ''),
           sub: 'Vertido',
           feature: f,
         });
@@ -808,7 +803,7 @@ const styles = StyleSheet.create({
   legend: {
     position: 'absolute',
     bottom: Platform.OS === 'android' ? 42 : 12, // por encima de la barra de gestos
-    left: 12,
+    left: 5,
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
     padding: 10,

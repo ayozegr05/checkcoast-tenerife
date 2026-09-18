@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Image,
   Pressable,
   ScrollView,
   Share,
@@ -17,6 +18,7 @@ import {
   fetchBeachNearbyOutfalls,
   fetchBeachQuality,
 } from '../lib/api';
+import { displayBeachName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 
 // Estado de playa: usa properties.status (de /beaches + /alerts)
@@ -210,7 +212,7 @@ export default function BeachDetail({
   // deep-link checkcoast://beach/{id} que abre la app en esta ficha
   const share = () => {
     const lines = [
-      `🏖️ ${p.name}${p.municipality ? ` (${p.municipality})` : ''}`,
+      `🏖️ ${displayBeachName(p.name)}${p.municipality ? ` (${p.municipality})` : ''}`,
       `Estado: ${statusText}`,
     ];
     const latest = quality?.[0];
@@ -238,7 +240,10 @@ export default function BeachDetail({
           accessibilityRole="button"
           accessibilityLabel="Compartir estado de la playa"
         >
-          <Text style={styles.shareText}>Compartir</Text>
+          <Image
+            source={require('../assets/icons/icon-share.png')}
+            style={styles.shareIcon}
+          />
         </Pressable>
       </View>
 
@@ -537,16 +542,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
   },
   shareBtn: {
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    padding: 2,
   },
-  shareText: {
-    color: colors.primaryDark,
-    fontSize: 12,
-    fontFamily: fonts.bold,
+  shareIcon: {
+    width: 30,
+    height: 30,
   },
   row: {
     fontSize: 13,

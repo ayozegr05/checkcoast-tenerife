@@ -16,6 +16,7 @@ import {
 
 import BeachDetail from './BeachDetail';
 import { BeachStats, GeoFeature, fetchBeachStats } from '../lib/api';
+import { displayBeachName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 
 // Orden de prioridad: lo que necesita atención del bañista primero;
@@ -38,14 +39,8 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS = colors.status;
 
-// "PLAYA ABADES (LOS ABRIGUITOS)" -> "Playa Abades (Los Abriguitos)"
-const capName = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/(^|[\s(-])([a-záéíóúñü])/g, (_m, pre: string, c: string) => pre + c.toUpperCase());
-
 const displayName = (name: string) =>
-  capName(name.replace(/\s+PM\d+$/, ''));
+  displayBeachName(name.replace(/\s+PM\d+$/, ''));
 
 // Foto satélite estática del punto (Esri World Imagery, mismo servicio
 // que la vista satélite del mapa). Bbox ~800x500 m centrada en la playa
@@ -294,7 +289,7 @@ export default function BeachList({
                 <Text style={styles.backText}>‹</Text>
               </Pressable>
               <Text style={styles.title} numberOfLines={1}>
-                {capName(detail.properties.name)}
+                {displayBeachName(detail.properties.name)}
               </Text>
               <Pressable
                 onPress={() => onSelect(detail)}

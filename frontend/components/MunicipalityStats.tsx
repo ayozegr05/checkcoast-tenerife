@@ -18,6 +18,7 @@ import {
   fetchBeachStats,
   fetchMunicipalityIncidents,
 } from '../lib/api';
+import { displayBeachName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 
 type MuniStats = {
@@ -62,11 +63,6 @@ const durationDays = (inc: MunicipalityIncident) => {
     ) + 1,
   );
 };
-
-const displayBeachName = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/(^|[\s(-])([a-záéíóúñü])/g, (_m, pre: string, c: string) => pre + c.toUpperCase());
 
 export default function MunicipalityStats({
   beaches,
