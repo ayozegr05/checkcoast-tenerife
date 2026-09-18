@@ -22,42 +22,45 @@ from scripts.assign_municipalities import assign_municipalities
 # (external_id, nombre, lat, lon)
 MANUAL_BEACHES: list[tuple[str, str, float, float]] = [
     ("manual-almaciga", "Playa de Almáciga", 28.5725, -16.1918),
-    ("manual-el-tablado", "Playa del Tablado", 28.2422, -16.4021),
+    ("manual-el-tablado", "Playa del Tablado", 28.2398088, -16.4040745),
 ]
 
 SOURCE_URL = "https://www.openstreetmap.org/copyright"
 
 
 def add_manual_beaches(db: Session) -> tuple[int, int]:
-    """Upsert por external_id. Devuelve (creadas, existentes)."""
+    """Upsert por external_id: crea las que falten y actualiza
+    nombre/coords/fuente de las existentes. Devuelve (creadas, actualizadas)."""
     existing = {
-        b.external_id
-        for b in db.query(Beach.external_id)
-        .filter(Beach.external_id.like("manual-%"))
-        .all()
+        b.external_id: b
+        for b in db.query(Beach).filter(Beach.external_id.like("manual-%")).all()
     }
-    created = skipped = 0
+    created = updated = 0
     for external_id, name, lat, lon in MANUAL_BEACHES:
-        if external_id in existing:
-            skipped += 1
-            continue
-        db.add(
-            Beach(
-                external_id=external_id,
-                name=name,
-                monitored=False,
-                geom=f"SRID=4326;POINT({lon} {lat})",
-                source_url=SOURCE_URL,
+        beach = existing.get(external_id)
+        if beach is None:
+            db.add(
+                Beach(
+                    external_id=external_id,
+                    name=name,
+                    monitored=False,
+                    geom=f"SRID=4326;POINT({lon} {lat})",
+                    source_url=SOURCE_URL,
+                )
             )
-        )
-        created += 1
-    return created, skipped
+            created += 1
+        else:
+            beach.name = name
+            beach.geom = f"SRID=4326;POINT({lon} {lat})"
+            beach.source_url = SOURCE_URL
+            updated += 1
+    return created, updated
 
 
 def main() -> None:
     db = SessionLocal()
     try:
-        created, skipped = add_manual_beaches(db)
+        created, updated = add_manual_beaches(db)
         db.flush()  # el UPDATE raw de municipios debe ver los inserts
         assign_municipalities(db)
         db.commit()
@@ -66,7 +69,7 @@ def main() -> None:
         raise
     finally:
         db.close()
-    print(f"Playas manuales: {created} creadas, {skipped} ya existían")
+    print(f"Playas manuales: {created} creadas, {updated} actualizadas")
 
 
 if __name__ == "__main__":
