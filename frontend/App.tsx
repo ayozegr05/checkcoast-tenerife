@@ -10,6 +10,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   NativeModules,
   StyleSheet,
   Text,
@@ -128,6 +129,25 @@ export default function App() {
   // Push: registro del token + al tocar la notificación abrir la playa
   const beachesRef = useRef(beachesFC);
   beachesRef.current = beachesFC;
+
+  // Abre la ficha de una playa por id: cierra modales y vuela el mapa
+  // al punto. Compartido por push y por deep-links checkcoast://beach/ID
+  const openBeachById = (id: number) => {
+    const f = beachesRef.current.features.find((x) => x.id === id);
+    if (!f) return;
+    setListOpen(false);
+    setMuniOpen(false);
+    setOutfallListOpen(false);
+    setSelection({
+      type: 'beach',
+      feature: f,
+      hasAlert: f.properties.alert === true,
+    });
+    setFocus([...f.geometry.coordinates]);
+  };
+  const openBeachRef = useRef(openBeachById);
+  openBeachRef.current = openBeachById;
+
   useEffect(() => {
     setupPushNotifications();
     const sub = Notifications.addNotificationResponseReceivedListener(
@@ -137,21 +157,22 @@ export default function App() {
             | { beach_id?: number }
             | undefined
         )?.beach_id;
-        const f =
-          id != null
-            ? beachesRef.current.features.find((x) => x.id === id)
-            : undefined;
-        if (!f) return;
-        setListOpen(false);
-        setMuniOpen(false);
-        setSelection({
-          type: 'beach',
-          feature: f,
-          hasAlert: f.properties.alert === true,
-        });
-        setFocus([...f.geometry.coordinates]);
+        if (id != null) openBeachRef.current(id);
       },
     );
+    return () => sub.remove();
+  }, []);
+
+  // Deep-links compartidos: checkcoast://beach/123 (y el equivalente
+  // del dev-client exp+...://...beach/123). Funciona al tocar un link
+  // con la app abierta y como URL de arranque.
+  useEffect(() => {
+    const handle = (url: string | null) => {
+      const m = url?.match(/beach\/(\d+)/);
+      if (m) openBeachRef.current(Number(m[1]));
+    };
+    Linking.getInitialURL().then(handle).catch(() => {});
+    const sub = Linking.addEventListener('url', (e) => handle(e.url));
     return () => sub.remove();
   }, []);
 

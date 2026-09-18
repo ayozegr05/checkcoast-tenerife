@@ -2,6 +2,7 @@
   "expo": {
     "name": "CheckCoast Tenerife",
     "slug": "checkcoast-tenerife",
+    "scheme": "checkcoast",
     "version": "1.0.0",
     "orientation": "portrait",
     "plugins": [

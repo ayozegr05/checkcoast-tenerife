@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -205,10 +206,40 @@ export default function BeachDetail({
     ? colors.status.unmonitored
     : (BEACH_STATUS[beachKey]?.color ?? colors.status.unknown);
 
+  // Mensaje listo para WhatsApp/Telegram: estado + última evaluación +
+  // deep-link checkcoast://beach/{id} que abre la app en esta ficha
+  const share = () => {
+    const lines = [
+      `🏖️ ${p.name}${p.municipality ? ` (${p.municipality})` : ''}`,
+      `Estado: ${statusText}`,
+    ];
+    const latest = quality?.[0];
+    if (latest) {
+      lines.push(
+        `Último análisis (${fmtDate(latest.sampled_at)}): ` +
+          `${latest.evaluation ?? 'sin evaluación'}`,
+      );
+    }
+    lines.push('Fuente: CheckCoast Tenerife (MITECO/Náyade/OSM)');
+    lines.push(`checkcoast://beach/${feature.id}`);
+    Share.share({ message: lines.join('\n') }).catch(() => {});
+  };
+
   return (
     <View>
-      <View style={[styles.chip, { backgroundColor: statusColor }]}>
-        <Text style={styles.chipText}>{statusText}</Text>
+      <View style={styles.topRow}>
+        <View style={[styles.chip, { backgroundColor: statusColor }]}>
+          <Text style={styles.chipText}>{statusText}</Text>
+        </View>
+        <Pressable
+          onPress={share}
+          style={styles.shareBtn}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Compartir estado de la playa"
+        >
+          <Text style={styles.shareText}>Compartir</Text>
+        </Pressable>
       </View>
 
       {p.municipality ? (
@@ -487,16 +518,33 @@ export default function BeachDetail({
 }
 
 const styles = StyleSheet.create({
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 4,
+  },
   chip: {
     alignSelf: 'flex-start',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    marginTop: 8,
-    marginBottom: 4,
   },
   chipText: {
     color: '#fff',
+    fontSize: 12,
+    fontFamily: fonts.bold,
+  },
+  shareBtn: {
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  shareText: {
+    color: colors.primaryDark,
     fontSize: 12,
     fontFamily: fonts.bold,
   },
