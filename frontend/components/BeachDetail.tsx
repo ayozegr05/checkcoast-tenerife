@@ -244,6 +244,7 @@ export default function BeachDetail({
             source={require('../assets/icons/icon-share.png')}
             style={styles.shareIcon}
           />
+          <Text style={styles.shareText}>Compartir</Text>
         </Pressable>
       </View>
 
@@ -542,11 +543,22 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
   },
   shareBtn: {
-    padding: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   shareIcon: {
-    width: 30,
-    height: 30,
+    width: 16,
+    height: 16,
+  },
+  shareText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: fonts.bold,
   },
   row: {
     fontSize: 13,
