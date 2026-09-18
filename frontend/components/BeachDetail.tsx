@@ -164,8 +164,9 @@ export default function BeachDetail({
       .catch(() => setQuality([]));
   }, [feature.id, unmonitored]);
 
-  // Intervalos de incidentes [apertura, cierre]: las barras de
-  // muestreos tomados durante un incidente se marcan con borde rojo
+  // Intervalos de incidentes [apertura, cierre]: se marcan en el eje
+  // temporal con un rombo rojo interpolado por fecha entre barras —
+  // un cierre casi nunca coincide con un dia de muestreo
   const incidentRanges = useMemo(
     () =>
       (incidents ?? []).map((i) => ({
@@ -174,8 +175,6 @@ export default function BeachDetail({
       })),
     [incidents],
   );
-  const duringIncident = (iso: string) =>
-    incidentRanges.some((r) => iso >= r.from && iso <= r.to);
 
   // Serie temporal para la grafica: mas antigua primero, solo valores
   // parseables (descarta "—" y filas sin medicion del parametro)
@@ -336,14 +335,6 @@ export default function BeachDetail({
                             : colors.status.closed;
                       return (
                         <View key={i} style={styles.barCol}>
-                          {duringIncident(d.date) && (
-                            <View
-                              style={[
-                                styles.incidentDot,
-                                { bottom: barH(d.value) + 3 },
-                              ]}
-                            />
-                          )}
                           <View
                             style={[
                               styles.bar,
@@ -356,6 +347,32 @@ export default function BeachDetail({
                         </View>
                       );
                     })}
+                    {(() => {
+                      const first = Date.parse(chartData[0].date);
+                      const last = Date.parse(
+                        chartData[chartData.length - 1].date,
+                      );
+                      const span = Math.max(last - first, 1);
+                      return incidentRanges.map((r, i) => {
+                        const pos = Math.min(
+                          1,
+                          Math.max(0, (Date.parse(r.from) - first) / span),
+                        );
+                        return (
+                          <View
+                            key={i}
+                            style={[
+                              styles.incidentTick,
+                              {
+                                left: Math.round(
+                                  pos * (chartData.length - 1) * 8,
+                                ),
+                              },
+                            ]}
+                          />
+                        );
+                      });
+                    })()}
                   </View>
                   <View style={styles.yearRow}>
                     {chartData.map((d, i) => (
@@ -375,7 +392,7 @@ export default function BeachDetail({
                 oficial · línea azul = límite normativo (
                 {QUALITY_THRESHOLDS[chartParam].good} UFC/100 mL)
                 {incidentRanges.length > 0
-                  ? ' · punto rojo = muestreo durante un incidente'
+                  ? ' · rombo rojo en el eje = cierre/aviso'
                   : ''}
               </Text>
             </View>
@@ -628,12 +645,13 @@ const styles = StyleSheet.create({
     width: 6,
     borderRadius: 2,
   },
-  incidentDot: {
+  incidentTick: {
     position: 'absolute',
-    alignSelf: 'center',
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+    bottom: -5,
+    width: 8,
+    height: 8,
+    borderRadius: 1.5,
+    transform: [{ rotate: '45deg' }],
     backgroundColor: colors.status.closed,
   },
   chartFoot: {
