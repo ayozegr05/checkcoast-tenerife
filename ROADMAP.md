@@ -134,17 +134,18 @@ Tres niveles, en orden de impacto/esfuerzo:
   Tachero, Antequera...); mirrors de Overpass con fallback;
   `add_manual_beaches.py` para zonas sin tag OSM (Almáciga, El Tablado)
 
-## Hito 6 — Funcionalidades y datos ⬜
+## Hito 6 — Funcionalidades y datos ✅ *(6.3 aplazada por decisión)*
 
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
 | 6.1 | **Distancia vertido↔playa**: en ficha de vertido, "a 350 m de Playa X" (ST_Distance PostGIS, nearest beach) — convierte el dato en historia | ✅ Hecho (`GET /outfalls/{id}/nearest-beach` + caja destacada en FeatureSheet) | 🟡 Medio |
 | 6.2 | **Gráfica histórica de calidad**: mini-gráfica E. coli/enterococo por fecha en `BeachDetail` (~3.200 mediciones ya en BD) | ✅ Hecho (barras log-escala coloreadas por clase + línea de límite normativo, Views planos sin deps nativas) | 🟡 Medio |
-| 6.3 | **Favoritos + notificaciones dirigidas**: marcar playas favoritas (AsyncStorage + `beach_ids` en `POST /devices`), push solo de esas playas | Pendiente | 🔴 Alto |
+| 6.3 | **Favoritos + notificaciones dirigidas**: marcar playas favoritas (tabla `beach_favorite` + `notify_mode` por dispositivo), push solo de esas playas | ⏸️ **Aplazada**: ~13 incidentes/temporada no saturan; las alertas de toda la isla ayudan a elegir dónde bañarse. Reactivar si el volumen de alertas crece (prensa, medusas...) | 🔴 Alto |
 | 6.4 | **Filtro por estado en lista de playas**: chips cerrada/aviso/sin datos/apta/no monitorizada | ✅ Hecho (`e657ef7`) | 🟢 Trivial |
 | 6.5 | **Búsqueda desde el mapa**: campo en topbar que busque playas/vertidos/municipios y vuele al punto | ✅ Hecho (`89ec333`) | 🟡 Medio |
 | 6.6 | **Compartir estado de playa** (Share API: texto + deep-link) | ✅ Hecho (`a79d91c`) | 🟢 Trivial |
 | 6.7 | (extensión) Timeline de incidentes por municipio en la ficha del municipio | ✅ Hecho (`066ba2b`) | 🟡 Medio |
+| — | **Bonus 6.x**: agrupación de pins por playa (1 pin/peor estado + selector de PMs + dots etiquetados en mapa), nombres oficiales de playa (`lib/format.ts`: "Playa del Bobo", romanos, acentos), bottom-sheet anclado con "Ver más" | ✅ Hecho (`fa6f49c`, `461553c`, `1647113`) | 🟡 Medio |
 
 ## Hito 7 — Pulido visual ⬜
 
@@ -180,5 +181,5 @@ Tres niveles, en orden de impacto/esfuerzo:
 ---
 
 ### Estado actual
-**Hito activo:** 6 — Funcionalidades y datos (UI estabilizada; pendiente commit del bloque topbar/leyenda/IntroCard)
+**Hito activo:** 7 — Pulido visual (Hito 6 cerrado; 6.3 aplazada por decisión: las alertas no saturan y conocer toda la isla ayuda a elegir playa)
 **Última actualización:** 2026-09-17
