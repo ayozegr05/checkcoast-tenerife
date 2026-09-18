@@ -145,6 +145,12 @@ export default function FeatureSheet({
     ? displayBeachName(beachBaseName(p.name))
     : displayBeachName(stripPm(beachFeature.properties.name)) + pmSuffix;
 
+  // Acento de la cabecera según estado (playa o vertido): tinta sutil
+  // + línea superior del color de estado
+  const accent = isBeach
+    ? (colors.status[beachStatusKey(feature)] ?? colors.status.unknown)
+    : (STATUS_COLORS[statusKey] ?? colors.status.unknown);
+
   const pan = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > 6,
@@ -171,7 +177,13 @@ export default function FeatureSheet({
       style={[styles.sheet, { bottom: CARD_BOTTOM, height: h }]}
     >
       {/* Zona de agarre: asa + cabecera responden al arrastre */}
-      <View {...pan.panHandlers}>
+      <View
+        {...pan.panHandlers}
+        style={[
+          styles.headerZone,
+          { backgroundColor: `${accent}14`, borderTopColor: accent },
+        ]}
+      >
         <View style={styles.handle} />
         <View style={styles.header}>
           <Text style={styles.title} numberOfLines={2}>
@@ -311,12 +323,19 @@ const styles = StyleSheet.create({
     right: 10,
     backgroundColor: colors.surface,
     borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#b9d3dd', // separa la card del mapa/leyenda
     shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
     shadowOffset: { width: 0, height: -4 },
-    elevation: 10,
+    elevation: 12,
     overflow: 'hidden',
+  },
+  headerZone: {
+    borderTopWidth: 3,
+    borderTopLeftRadius: 17,
+    borderTopRightRadius: 17,
   },
   handle: {
     alignSelf: 'center',
