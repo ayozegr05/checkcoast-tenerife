@@ -144,8 +144,9 @@ npx tsc --noEmit                                        # typecheck
 - **Náyade** se cae por horas: es normal, el scheduler lo tolera
 - **Hot reload** con capas MapLibre da `[Error: 'id' cannot be changed]`
   → reiniciar con `npx expo start --dev-client -c`
-- **Node 20.12.2** desactualizado (Expo pide ≥20.19.4) — funciona pero
-  actualizar a Node 22 LTS
+- **Node 24.21.0 LTS** vía nvm-windows (`nvm use 24.21.0`); quedan
+  versiones viejas instaladas (20.12.2, 18, 17, 16) por si hicieran
+  falta
 - **Emoji** en fuentes del sistema no renderiza en Android → usar PNGs
 - Token de Expo expuesto en una sesión anterior → el usuario debe
   revocarlo en expo.dev (ya avisado)
