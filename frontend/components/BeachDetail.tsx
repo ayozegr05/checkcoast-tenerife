@@ -154,7 +154,9 @@ const NEWS_EVENT_LABELS: Record<string, string> = {
 };
 
 // Línea-resumen: motivo primero, fecha del primer titular, atribución
-// abajo — "Cerrada por riesgo de desprendimientos · desde el 03/06"
+// abajo — "Cerrada por riesgo de desprendimientos · desde el 03/06".
+// Si el cierre ya pasó (oficial open o incidente con closed_at
+// posterior = mismo episodio resuelto) se habla en pasado
 const NEWS_EVENT_LINE: Record<string, [string, string, string]> = {
   closure: ['Cerrada', 'por', 'desde el'],
   reopening: ['Reapertura', 'tras', 'el'],
@@ -163,18 +165,33 @@ const NEWS_EVENT_LINE: Record<string, [string, string, string]> = {
   other: ['Noticias', 'sobre', 'el'],
 };
 
-const pressSummary = (s: BeachNewsResponse['summary']) => {
+const pressSummary = (
+  s: BeachNewsResponse['summary'],
+  opts: { stillClosed: boolean; reopenedAt: string | null },
+) => {
   const [noun, prep, dmark] = NEWS_EVENT_LINE[s.event_type ?? 'other'] ?? [
     'Noticias',
     'sobre',
     'el',
   ];
-  const date = s.since ? ` · ${dmark} ${fmtDate(s.since.slice(0, 10))}` : '';
   const medios =
     s.outlets_count === 1 ? '1 medio' : `${s.outlets_count} medios`;
+  const isClosure = s.event_type === 'closure';
+  const shownNoun = isClosure && !opts.stillClosed ? 'Estuvo cerrada' : noun;
+  let date = '';
+  if (isClosure && !opts.stillClosed) {
+    // Pasado: "el 21/08" (no "desde" — ya no está cerrada)
+    date = s.since ? ` · el ${fmtDate(s.since.slice(0, 10))}` : '';
+  } else {
+    date = s.since ? ` · ${dmark} ${fmtDate(s.since.slice(0, 10))}` : '';
+  }
+  // Sanidad registró la reapertura de ese mismo episodio
+  const reopen = opts.reopenedAt
+    ? ` · Sanidad la reabrió el ${fmtDate(opts.reopenedAt)}`
+    : '';
   return {
-    main: `${noun}${s.cause ? ` ${prep} ${s.cause}` : ''}${date}`,
-    sub: `según prensa · ${medios}`,
+    main: `${shownNoun}${s.cause ? ` ${prep} ${s.cause}` : ''}${date}`,
+    sub: `según prensa · ${medios}${reopen}`,
   };
 };
 
@@ -293,6 +310,21 @@ export default function BeachDetail({
     return [...groups.values()];
   }, [news]);
 
+  // ¿El cierre de prensa sigue vivo? Si Sanidad registró un incidente
+  // cerrado con fecha posterior al primer titular, es el mismo
+  // episodio ya resuelto (Los Cristianos: prensa 21/08, Náyade
+  // registró el cierre 24/08-26/08)
+  const pressStillClosed = p.status === 'closed';
+  const pressReopenedAt = useMemo(() => {
+    if (pressStillClosed || !news?.summary.since) return null;
+    const since = news.summary.since.slice(0, 10);
+    const later = (incidents ?? [])
+      .filter((i) => i.closed_at !== null && i.closed_at >= since)
+      .map((i) => i.closed_at as string)
+      .sort();
+    return later[0] ?? null;
+  }, [incidents, news, pressStillClosed]);
+
   const beachKey =
     hasAlert && p.status === 'open' ? 'warning' : (p.status ?? 'unknown');
   // Una playa OSM sin monitorizar con alerta (p.ej. Benijo, cerrada
@@ -367,10 +399,20 @@ export default function BeachDetail({
       {news !== null && news.items.length > 0 && (
         <View style={styles.pressBanner}>
           <Text style={styles.pressBannerText}>
-            {pressSummary(news.summary).main}
+            {
+              pressSummary(news.summary, {
+                stillClosed: pressStillClosed,
+                reopenedAt: pressReopenedAt,
+              }).main
+            }
           </Text>
           <Text style={styles.pressBannerSub}>
-            {pressSummary(news.summary).sub}
+            {
+              pressSummary(news.summary, {
+                stillClosed: pressStillClosed,
+                reopenedAt: pressReopenedAt,
+              }).sub
+            }
           </Text>
         </View>
       )}
@@ -689,7 +731,12 @@ export default function BeachDetail({
             </View>
           </View>
           <Text style={styles.newsSummary}>
-            {pressSummary(news.summary).main}
+            {
+              pressSummary(news.summary, {
+                stillClosed: pressStillClosed,
+                reopenedAt: pressReopenedAt,
+              }).main
+            }
           </Text>
           <Pressable
             onPress={() => {
