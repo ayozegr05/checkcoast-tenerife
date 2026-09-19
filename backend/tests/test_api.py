@@ -180,7 +180,20 @@ def test_press_closure_enters_alerts():
         cause="desprendimientos",
         published_at=datetime.now(timezone.utc),
     )
-    db.add(item)
+    # Ventana de gracia: playa monitorizada con oficial 'open' (Los
+    # Cristianos PM2) + cierre de prensa fresco -> alerta igualmente,
+    # porque Náyade tarda en registrar cierres municipales
+    item_open = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-press-grace",
+        title="Cierran la playa por vertido",
+        source="Test Press",
+        relevant=True,
+        beach_id=17,
+        event_type="closure",
+        cause="vertido",
+        published_at=datetime.now(timezone.utc),
+    )
+    db.add_all([item, item_open])
     db.commit()
     try:
         alerts = client.get("/alerts").json()
@@ -188,8 +201,12 @@ def test_press_closure_enters_alerts():
         assert hit is not None
         assert hit["status"] == "closed"
         assert hit["via"] == "press"
+        hit_open = next((a for a in alerts if a["beach_id"] == 17), None)
+        assert hit_open is not None
+        assert hit_open["via"] == "press"
     finally:
         db.delete(item)
+        db.delete(item_open)
         db.commit()
         db.close()
 

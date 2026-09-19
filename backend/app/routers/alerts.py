@@ -5,24 +5,27 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Beach, BeachState, NewsItem
+from app.models import Beach, BeachIncident, BeachState, NewsItem
 from app.queries import beaches_with_latest_status
 from app.schemas import AlertOut
 
 router = APIRouter(tags=["alerts"])
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
-# Si la prensa lleva >3 semanas sin mencionar la playa, el cierre se
-# considera caducado (p.ej. Los Cristianos: gasoil de "un par de días"
-# en agosto sin noticia de reapertura — no sigue cerrada)
+# Si la prensa lleva >3 semanas sin mencionar la playa, no afirmamos
+# que siga cerrada (Los Cristianos: gasoil puntual de agosto)
 PRESS_ALERT_MAX_AGE = timedelta(days=21)
+# Ventana de gracia: un cierre de prensa fresco gana a un 'open' de
+# Náyade porque los cierres municipales tardan en llegar a Sanidad;
+# pasada la ventana sin seguimiento, gana Sanidad
+PRESS_OPEN_GRACE = timedelta(days=14)
 
 
-def _press_state(items: list[NewsItem]) -> str | None:
-    """Estado según prensa a partir del evento más reciente que cambia
-    estado (items ordenados desc por fecha): el último closure/reopening
-    decide; si no hay, un warning/pollution da 'warning'. Un 'other'
-    (obras, política) nunca deshace un cierre."""
+def _press_event(items: list[NewsItem]) -> NewsItem | None:
+    """Titular que decide el estado según prensa (items ordenados desc
+    por fecha): el último closure/reopening decide; si no hay, un
+    warning/pollution da 'warning'. Un 'other' (obras, política) nunca
+    deshace un cierre."""
     change = next(
         (i for i in items if i.event_type in ("closure", "reopening")),
         None,
@@ -32,24 +35,29 @@ def _press_state(items: list[NewsItem]) -> str | None:
         None,
     )
     if change and change.event_type == "closure":
-        return "closed"
+        return change
     if warn and (
         change is None
         or (warn.published_at or _EPOCH) > (change.published_at or _EPOCH)
     ):
-        return "warning"
+        return warn
     return None
 
 
 @router.get("/alerts", response_model=list[AlertOut])
 def list_alerts(db: Session = Depends(get_db)) -> list[AlertOut]:
-    """Playas con alerta: estado oficial 'closed'/'warning' (Náyade), y
-    además playas sin alerta oficial cuyo último evento de prensa que
-    cambia estado es un cierre/aviso (p.ej. Benijo: cerrada por orden
-    municipal, sin registro sanitario). Entran en la misma lista; `via`
-    guarda la procedencia. Si la prensa reciente confirma cierre en una
-    playa con 'warning' oficial, la alerta se muestra como 'closed'
-    (el cierre real puede no ser sanitario, p.ej. talud de Gaviotas)."""
+    """Playas con alerta. Regla mixta oficial/prensa:
+
+    - Estado oficial 'closed'/'warning' (Náyade) siempre alerta; si la
+      prensa fresca confirma cierre, se muestra 'closed' (el cierre real
+      puede no ser sanitario, p.ej. talud de Gaviotas).
+    - Oficial 'open': gana Sanidad salvo ventana de gracia — un cierre
+      de prensa <=14 días alerta porque los cierres municipales tardan
+      en llegar a Náyade. Si Sanidad cerró formalmente un incidente
+      después de la noticia, es reapertura probada y no hay alerta.
+    - Sin dato oficial (OSM): la prensa decide; cobertura >21 días sin
+      seguimiento no prueba el estado actual.
+    `via` guarda la procedencia; el estado oficial nunca se altera."""
     items = (
         db.query(NewsItem)
         .filter(NewsItem.relevant.is_(True), NewsItem.beach_id.isnot(None))
@@ -60,18 +68,21 @@ def list_alerts(db: Session = Depends(get_db)) -> list[AlertOut]:
     for it in items:
         by_beach.setdefault(it.beach_id, []).append(it)
 
-    # Estado según prensa solo con cobertura fresca: si la playa lleva
-    # semanas sin noticias, no afirmamos que siga cerrada
+    # Estado según prensa solo con cobertura fresca
     cutoff = datetime.now(timezone.utc) - PRESS_ALERT_MAX_AGE
-    press_status: dict[int, str] = {}
+    press_state: dict[int, str] = {}
+    press_when: dict[int, datetime | None] = {}
     press_dominant: dict[int, str] = {}
     for beach_id, its in by_beach.items():
         newest = its[0].published_at
         if newest is None or newest < cutoff:
             continue
-        state = _press_state(its)
-        if state is not None:
-            press_status[beach_id] = state
+        ev = _press_event(its)
+        if ev is not None:
+            press_state[beach_id] = (
+                "closed" if ev.event_type == "closure" else "warning"
+            )
+            press_when[beach_id] = ev.published_at
         # Dominante sirve para escalar warning->closed en playas con
         # alerta oficial: una sola noticia de "obras para reabrir" no
         # equivale a reabierta (Gaviotas sigue cerrada con obras)
@@ -89,7 +100,10 @@ def list_alerts(db: Session = Depends(get_db)) -> list[AlertOut]:
 
     alerts: list[AlertOut] = []
     alerted: set[int] = set()
+    official: dict[int, str] = {}
     for beach, status in beaches_with_latest_status(db).all():
+        if status is not None:
+            official[beach.id] = status.status.value
         if status is None or status.status not in (
             BeachState.closed,
             BeachState.warning,
@@ -103,7 +117,7 @@ def list_alerts(db: Session = Depends(get_db)) -> list[AlertOut]:
                 municipality=beach.municipality,
                 # warning oficial + prensa dice cerrada = closed
                 status="closed"
-                if press_status.get(beach.id) == "closed"
+                if press_state.get(beach.id) == "closed"
                 or press_dominant.get(beach.id) == "closure"
                 else status.status.value,
                 via="official",
@@ -114,11 +128,30 @@ def list_alerts(db: Session = Depends(get_db)) -> list[AlertOut]:
             )
         )
 
-    # Prensa: cierre/aviso vigente en playas sin alerta oficial
-    # (estado oficial jamás se altera en la BD)
-    for beach_id, state in press_status.items():
+    # Prensa en playas sin alerta oficial vigente
+    grace = datetime.now(timezone.utc) - PRESS_OPEN_GRACE
+    for beach_id, state in press_state.items():
         if beach_id in alerted:
             continue
+        if official.get(beach_id) == BeachState.open.value:
+            # Sanidad dice abierta: gana salvo ventana de gracia, y
+            # siempre que no haya cerrado un incidente tras la noticia
+            # (cierre formal = reapertura probada)
+            resolved = (
+                db.query(func.max(BeachIncident.closed_at))
+                .filter(
+                    BeachIncident.beach_id == beach_id,
+                    BeachIncident.closed_at.isnot(None),
+                )
+                .scalar()
+            )
+            when = press_when.get(beach_id)
+            if resolved is not None and (
+                when is None or resolved >= when.date()
+            ):
+                continue
+            if when is None or when < grace:
+                continue
         beach = db.get(Beach, beach_id)
         if beach is None:
             continue
