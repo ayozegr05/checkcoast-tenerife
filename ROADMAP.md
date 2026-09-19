@@ -182,6 +182,10 @@ locales → LLM extrae playa/evento/causa → se muestra etiquetado como
 | 8.5.3 | **Matching conservador**: `match_beaches()` — clave `_press_key` (normaliza inversión MITECO "CABEZO (EL)"→"EL CABEZO", quita "PLAYA DE…") + municipio con alias; multi-PM de la misma playa replica la noticia; ambiguo → no se muestra | ✅ Hecho | 🔴 La parte difícil |
 | 8.5.4 | **Backend**: tabla `news_items` (dedup `(url, beach_id)`, guarda también no relevantes/no casados para dedup y re-match) + job APScheduler `news-sync` (6 h) + `GET /beaches/{id}/news` | ✅ Hecho | 🟡 Medio |
 | 8.5.5 | **Frontend**: caja "En la prensa" en `BeachDetail` (titular enlazable + medio + fecha + tipo/causa, etiqueta "según prensa") | ✅ Hecho | 🟢 Trivial |
+| 8.5.6 | **Cobertura de fuente**: 3 queries temáticas RSS (contaminación / cierres-reaperturas / obras-riesgo físico), dedup por URL, blocklist SEO-farms; robustez ante timeouts, 429 y extracciones malformadas (validación de campos, commit por artículo) | ✅ Hecho (`cf59dcb`) | 🟡 Medio |
+| 8.5.7 | **Resumen determinista**: `summary` en `/beaches/{id}/news` (evento+causa dominantes, nº medios, `since`) sin llamadas LLM; banner ámbar junto al estado, titulares plegables agrupados por evento al final de la ficha | ✅ Hecho (`1fa0080`, `d55f52a`, `f5c5de8`) | 🟡 Medio |
+| 8.5.8 | **Alertas de prensa en `/alerts`**: cierre/aviso según prensa entra en la lista normal (`via="press"`); verificación mixta — oficial open + cierre fresco ≤14 d alerta (lag de Náyade), `closed_at` posterior al titular = reapertura probada, sin cobertura <21 d no alerta; warning oficial + prensa dominada por cierres ⇒ se muestra `closed` | ✅ Hecho (`bf08a1d`, `27e1ad9`, `3418e7d`) | 🔴 Alto |
+| 8.5.9 | **Banner con ciclo de vida**: "Cerrada por X · desde el D" solo si sigue cerrada; "Estuvo cerrada · el D" + "Sanidad la reabrió el D2" cuando el incidente oficial cerró ≤15 d tras el titular | ✅ Hecho (`3f6bca1`, `121f402`) | 🟡 Medio |
 
 ## Hito 9 — Portfolio ⬜
 
@@ -195,5 +199,6 @@ locales → LLM extrae playa/evento/causa → se muestra etiquetado como
 ---
 
 ### Estado actual
-**Hito activo:** 8 — Calidad y despliegue (8.5 prensa LLM cerrado: Google News RSS + Gemini 3.5 Flash)
+**Hito activo:** 8 — Calidad y despliegue (8.5 prensa LLM completo:
+pipeline + resumen + alertas mixtas oficial/prensa)
 **Última actualización:** 2026-09-19
