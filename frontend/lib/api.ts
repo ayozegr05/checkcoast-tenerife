@@ -86,6 +86,7 @@ export type BeachNewsSummary = {
   cause: string | null; // causa dominante según prensa
   items_count: number;
   outlets_count: number;
+  since: string | null; // primer titular del evento dominante (ISO)
 };
 
 export type BeachNewsResponse = {

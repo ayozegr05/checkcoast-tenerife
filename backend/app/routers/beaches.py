@@ -238,12 +238,19 @@ def beach_news(
         .limit(30)
         .all()
     )
+    dominant = _news_mode(rows, "event_type")
+    since = min(
+        (r.published_at for r in rows
+         if r.event_type == dominant and r.published_at),
+        default=None,
+    )
     return BeachNewsOut(
         summary=NewsSummaryOut(
-            event_type=_news_mode(rows, "event_type"),
+            event_type=dominant,
             cause=_news_mode(rows, "cause"),
             items_count=len(rows),
             outlets_count=len({r.source for r in rows if r.source}),
+            since=since,
         ),
         items=[
             NewsItemOut(

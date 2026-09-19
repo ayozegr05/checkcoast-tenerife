@@ -43,6 +43,13 @@ const fmtDate = (iso: string) => {
 const isClosure = (inc: BeachIncident) =>
   /prohib/i.test(inc.observations ?? '');
 
+// Náyade a veces abre una "incidencia" cuyo texto es solo la
+// evaluación pendiente de una muestra (p.ej. Las Gaviotas 08/06/2026:
+// playa cerrada por obras, muestra tomada y nunca clasificada). No es
+// un incidente real: se muestra con etiqueta y texto propios
+const isUnclassified = (inc: BeachIncident) =>
+  /sin\s*calificar/i.test(inc.observations ?? '');
+
 // Cierres cuya apertura cayó dentro de los últimos `years` años
 const closuresInYears = (incidents: BeachIncident[], years: number) => {
   const cutoff = Date.now() - years * 365.25 * 24 * 3600 * 1000;
@@ -146,24 +153,29 @@ const NEWS_EVENT_LABELS: Record<string, string> = {
   other: 'Noticia',
 };
 
-// Para la línea-resumen: "cierre por…", "reapertura tras…"
-const NEWS_EVENT_LINE: Record<string, [string, string]> = {
-  closure: ['cierre', 'por'],
-  reopening: ['reapertura', 'tras'],
-  warning: ['aviso', 'por'],
-  pollution: ['contaminación', 'por'],
-  other: ['noticias', 'sobre'],
+// Línea-resumen: motivo primero, fecha del primer titular, atribución
+// abajo — "Cerrada por riesgo de desprendimientos · desde el 03/06"
+const NEWS_EVENT_LINE: Record<string, [string, string, string]> = {
+  closure: ['Cerrada', 'por', 'desde el'],
+  reopening: ['Reapertura', 'tras', 'el'],
+  warning: ['Aviso', 'por', 'desde el'],
+  pollution: ['Contaminación', 'por', 'el'],
+  other: ['Noticias', 'sobre', 'el'],
 };
 
-// "Según prensa: cierre por X · N medios" a partir del agregado del API
-const pressSummaryLine = (s: BeachNewsResponse['summary']) => {
-  const [noun, prep] = NEWS_EVENT_LINE[s.event_type ?? 'other'] ?? [
-    'noticias',
+const pressSummary = (s: BeachNewsResponse['summary']) => {
+  const [noun, prep, dmark] = NEWS_EVENT_LINE[s.event_type ?? 'other'] ?? [
+    'Noticias',
     'sobre',
+    'el',
   ];
+  const date = s.since ? ` · ${dmark} ${fmtDate(s.since.slice(0, 10))}` : '';
   const medios =
     s.outlets_count === 1 ? '1 medio' : `${s.outlets_count} medios`;
-  return `Según prensa: ${noun}${s.cause ? ` ${prep} ${s.cause}` : ''} · ${medios}`;
+  return {
+    main: `${noun}${s.cause ? ` ${prep} ${s.cause}` : ''}${date}`,
+    sub: `según prensa · ${medios}`,
+  };
 };
 
 // Contenido de la ficha de playa, compartido entre la hoja sobre el mapa
@@ -207,6 +219,7 @@ export default function BeachDetail({
             cause: null,
             items_count: 0,
             outlets_count: 0,
+            since: null,
           },
           items: [],
         }),
@@ -345,7 +358,10 @@ export default function BeachDetail({
       {news !== null && news.items.length > 0 && (
         <View style={styles.pressBanner}>
           <Text style={styles.pressBannerText}>
-            {pressSummaryLine(news.summary)}
+            {pressSummary(news.summary).main}
+          </Text>
+          <Text style={styles.pressBannerSub}>
+            {pressSummary(news.summary).sub}
           </Text>
         </View>
       )}
@@ -567,7 +583,7 @@ export default function BeachDetail({
             </View>
           </View>
           <Text style={styles.newsSummary}>
-            {pressSummaryLine(news.summary)}
+            {pressSummary(news.summary).main}
           </Text>
           <Pressable
             onPress={() => setNewsOpen((v) => !v)}
@@ -658,7 +674,13 @@ export default function BeachDetail({
           </Text>
           <Text style={styles.incidentObs}>
             {incidents.filter(isClosure).length} cierres ·{' '}
-            {incidents.filter((i) => !isClosure(i)).length} avisos
+            {incidents.filter((i) => !isClosure(i) && !isUnclassified(i)).length}{' '}
+            avisos
+            {incidents.some(isUnclassified)
+              ? ` · ${incidents.filter(isUnclassified).length} muestra${
+                  incidents.filter(isUnclassified).length === 1 ? '' : 's'
+                } sin calificar`
+              : ''}
             {'\n'}
             Cerrada {closuresInYears(incidents, 1)} vez
             {closuresInYears(incidents, 1) === 1 ? '' : 'es'} el último año
@@ -667,6 +689,7 @@ export default function BeachDetail({
           <ScrollView style={styles.historyList} nestedScrollEnabled>
             {incidents.map((inc) => {
               const closure = isClosure(inc);
+              const unclassified = isUnclassified(inc);
               const accent = closure
                 ? colors.status.closed
                 : colors.outfall.unknown;
@@ -691,12 +714,18 @@ export default function BeachDetail({
                           ? closure
                             ? 'CIERRE'
                             : 'AVISO'
-                          : 'ACTIVA'}
+                          : unclassified
+                            ? 'PENDIENTE'
+                            : 'ACTIVA'}
                       </Text>
                     </View>
                   </View>
                   {inc.observations ? (
-                    <Text style={styles.incidentObs}>{inc.observations}</Text>
+                    <Text style={styles.incidentObs}>
+                      {unclassified
+                        ? 'Muestra tomada pero nunca clasificada por Sanidad'
+                        : inc.observations}
+                    </Text>
                   ) : null}
                 </View>
               );
@@ -993,6 +1022,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fonts.semibold,
     color: colors.status.warning,
+  },
+  pressBannerSub: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.status.warning,
+    marginTop: 1,
   },
   newsSummary: {
     fontSize: 13,

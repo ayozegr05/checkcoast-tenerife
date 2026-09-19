@@ -110,6 +110,8 @@ class NewsSummaryOut(BaseModel):
     cause: str | None
     items_count: int
     outlets_count: int
+    # primer titular del evento dominante ("desde el…")
+    since: datetime | None
 
 
 class BeachNewsOut(BaseModel):
