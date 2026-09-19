@@ -70,6 +70,17 @@ export type BeachNearbyOutfall = {
   distance_m: number;
 };
 
+export type BeachNews = {
+  id: number;
+  beach_id: number;
+  title: string;
+  url: string;
+  source: string | null;
+  published_at: string | null; // ISO datetime
+  event_type: string | null; // closure|reopening|warning|pollution|other
+  cause: string | null;
+};
+
 export type OutfallNearestBeach = {
   outfall_id: number;
   beach_id: number;
@@ -103,6 +114,8 @@ export const fetchBeachIncidents = (beachId: number) =>
 export const fetchBeachQuality = (beachId: number) =>
   getJson<BeachMeasurement[]>(`/beaches/${beachId}/quality`);
 export const fetchBeachStats = () => getJson<BeachStats[]>('/beaches/stats');
+export const fetchBeachNews = (beachId: number) =>
+  getJson<BeachNews[]>(`/beaches/${beachId}/news`);
 export const fetchOutfallNearestBeach = (outfallId: number) =>
   getJson<OutfallNearestBeach>(`/outfalls/${outfallId}/nearest-beach`);
 export const fetchBeachNearbyOutfalls = (beachId: number) =>

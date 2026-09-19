@@ -6,6 +6,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     String,
     Text,
@@ -86,6 +87,12 @@ class Beach(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    news_items: Mapped[list["NewsItem"]] = relationship(
+        back_populates="beach",
+        order_by="desc(NewsItem.published_at)",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class BeachStatus(Base):
@@ -154,6 +161,51 @@ class BeachMeasurement(Base):
 
     beach: Mapped[Beach] = relationship(
         back_populates="measurements", passive_deletes=True
+    )
+
+
+class NewsItem(Base):
+    """Noticia de prensa que menciona un evento en una playa.
+
+    Contexto secundario ("según prensa"): NUNCA alimenta el estado
+    oficial de la playa, que solo sale de Náyade. `beach_id` es None
+    cuando el matching conservador no logra ligarla a una playa con
+    confianza alta; `relevant` es False cuando el LLM descarta el
+    titular (ruido, otra isla, meta-noticia) — se guarda igualmente
+    para deduplicar por `url` y no volver a gastar llamadas LLM.
+    """
+
+    __tablename__ = "news_items"
+    # Una misma playa puede tener varios PMs: la noticia se replica por
+    # beach_id para verse en cada ficha; la dedup real va por url
+    __table_args__ = (
+        UniqueConstraint(
+            "url", "beach_id", postgresql_nulls_not_distinct=True
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    url: Mapped[str] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(Text)
+    source: Mapped[str | None] = mapped_column(String(120))
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    relevant: Mapped[bool] = mapped_column(default=False)
+    beach_id: Mapped[int | None] = mapped_column(
+        ForeignKey("beaches.id", ondelete="CASCADE"), index=True
+    )
+    event_type: Mapped[str | None] = mapped_column(String(20))
+    cause: Mapped[str | None] = mapped_column(Text)
+    extracted_beach: Mapped[str | None] = mapped_column(String(255))
+    extracted_municipality: Mapped[str | None] = mapped_column(String(120))
+    confidence: Mapped[float | None] = mapped_column(Float)
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    beach: Mapped[Beach] = relationship(
+        back_populates="news_items", passive_deletes=True
     )
 
 

@@ -107,6 +107,53 @@ def test_alerts_is_list():
     assert isinstance(r.json(), list)
 
 
+def test_beach_news_returns_items():
+    from app.db import SessionLocal
+    from app.models import NewsItem
+
+    beaches = client.get("/beaches").json()["features"]
+    beach_id = beaches[0]["id"]
+    db = SessionLocal()
+    item = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-item",
+        title="Prohibido el baño en una playa por vertido",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        cause="vertido de aguas residuales",
+    )
+    noise = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-noise",
+        title="Titular no relevante",
+        relevant=False,
+        beach_id=None,
+    )
+    db.add_all([item, noise])
+    db.commit()
+    try:
+        r = client.get(f"/beaches/{beach_id}/news")
+        assert r.status_code == 200
+        titles = [n["title"] for n in r.json()]
+        assert item.title in titles
+        # Los no relevantes/no casados no se sirven
+        assert noise.title not in titles
+        n = next(n for n in r.json() if n["title"] == item.title)
+        assert n["beach_id"] == beach_id
+        assert n["event_type"] == "closure"
+        assert n["source"] == "Test Press"
+    finally:
+        db.delete(item)
+        db.delete(noise)
+        db.commit()
+        db.close()
+
+
+def test_beach_news_not_found():
+    r = client.get("/beaches/999999/news")
+    assert r.status_code == 404
+
+
 def test_set_beach_status_flow():
     beaches = client.get("/beaches").json()["features"]
     beach_id = beaches[0]["id"]

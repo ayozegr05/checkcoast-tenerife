@@ -9,6 +9,13 @@ class Settings(BaseSettings):
     )
     # Intervalo de refresco del estado de playas desde Náyade (segundos)
     nayade_sync_seconds: int = 3600
+    # Contexto de prensa (Hito 8.5): extracción LLM de eventos de playa
+    gemini_api_key: str | None = None
+    # 2.5-flash: deprecado (nuevos usuarios). 3.6-flash: free tier casi
+    # sin cuota hoy. 3.5-flash: estable y con cuota (verificado 2026-09)
+    gemini_model: str = "gemini-3.5-flash"
+    news_sync_seconds: int = 21600  # 6 h
+    news_max_llm_calls: int = 50  # tope de titulares nuevos por pasada
 
 
 settings = Settings()

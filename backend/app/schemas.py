@@ -91,6 +91,17 @@ class BeachNearbyOutfallOut(BaseModel):
     distance_m: float
 
 
+class NewsItemOut(BaseModel):
+    id: int
+    beach_id: int
+    title: str
+    url: str
+    source: str | None
+    published_at: datetime | None
+    event_type: str | None
+    cause: str | None
+
+
 class DeviceIn(BaseModel):
     token: str
     platform: str | None = None

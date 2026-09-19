@@ -12,6 +12,7 @@ from app.models import (
     BeachMeasurement,
     BeachState,
     BeachStatus,
+    NewsItem,
     Outfall,
 )
 from app.queries import beaches_with_latest_status
@@ -25,6 +26,7 @@ from app.schemas import (
     Feature,
     FeatureCollection,
     MunicipalityIncidentOut,
+    NewsItemOut,
     PointGeometry,
 )
 
@@ -186,6 +188,44 @@ def beach_quality(
             enterococci=row.enterococci,
             evaluation=row.evaluation,
             source_url=row.source_url,
+        )
+        for row in rows
+    ]
+
+
+@router.get(
+    "/beaches/{beach_id}/news",
+    response_model=list[NewsItemOut],
+)
+def beach_news(
+    beach_id: int, db: Session = Depends(get_db)
+) -> list[NewsItemOut]:
+    """Noticias de prensa ligadas a la playa, más reciente primero.
+
+    Contexto "según prensa": nunca altera el estado oficial, que solo
+    sale de Náyade."""
+    if db.get(Beach, beach_id) is None:
+        raise HTTPException(status_code=404, detail="Beach not found")
+    rows = (
+        db.query(NewsItem)
+        .filter(
+            NewsItem.beach_id == beach_id,
+            NewsItem.relevant.is_(True),
+        )
+        .order_by(NewsItem.published_at.desc().nulls_last())
+        .limit(20)
+        .all()
+    )
+    return [
+        NewsItemOut(
+            id=row.id,
+            beach_id=row.beach_id,
+            title=row.title,
+            url=row.url,
+            source=row.source,
+            published_at=row.published_at,
+            event_type=row.event_type,
+            cause=row.cause,
         )
         for row in rows
     ]

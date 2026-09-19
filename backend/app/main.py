@@ -17,6 +17,19 @@ def _sync_beach_statuses() -> None:
         print(f"[nayade-sync] error: {e}")
 
 
+def _sync_news() -> None:
+    from scripts.ingest_news import run
+
+    try:
+        inserted, processed, rematched = run()
+        print(
+            f"[news-sync] {inserted} noticias ({processed} procesadas, "
+            f"{rematched} recasadas)"
+        )
+    except Exception as e:  # fuentes externas + LLM: no tumbar la API
+        print(f"[news-sync] error: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     scheduler = BackgroundScheduler()
@@ -25,6 +38,12 @@ async def lifespan(app: FastAPI):
         "interval",
         seconds=settings.nayade_sync_seconds,
         id="nayade-sync",
+    )
+    scheduler.add_job(
+        _sync_news,
+        "interval",
+        seconds=settings.news_sync_seconds,
+        id="news-sync",
     )
     scheduler.start()
     yield

@@ -169,7 +169,7 @@ Tres niveles, en orden de impacto/esfuerzo:
 | 8.6 | Actualizar a Node 22 LTS (Expo pide ≥20.19.4, hoy 20.12.2) | Pendiente | 🟢 Trivial |
 | 8.7 | Revocar token de Expo expuesto en sesión anterior *(usuario, en expo.dev)* | Pendiente | 🟢 Trivial |
 
-## Hito 8.5 — Contexto de prensa (LLM) ⬜
+## Hito 8.5 — Contexto de prensa (LLM) ✅
 
 Responder "¿por qué está cerrada?" que Náyade no contesta: noticias
 locales → LLM extrae playa/evento/causa → se muestra etiquetado como
@@ -177,11 +177,11 @@ locales → LLM extrae playa/evento/causa → se muestra etiquetado como
 
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
-| 8.5.1 | **Fuente de noticias**: GDELT API (gratuita, JSON) o RSS prensa canaria — NO scraping de webs | Pendiente | 🟡 Medio |
-| 8.5.2 | **Extracción LLM**: `extract_event(article) → {beach, municipio, tipo, causa}` — **Gemini 2.5 Flash free tier** (~1.500 req/día, sin tarjeta), thinking desactivado, salida JSON forzada por esquema; LLM detrás de interfaz para cambiar de proveedor | Pendiente | 🟡 Medio |
-| 8.5.3 | **Matching conservador**: ligar artículo↔playa por nombre normalizado + municipio (reusar lógica OSM); solo mostrar con confianza alta | Pendiente | 🔴 La parte difícil |
-| 8.5.4 | **Backend**: tabla `news_item` + job APScheduler + `GET /beaches/{id}/news` | Pendiente | 🟡 Medio |
-| 8.5.5 | **Frontend**: caja "En la prensa" en ficha de playa (titular + fuente + fecha + enlace, etiqueta "según prensa") | Pendiente | 🟢 Trivial |
+| 8.5.1 | **Fuente de noticias**: **Google News RSS** (`news.google.com/rss/search`, query "playa tenerife + evento") — agrega toda la prensa canaria + webs oficiales en una llamada. GDELT descartado en spike: 429 persistente y su índice busca traducciones al inglés, no el texto español | ✅ Hecho | 🟡 Medio |
+| 8.5.2 | **Extracción LLM**: `extract_event(article) → EventExtraction` — **Gemini Flash free tier** vía REST (sin SDK), JSON forzado por esquema, thinking off, retries 429/5xx; detrás de interfaz (`NewsExtractor`). Modelo `gemini-3.5-flash` (2.5 deprecado; 3.6 sin cuota en free tier). Validado en spike: 27/100 relevantes, sin falsos positivos | ✅ Hecho | 🟡 Medio |
+| 8.5.3 | **Matching conservador**: `match_beaches()` — clave `_press_key` (normaliza inversión MITECO "CABEZO (EL)"→"EL CABEZO", quita "PLAYA DE…") + municipio con alias; multi-PM de la misma playa replica la noticia; ambiguo → no se muestra | ✅ Hecho | 🔴 La parte difícil |
+| 8.5.4 | **Backend**: tabla `news_items` (dedup `(url, beach_id)`, guarda también no relevantes/no casados para dedup y re-match) + job APScheduler `news-sync` (6 h) + `GET /beaches/{id}/news` | ✅ Hecho | 🟡 Medio |
+| 8.5.5 | **Frontend**: caja "En la prensa" en `BeachDetail` (titular enlazable + medio + fecha + tipo/causa, etiqueta "según prensa") | ✅ Hecho | 🟢 Trivial |
 
 ## Hito 9 — Portfolio ⬜
 
@@ -195,5 +195,5 @@ locales → LLM extrae playa/evento/causa → se muestra etiquetado como
 ---
 
 ### Estado actual
-**Hito activo:** 8.5 — Contexto de prensa LLM (decidido: prensa antes que deploy; Gemini 2.5 Flash free tier) — luego Hito 8 (Hito 7 cerrado)
-**Última actualización:** 2026-09-17
+**Hito activo:** 8 — Calidad y despliegue (8.5 prensa LLM cerrado: Google News RSS + Gemini 3.5 Flash)
+**Última actualización:** 2026-09-19

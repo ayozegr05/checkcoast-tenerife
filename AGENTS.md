@@ -8,20 +8,29 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
 
 - `backend/` — FastAPI + SQLAlchemy 2 + GeoAlchemy2 + Alembic, Python 3.12
   - `app/models.py` — `Outfall`, `Beach` (+`monitored`), `BeachStatus`,
-    `BeachIncident`, `BeachMeasurement`, `DeviceToken`
+    `BeachIncident`, `BeachMeasurement`, `DeviceToken`, `NewsItem`
   - `app/routers/` — `outfalls.py`, `beaches.py`, `alerts.py`,
     `devices.py` (`POST /devices` registra Expo push tokens)
   - `app/notify.py` — push vía Expo Push Service al cambiar estado de
     playa (scraper + POST manual); purga tokens DeviceNotRegistered
   - `app/queries.py` — `beaches_with_latest_status` (join último estado)
   - `app/main.py` — lifespan con APScheduler (`_sync_beach_statuses` cada
-    `NAYADE_SYNC_SECONDS`, 1 h por defecto; envuelto en try/except)
+    `NAYADE_SYNC_SECONDS`, 1 h; `_sync_news` cada `NEWS_SYNC_SECONDS`,
+    6 h; ambos envueltos en try/except)
+  - `app/news_sources.py` — fetchers de prensa → `RawArticle` (Google
+    News RSS como fuente; feeds por cabecera como respaldo)
+  - `app/news_llm.py` — `extract_event(article)` detrás de interfaz
+    `NewsExtractor`; `GeminiExtractor` (REST, JSON por esquema,
+    thinking off, retries)
+  - `app/news_matching.py` — `match_beaches()` conservador + clave
+    `_press_key` (inversión MITECO "(El)", sin "PLAYA DE…")
   - `scripts/` — `ingest_outfalls.py`, `ingest_beaches.py` (censo MITECO
     + solver ALTCHA), `ingest_beach_status.py` (scraper Náyade),
-    `ingest_osm_beaches.py` (Overpass)
+    `ingest_osm_beaches.py` (Overpass), `ingest_news.py` (prensa → LLM
+    → `news_items`)
   - `alembic/` — migraciones (`alembic upgrade head`)
   - `tests/` — pytest: `test_api.py`, `test_nayade_parser.py`,
-    `test_osm_ingest.py` (35 tests)
+    `test_osm_ingest.py`, `test_news_matching.py`, `test_news_llm.py`
 - `frontend/` — Expo SDK 57 + React Native + TypeScript + MapLibre
   - `App.tsx` — fetch inicial (outfalls/beaches/alerts), polling
     `/alerts` cada 5 min, tarjeta de bienvenida, BeachList modal
@@ -34,7 +43,8 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     (`export?bbox=`) + atrás + «Ver en mapa» (fly-to); `initialMunicipality`
     permite abrirla pre-filtrada
   - `components/BeachDetail.tsx` — contenido de ficha de playa compartido
-    (FeatureSheet sobre mapa + detalle dentro de BeachList)
+    (FeatureSheet sobre mapa + detalle dentro de BeachList); caja
+    "En la prensa" (`/beaches/{id}/news`, etiqueta "según prensa")
   - `components/MunicipalityStats.tsx` — ranking por municipio (cerradas/
     avisos activos, incidentes, muestras no aptas) con barra de severidad;
     agrega `/beaches/stats` en cliente; al tocar un municipio abre
@@ -58,6 +68,7 @@ cd backend
 .venv\Scripts\python -m pytest tests/ -q                # tests backend
 .venv\Scripts\python -m scripts.ingest_beach_status     # scraper Náyade manual
 .venv\Scripts\python -m scripts.ingest_osm_beaches      # playas OSM manual
+.venv\Scripts\python -m scripts.ingest_news             # prensa → LLM manual
 cd ../frontend
 npx expo start --dev-client --port 8082                 # OBLIGATORIO --port 8082
 npx tsc --noEmit                                        # typecheck
@@ -97,6 +108,20 @@ npx tsc --noEmit                                        # typecheck
   un PM por pasada (Náyade repite nombres entre zonas: "Caleta de Negros")
 - **Matching PM↔playa**: por nombre normalizado (sin acentos, mayúsculas);
   `?` en nombres MITECO (mojibake) actúa como comodín de 1 carácter
+- **Contexto de prensa** (Hito 8.5): Google News RSS → `extract_event`
+  (Gemini Flash, `GEMINI_API_KEY`/`GEMINI_MODEL` en env) →
+  `match_beaches` conservador → `news_items`. Se guardan también los no
+  relevantes/no casados (dedup + re-match en cada pasada). La API solo
+  sirve los casados; la UI los etiqueta "según prensa" — NUNCA alimentan
+  el estado oficial
+- **Nombres MITECO invertidos**: el censo usa "PLAYA CABEZO (EL)" por
+  "El Cabezo" — el matching de prensa lo resuelve con `_press_key`
+  (artículo `(El|La|Los|Las)` delante, sin prefijo "PLAYA DE…").
+  Ojo: hay playas homónimas entre municipios (dos "El Cabezo", dos
+  "La Arena") y multi-PM por playa → la noticia se replica por PM
+- **Matching prensa**: municipio extraído exige coincidencia con alias
+  ("La Laguna"→"San Cristóbal de La Laguna"); sin municipio solo casa
+  clave exacta y única en toda la isla
 - **Umbrales calidad** (RD 1341/2007, costeras): E. coli ≤250/≤500/>500,
   enterococo ≤100/≤200/>200 → Excelente/Buena/Insuficiente
 - **Manual**: `POST /beaches/{id}/status` {"status": open|closed|warning}
@@ -125,6 +150,15 @@ npx tsc --noEmit                                        # typecheck
 - Token de Expo expuesto en una sesión anterior → el usuario debe
   revocarlo en expo.dev (ya avisado)
 - `nayade_muestreos.html` de debug: no commitear artefactos así
+- **GDELT** descartado como fuente de prensa: 429 persistente desde esta
+  IP y su índice busca traducciones al inglés, no el texto español
+- **Gemini**: `gemini-2.5-flash` está deprecado para usuarios nuevos;
+  `gemini-3.6-flash` tiene cuota free tier casi nula → por defecto
+  `gemini-3.5-flash` (verificado 2026-09). 503 intermitentes: reintentar
+- **Google News RSS**: los `<link>` son redirects de Google News (se
+  abren bien; el medio va en `<source>`); solo da titular+medio+fecha,
+  el LLM extrae del titular; `Teneriffa News` (SEO-farm diario) está en
+  blocklist `EXCLUDED_SOURCES`
 
 ## Pendiente inmediato
 

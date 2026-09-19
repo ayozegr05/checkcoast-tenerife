@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Image,
+  Linking,
   Pressable,
   ScrollView,
   Share,
@@ -13,9 +14,11 @@ import {
   BeachIncident,
   BeachMeasurement,
   BeachNearbyOutfall,
+  BeachNews,
   GeoFeature,
   fetchBeachIncidents,
   fetchBeachNearbyOutfalls,
+  fetchBeachNews,
   fetchBeachQuality,
 } from '../lib/api';
 import { displayBeachName } from '../lib/format';
@@ -133,6 +136,15 @@ const OUTFALL_STATUS_LABELS: Record<string, string> = {
   unknown: 'En trámite',
 };
 
+// Tipos de evento extraídos de prensa por el LLM (Hito 8.5)
+const NEWS_EVENT_LABELS: Record<string, string> = {
+  closure: 'Cierre',
+  reopening: 'Reapertura',
+  warning: 'Aviso',
+  pollution: 'Contaminación',
+  other: 'Noticia',
+};
+
 // Contenido de la ficha de playa, compartido entre la hoja sobre el mapa
 // (FeatureSheet) y la vista detalle dentro de la lista (BeachList)
 export default function BeachDetail({
@@ -148,6 +160,7 @@ export default function BeachDetail({
   const [incidents, setIncidents] = useState<BeachIncident[] | null>(null);
   const [quality, setQuality] = useState<BeachMeasurement[] | null>(null);
   const [nearby, setNearby] = useState<BeachNearbyOutfall[] | null>(null);
+  const [news, setNews] = useState<BeachNews[] | null>(null);
   const [chartParam, setChartParam] = useState<'ecoli' | 'enterococci'>(
     'ecoli',
   );
@@ -157,9 +170,14 @@ export default function BeachDetail({
     setIncidents(null);
     setQuality(null);
     setNearby(null);
+    setNews(null);
     fetchBeachNearbyOutfalls(feature.id)
       .then(setNearby)
       .catch(() => setNearby([]));
+    // La prensa también cubre playas sin monitorización oficial
+    fetchBeachNews(feature.id)
+      .then(setNews)
+      .catch(() => setNews([]));
     if (unmonitored) return; // sin datos oficiales
     fetchBeachIncidents(feature.id)
       .then(setIncidents)
@@ -477,6 +495,46 @@ export default function BeachDetail({
               </Text>
             </View>
           )}
+        </View>
+      )}
+
+      {news !== null && news.length > 0 && (
+        <View style={styles.history}>
+          <View style={styles.newsHead}>
+            <Text style={styles.historyTitle}>En la prensa</Text>
+            <View style={styles.pressTag}>
+              <Text style={styles.pressTagText}>según prensa</Text>
+            </View>
+          </View>
+          {news.slice(0, 5).map((n) => {
+            const meta = [
+              n.source,
+              n.published_at ? fmtDate(n.published_at.slice(0, 10)) : null,
+              NEWS_EVENT_LABELS[n.event_type ?? ''] ?? null,
+              n.cause,
+            ]
+              .filter(Boolean)
+              .join(' · ');
+            return (
+              <Pressable
+                key={n.id}
+                style={styles.newsRow}
+                onPress={() => Linking.openURL(n.url).catch(() => {})}
+                accessibilityRole="link"
+                accessibilityLabel={`Noticia: ${n.title}`}
+              >
+                <Text style={styles.newsTitle} numberOfLines={2}>
+                  {n.title}
+                </Text>
+                <Text style={styles.newsMeta} numberOfLines={2}>
+                  {meta}
+                </Text>
+              </Pressable>
+            );
+          })}
+          <Text style={styles.chartFoot}>
+            Contexto de prensa: no altera el estado oficial (Náyade)
+          </Text>
         </View>
       )}
 
@@ -819,5 +877,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.regular,
     color: colors.textMuted,
+  },
+  newsHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  pressTag: {
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  pressTagText: {
+    color: colors.primary,
+    fontSize: 9,
+    fontFamily: fonts.extrabold,
+  },
+  newsRow: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+    paddingLeft: 10,
+    paddingVertical: 4,
+    marginBottom: 8,
+    backgroundColor: colors.background,
+    borderRadius: 4,
+  },
+  newsTitle: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+  },
+  newsMeta: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 1,
   },
 });
