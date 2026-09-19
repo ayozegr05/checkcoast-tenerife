@@ -94,6 +94,8 @@ export default function FeatureSheet({
   const [isExpanded, setIsExpanded] = useState(false);
   // Scroll del cuerpo: BeachDetail lo usa para bajar a "Ver titulares"
   const bodyRef = useRef<ScrollView>(null);
+  // "Ver más" se oculta cuando el usuario ya llegó al final
+  const [atBottom, setAtBottom] = useState(false);
 
   // Playa mas cercana al vertido (contexto de impacto)
   const [nearest, setNearest] = useState<OutfallNearestBeach | null>(null);
@@ -208,6 +210,15 @@ export default function FeatureSheet({
         contentContainerStyle={styles.bodyContent}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={(_w, ch) => setBodyH(ch)}
+        onScroll={(e) => {
+          const { contentOffset, layoutMeasurement, contentSize } =
+            e.nativeEvent;
+          setAtBottom(
+            contentOffset.y + layoutMeasurement.height >=
+              contentSize.height - 32,
+          );
+        }}
+        scrollEventThrottle={80}
       >
         {isBeach ? (
           showPmPicker ? (
@@ -319,12 +330,20 @@ export default function FeatureSheet({
         )}
       </ScrollView>
 
-      {/* "Ver más": insinúa que hay contenido debajo y expande la card
-          (solo si el contenido no cabe en el peek) */}
-      {bodyH + HEADER_H > CARD_MAX + 8 && !isExpanded && (
+      {/* "Ver más": insinúa que hay contenido debajo. Si la card está
+          plegada la expande primero; en ambos casos baja sola hasta el
+          final del contenido. Se oculta al llegar abajo. */}
+      {bodyH + HEADER_H > CARD_MAX + 8 && !atBottom && (
         <Pressable
           style={styles.moreBtn}
-          onPress={() => snapTo(CARD_MAX, true)}
+          onPress={() => {
+            if (!expanded.current) snapTo(CARD_MAX, true);
+            // Tras expandir (o ya expandida), baja al contenido nuevo
+            setTimeout(
+              () => bodyRef.current?.scrollToEnd({ animated: true }),
+              300,
+            );
+          }}
           accessibilityRole="button"
           accessibilityLabel="Ver más contenido de la ficha"
         >

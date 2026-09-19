@@ -129,6 +129,11 @@ class AlertOut(BaseModel):
     beach_name: str
     municipality: str | None
     status: str
+    # "official" (Náyade) | "press" (último evento que cambia estado en
+    # noticias casadas = cierre/aviso, p.ej. Benijo: cerrada por orden
+    # municipal sin registro sanitario). Metadato de procedencia; la UI
+    # no lo distingue hoy.
+    via: str = "official"
     reported_at: datetime | None
     source_url: str | None
     longitude: float

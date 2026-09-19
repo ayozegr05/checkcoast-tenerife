@@ -107,6 +107,7 @@ export type Alert = {
   beach_name: string;
   municipality: string | null;
   status: 'closed' | 'warning';
+  via?: 'official' | 'press'; // press = cierre dominante en noticias
   reported_at: string | null;
   source_url: string | null;
   longitude: number;

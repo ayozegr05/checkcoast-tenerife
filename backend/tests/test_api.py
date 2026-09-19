@@ -158,6 +158,42 @@ def test_beach_news_not_found():
     assert r.status_code == 404
 
 
+def test_press_closure_enters_alerts():
+    """Una playa sin alerta oficial pero cerrada según prensa (último
+    evento que cambia estado = closure) entra en /alerts con via='press'."""
+    from datetime import datetime, timezone
+
+    from app.db import SessionLocal
+    from app.models import Beach, NewsItem
+
+    db = SessionLocal()
+    # playa sin estado oficial: nunca la puede tener el scraper
+    beach = db.get(Beach, 84)
+    assert beach is not None
+    item = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-press-alert",
+        title="Cierran la playa por desprendimientos",
+        source="Test Press",
+        relevant=True,
+        beach_id=84,
+        event_type="closure",
+        cause="desprendimientos",
+        published_at=datetime.now(timezone.utc),
+    )
+    db.add(item)
+    db.commit()
+    try:
+        alerts = client.get("/alerts").json()
+        hit = next((a for a in alerts if a["beach_id"] == 84), None)
+        assert hit is not None
+        assert hit["status"] == "closed"
+        assert hit["via"] == "press"
+    finally:
+        db.delete(item)
+        db.commit()
+        db.close()
+
+
 def test_set_beach_status_flow():
     from sqlalchemy import func
 
