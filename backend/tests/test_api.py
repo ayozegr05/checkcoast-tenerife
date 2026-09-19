@@ -58,9 +58,8 @@ def test_beaches_include_status_and_municipality():
     assert any(f["properties"]["municipality"] for f in features)
 
 
-def test_beach_incidents():
-    beaches = client.get("/beaches").json()["features"]
-    beach_id = beaches[0]["id"]
+def test_beach_incidents(seed_data):
+    beach_id = seed_data["beach_id"]
     r = client.get(f"/beaches/{beach_id}/incidents")
     assert r.status_code == 200
     for inc in r.json():
@@ -73,9 +72,8 @@ def test_beach_incidents_not_found():
     assert r.status_code == 404
 
 
-def test_beach_quality():
-    beaches = client.get("/beaches").json()["features"]
-    beach_id = beaches[0]["id"]
+def test_beach_quality(seed_data):
+    beach_id = seed_data["beach_id"]
     r = client.get(f"/beaches/{beach_id}/quality")
     assert r.status_code == 200
     assert isinstance(r.json(), list)
@@ -86,9 +84,8 @@ def test_beach_quality_not_found():
     assert r.status_code == 404
 
 
-def test_beach_status_known_id():
-    beaches = client.get("/beaches").json()["features"]
-    beach_id = beaches[0]["id"]
+def test_beach_status_known_id(seed_data):
+    beach_id = seed_data["beach_id"]
     r = client.get(f"/beaches/{beach_id}/status")
     assert r.status_code == 200
     body = r.json()
@@ -107,12 +104,11 @@ def test_alerts_is_list():
     assert isinstance(r.json(), list)
 
 
-def test_beach_news_returns_items():
+def test_beach_news_returns_items(seed_data):
     from app.db import SessionLocal
     from app.models import NewsItem
 
-    beaches = client.get("/beaches").json()["features"]
-    beach_id = beaches[0]["id"]
+    beach_id = seed_data["beach_id"]
     db = SessionLocal()
     item = NewsItem(
         url="https://news.google.com/rss/articles/pytest-item",
@@ -158,37 +154,36 @@ def test_beach_news_not_found():
     assert r.status_code == 404
 
 
-def test_press_closure_enters_alerts():
+def test_press_closure_enters_alerts(seed_data):
     """Una playa sin alerta oficial pero cerrada según prensa (último
     evento que cambia estado = closure) entra en /alerts con via='press'."""
     from datetime import datetime, timezone
 
     from app.db import SessionLocal
-    from app.models import Beach, NewsItem
+    from app.models import NewsItem
 
+    osm_id = seed_data["osm_beach_id"]  # sin estado oficial
+    mon_id = seed_data["beach_id"]      # monitorizada con oficial 'open'
     db = SessionLocal()
-    # playa sin estado oficial: nunca la puede tener el scraper
-    beach = db.get(Beach, 84)
-    assert beach is not None
     item = NewsItem(
         url="https://news.google.com/rss/articles/pytest-press-alert",
         title="Cierran la playa por desprendimientos",
         source="Test Press",
         relevant=True,
-        beach_id=84,
+        beach_id=osm_id,
         event_type="closure",
         cause="desprendimientos",
         published_at=datetime.now(timezone.utc),
     )
-    # Ventana de gracia: playa monitorizada con oficial 'open' (Los
-    # Cristianos PM2) + cierre de prensa fresco -> alerta igualmente,
-    # porque Náyade tarda en registrar cierres municipales
+    # Ventana de gracia: playa monitorizada con oficial 'open' + cierre
+    # de prensa fresco -> alerta igualmente, porque Náyade tarda en
+    # registrar cierres municipales
     item_open = NewsItem(
         url="https://news.google.com/rss/articles/pytest-press-grace",
         title="Cierran la playa por vertido",
         source="Test Press",
         relevant=True,
-        beach_id=17,
+        beach_id=mon_id,
         event_type="closure",
         cause="vertido",
         published_at=datetime.now(timezone.utc),
@@ -197,11 +192,13 @@ def test_press_closure_enters_alerts():
     db.commit()
     try:
         alerts = client.get("/alerts").json()
-        hit = next((a for a in alerts if a["beach_id"] == 84), None)
+        hit = next((a for a in alerts if a["beach_id"] == osm_id), None)
         assert hit is not None
         assert hit["status"] == "closed"
         assert hit["via"] == "press"
-        hit_open = next((a for a in alerts if a["beach_id"] == 17), None)
+        hit_open = next(
+            (a for a in alerts if a["beach_id"] == mon_id), None
+        )
         assert hit_open is not None
         assert hit_open["via"] == "press"
     finally:
@@ -211,14 +208,13 @@ def test_press_closure_enters_alerts():
         db.close()
 
 
-def test_set_beach_status_flow():
+def test_set_beach_status_flow(seed_data):
     from sqlalchemy import func
 
     from app.db import SessionLocal
     from app.models import BeachStatus
 
-    beaches = client.get("/beaches").json()["features"]
-    beach_id = beaches[0]["id"]
+    beach_id = seed_data["beach_id"]
 
     db = SessionLocal()
     last_id = db.query(func.max(BeachStatus.id)).scalar() or 0
@@ -240,7 +236,7 @@ def test_set_beach_status_flow():
         alerts = client.get("/alerts").json()
         assert all(a["beach_id"] != beach_id for a in alerts)
     finally:
-        # los tests corren contra la BD real: no dejar historial basura
+        # no dejar historial basura
         db.query(BeachStatus).filter(BeachStatus.id > last_id).delete()
         db.commit()
         db.close()
@@ -251,10 +247,10 @@ def test_set_beach_status_not_found():
     assert r.status_code == 404
 
 
-def test_set_beach_status_invalid():
-    beaches = client.get("/beaches").json()["features"]
+def test_set_beach_status_invalid(seed_data):
     r = client.post(
-        f"/beaches/{beaches[0]['id']}/status", json={"status": "bogus"}
+        f"/beaches/{seed_data['beach_id']}/status",
+        json={"status": "bogus"},
     )
     assert r.status_code == 422
 

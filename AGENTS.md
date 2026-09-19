@@ -30,7 +30,10 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     → `news_items`)
   - `alembic/` — migraciones (`alembic upgrade head`)
   - `tests/` — pytest: `test_api.py`, `test_nayade_parser.py`,
-    `test_osm_ingest.py`, `test_news_matching.py`, `test_news_llm.py`
+    `test_osm_ingest.py`, `test_news_matching.py`, `test_news_llm.py`.
+    `conftest.py` siembra el fixture sintético `seed_data` (2 playas +
+    1 emisario, borrado al terminar) — los tests no usan ids/datos
+    reales; CI levanta PostGIS propio + `alembic upgrade head`
 - `frontend/` — Expo SDK 57 + React Native + TypeScript + MapLibre
   - `App.tsx` — fetch inicial (outfalls/beaches/alerts), polling
     `/alerts` cada 5 min, tarjeta de bienvenida, BeachList modal
