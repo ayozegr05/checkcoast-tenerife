@@ -356,6 +356,11 @@ export default function BeachDetail({
           (Min. Sanidad)
         </Text>
       )}
+      {!unmonitored && p.reported_at ? (
+        <Text style={styles.rowMuted}>
+          Estado actualizado: {fmtDate(p.reported_at.slice(0, 10))}
+        </Text>
+      ) : null}
 
       {/* "¿Por qué?" según prensa, visible sin scroll; la lista de
           titulares queda en la card "En la prensa" */}
@@ -809,6 +814,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.text,
     marginTop: 4,
+  },
+  rowMuted: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 3,
   },
   history: {
     marginTop: 10,

@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Linking,
   NativeModules,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -73,7 +74,9 @@ export default function App() {
   const [focus, setFocus] = useState<[number, number] | null>(null);
   const [introVisible, setIntroVisible] = useState(false);
 
-  useEffect(() => {
+  const loadData = () => {
+    setError(null);
+    setLoading(true);
     Promise.all([fetchOutfalls(), fetchBeaches(), fetchAlerts()])
       .then(([o, b, a]) => {
         setOutfalls(o);
@@ -82,6 +85,10 @@ export default function App() {
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadData();
 
     // Refresco periódico de alertas de playa (la API las sincroniza
     // con Náyade en segundo plano)
@@ -246,6 +253,14 @@ export default function App() {
       {error && (
         <View style={styles.overlay}>
           <Text style={styles.errorText}>Error cargando datos: {error}</Text>
+          <Pressable
+            style={styles.retryBtn}
+            onPress={loadData}
+            accessibilityRole="button"
+            accessibilityLabel="Reintentar cargar datos"
+          >
+            <Text style={styles.retryText}>Reintentar</Text>
+          </Pressable>
         </View>
       )}
 
@@ -315,5 +330,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     textAlign: 'center',
     fontFamily: fonts.semibold,
+  },
+  retryBtn: {
+    marginTop: 14,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 22,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: fonts.bold,
   },
 });

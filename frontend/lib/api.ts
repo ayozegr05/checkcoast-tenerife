@@ -12,6 +12,7 @@ export type GeoFeature = {
     status?: string | null;
     source_url?: string | null;
     fetched_at?: string | null;
+    reported_at?: string | null;
     alert?: boolean;
   };
 };

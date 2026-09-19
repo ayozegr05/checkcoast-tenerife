@@ -119,6 +119,8 @@ export default function CoastMap({
   onOpenHelp,
 }: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
+  // Leyenda/capas plegable: cerrada por defecto para no saturar el mapa
+  const [legendOpen, setLegendOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   // Lista desplegable de playas en aviso (banner de alertas)
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -464,6 +466,9 @@ export default function CoastMap({
             <Layer
               id="outfall-icons"
               type="symbol"
+              // Los emisarios saturan la vista de isla: aparecen al
+              // acercar (vista de costa/playa)
+              minzoom={11}
               layout={{
                 'icon-image': [
                   'match',
@@ -509,9 +514,16 @@ export default function CoastMap({
             data={groupedBeaches}
             onPress={handlePress('beach')}
           >
+            {/* Pines monitorizados + cualquier playa con alerta (p.ej.
+                Benijo cerrada por prensa): visibles en toda la isla */}
             <Layer
-              id="beach-pins"
+              id="beach-pins-monitored"
               type="symbol"
+              filter={[
+                'any',
+                ['!=', ['get', 'monitored'], false],
+                ['==', ['get', 'alert'], true],
+              ]}
               layout={{
                 'icon-image': [
                   'case',
@@ -533,6 +545,25 @@ export default function CoastMap({
                     'pin-open',
                   ],
                 ],
+                'icon-size': 0.42,
+                'icon-anchor': 'bottom',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              }}
+            />
+            {/* Playas sin monitorizar: ~100 pines grises que saturan la
+                vista de isla — aparecen al acercar (zoom >= 11) */}
+            <Layer
+              id="beach-pins-unmonitored"
+              type="symbol"
+              minzoom={11}
+              filter={[
+                'all',
+                ['==', ['get', 'monitored'], false],
+                ['!=', ['get', 'alert'], true],
+              ]}
+              layout={{
+                'icon-image': 'pin-unmonitored',
                 'icon-size': 0.42,
                 'icon-anchor': 'bottom',
                 'icon-allow-overlap': true,
@@ -656,24 +687,6 @@ export default function CoastMap({
             <Text style={styles.topbarLabel}>Buscar</Text>
           </Pressable>
           <View style={styles.topbarDivider} />
-          <Pressable
-            style={styles.topbarBtn}
-            onPress={() => setSatellite((v) => !v)}
-            accessibilityRole="button"
-            accessibilityLabel="Cambiar vista del mapa"
-          >
-            <Image
-              source={
-                satellite
-                  ? require('../assets/icons/icon-map.png')
-                  : require('../assets/icons/icon-satellite.png')
-              }
-              style={styles.topbarIcon}
-            />
-            <Text style={styles.topbarLabel}>
-              {satellite ? 'Mapa' : 'Satélite'}
-            </Text>
-          </Pressable>
           {onOpenHelp && (
             <Pressable
               style={styles.topbarBtn}
@@ -821,80 +834,131 @@ export default function CoastMap({
 
       <View style={styles.legend} pointerEvents="box-none">
         <Pressable
-          style={[styles.legendRow, !showOutfalls && styles.legendOff]}
-          onPress={() => setShowOutfalls((v) => !v)}
-          accessibilityRole="switch"
-          accessibilityLabel="Capa de vertidos"
-          accessibilityState={{ checked: showOutfalls }}
+          style={styles.legendToggle}
+          onPress={() => setLegendOpen((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={legendOpen ? 'Ocultar capas' : 'Ver capas'}
         >
           <Image
-            source={require('../assets/icons/icon-faucet.png')}
+            source={require('../assets/icons/icon-map.png')}
             style={styles.legendIcon}
           />
-          <Text style={styles.legendTitle}>Vertidos</Text>
-          <View
-            style={[
-              styles.legendSwitch,
-              showOutfalls ? styles.switchOn : styles.switchOff,
-            ]}
-          >
-            <Text style={styles.switchText}>
-              {showOutfalls ? 'ON' : 'OFF'}
-            </Text>
-          </View>
+          <Text style={styles.legendTitle}>Capas</Text>
+          <Text style={styles.legendChevron}>{legendOpen ? '▾' : '▸'}</Text>
         </Pressable>
-        <View style={styles.legendSub}>
-          {[
-            [OUTFALL_COLORS.legal, 'Autorizado'],
-            [OUTFALL_COLORS.illegal, 'No autorizado'],
-            [OUTFALL_COLORS.unknown, 'En trámite'],
-          ].map(([color, label]) => (
-            <View key={label} style={styles.swatchRow}>
-              <View style={[styles.dot, { backgroundColor: color }]} />
-              <Text style={styles.swatchText}>{label}</Text>
+        {legendOpen && (
+          <>
+            <Pressable
+              style={[styles.legendRow, !showOutfalls && styles.legendOff]}
+              onPress={() => setShowOutfalls((v) => !v)}
+              accessibilityRole="switch"
+              accessibilityLabel="Capa de vertidos"
+              accessibilityState={{ checked: showOutfalls }}
+            >
+              <Image
+                source={require('../assets/icons/icon-faucet.png')}
+                style={styles.legendIcon}
+              />
+              <Text style={styles.legendTitle}>Vertidos</Text>
+              <View
+                style={[
+                  styles.legendSwitch,
+                  showOutfalls ? styles.switchOn : styles.switchOff,
+                ]}
+              >
+                <Text style={styles.switchText}>
+                  {showOutfalls ? 'ON' : 'OFF'}
+                </Text>
+              </View>
+            </Pressable>
+            <View style={styles.legendSub}>
+              {[
+                [OUTFALL_COLORS.legal, 'Autorizado'],
+                [OUTFALL_COLORS.illegal, 'No autorizado'],
+                [OUTFALL_COLORS.unknown, 'En trámite'],
+              ].map(([color, label]) => (
+                <View key={label} style={styles.swatchRow}>
+                  <View style={[styles.dot, { backgroundColor: color }]} />
+                  <Text style={styles.swatchText}>{label}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
-        <Pressable
-          style={[
-            styles.legendRow,
-            styles.legendRowGap,
-            !showBeaches && styles.legendOff,
-          ]}
-          onPress={() => setShowBeaches((v) => !v)}
-          accessibilityRole="switch"
-          accessibilityLabel="Capa de playas"
-          accessibilityState={{ checked: showBeaches }}
-        >
-          <Image
-            source={require('../assets/icons/beach.png')}
-            style={styles.legendIcon}
-          />
-          <Text style={styles.legendTitle}>Playas</Text>
-          <View
-            style={[
-              styles.legendSwitch,
-              showBeaches ? styles.switchOn : styles.switchOff,
-            ]}
-          >
-            <Text style={styles.switchText}>
-              {showBeaches ? 'ON' : 'OFF'}
+            <Pressable
+              style={[
+                styles.legendRow,
+                styles.legendRowGap,
+                !showBeaches && styles.legendOff,
+              ]}
+              onPress={() => setShowBeaches((v) => !v)}
+              accessibilityRole="switch"
+              accessibilityLabel="Capa de playas"
+              accessibilityState={{ checked: showBeaches }}
+            >
+              <Image
+                source={require('../assets/icons/beach.png')}
+                style={styles.legendIcon}
+              />
+              <Text style={styles.legendTitle}>Playas</Text>
+              <View
+                style={[
+                  styles.legendSwitch,
+                  showBeaches ? styles.switchOn : styles.switchOff,
+                ]}
+              >
+                <Text style={styles.switchText}>
+                  {showBeaches ? 'ON' : 'OFF'}
+                </Text>
+              </View>
+            </Pressable>
+            <View style={styles.legendSub}>
+              {[
+                [BEACH_COLORS.open, 'Apta'],
+                [BEACH_COLORS.warning, 'Aviso'],
+                [BEACH_COLORS.closed, 'Cerrada'],
+                [BEACH_COLORS.unmonitored, 'Sin monitorizar'],
+              ].map(([color, label]) => (
+                <View key={label} style={styles.swatchRow}>
+                  <View style={[styles.dot, { backgroundColor: color }]} />
+                  <Text style={styles.swatchText}>{label}</Text>
+                </View>
+              ))}
+            </View>
+            <Pressable
+              style={[
+                styles.legendRow,
+                styles.legendRowGap,
+                !satellite && styles.legendOff,
+              ]}
+              onPress={() => setSatellite((v) => !v)}
+              accessibilityRole="switch"
+              accessibilityLabel="Vista satélite"
+              accessibilityState={{ checked: satellite }}
+            >
+              <Image
+                source={
+                  satellite
+                    ? require('../assets/icons/icon-map.png')
+                    : require('../assets/icons/icon-satellite.png')
+                }
+                style={styles.legendIcon}
+              />
+              <Text style={styles.legendTitle}>Satélite</Text>
+              <View
+                style={[
+                  styles.legendSwitch,
+                  satellite ? styles.switchOn : styles.switchOff,
+                ]}
+              >
+                <Text style={styles.switchText}>
+                  {satellite ? 'ON' : 'OFF'}
+                </Text>
+              </View>
+            </Pressable>
+            <Text style={styles.legendNote}>
+              Emisarios y playas sin monitorizar aparecen al acercar
             </Text>
-          </View>
-        </Pressable>
-        <View style={styles.legendSub}>
-          {[
-            [BEACH_COLORS.open, 'Apta'],
-            [BEACH_COLORS.warning, 'Aviso'],
-            [BEACH_COLORS.closed, 'Cerrada'],
-            [BEACH_COLORS.unmonitored, 'Sin monitorizar'],
-          ].map(([color, label]) => (
-            <View key={label} style={styles.swatchRow}>
-              <View style={[styles.dot, { backgroundColor: color }]} />
-              <Text style={styles.swatchText}>{label}</Text>
-            </View>
-          ))}
-        </View>
+          </>
+        )}
       </View>
 
     </View>
@@ -1074,6 +1138,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     elevation: 4,
+  },
+  legendToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 0,
+    minWidth: 140,
+  },
+  legendChevron: {
+    marginLeft: 'auto',
+    fontSize: 12,
+    color: colors.textMuted,
+    fontFamily: fonts.bold,
+  },
+  legendNote: {
+    fontSize: 10,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    marginTop: 6,
+    maxWidth: 180,
+    lineHeight: 13,
   },
   legendRowGap: {
     marginTop: 8,
