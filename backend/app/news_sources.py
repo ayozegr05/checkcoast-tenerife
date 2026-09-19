@@ -24,11 +24,20 @@ import requests
 GNEWS_URL = "https://news.google.com/rss/search"
 USER_AGENT = "CheckCoastBot/0.1 (civic data ingestion; contact: local dev)"
 
-# Playa + evento adverso, acotado a Tenerife
-QUERY = (
-    'playa tenerife (vertido OR prohibido OR cierre OR "calidad del agua" '
-    "OR contaminada OR fecales)"
-)
+# Playa + evento adverso, acotado a Tenerife. Google News no hace
+# stemming ("cierre" no casa "cerrada"), así que van varias queries
+# temáticas; dedup por URL aguas abajo.
+QUERIES = [
+    # contaminación / calidad del agua
+    'playa tenerife (vertido OR contaminada OR fecales OR '
+    '"calidad del agua" OR algas OR gasoil)',
+    # cierres y reaperturas
+    'playa tenerife (cerrada OR cerrado OR cierre OR prohibido OR '
+    'prohibición OR reabierta OR reapertura OR clausurada)',
+    # obras / riesgo físico (talud, desprendimientos, derrumbes)
+    'playa tenerife (obras OR desprendimiento OR talud OR ladera OR '
+    'seguridad OR derrumbe OR socavón OR colapso)',
+]
 
 # Medios descartados a priori (ruido conocido, no aportan eventos)
 EXCLUDED_SOURCES = {
@@ -49,7 +58,19 @@ def _clean_title(title: str) -> str:
     return title.rsplit(" - ", 1)[0] if " - " in title else title
 
 
-def fetch_google_news(query: str = QUERY) -> list[RawArticle]:
+def fetch_news() -> list[RawArticle]:
+    """Titulares de todas las queries temáticas, deduplicados por URL."""
+    seen: set[str] = set()
+    articles = []
+    for query in QUERIES:
+        for a in fetch_google_news(query):
+            if a.url and a.url not in seen:
+                seen.add(a.url)
+                articles.append(a)
+    return articles
+
+
+def fetch_google_news(query: str) -> list[RawArticle]:
     """Titulares recientes del feed de búsqueda de Google News."""
     resp = requests.get(
         GNEWS_URL,

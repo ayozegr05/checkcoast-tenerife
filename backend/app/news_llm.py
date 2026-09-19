@@ -87,30 +87,46 @@ class GeminiExtractor:
         )
         resp = None
         for attempt in range(4):
-            resp = requests.post(
-                self.url,
-                headers={
-                    "x-goog-api-key": self.api_key,
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "contents": [{"parts": [{"text": text}]}],
-                    "generationConfig": {
-                        "responseMimeType": "application/json",
-                        "responseSchema": SCHEMA,
-                        "thinkingConfig": {"thinkingBudget": 0},
+            try:
+                resp = requests.post(
+                    self.url,
+                    headers={
+                        "x-goog-api-key": self.api_key,
+                        "Content-Type": "application/json",
                     },
-                },
-                timeout=60,
-            )
+                    json={
+                        "contents": [{"parts": [{"text": text}]}],
+                        "generationConfig": {
+                            "responseMimeType": "application/json",
+                            "responseSchema": SCHEMA,
+                            "thinkingConfig": {"thinkingBudget": 0},
+                        },
+                    },
+                    timeout=60,
+                )
+            except requests.RequestException:
+                resp = None
+                time.sleep(10 * (attempt + 1))
+                continue
             if resp.status_code not in (429, 500, 503):
                 break
             time.sleep(10 * (attempt + 1))
-        if not resp.ok:
+        if resp is None or not resp.ok:
             return None
         try:
             body = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
             data = json.loads(body)
+            # Campos acotados por el esquema de news_items: un valor que
+            # los excede es salida malformada (p.ej. razonamiento del
+            # modelo colado en el JSON) → se descarta, no se persiste
+            for key, limit in (
+                ("beach_name", 255),
+                ("municipality", 120),
+                ("event_type", 20),
+            ):
+                v = data.get(key)
+                if isinstance(v, str) and len(v) > limit:
+                    return None
             return EventExtraction(
                 relevant=bool(data["relevant"]),
                 confidence=float(data.get("confidence") or 0.0),

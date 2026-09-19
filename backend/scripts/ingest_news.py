@@ -2,7 +2,7 @@
 news_items.
 
 Por pasada:
-1. fetch_google_news() → titulares recientes
+1. fetch_news() → titulares recientes (queries temáticas, dedup por URL)
 2. descartar URLs ya vistas (unique), fuentes bloqueadas y sin fecha
 3. extract_event() (Gemini) sobre cada titular nuevo, con tope
    `news_max_llm_calls` para acotar el gasto del free tier
@@ -21,7 +21,7 @@ from app.db import SessionLocal
 from app.models import Beach, NewsItem
 from app.news_llm import EventExtraction, GeminiExtractor, extract_event
 from app.news_matching import match_beaches
-from app.news_sources import EXCLUDED_SOURCES, fetch_google_news
+from app.news_sources import EXCLUDED_SOURCES, fetch_news
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
@@ -76,7 +76,7 @@ def run() -> tuple[int, int, int]:
         print("[news] GEMINI_API_KEY no configurada, se omite la ingesta")
         return 0, 0, 0
 
-    articles = fetch_google_news()
+    articles = fetch_news()
     extractor = GeminiExtractor(
         api_key=settings.gemini_api_key, model=settings.gemini_model
     )
@@ -117,7 +117,11 @@ def run() -> tuple[int, int, int]:
                         confidence=ext.confidence,
                     )
                 )
-            db.commit()  # por artículo: no perder dedup si revienta a mitad
+            try:
+                db.commit()  # por artículo: no perder dedup si revienta
+            except Exception:
+                db.rollback()  # una fila mala no aborta la pasada
+                continue
             inserted += ext.relevant
             time.sleep(2)  # free tier de Gemini: respirar entre llamadas
         rematched = _rematch_pending(db, beaches)
