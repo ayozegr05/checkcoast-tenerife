@@ -18,7 +18,7 @@ import BeachDetail from './BeachDetail';
 import Skeleton from './Skeleton';
 import { BeachStats, GeoFeature, fetchBeachStats } from '../lib/api';
 import {
-  beachPointLabel,
+  pointLongLabel,
   displayBeachName,
 } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
@@ -507,14 +507,14 @@ export default function BeachList({
                         onPress={() => setDetail(f)}
                         accessibilityRole="button"
                         accessibilityLabel={`${
-                          beachPointLabel(f.properties.name) ??
+                          pointLongLabel(f.properties.name) ??
                           displayName(f.properties.name)
                         }, ${STATUS_LABELS[fStatus]}`}
                         accessibilityHint="Abrir ficha del punto de muestreo"
                       >
                         <View style={styles.pmText}>
                           <Text style={styles.pmName}>
-                            {beachPointLabel(f.properties.name) ??
+                            {pointLongLabel(f.properties.name) ??
                               displayName(f.properties.name)}
                           </Text>
                           {pmSub ? (

@@ -20,7 +20,7 @@ import {
 } from '../lib/api';
 import {
   beachBaseName,
-  beachPointLabel,
+  pointLongLabel,
   displayBeachName,
 } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
@@ -135,15 +135,17 @@ export default function FeatureSheet({
   };
 
   // Título: el picker muestra el nombre de la playa; el detalle el
-  // del punto elegido (Teresitas -> "… · PM2" porque sus PMs se llaman
-  // igual; Troya ya se distingue por el romano)
+  // del punto elegido (Teresitas -> "… · Punto 2" porque sus PMs se
+  // llaman igual; Troya ya se distingue por el romano)
   const stripPm = (n: string) => n.replace(/\s+PM\d+$/, '');
   const sameBase =
     members.length > 1 &&
     new Set(members.map((m) => stripPm(m.properties.name))).size === 1;
   const pmSuffix =
     chosenPm && sameBase
-      ? ` · ${chosenPm.properties.name.match(/PM\d+$/)?.[0] ?? ''}`
+      ? ` · Punto ${
+          chosenPm.properties.name.match(/PM(\d+)$/)?.[1] ?? ''
+        }`
       : '';
   const title = showPmPicker
     ? displayBeachName(beachBaseName(p.name))
@@ -235,7 +237,7 @@ export default function FeatureSheet({
                     onPress={() => setChosenPm(m)}
                     accessibilityRole="button"
                     accessibilityLabel={`${
-                      beachPointLabel(m.properties.name) ??
+                      pointLongLabel(m.properties.name) ??
                       displayBeachName(m.properties.name)
                     }, ${BEACH_STATUS_TEXT[k]}`}
                     accessibilityHint="Abrir ficha de este punto de muestreo"
@@ -248,7 +250,7 @@ export default function FeatureSheet({
                     />
                     <View style={styles.pmText}>
                       <Text style={styles.pmName}>
-                        {beachPointLabel(m.properties.name) ??
+                        {pointLongLabel(m.properties.name) ??
                           displayBeachName(m.properties.name)}
                       </Text>
                       <Text style={styles.pmStatus}>

@@ -61,7 +61,13 @@ const SATELLITE_STYLE: StyleSpecification = {
   ],
 };
 
-// Vista inicial centrada en Tenerife
+// Vista inicial: la isla entera encuadrada con margen (fitBounds se
+// adapta al tamaño de pantalla, a diferencia de un zoom fijo)
+const TENERIFE_BOUNDS = {
+  bounds: [-16.95, 27.98, -16.1, 28.58] as [number, number, number, number],
+  padding: { top: 110, right: 24, bottom: 70, left: 24 },
+};
+// Centro/zom equivalente para restaurar la vista tras cerrar una card
 const TENERIFE_VIEW = {
   center: [-16.6291, 28.2916] as [number, number],
   zoom: 9,
@@ -243,6 +249,8 @@ export default function CoastMap({
           ...g.rep.properties,
           groupKey: key,
           members: g.members.length,
+          // Nombre corto para la etiqueta del pin (zoom cercano)
+          label: displayBeachName(beachBaseName(g.rep.properties.name)),
         },
       })),
     }),
@@ -443,7 +451,7 @@ export default function CoastMap({
           }
         }}
       >
-        <Camera ref={cameraRef} initialViewState={TENERIFE_VIEW} />
+        <Camera ref={cameraRef} initialViewState={TENERIFE_BOUNDS} />
 
         <Images
           images={{
@@ -568,6 +576,27 @@ export default function CoastMap({
                 'icon-anchor': 'bottom',
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
+              }}
+            />
+            {/* Nombre de la playa bajo el pin: solo a zoom de calle
+                (>=14), donde la densidad de pines es baja */}
+            <Layer
+              id="beach-labels"
+              type="symbol"
+              minzoom={14}
+              layout={{
+                'text-field': ['get', 'label'],
+                'text-size': 11,
+                'text-font': ['Noto Sans Bold'],
+                'text-offset': [0, 1.0],
+                'text-anchor': 'top',
+                'text-allow-overlap': false,
+                'text-ignore-placement': false,
+              }}
+              paint={{
+                'text-color': colors.text,
+                'text-halo-color': '#ffffff',
+                'text-halo-width': 1.8,
               }}
             />
           </GeoJSONSource>

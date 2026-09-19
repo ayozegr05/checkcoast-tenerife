@@ -99,3 +99,11 @@ export const beachPointLabel = (name: string) => {
   const label = [roman, pm].filter(Boolean).join(' · ');
   return label || null;
 };
+
+// Versión legible para el usuario: "PM3" -> "Punto de muestreo 3";
+// "II · PM3" -> "II · punto de muestreo 3". "PM" solo lo entiende
+// quien conoce el censo de Náyade
+export const pointLongLabel = (name: string) => {
+  const l = beachPointLabel(name);
+  return l ? l.replace(/PM(\d+)/, 'punto de muestreo $1') : null;
+};
