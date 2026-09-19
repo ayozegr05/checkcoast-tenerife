@@ -90,11 +90,14 @@ export default function App() {
   useEffect(() => {
     loadData();
 
-    // Refresco periódico de alertas de playa (la API las sincroniza
-    // con Náyade en segundo plano)
+    // Refresco periódico: alertas + playas (estado/incidencias nuevas
+    // sin reiniciar la app — la API las sincroniza con Náyade)
     const timer = setInterval(() => {
       fetchAlerts()
         .then(setAlerts)
+        .catch(() => {});
+      fetchBeaches()
+        .then(setBeaches)
         .catch(() => {});
     }, 5 * 60 * 1000);
     return () => clearInterval(timer);
