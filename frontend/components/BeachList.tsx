@@ -18,21 +18,18 @@ import BeachDetail from './BeachDetail';
 import Skeleton from './Skeleton';
 import { BeachStats, GeoFeature, fetchBeachStats } from '../lib/api';
 import {
-  beachBaseName,
   beachPointLabel,
   displayBeachName,
 } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
-
-// Orden de prioridad: lo que necesita atención del bañista primero;
-// las no monitorizadas van al final (no hay estado oficial que ordenar)
-const STATUS_ORDER: Record<string, number> = {
-  closed: 0,
-  warning: 1,
-  unknown: 2,
-  open: 3,
-  unmonitored: 4,
-};
+import {
+  STATUS_ORDER,
+  BeachGroup,
+  SortMode,
+  buildGroups,
+  statusOf,
+  worstStatusOf,
+} from '../lib/beachGroups';
 
 const STATUS_LABELS: Record<string, string> = {
   closed: 'Cerrada',
@@ -60,18 +57,11 @@ const satelliteShot = ([lon, lat]: [number, number]) => {
   );
 };
 
-// Una OSM sin monitorizar con alerta (p.ej. Benijo, cerrada según
-// prensa) se ordena/etiqueta por el estado de la alerta
-const statusOf = (f: GeoFeature) =>
-  f.properties.monitored === false && f.properties.alert !== true
-    ? 'unmonitored'
-    : (f.properties.status ?? 'unknown');
-
-const pmNum = (name: string) => {
-  const m = name.match(/PM(\d+)$/);
-  return m ? parseInt(m[1], 10) : 0;
+const SORT_LABELS: Record<SortMode, string> = {
+  estado: 'Estado',
+  cierres: 'Más cierres',
+  calidad: 'Peor calidad',
 };
-
 // Evaluación oficial de la última muestra, resumida para la sub-fila
 const evalLabel = (evaluation: string | null) => {
   if (!evaluation) return null;
@@ -85,50 +75,6 @@ const evalLabel = (evaluation: string | null) => {
 const fmtShort = (iso: string) => {
   const [, m, d] = iso.split('-');
   return `${d}/${m}`;
-};
-
-type BeachGroup = {
-  key: string;
-  name: string;
-  municipality: string | null;
-  members: GeoFeature[];
-};
-
-// El grupo solo es seguro dentro del mismo municipio: Náyade repite
-// nombres entre zonas distintas ("Caleta de Negros")
-const groupKeyOf = (f: GeoFeature) =>
-  `${f.properties.municipality ?? ''}|${beachBaseName(
-    f.properties.name,
-  ).toUpperCase()}`;
-
-const worstStatusOf = (g: BeachGroup) =>
-  g.members
-    .map(statusOf)
-    .sort(
-      (a, b) => (STATUS_ORDER[a] ?? 9) - (STATUS_ORDER[b] ?? 9),
-    )[0] ?? 'unknown';
-
-type SortMode = 'estado' | 'cierres' | 'calidad';
-
-const SORT_LABELS: Record<SortMode, string> = {
-  estado: 'Estado',
-  cierres: 'Más cierres',
-  calidad: 'Peor calidad',
-};
-
-// Puntuación de calidad: peor = evaluación mala + más muestras no aptas
-const qualityScore = (s: BeachStats | undefined): number => {
-  if (!s) return -1;
-  const evalScore = s.latest_evaluation
-    ? /prohib/i.test(s.latest_evaluation)
-      ? 3
-      : /calificar|recomend/i.test(s.latest_evaluation)
-        ? 2
-        : /apta/i.test(s.latest_evaluation)
-          ? 0
-          : 1
-    : 1;
-  return evalScore * 1000 + s.bad_samples;
 };
 
 export default function BeachList({
@@ -214,65 +160,17 @@ export default function BeachList({
     k: 'closures' | 'warnings' | 'closures_last_year' | 'bad_samples',
   ) => g.members.reduce((s, m) => s + (stats.get(m.id)?.[k] ?? 0), 0);
 
-  const groups = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const filtered = beaches.filter(
-      (f) =>
-        (!q || f.properties.name.toLowerCase().includes(q)) &&
-        (municipality === undefined ||
-          (municipality === null
-            ? f.properties.municipality == null
-            : f.properties.municipality === municipality)),
-    );
-    const map = new Map<string, BeachGroup>();
-    for (const f of filtered) {
-      const key = groupKeyOf(f);
-      const g =
-        map.get(key) ?? {
-          key,
-          name: beachBaseName(f.properties.name),
-          municipality: f.properties.municipality ?? null,
-          members: [],
-        };
-      g.members.push(f);
-      map.set(key, g);
-    }
-    const arr = [...map.values()];
-    for (const g of arr) {
-      g.members.sort(
-        (a, b) =>
-          pmNum(a.properties.name) - pmNum(b.properties.name) ||
-          a.properties.name.localeCompare(b.properties.name),
-      );
-    }
-    const sum = (g: BeachGroup, k: 'closures' | 'closures_last_year') =>
-      g.members.reduce((s, m) => s + (stats.get(m.id)?.[k] ?? 0), 0);
-    const worstQuality = (g: BeachGroup) =>
-      Math.max(...g.members.map((m) => qualityScore(stats.get(m.id))));
-    const byName = (a: BeachGroup, b: BeachGroup) =>
-      a.name.localeCompare(b.name);
-    if (sortMode === 'cierres') {
-      arr.sort(
-        (a, b) =>
-          sum(b, 'closures_last_year') - sum(a, 'closures_last_year') ||
-          sum(b, 'closures') - sum(a, 'closures') ||
-          byName(a, b),
-      );
-    } else if (sortMode === 'calidad') {
-      arr.sort((a, b) => worstQuality(b) - worstQuality(a) || byName(a, b));
-    } else {
-      arr.sort(
-        (a, b) =>
-          (STATUS_ORDER[worstStatusOf(a)] ?? 9) -
-            (STATUS_ORDER[worstStatusOf(b)] ?? 9) || byName(a, b),
-      );
-    }
-    // El filtro de estado casa con la peor condición del grupo: es el
-    // estado que muestra la pastilla de cada fila
-    return statusFilter === undefined
-      ? arr
-      : arr.filter((g) => worstStatusOf(g) === statusFilter);
-  }, [beaches, query, municipality, sortMode, statusFilter, stats]);
+  const groups = useMemo(
+    () =>
+      buildGroups(beaches, {
+        query,
+        municipality,
+        sortMode,
+        statusFilter,
+        stats,
+      }),
+    [beaches, query, municipality, sortMode, statusFilter, stats],
+  );
 
   return (
     <Modal

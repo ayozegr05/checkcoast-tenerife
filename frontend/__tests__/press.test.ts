@@ -1,0 +1,72 @@
+// Tests del resumen "según prensa": el cierre se cuenta en presente
+// solo mientras siga vivo; si Sanidad lo cerró, pasa a pasado y cita
+// la fecha de reapertura oficial.
+
+import { describe, expect, it } from '@jest/globals';
+
+import type { BeachNewsSummary } from '../lib/api';
+import { pressSummary } from '../lib/press';
+
+const summary = (s: Partial<BeachNewsSummary>): BeachNewsSummary => ({
+  event_type: 'closure',
+  cause: 'riesgo de desprendimientos',
+  items_count: 13,
+  outlets_count: 9,
+  since: '2026-06-03T10:00:00Z',
+  ...s,
+});
+
+describe('pressSummary — ciclo de vida del cierre', () => {
+  it('cerrada ahora: presente + "desde el"', () => {
+    const r = pressSummary(summary({}), {
+      stillClosed: true,
+      reopenedAt: null,
+    });
+    expect(r.main).toBe(
+      'Cerrada por riesgo de desprendimientos · desde el 03/06/2026',
+    );
+    expect(r.sub).toBe('según prensa · 9 medios');
+  });
+
+  it('cierre resuelto: pasado + fecha puntual', () => {
+    const r = pressSummary(
+      summary({
+        cause: 'vertido de gasoil',
+        since: '2026-08-21T08:00:00Z',
+        outlets_count: 1,
+      }),
+      { stillClosed: false, reopenedAt: '2026-08-26' },
+    );
+    expect(r.main).toBe('Estuvo cerrada por vertido de gasoil · el 21/08/2026');
+    expect(r.sub).toBe(
+      'según prensa · 1 medio · Sanidad la reabrió el 26/08/2026',
+    );
+  });
+
+  it('cierre pasado sin reapertura oficial registrada', () => {
+    const r = pressSummary(summary({}), {
+      stillClosed: false,
+      reopenedAt: null,
+    });
+    expect(r.main).toBe(
+      'Estuvo cerrada por riesgo de desprendimientos · el 03/06/2026',
+    );
+    expect(r.sub).toBe('según prensa · 9 medios');
+  });
+
+  it('reapertura como evento dominante', () => {
+    const r = pressSummary(
+      summary({ event_type: 'reopening', cause: 'obras autorizadas' }),
+      { stillClosed: false, reopenedAt: null },
+    );
+    expect(r.main).toBe('Reapertura tras obras autorizadas · el 03/06/2026');
+  });
+
+  it('sin causa ni fecha: solo el evento', () => {
+    const r = pressSummary(
+      summary({ cause: null, since: null }),
+      { stillClosed: true, reopenedAt: null },
+    );
+    expect(r.main).toBe('Cerrada');
+  });
+});

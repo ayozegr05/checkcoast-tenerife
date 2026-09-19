@@ -22,7 +22,8 @@ import {
   fetchBeachNews,
   fetchBeachQuality,
 } from '../lib/api';
-import { displayBeachName } from '../lib/format';
+import { displayBeachName, fmtDate } from '../lib/format';
+import { pressSummary } from '../lib/press';
 import { colors, fonts } from '../lib/theme';
 import Skeleton from './Skeleton';
 
@@ -32,11 +33,6 @@ const BEACH_STATUS: Record<string, { label: string; color: string }> = {
   warning: { label: 'Aviso activo', color: colors.status.warning },
   unknown: { label: 'Sin datos oficiales', color: colors.status.unknown },
   open: { label: 'Sin alertas activas', color: colors.status.open },
-};
-
-const fmtDate = (iso: string) => {
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
 };
 
 // Un incidente es "cierre" si la observación prohíbe el baño
@@ -151,48 +147,6 @@ const NEWS_EVENT_LABELS: Record<string, string> = {
   warning: 'Aviso',
   pollution: 'Contaminación',
   other: 'Noticia',
-};
-
-// Línea-resumen: motivo primero, fecha del primer titular, atribución
-// abajo — "Cerrada por riesgo de desprendimientos · desde el 03/06".
-// Si el cierre ya pasó (oficial open o incidente con closed_at
-// posterior = mismo episodio resuelto) se habla en pasado
-const NEWS_EVENT_LINE: Record<string, [string, string, string]> = {
-  closure: ['Cerrada', 'por', 'desde el'],
-  reopening: ['Reapertura', 'tras', 'el'],
-  warning: ['Aviso', 'por', 'desde el'],
-  pollution: ['Contaminación', 'por', 'el'],
-  other: ['Noticias', 'sobre', 'el'],
-};
-
-const pressSummary = (
-  s: BeachNewsResponse['summary'],
-  opts: { stillClosed: boolean; reopenedAt: string | null },
-) => {
-  const [noun, prep, dmark] = NEWS_EVENT_LINE[s.event_type ?? 'other'] ?? [
-    'Noticias',
-    'sobre',
-    'el',
-  ];
-  const medios =
-    s.outlets_count === 1 ? '1 medio' : `${s.outlets_count} medios`;
-  const isClosure = s.event_type === 'closure';
-  const shownNoun = isClosure && !opts.stillClosed ? 'Estuvo cerrada' : noun;
-  let date = '';
-  if (isClosure && !opts.stillClosed) {
-    // Pasado: "el 21/08" (no "desde" — ya no está cerrada)
-    date = s.since ? ` · el ${fmtDate(s.since.slice(0, 10))}` : '';
-  } else {
-    date = s.since ? ` · ${dmark} ${fmtDate(s.since.slice(0, 10))}` : '';
-  }
-  // Sanidad registró la reapertura de ese mismo episodio
-  const reopen = opts.reopenedAt
-    ? ` · Sanidad la reabrió el ${fmtDate(opts.reopenedAt)}`
-    : '';
-  return {
-    main: `${shownNoun}${s.cause ? ` ${prep} ${s.cause}` : ''}${date}`,
-    sub: `según prensa · ${medios}${reopen}`,
-  };
 };
 
 // Contenido de la ficha de playa, compartido entre la hoja sobre el mapa

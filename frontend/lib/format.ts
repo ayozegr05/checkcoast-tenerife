@@ -53,6 +53,12 @@ export const capName = (name: string) => {
     .join('');
 };
 
+// "2026-09-14" -> "14/09/2026"
+export const fmtDate = (iso: string) => {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+};
+
 const ARTICLE_PAREN = /\s*\((EL|LA|LOS|LAS)\)/i;
 const DE_FORMS: Record<string, string> = {
   el: 'del',

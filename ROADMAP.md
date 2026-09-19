@@ -165,7 +165,7 @@ Tres niveles, en orden de impacto/esfuerzo:
 | 8.2 | **Dockerizar API**: servicio `api` en docker-compose | Pendiente | 🟡 Medio |
 | 8.3 | **Deploy backend** (Railway/Fly/Render) + Postgres PostGIS + migrar datos → app apuntando a URL real (requisito para notifs en producción) | Pendiente | 🔴 Medio-alto |
 | 8.4 | **CI básico**: GitHub Actions con `pytest` + `tsc --noEmit` en push | Pendiente | 🟢 Trivial |
-| 8.5 | Tests frontend mínimos (jest-expo): lógica agrupación PM→playa, orden por estado | Pendiente | 🟡 Medio |
+| 8.5 | Tests frontend mínimos (jest-expo): lógica agrupación PM→playa, orden por estado | ✅ Hecho — 22 tests en `__tests__/` (lógica pura extraída a `lib/beachGroups.ts`, `lib/press.ts`, `lib/format.ts`) | 🟡 Medio |
 | 8.6 | Actualizar a Node LTS (Expo pide ≥20.19.4, hoy 20.12.2) | ✅ Hecho — Node 24.21.0 LTS vía nvm (`nvm use 24.21.0`) | 🟢 Trivial |
 | 8.7 | Revocar token de Expo expuesto en sesión anterior *(usuario, en expo.dev)* | Pendiente | 🟢 Trivial |
 
