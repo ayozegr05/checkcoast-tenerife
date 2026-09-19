@@ -162,7 +162,7 @@ Tres niveles, en orden de impacto/esfuerzo:
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
 | 8.1 | **Build EAS de validación**: verificar push notifications + AsyncStorage en build real | Pendiente | 🟡 Medio |
-| 8.2 | **Dockerizar API**: servicio `api` en docker-compose | Pendiente | 🟡 Medio |
+| 8.2 | **Dockerizar API**: servicio `api` en docker-compose | ✅ Hecho — `backend/Dockerfile` (python:3.12-slim) + servicio `api` en compose; `alembic upgrade head` al arrancar, healthcheck, `GEMINI_API_KEY` vía `.env` raíz | 🟡 Medio |
 | 8.3 | **Deploy backend** (Railway/Fly/Render) + Postgres PostGIS + migrar datos → app apuntando a URL real (requisito para notifs en producción) | Pendiente | 🔴 Medio-alto |
 | 8.4 | **CI básico**: GitHub Actions con `pytest` + `tsc --noEmit` en push | ✅ Hecho — `.github/workflows/ci.yml` (PostGIS service + alembic + fixture sintético `seed_data` en conftest; backend ya no depende de la BD dev) | 🟢 Trivial |
 | 8.5 | Tests frontend mínimos (jest-expo): lógica agrupación PM→playa, orden por estado | ✅ Hecho — 22 tests en `__tests__/` (lógica pura extraída a `lib/beachGroups.ts`, `lib/press.ts`, `lib/format.ts`) | 🟡 Medio |

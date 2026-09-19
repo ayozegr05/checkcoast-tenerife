@@ -18,5 +18,26 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build: ./backend
+    container_name: checkcoast-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Dentro de la red de compose la BD es "db" en el puerto interno 5432
+      DATABASE_URL: postgresql+psycopg2://checkcoast:checkcoast@db:5432/checkcoast
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      # Puerto externo 8001: el 8000 lo usa otro proyecto
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
 volumes:
   pgdata:

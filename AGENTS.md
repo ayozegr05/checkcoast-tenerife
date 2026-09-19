@@ -64,7 +64,9 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
 ## Comandos (desde raíz del repo)
 
 ```powershell
-docker compose up -d                                    # PostGIS (una vez por sesión de PC)
+docker compose up -d                                    # PostGIS + API dockerizada (8001)
+docker compose up -d db                                 # solo PostGIS (desarrollo con venv)
+docker compose build api && docker compose up -d api    # rebuild tras cambios de código
 cd backend
 .venv\Scripts\uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 .venv\Scripts\alembic upgrade head                      # migraciones
@@ -80,7 +82,10 @@ npx tsc --noEmit                                        # typecheck
 ## Puertos / URLs
 
 - Postgres+PostGIS: host **5433** (`checkcoast-db`)
-- API: **8001** (el 8000 lo usa otro proyecto del usuario)
+- API: **8001** (el 8000 lo usa otro proyecto del usuario); el contenedor
+  `checkcoast-api` corre `alembic upgrade head` al arrancar y usa
+  `DATABASE_URL` interno `db:5432`. `GEMINI_API_KEY` se pasa al compose
+  vía `.env` en la raíz del repo (gitignored)
 - Metro/Expo: **8082** (el 8081 lo usa otro proyecto — el dev client del
   móvil debe apuntar a `http://192.168.1.71:8082` o escanear el QR nuevo)
 - URL API por defecto backend:
