@@ -102,6 +102,21 @@ class NewsItemOut(BaseModel):
     cause: str | None
 
 
+class NewsSummaryOut(BaseModel):
+    """Agregado determinista de las noticias casadas: el "por qué"
+    dominante según prensa (moda de event_type/cause ya extraídos)."""
+
+    event_type: str | None
+    cause: str | None
+    items_count: int
+    outlets_count: int
+
+
+class BeachNewsOut(BaseModel):
+    summary: NewsSummaryOut
+    items: list[NewsItemOut]
+
+
 class DeviceIn(BaseModel):
     token: str
     platform: str | None = None

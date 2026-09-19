@@ -15,6 +15,7 @@ import {
   BeachMeasurement,
   BeachNearbyOutfall,
   BeachNews,
+  BeachNewsResponse,
   GeoFeature,
   fetchBeachIncidents,
   fetchBeachNearbyOutfalls,
@@ -145,6 +146,26 @@ const NEWS_EVENT_LABELS: Record<string, string> = {
   other: 'Noticia',
 };
 
+// Para la línea-resumen: "cierre por…", "reapertura tras…"
+const NEWS_EVENT_LINE: Record<string, [string, string]> = {
+  closure: ['cierre', 'por'],
+  reopening: ['reapertura', 'tras'],
+  warning: ['aviso', 'por'],
+  pollution: ['contaminación', 'por'],
+  other: ['noticias', 'sobre'],
+};
+
+// "Según prensa: cierre por X · N medios" a partir del agregado del API
+const pressSummaryLine = (s: BeachNewsResponse['summary']) => {
+  const [noun, prep] = NEWS_EVENT_LINE[s.event_type ?? 'other'] ?? [
+    'noticias',
+    'sobre',
+  ];
+  const medios =
+    s.outlets_count === 1 ? '1 medio' : `${s.outlets_count} medios`;
+  return `Según prensa: ${noun}${s.cause ? ` ${prep} ${s.cause}` : ''} · ${medios}`;
+};
+
 // Contenido de la ficha de playa, compartido entre la hoja sobre el mapa
 // (FeatureSheet) y la vista detalle dentro de la lista (BeachList)
 export default function BeachDetail({
@@ -160,7 +181,8 @@ export default function BeachDetail({
   const [incidents, setIncidents] = useState<BeachIncident[] | null>(null);
   const [quality, setQuality] = useState<BeachMeasurement[] | null>(null);
   const [nearby, setNearby] = useState<BeachNearbyOutfall[] | null>(null);
-  const [news, setNews] = useState<BeachNews[] | null>(null);
+  const [news, setNews] = useState<BeachNewsResponse | null>(null);
+  const [newsOpen, setNewsOpen] = useState(false);
   const [chartParam, setChartParam] = useState<'ecoli' | 'enterococci'>(
     'ecoli',
   );
@@ -171,13 +193,24 @@ export default function BeachDetail({
     setQuality(null);
     setNearby(null);
     setNews(null);
+    setNewsOpen(false);
     fetchBeachNearbyOutfalls(feature.id)
       .then(setNearby)
       .catch(() => setNearby([]));
     // La prensa también cubre playas sin monitorización oficial
     fetchBeachNews(feature.id)
       .then(setNews)
-      .catch(() => setNews([]));
+      .catch(() =>
+        setNews({
+          summary: {
+            event_type: null,
+            cause: null,
+            items_count: 0,
+            outlets_count: 0,
+          },
+          items: [],
+        }),
+      );
     if (unmonitored) return; // sin datos oficiales
     fetchBeachIncidents(feature.id)
       .then(setIncidents)
@@ -225,6 +258,23 @@ export default function BeachDetail({
     chartW > 0 && chartData.length > 0
       ? Math.max(8, chartW / chartData.length)
       : 8;
+
+  // Titulares agrupados por evento+causa: la misma noticia cubierta
+  // por varios medios queda como un solo bloque escaneable
+  const newsGroups = useMemo(() => {
+    const groups = new Map<string, { label: string; items: BeachNews[] }>();
+    for (const n of news?.items ?? []) {
+      const key = `${n.event_type ?? 'other'}|${n.cause ?? ''}`;
+      const et = NEWS_EVENT_LABELS[n.event_type ?? ''] ?? 'Noticia';
+      const g = groups.get(key) ?? {
+        label: `${et}${n.cause ? ` · ${n.cause}` : ''}`,
+        items: [],
+      };
+      g.items.push(n);
+      groups.set(key, g);
+    }
+    return [...groups.values()];
+  }, [news]);
 
   const beachKey =
     hasAlert && p.status === 'open' ? 'warning' : (p.status ?? 'unknown');
@@ -288,6 +338,16 @@ export default function BeachDetail({
           Fuente: Censo Zonas de Baño 2025 (MITECO) · Incidencias: Náyade
           (Min. Sanidad)
         </Text>
+      )}
+
+      {/* "¿Por qué?" según prensa, visible sin scroll; la lista de
+          titulares queda en la card "En la prensa" */}
+      {news !== null && news.items.length > 0 && (
+        <View style={styles.pressBanner}>
+          <Text style={styles.pressBannerText}>
+            {pressSummaryLine(news.summary)}
+          </Text>
+        </View>
       )}
 
       {/* Mientras llega el histórico, placeholder con la forma de la
@@ -498,7 +558,7 @@ export default function BeachDetail({
         </View>
       )}
 
-      {news !== null && news.length > 0 && (
+      {news !== null && news.items.length > 0 && (
         <View style={styles.history}>
           <View style={styles.newsHead}>
             <Text style={styles.historyTitle}>En la prensa</Text>
@@ -506,32 +566,56 @@ export default function BeachDetail({
               <Text style={styles.pressTagText}>según prensa</Text>
             </View>
           </View>
-          {news.slice(0, 5).map((n) => {
-            const meta = [
-              n.source,
-              n.published_at ? fmtDate(n.published_at.slice(0, 10)) : null,
-              NEWS_EVENT_LABELS[n.event_type ?? ''] ?? null,
-              n.cause,
-            ]
-              .filter(Boolean)
-              .join(' · ');
-            return (
-              <Pressable
-                key={n.id}
-                style={styles.newsRow}
-                onPress={() => Linking.openURL(n.url).catch(() => {})}
-                accessibilityRole="link"
-                accessibilityLabel={`Noticia: ${n.title}`}
-              >
-                <Text style={styles.newsTitle} numberOfLines={2}>
-                  {n.title}
-                </Text>
-                <Text style={styles.newsMeta} numberOfLines={2}>
-                  {meta}
-                </Text>
-              </Pressable>
-            );
-          })}
+          <Text style={styles.newsSummary}>
+            {pressSummaryLine(news.summary)}
+          </Text>
+          <Pressable
+            onPress={() => setNewsOpen((v) => !v)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={
+              newsOpen
+                ? 'Ocultar titulares de prensa'
+                : `Ver ${news.summary.items_count} titulares de prensa`
+            }
+          >
+            <Text style={styles.newsToggle}>
+              {newsOpen
+                ? 'Ocultar titulares ▴'
+                : `Ver titulares (${news.summary.items_count}) ▾`}
+            </Text>
+          </Pressable>
+          {newsOpen &&
+            newsGroups.map((g) => (
+              <View key={g.label} style={styles.newsGroup}>
+                <Text style={styles.newsGroupTitle}>{g.label}</Text>
+                {g.items.map((n) => (
+                  <Pressable
+                    key={n.id}
+                    style={styles.newsRow}
+                    onPress={() =>
+                      Linking.openURL(n.url).catch(() => {})
+                    }
+                    accessibilityRole="link"
+                    accessibilityLabel={`Noticia: ${n.title}`}
+                  >
+                    <Text style={styles.newsTitle} numberOfLines={2}>
+                      {n.title}
+                    </Text>
+                    <Text style={styles.newsMeta} numberOfLines={1}>
+                      {[
+                        n.source,
+                        n.published_at
+                          ? fmtDate(n.published_at.slice(0, 10))
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ))}
           <Text style={styles.chartFoot}>
             Contexto de prensa: no altera el estado oficial (Náyade)
           </Text>
@@ -896,6 +980,43 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontFamily: fonts.extrabold,
   },
+  pressBanner: {
+    marginTop: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.status.warning,
+    backgroundColor: '#fff3e0',
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  pressBannerText: {
+    fontSize: 13,
+    fontFamily: fonts.semibold,
+    color: colors.status.warning,
+  },
+  newsSummary: {
+    fontSize: 13,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+    marginBottom: 6,
+  },
+  newsToggle: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  newsGroup: {
+    marginTop: 4,
+  },
+  newsGroupTitle: {
+    fontSize: 11,
+    fontFamily: fonts.extrabold,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+    marginTop: 4,
+  },
   newsRow: {
     borderLeftWidth: 3,
     borderLeftColor: colors.primary,
@@ -906,7 +1027,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   newsTitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fonts.semibold,
     color: colors.text,
   },

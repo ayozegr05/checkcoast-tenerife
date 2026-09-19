@@ -81,6 +81,18 @@ export type BeachNews = {
   cause: string | null;
 };
 
+export type BeachNewsSummary = {
+  event_type: string | null; // evento dominante según prensa
+  cause: string | null; // causa dominante según prensa
+  items_count: number;
+  outlets_count: number;
+};
+
+export type BeachNewsResponse = {
+  summary: BeachNewsSummary;
+  items: BeachNews[];
+};
+
 export type OutfallNearestBeach = {
   outfall_id: number;
   beach_id: number;
@@ -115,7 +127,7 @@ export const fetchBeachQuality = (beachId: number) =>
   getJson<BeachMeasurement[]>(`/beaches/${beachId}/quality`);
 export const fetchBeachStats = () => getJson<BeachStats[]>('/beaches/stats');
 export const fetchBeachNews = (beachId: number) =>
-  getJson<BeachNews[]>(`/beaches/${beachId}/news`);
+  getJson<BeachNewsResponse>(`/beaches/${beachId}/news`);
 export const fetchOutfallNearestBeach = (outfallId: number) =>
   getJson<OutfallNearestBeach>(`/outfalls/${outfallId}/nearest-beach`);
 export const fetchBeachNearbyOutfalls = (beachId: number) =>

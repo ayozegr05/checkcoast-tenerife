@@ -134,14 +134,18 @@ def test_beach_news_returns_items():
     try:
         r = client.get(f"/beaches/{beach_id}/news")
         assert r.status_code == 200
-        titles = [n["title"] for n in r.json()]
+        body = r.json()
+        titles = [n["title"] for n in body["items"]]
         assert item.title in titles
         # Los no relevantes/no casados no se sirven
         assert noise.title not in titles
-        n = next(n for n in r.json() if n["title"] == item.title)
+        n = next(n for n in body["items"] if n["title"] == item.title)
         assert n["beach_id"] == beach_id
         assert n["event_type"] == "closure"
         assert n["source"] == "Test Press"
+        # El resumen agrega lo extraído (puede haber otras noticias reales)
+        assert body["summary"]["items_count"] == len(body["items"])
+        assert body["summary"]["outlets_count"] >= 1
     finally:
         db.delete(item)
         db.delete(noise)

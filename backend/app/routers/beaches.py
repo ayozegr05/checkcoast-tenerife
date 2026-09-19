@@ -20,6 +20,7 @@ from app.schemas import (
     BeachIncidentOut,
     BeachMeasurementOut,
     BeachNearbyOutfallOut,
+    BeachNewsOut,
     BeachStatsOut,
     BeachStatusIn,
     BeachStatusOut,
@@ -27,6 +28,7 @@ from app.schemas import (
     FeatureCollection,
     MunicipalityIncidentOut,
     NewsItemOut,
+    NewsSummaryOut,
     PointGeometry,
 )
 
@@ -193,14 +195,34 @@ def beach_quality(
     ]
 
 
+def _news_mode(items: list[NewsItem], attr: str) -> str | None:
+    """Valor más frecuente de un campo extraído; en empate gana el del
+    titular más reciente (items vienen ordenados desc por fecha)."""
+    counts: dict[str, int] = {}
+    for it in items:
+        v = getattr(it, attr)
+        if not v or v == "other":
+            continue
+        counts[v] = counts.get(v, 0) + 1
+    if not counts:
+        return None
+    best = max(counts.values())
+    return next(
+        getattr(it, attr)
+        for it in items
+        if getattr(it, attr) in counts and counts[getattr(it, attr)] == best
+    )
+
+
 @router.get(
     "/beaches/{beach_id}/news",
-    response_model=list[NewsItemOut],
+    response_model=BeachNewsOut,
 )
 def beach_news(
     beach_id: int, db: Session = Depends(get_db)
-) -> list[NewsItemOut]:
-    """Noticias de prensa ligadas a la playa, más reciente primero.
+) -> BeachNewsOut:
+    """Noticias de prensa ligadas a la playa, más reciente primero,
+    más un resumen determinista (evento/causa dominantes + nº medios).
 
     Contexto "según prensa": nunca altera el estado oficial, que solo
     sale de Náyade."""
@@ -213,22 +235,30 @@ def beach_news(
             NewsItem.relevant.is_(True),
         )
         .order_by(NewsItem.published_at.desc().nulls_last())
-        .limit(20)
+        .limit(30)
         .all()
     )
-    return [
-        NewsItemOut(
-            id=row.id,
-            beach_id=row.beach_id,
-            title=row.title,
-            url=row.url,
-            source=row.source,
-            published_at=row.published_at,
-            event_type=row.event_type,
-            cause=row.cause,
-        )
-        for row in rows
-    ]
+    return BeachNewsOut(
+        summary=NewsSummaryOut(
+            event_type=_news_mode(rows, "event_type"),
+            cause=_news_mode(rows, "cause"),
+            items_count=len(rows),
+            outlets_count=len({r.source for r in rows if r.source}),
+        ),
+        items=[
+            NewsItemOut(
+                id=row.id,
+                beach_id=row.beach_id,
+                title=row.title,
+                url=row.url,
+                source=row.source,
+                published_at=row.published_at,
+                event_type=row.event_type,
+                cause=row.cause,
+            )
+            for row in rows
+        ],
+    )
 
 
 @router.get(
