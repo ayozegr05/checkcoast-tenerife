@@ -120,6 +120,8 @@ export default function CoastMap({
 }: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Lista desplegable de playas en aviso (banner de alertas)
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [showOutfalls, setShowOutfalls] = useState(true);
   const [showBeaches, setShowBeaches] = useState(true);
@@ -156,6 +158,27 @@ export default function CoastMap({
     prevSelection.current = selectionActive;
   }, [selectionActive]);
 
+  // Vuela a una playa en aviso y abre su ficha (lista del banner)
+  const openAlertBeach = (f: GeoFeature) => {
+    saveView();
+    const [lon, lat] = (
+      f.geometry as { coordinates: [number, number] }
+    ).coordinates;
+    cameraRef.current?.flyTo({
+      center: [lon, lat - 0.014],
+      zoom: 13,
+      duration: 1200,
+    });
+    const gk = (f.properties as { groupKey?: string }).groupKey;
+    onSelect({
+      type: 'beach',
+      feature: f,
+      hasAlert: true,
+      members: gk ? beachGroups.get(gk)?.members : undefined,
+    });
+    setAlertsOpen(false);
+  };
+
   // Agrupación por playa: cada punto de muestreo (PM1, PM2, Troya I/II)
   // es un registro oficial distinto, pero el mapa dibuja UN pin por
   // playa en el centroide, coloreado por el peor estado del grupo.
@@ -180,7 +203,7 @@ export default function CoastMap({
     }
     const rank = (f: GeoFeature) => {
       const s =
-        f.properties.monitored === false
+        f.properties.monitored === false && f.properties.alert !== true
           ? 'unmonitored'
           : (f.properties.status ?? 'unknown');
       return (
@@ -236,11 +259,12 @@ export default function CoastMap({
   const alertBeaches = useMemo<FeatureCollection>(
     () => ({
       type: 'FeatureCollection',
+      // Sin filtro de monitorizada: una playa OSM cerrada según
+      // prensa (Benijo) también es una alerta de verdad
       features: groupedBeaches.features.filter(
         (f) =>
-          f.properties.monitored !== false &&
-          (f.properties.status === 'closed' ||
-            f.properties.status === 'warning'),
+          f.properties.status === 'closed' ||
+          f.properties.status === 'warning',
       ),
     }),
     [groupedBeaches],
@@ -491,7 +515,11 @@ export default function CoastMap({
               layout={{
                 'icon-image': [
                   'case',
-                  ['==', ['get', 'monitored'], false],
+                  [
+                    'all',
+                    ['==', ['get', 'monitored'], false],
+                    ['!=', ['get', 'alert'], true],
+                  ],
                   'pin-unmonitored',
                   [
                     'match',
@@ -524,7 +552,11 @@ export default function CoastMap({
                 'circle-radius': 7,
                 'circle-color': [
                   'case',
-                  ['==', ['get', 'monitored'], false],
+                  [
+                    'all',
+                    ['==', ['get', 'monitored'], false],
+                    ['!=', ['get', 'alert'], true],
+                  ],
                   BEACH_COLORS.unmonitored,
                   [
                     'match',
@@ -669,37 +701,14 @@ export default function CoastMap({
             },
           ]}
           onPress={() => {
-            // Con alertas: vuela a la mas grave y abre su ficha.
+            // Con alertas: despliega la lista de playas en aviso.
             // Sin alertas: abre la lista general.
-            const top =
-              alertBeaches.features.find(
-                (f) => f.properties.status === 'closed',
-              ) ?? alertBeaches.features[0];
-            if (top) {
-              saveView();
-              const [lon, lat] = (
-                top.geometry as { coordinates: [number, number] }
-              ).coordinates;
-              cameraRef.current?.flyTo({
-                center: [lon, lat - 0.014],
-                zoom: 13,
-                duration: 1200,
-              });
-              const gk = (
-                top.properties as { groupKey?: string }
-              ).groupKey;
-              onSelect({
-                type: 'beach',
-                feature: top,
-                hasAlert: true,
-                members: gk ? beachGroups.get(gk)?.members : undefined,
-              });
-            } else {
-              onOpenList?.();
-            }
+            if (hasAlerts) setAlertsOpen((v) => !v);
+            else onOpenList?.();
           }}
           accessibilityRole="button"
           accessibilityLabel="Resumen del estado de las playas"
+          accessibilityState={{ expanded: alertsOpen }}
         >
           {(closedCount > 0 || warningCount > 0) && (
             <Image
@@ -720,8 +729,58 @@ export default function CoastMap({
                   .filter(Boolean)
                   .join(' · ')
               : 'Todas las playas sin incidencias'}
+            {hasAlerts ? ' ▾' : ''}
           </Text>
         </Pressable>
+        {alertsOpen && hasAlerts && (
+          <View style={styles.alertList}>
+            {[...alertBeaches.features]
+              .sort((a) => (a.properties.status === 'closed' ? -1 : 1))
+              .map((f) => {
+                const s =
+                  f.properties.status === 'closed' ? 'closed' : 'warning';
+                return (
+                  <Pressable
+                    key={
+                      (f.properties as { groupKey?: string }).groupKey ??
+                      f.id
+                    }
+                    style={styles.alertRow}
+                    onPress={() => openAlertBeach(f)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${displayBeachName(
+                      beachBaseName(f.properties.name),
+                    )}, ${s === 'closed' ? 'cerrada' : 'aviso'}`}
+                  >
+                    <View
+                      style={[
+                        styles.alertDot,
+                        { backgroundColor: colors.status[s] },
+                      ]}
+                    />
+                    <View style={styles.alertText}>
+                      <Text style={styles.alertName} numberOfLines={1}>
+                        {displayBeachName(
+                          beachBaseName(f.properties.name),
+                        )}
+                      </Text>
+                      <Text style={styles.alertSub} numberOfLines={1}>
+                        {f.properties.municipality ?? ''}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.alertState,
+                        { color: colors.status[s] },
+                      ]}
+                    >
+                      {s === 'closed' ? 'Cerrada' : 'Aviso'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+          </View>
+        )}
         {searchOpen && (
           <View style={styles.searchWrap}>
             <TextInput
@@ -921,6 +980,49 @@ const styles = StyleSheet.create({
   bannerText: {
     color: '#fff',
     fontSize: 13,
+    fontFamily: fonts.bold,
+  },
+  alertList: {
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 12,
+    paddingVertical: 4,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  alertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 10,
+  },
+  alertDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  alertText: {
+    flex: 1,
+  },
+  alertName: {
+    fontSize: 14,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+  },
+  alertSub: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 1,
+  },
+  alertState: {
+    fontSize: 12,
     fontFamily: fonts.bold,
   },
   searchWrap: {

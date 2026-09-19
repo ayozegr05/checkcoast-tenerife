@@ -60,8 +60,10 @@ const satelliteShot = ([lon, lat]: [number, number]) => {
   );
 };
 
+// Una OSM sin monitorizar con alerta (p.ej. Benijo, cerrada según
+// prensa) se ordena/etiqueta por el estado de la alerta
 const statusOf = (f: GeoFeature) =>
-  f.properties.monitored === false
+  f.properties.monitored === false && f.properties.alert !== true
     ? 'unmonitored'
     : (f.properties.status ?? 'unknown');
 
@@ -331,11 +333,7 @@ export default function BeachList({
                     styles.mapDot,
                     {
                       backgroundColor:
-                        STATUS_COLORS[
-                          detail.properties.monitored === false
-                            ? 'unmonitored'
-                            : (detail.properties.status ?? 'unknown')
-                        ],
+                        STATUS_COLORS[statusOf(detail)],
                     },
                   ]}
                 />

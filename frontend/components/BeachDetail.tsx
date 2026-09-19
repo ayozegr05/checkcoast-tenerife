@@ -295,12 +295,17 @@ export default function BeachDetail({
 
   const beachKey =
     hasAlert && p.status === 'open' ? 'warning' : (p.status ?? 'unknown');
-  const statusText = unmonitored
-    ? 'Sin monitorización oficial'
-    : (BEACH_STATUS[beachKey]?.label ?? 'Sin datos oficiales');
-  const statusColor = unmonitored
-    ? colors.status.unmonitored
-    : (BEACH_STATUS[beachKey]?.color ?? colors.status.unknown);
+  // Una playa OSM sin monitorizar con alerta (p.ej. Benijo, cerrada
+  // según prensa) muestra el estado de la alerta; el aviso de "sin
+  // monitorización" solo aplica sin alerta vigente
+  const statusText =
+    unmonitored && !hasAlert
+      ? 'Sin monitorización oficial'
+      : (BEACH_STATUS[beachKey]?.label ?? 'Sin datos oficiales');
+  const statusColor =
+    unmonitored && !hasAlert
+      ? colors.status.unmonitored
+      : (BEACH_STATUS[beachKey]?.color ?? colors.status.unknown);
 
   // Mensaje listo para WhatsApp/Telegram: estado + última evaluación +
   // deep-link checkcoast://beach/{id} que abre la app en esta ficha

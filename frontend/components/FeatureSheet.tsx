@@ -35,7 +35,7 @@ const STATUS_COLORS = colors.outfall;
 
 // Estado de playa para el selector de puntos de muestreo
 const beachStatusKey = (f: GeoFeature) =>
-  f.properties.monitored === false
+  f.properties.monitored === false && f.properties.alert !== true
     ? 'unmonitored'
     : (f.properties.status ?? 'unknown');
 
