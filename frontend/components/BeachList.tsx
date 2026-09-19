@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -157,6 +157,8 @@ export default function BeachList({
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<GeoFeature | null>(null);
   const [shotLoaded, setShotLoaded] = useState(false);
+  // Scroll del detalle: BeachDetail baja a "Ver titulares" al expandir
+  const detailScrollRef = useRef<ScrollView>(null);
 
   // La foto satélite de Esri tarda en llegar: skeleton hasta que carga
   useEffect(() => {
@@ -305,7 +307,7 @@ export default function BeachList({
                 <Text style={styles.mapBtnText}>Ver en mapa</Text>
               </Pressable>
             </ImageBackground>
-            <ScrollView style={styles.detailScroll}>
+            <ScrollView ref={detailScrollRef} style={styles.detailScroll}>
               <View style={styles.mapShotWrap}>
                 {!shotLoaded && (
                   <Skeleton style={styles.mapShotSkeleton} />
@@ -345,6 +347,7 @@ export default function BeachList({
                 <BeachDetail
                   feature={detail}
                   hasAlert={detail.properties.alert === true}
+                  scrollRef={detailScrollRef}
                 />
               </View>
             </ScrollView>

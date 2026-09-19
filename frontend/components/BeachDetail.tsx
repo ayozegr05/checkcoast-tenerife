@@ -183,9 +183,13 @@ const pressSummary = (s: BeachNewsResponse['summary']) => {
 export default function BeachDetail({
   feature,
   hasAlert,
+  scrollRef,
 }: {
   feature: GeoFeature;
   hasAlert: boolean;
+  // ScrollView padre: al desplegar "Ver titulares" se hace scrollToEnd
+  // (la sección de prensa es la última de la ficha)
+  scrollRef?: React.RefObject<ScrollView | null>;
 }) {
   const p = feature.properties;
   const unmonitored = p.monitored === false;
@@ -574,70 +578,6 @@ export default function BeachDetail({
         </View>
       )}
 
-      {news !== null && news.items.length > 0 && (
-        <View style={styles.history}>
-          <View style={styles.newsHead}>
-            <Text style={styles.historyTitle}>En la prensa</Text>
-            <View style={styles.pressTag}>
-              <Text style={styles.pressTagText}>según prensa</Text>
-            </View>
-          </View>
-          <Text style={styles.newsSummary}>
-            {pressSummary(news.summary).main}
-          </Text>
-          <Pressable
-            onPress={() => setNewsOpen((v) => !v)}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={
-              newsOpen
-                ? 'Ocultar titulares de prensa'
-                : `Ver ${news.summary.items_count} titulares de prensa`
-            }
-          >
-            <Text style={styles.newsToggle}>
-              {newsOpen
-                ? 'Ocultar titulares ▴'
-                : `Ver titulares (${news.summary.items_count}) ▾`}
-            </Text>
-          </Pressable>
-          {newsOpen &&
-            newsGroups.map((g) => (
-              <View key={g.label} style={styles.newsGroup}>
-                <Text style={styles.newsGroupTitle}>{g.label}</Text>
-                {g.items.map((n) => (
-                  <Pressable
-                    key={n.id}
-                    style={styles.newsRow}
-                    onPress={() =>
-                      Linking.openURL(n.url).catch(() => {})
-                    }
-                    accessibilityRole="link"
-                    accessibilityLabel={`Noticia: ${n.title}`}
-                  >
-                    <Text style={styles.newsTitle} numberOfLines={2}>
-                      {n.title}
-                    </Text>
-                    <Text style={styles.newsMeta} numberOfLines={1}>
-                      {[
-                        n.source,
-                        n.published_at
-                          ? fmtDate(n.published_at.slice(0, 10))
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            ))}
-          <Text style={styles.chartFoot}>
-            Contexto de prensa: no altera el estado oficial (Náyade)
-          </Text>
-        </View>
-      )}
-
       {nearby !== null && nearby.length > 0 && (
         <View style={styles.history}>
           <Text style={styles.historyTitle}>
@@ -731,6 +671,79 @@ export default function BeachDetail({
               );
             })}
           </ScrollView>
+        </View>
+      )}
+
+      {/* Prensa al final: es contexto, no dato oficial */}
+      {news !== null && news.items.length > 0 && (
+        <View style={styles.history}>
+          <View style={styles.newsHead}>
+            <Text style={styles.historyTitle}>En la prensa</Text>
+            <View style={styles.pressTag}>
+              <Text style={styles.pressTagText}>según prensa</Text>
+            </View>
+          </View>
+          <Text style={styles.newsSummary}>
+            {pressSummary(news.summary).main}
+          </Text>
+          <Pressable
+            onPress={() => {
+              setNewsOpen((v) => !v);
+              if (!newsOpen) {
+                // La card puede estar ya a tope: baja a la lista nueva
+                setTimeout(
+                  () =>
+                    scrollRef?.current?.scrollToEnd({ animated: true }),
+                  120,
+                );
+              }
+            }}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={
+              newsOpen
+                ? 'Ocultar titulares de prensa'
+                : `Ver ${news.summary.items_count} titulares de prensa`
+            }
+          >
+            <Text style={styles.newsToggle}>
+              {newsOpen
+                ? 'Ocultar titulares ▴'
+                : `Ver titulares (${news.summary.items_count}) ▾`}
+            </Text>
+          </Pressable>
+          {newsOpen &&
+            newsGroups.map((g) => (
+              <View key={g.label} style={styles.newsGroup}>
+                <Text style={styles.newsGroupTitle}>{g.label}</Text>
+                {g.items.map((n) => (
+                  <Pressable
+                    key={n.id}
+                    style={styles.newsRow}
+                    onPress={() => Linking.openURL(n.url).catch(() => {})}
+                    accessibilityRole="link"
+                    accessibilityLabel={`Noticia: ${n.title}`}
+                  >
+                    <Text style={styles.newsTitle} numberOfLines={2}>
+                      {n.title}
+                    </Text>
+                    <Text style={styles.newsMeta} numberOfLines={1}>
+                      {[
+                        n.source,
+                        n.published_at
+                          ? fmtDate(n.published_at.slice(0, 10))
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ))}
+          <Text style={styles.chartFoot}>
+            Contexto de prensa: no altera el estado oficial (Náyade)
+          </Text>
         </View>
       )}
     </View>

@@ -92,6 +92,8 @@ export default function FeatureSheet({
   const closing = useRef(false);
   // Estado espejo de expanded para re-render (el ref no dispara render)
   const [isExpanded, setIsExpanded] = useState(false);
+  // Scroll del cuerpo: BeachDetail lo usa para bajar a "Ver titulares"
+  const bodyRef = useRef<ScrollView>(null);
 
   // Playa mas cercana al vertido (contexto de impacto)
   const [nearest, setNearest] = useState<OutfallNearestBeach | null>(null);
@@ -201,6 +203,7 @@ export default function FeatureSheet({
       </View>
 
       <ScrollView
+        ref={bodyRef}
         style={styles.body}
         contentContainerStyle={styles.bodyContent}
         showsVerticalScrollIndicator={false}
@@ -267,6 +270,7 @@ export default function FeatureSheet({
                     ? chosenPm.properties.alert === true
                     : selection.hasAlert
                 }
+                scrollRef={bodyRef}
               />
             </View>
           )
