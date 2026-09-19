@@ -311,15 +311,24 @@ export default function BeachDetail({
   }, [news]);
 
   // ¿El cierre de prensa sigue vivo? Si Sanidad registró un incidente
-  // cerrado con fecha posterior al primer titular, es el mismo
+  // cerrado poco después del primer titular (<=15 días), es el mismo
   // episodio ya resuelto (Los Cristianos: prensa 21/08, Náyade
-  // registró el cierre 24/08-26/08)
+  // registró el cierre 24/08-26/08). Un cierre oficial mucho después
+  // ya no se puede atribuir a este episodio
   const pressStillClosed = p.status === 'closed';
   const pressReopenedAt = useMemo(() => {
     if (pressStillClosed || !news?.summary.since) return null;
     const since = news.summary.since.slice(0, 10);
+    const lim = new Date(`${since}T00:00:00Z`);
+    lim.setUTCDate(lim.getUTCDate() + 15);
+    const limStr = lim.toISOString().slice(0, 10);
     const later = (incidents ?? [])
-      .filter((i) => i.closed_at !== null && i.closed_at >= since)
+      .filter(
+        (i) =>
+          i.closed_at !== null &&
+          i.closed_at >= since &&
+          i.closed_at <= limStr,
+      )
       .map((i) => i.closed_at as string)
       .sort();
     return later[0] ?? null;
