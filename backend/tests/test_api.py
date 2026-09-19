@@ -155,21 +155,38 @@ def test_beach_news_not_found():
 
 
 def test_set_beach_status_flow():
+    from sqlalchemy import func
+
+    from app.db import SessionLocal
+    from app.models import BeachStatus
+
     beaches = client.get("/beaches").json()["features"]
     beach_id = beaches[0]["id"]
 
-    r = client.post(f"/beaches/{beach_id}/status", json={"status": "closed"})
-    assert r.status_code == 201
-    assert r.json()["status"] == "closed"
+    db = SessionLocal()
+    last_id = db.query(func.max(BeachStatus.id)).scalar() or 0
+    try:
+        r = client.post(
+            f"/beaches/{beach_id}/status", json={"status": "closed"}
+        )
+        assert r.status_code == 201
+        assert r.json()["status"] == "closed"
 
-    alerts = client.get("/alerts").json()
-    assert any(a["beach_id"] == beach_id for a in alerts)
+        alerts = client.get("/alerts").json()
+        assert any(a["beach_id"] == beach_id for a in alerts)
 
-    # Restaurar a abierta
-    r = client.post(f"/beaches/{beach_id}/status", json={"status": "open"})
-    assert r.status_code == 201
-    alerts = client.get("/alerts").json()
-    assert all(a["beach_id"] != beach_id for a in alerts)
+        # Restaurar a abierta
+        r = client.post(
+            f"/beaches/{beach_id}/status", json={"status": "open"}
+        )
+        assert r.status_code == 201
+        alerts = client.get("/alerts").json()
+        assert all(a["beach_id"] != beach_id for a in alerts)
+    finally:
+        # los tests corren contra la BD real: no dejar historial basura
+        db.query(BeachStatus).filter(BeachStatus.id > last_id).delete()
+        db.commit()
+        db.close()
 
 
 def test_set_beach_status_not_found():
