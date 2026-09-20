@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgis/postgis:16-3.4
+    build: ./db
     container_name: checkcoast-db
     restart: unless-stopped
     environment:
