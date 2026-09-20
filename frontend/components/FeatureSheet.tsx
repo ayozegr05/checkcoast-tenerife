@@ -96,15 +96,18 @@ export default function FeatureSheet({
   const [isExpanded, setIsExpanded] = useState(false);
   // Scroll del cuerpo: BeachDetail lo usa para bajar a "Ver titulares"
   const bodyRef = useRef<ScrollView>(null);
-  // "Ver más" se oculta cuando el usuario ya llegó al final
-  const [atBottom, setAtBottom] = useState(false);
-  // Últimas métricas de scroll conocidas: el fallback de "Ver más" las
-  // usa para no ocultar el botón si el usuario subió durante el
-  // autoscroll
+  // "Ver más" visible mientras quede contenido por debajo del viewport.
+  // Derivado de las métricas de scroll (offset, alto visible, alto de
+  // contenido) — como estado, no ref: el render depende de él.
+  const [showMore, setShowMore] = useState(false);
   const scrollMetrics = useRef({ y: 0, vh: 0, ch: 0 });
-  const updateAtBottom = (
-    e: NativeSyntheticEvent<NativeScrollEvent>,
-  ) => {
+  const recomputeMore = () => {
+    const m = scrollMetrics.current;
+    setShowMore(
+      m.vh > 0 && m.ch > m.vh + 8 && m.y + m.vh < m.ch - 32,
+    );
+  };
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, layoutMeasurement, contentSize } =
       e.nativeEvent;
     scrollMetrics.current = {
@@ -112,10 +115,7 @@ export default function FeatureSheet({
       vh: layoutMeasurement.height,
       ch: contentSize.height,
     };
-    setAtBottom(
-      contentOffset.y + layoutMeasurement.height >=
-        contentSize.height - 32,
-    );
+    recomputeMore();
   };
 
   // Playa mas cercana al vertido (contexto de impacto)
@@ -234,19 +234,18 @@ export default function FeatureSheet({
         showsVerticalScrollIndicator={false}
         onLayout={(e) => {
           scrollMetrics.current.vh = e.nativeEvent.layout.height;
+          recomputeMore();
         }}
         onContentSizeChange={(_w, ch) => {
           setBodyH(ch);
-          // Recalcular atBottom al cambiar el contenido: si veníamos
-          // del picker de PMs (corto, todo cabe = "abajo"), al cargar
-          // la ficha larga hay que volver a evaluar o "Ver más" no
-          // aparecería nunca (solo se actualizaba al hacer scroll).
+          // Re-evaluar al cambiar el contenido: si veníamos del picker
+          // de PMs (corto) la ficha larga debe volver a mostrar el
+          // botón aunque nadie haya hecho scroll todavía.
           scrollMetrics.current.ch = ch;
-          const m = scrollMetrics.current;
-          setAtBottom(m.y + m.vh >= ch - 32);
+          recomputeMore();
         }}
-        onScroll={updateAtBottom}
-        onMomentumScrollEnd={updateAtBottom}
+        onScroll={handleScroll}
+        onMomentumScrollEnd={handleScroll}
         scrollEventThrottle={80}
       >
         {isBeach ? (
@@ -365,9 +364,7 @@ export default function FeatureSheet({
           expandido). Si la card está plegada la expande primero; en
           ambos casos baja sola hasta el final. Se oculta al llegar
           abajo. */}
-      {scrollMetrics.current.vh > 0 &&
-        bodyH > scrollMetrics.current.vh + 8 &&
-        !atBottom && (
+      {showMore && (
         <Pressable
           style={styles.moreBtn}
           onPress={() => {
@@ -385,7 +382,7 @@ export default function FeatureSheet({
             // usuario subió a mano, respetar su posición).
             setTimeout(() => {
               const m = scrollMetrics.current;
-              if (m.ch > 0 && m.y + m.vh >= m.ch - 120) setAtBottom(true);
+              if (m.ch > 0 && m.y + m.vh >= m.ch - 120) setShowMore(false);
             }, 1200);
           }}
           accessibilityRole="button"
