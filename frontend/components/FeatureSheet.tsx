@@ -359,10 +359,15 @@ export default function FeatureSheet({
         )}
       </ScrollView>
 
-      {/* "Ver más": insinúa que hay contenido debajo. Si la card está
-          plegada la expande primero; en ambos casos baja sola hasta el
-          final del contenido. Se oculta al llegar abajo. */}
-      {bodyH + HEADER_H > CARD_MAX + 8 && !atBottom && (
+      {/* "Ver más": insinúa que hay contenido debajo. Aparece cuando el
+          contenido no cabe en el viewport actual del ScrollView (aunque
+          cupiera en la card expandida — el usuario aún no la ha
+          expandido). Si la card está plegada la expande primero; en
+          ambos casos baja sola hasta el final. Se oculta al llegar
+          abajo. */}
+      {scrollMetrics.current.vh > 0 &&
+        bodyH > scrollMetrics.current.vh + 8 &&
+        !atBottom && (
         <Pressable
           style={styles.moreBtn}
           onPress={() => {
