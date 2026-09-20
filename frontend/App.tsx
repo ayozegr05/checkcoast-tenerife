@@ -15,6 +15,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TurboModuleRegistry,
   View,
 } from 'react-native';
 
@@ -43,14 +44,17 @@ const EMPTY_FC: FeatureCollection = {
 
 // AsyncStorage es nativo: si el build instalado no lleva el módulo ni
 // se toca — la card de bienvenida sale en cada arranque, como antes.
-// En el próximo build con el módulo la preferencia persiste sola.
+// Con New Architecture el módulo vive como TurboModule (NativeModules
+// puede no listarlo), así que se consultan ambos registros.
 const INTRO_SEEN_KEY = 'checkcoast.intro_seen';
 const storage: {
   getItem: (k: string) => Promise<string | null>;
   setItem: (k: string, v: string) => Promise<void>;
-} | null = NativeModules.RNCAsyncStorage
-  ? require('@react-native-async-storage/async-storage').default
-  : null;
+} | null =
+  NativeModules.RNCAsyncStorage ??
+  TurboModuleRegistry.get('RNCAsyncStorage')
+    ? require('@react-native-async-storage/async-storage').default
+    : null;
 
 export default function App() {
   const [fontsLoaded] = useFonts({

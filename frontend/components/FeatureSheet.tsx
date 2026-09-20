@@ -232,7 +232,19 @@ export default function FeatureSheet({
         style={styles.body}
         contentContainerStyle={styles.bodyContent}
         showsVerticalScrollIndicator={false}
-        onContentSizeChange={(_w, ch) => setBodyH(ch)}
+        onLayout={(e) => {
+          scrollMetrics.current.vh = e.nativeEvent.layout.height;
+        }}
+        onContentSizeChange={(_w, ch) => {
+          setBodyH(ch);
+          // Recalcular atBottom al cambiar el contenido: si veníamos
+          // del picker de PMs (corto, todo cabe = "abajo"), al cargar
+          // la ficha larga hay que volver a evaluar o "Ver más" no
+          // aparecería nunca (solo se actualizaba al hacer scroll).
+          scrollMetrics.current.ch = ch;
+          const m = scrollMetrics.current;
+          setAtBottom(m.y + m.vh >= ch - 32);
+        }}
         onScroll={updateAtBottom}
         onMomentumScrollEnd={updateAtBottom}
         scrollEventThrottle={80}
