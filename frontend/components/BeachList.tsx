@@ -736,7 +736,9 @@ const styles = StyleSheet.create({
   },
   moreBtn: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 18 : 10,
+    // Por encima de la barra de gestos/botones nativos de Android,
+    // igual que la card del mapa (CARD_BOTTOM ≈ 44)
+    bottom: Platform.OS === 'android' ? 42 : 12,
     alignSelf: 'center',
     paddingHorizontal: 18,
     paddingVertical: 7,
