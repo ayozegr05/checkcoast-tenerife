@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import {
   FlatList,
+  Image,
   ImageBackground,
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 
+import ScrollChips from './ScrollChips';
 import { GeoFeature } from '../lib/api';
 import { colors, fonts } from '../lib/theme';
 
@@ -119,7 +120,7 @@ export default function OutfallList({
           resizeMode="cover"
         >
           <View style={styles.headerRow}>
-            <Text style={styles.title}>Vertidos al mar</Text>
+            <Text style={styles.title}>Emisarios al mar</Text>
             <Pressable onPress={onClose} hitSlop={12}>
               <Text style={styles.close}>✕</Text>
             </Pressable>
@@ -131,20 +132,33 @@ export default function OutfallList({
           </Text>
         </ImageBackground>
 
-        <TextInput
-          style={styles.search}
-          placeholder="Buscar emisario..."
-          value={query}
-          onChangeText={setQuery}
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-        />
+        <View style={styles.searchWrap}>
+          <Image
+            source={require('../assets/icons/icon-search.png')}
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.search}
+            placeholder="Busca tu emisario…"
+            placeholderTextColor={colors.textFaint}
+            value={query}
+            onChangeText={setQuery}
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+            accessibilityLabel="Buscar emisario por nombre"
+          />
+        </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
+        <ImageBackground
+          source={require('../assets/gradient-filter.png')}
+          style={styles.filterBar}
+          imageStyle={styles.filterBarImg}
+        >
+        <ScrollChips
           style={styles.chips}
           contentContainerStyle={styles.chipsContent}
+          fadeRgbLeft="140,216,230"
+          fadeRgbRight="242,251,253"
         >
           <Pressable
             style={[styles.chip, status === undefined && styles.chipActive]}
@@ -175,13 +189,13 @@ export default function OutfallList({
               </Text>
             </Pressable>
           ))}
-        </ScrollView>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
+        </ScrollChips>
+        <View style={styles.filterBarDivider} />
+        <ScrollChips
           style={styles.chips}
           contentContainerStyle={styles.chipsContent}
+          fadeRgbLeft="140,216,230"
+          fadeRgbRight="242,251,253"
         >
           <Pressable
             style={[
@@ -202,10 +216,7 @@ export default function OutfallList({
           {municipalities.map((m) => (
             <Pressable
               key={m}
-              style={[
-                styles.chip,
-                municipality === m && styles.chipActive,
-              ]}
+              style={[styles.chip, municipality === m && styles.chipActive]}
               onPress={() =>
                 setMunicipality(municipality === m ? undefined : m)
               }
@@ -220,7 +231,8 @@ export default function OutfallList({
               </Text>
             </Pressable>
           ))}
-        </ScrollView>
+        </ScrollChips>
+        </ImageBackground>
 
         <FlatList
           data={rows}
@@ -293,42 +305,72 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: 'rgba(255,255,255,0.9)',
   },
-  search: {
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.surface,
     margin: 12,
     marginBottom: 8,
     borderRadius: 10,
     paddingHorizontal: 14,
+    elevation: 2,
+  },
+  searchIcon: {
+    width: 16,
+    height: 16,
+    tintColor: colors.textFaint,
+  },
+  search: {
+    flex: 1,
     paddingVertical: 10,
+    paddingLeft: 8,
     fontSize: 15,
     fontFamily: fonts.regular,
     color: colors.text,
+  },
+  // Barra única sobre la misma aguada del degradado mar que en la
+  // lista de playas, con las dos filas separadas por divisoria
+  filterBar: {
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    marginHorizontal: 12,
+    marginBottom: 4,
+    overflow: 'hidden',
     elevation: 2,
+  },
+  filterBarImg: {
+    borderRadius: 10,
+  },
+  filterBarDivider: {
+    height: 1,
+    backgroundColor: 'rgba(8,107,150,0.18)',
+    marginHorizontal: 10,
   },
   chips: {
     flexGrow: 0,
   },
   chipsContent: {
-    paddingHorizontal: 12,
-    gap: 8,
-    paddingBottom: 4,
+    paddingHorizontal: 8,
+    gap: 4,
+    paddingVertical: 6,
   },
+  // Segmentos transparentes: la presencia la da el texto navy
   chip: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingHorizontal: 12,
+    borderRadius: 8,
+    paddingHorizontal: 10,
     paddingVertical: 6,
   },
   chipActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
   },
   chipText: {
     fontSize: 12,
     fontFamily: fonts.semibold,
-    color: colors.textMuted,
+    color: colors.text, // navy sobre la aguada marina
   },
   chipTextActive: {
-    color: '#fff',
+    color: colors.text, // navy sobre turquesa
+    fontFamily: fonts.extrabold,
   },
   list: {
     flex: 1,

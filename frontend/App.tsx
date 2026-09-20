@@ -22,6 +22,7 @@ import {
 import BeachList from './components/BeachList';
 import CoastMap, { Selection } from './components/CoastMap';
 import FeatureSheet from './components/FeatureSheet';
+import HelpHub from './components/HelpHub';
 import IntroCard from './components/IntroCard';
 import MunicipalityStats from './components/MunicipalityStats';
 import OutfallList from './components/OutfallList';
@@ -75,8 +76,13 @@ export default function App() {
   const [listMunicipality, setListMunicipality] = useState<
     string | null | undefined
   >(undefined);
-  const [focus, setFocus] = useState<[number, number] | null>(null);
+  // [lon, lat, zoom?]: sin zoom = fly-to estándar (13, con card);
+  // con zoom = acercar a pelo, sin abrir ficha
+  const [focus, setFocus] = useState<[number, number, number?] | null>(
+    null,
+  );
   const [introVisible, setIntroVisible] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const loadData = () => {
     setError(null);
@@ -108,7 +114,7 @@ export default function App() {
   }, []);
 
   // La card de bienvenida solo se muestra en el primer arranque;
-  // también se puede reabrir desde el botón de ayuda del mapa
+  // la ayuda bajo demanda vive en HelpHub (botón "?" del mapa)
   useEffect(() => {
     if (!storage) {
       setIntroVisible(true);
@@ -143,24 +149,29 @@ export default function App() {
 
   // Puntos de muestreo pintados en el mapa mientras la card de una
   // playa agrupada está abierta (selector de PMs o ficha de un PM)
-  const pmPointsFC = useMemo<FeatureCollection>(
-    () =>
-      selection?.type === 'beach' &&
-      selection.members &&
-      selection.members.length > 1
-        ? {
-            type: 'FeatureCollection',
-            features: selection.members.map((m) => ({
-              ...m,
-              properties: {
-                ...m.properties,
-                pointLabel: beachPointLabel(m.properties.name) ?? '',
-              },
-            })),
-          }
-        : EMPTY_FC,
-    [selection],
-  );
+  const pmPointsFC = useMemo<FeatureCollection>(() => {
+    // Solo miembros con etiqueta de PM: los duplicados OSM sin
+    // monitorizar agrupados por nombre (p.ej. La Hornilla) no tienen
+    // punto de muestreo — pintarlos dejaría dots grises huérfanos
+    const labeled =
+      selection?.type === 'beach'
+        ? (selection.members ?? []).filter((m) =>
+            beachPointLabel(m.properties.name),
+          )
+        : [];
+    return labeled.length > 1
+      ? {
+          type: 'FeatureCollection',
+          features: labeled.map((m) => ({
+            ...m,
+            properties: {
+              ...m.properties,
+              pointLabel: beachPointLabel(m.properties.name) ?? '',
+            },
+          })),
+        }
+      : EMPTY_FC;
+  }, [selection]);
 
   // Push: registro del token + al tocar la notificación abrir la playa
   const beachesRef = useRef(beachesFC);
@@ -212,16 +223,15 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
+  // "Ver en mapa" desde la lista: solo cerrar y volar cerca de la
+  // playa — la ficha ya se vio; el pin abierto queda al alcance del
+  // dedo si se quiere reabrir
   const handleListSelect = (feature: GeoFeature) => {
     setListOpen(false);
     setMuniOpen(false);
     setListMunicipality(undefined);
-    setSelection({
-      type: 'beach',
-      feature,
-      hasAlert: feature.properties.alert === true,
-    });
-    setFocus([...feature.geometry.coordinates]);
+    setSelection(null); // si había una ficha abierta en el mapa, tapaba el vuelo
+    setFocus([...feature.geometry.coordinates, 14.5]);
   };
 
   const handleOutfallSelect = (feature: GeoFeature) => {
@@ -244,12 +254,19 @@ export default function App() {
         beaches={beachesFC}
         focus={focus}
         selectionActive={!!selection}
+        selectedBeachId={
+          selection?.type === 'beach' ? selection.feature.id : null
+        }
+        selectedOutfallId={
+          selection?.type === 'outfall' ? selection.feature.id : null
+        }
         pmPoints={pmPointsFC}
         onSelect={setSelection}
+        onDismissSelection={() => setSelection(null)}
         onOpenList={() => setListOpen(true)}
         onOpenMunicipalities={() => setMuniOpen(true)}
         onOpenOutfalls={() => setOutfallListOpen(true)}
-        onOpenHelp={() => setIntroVisible(true)}
+        onOpenHelp={() => setHelpOpen(true)}
       />
 
       {(loading || !fontsLoaded) && (
@@ -275,9 +292,12 @@ export default function App() {
         <IntroCard onClose={closeIntro} />
       )}
 
+      {helpOpen && <HelpHub onClose={() => setHelpOpen(false)} />}
+
       <BeachList
         visible={listOpen}
         beaches={beachesFC.features}
+        outfalls={outfalls.features}
         initialMunicipality={listMunicipality}
         onSelect={handleListSelect}
         onClose={() => {
@@ -304,12 +324,17 @@ export default function App() {
         <MunicipalityStats
           beaches={beachesFC.features}
           onSelect={handleMunicipalitySelect}
+          onSelectBeach={openBeachById}
           onClose={() => setMuniOpen(false)}
         />
       )}
 
       {selection && (
-        <FeatureSheet selection={selection} onClose={() => setSelection(null)} />
+        <FeatureSheet
+          selection={selection}
+          onClose={() => setSelection(null)}
+          outfalls={outfalls.features}
+        />
       )}
 
       <StatusBar style="auto" />

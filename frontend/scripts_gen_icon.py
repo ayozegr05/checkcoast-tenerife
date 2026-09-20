@@ -265,16 +265,22 @@ for name, col in OUTFALL_COLORS.items():
 
 
 # --- iconos del toggle de vista: mapa plegado / antena parabolica ---
+MAP_GREEN = (90, 168, 105)    # tierra en el mapa plegado
+MAP_BLUE = (99, 179, 224)     # mar en el mapa plegado
+DISH = (142, 168, 184)        # metal de la parabolica
+DISH_DARK = (61, 89, 102)     # brazo/alimentador
+
+
 def draw_map_icon():
     s = 96
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    for p in (
-        [(16, 24), (42, 14), (42, 72), (16, 82)],
-        [(42, 14), (68, 24), (68, 82), (42, 72)],
-        [(68, 24), (92, 14), (92, 72), (68, 82)],
+    for p, col in (
+        ([(16, 24), (42, 14), (42, 72), (16, 82)], MAP_GREEN),
+        ([(42, 14), (68, 24), (68, 82), (42, 72)], MAP_BLUE),
+        ([(68, 24), (92, 14), (92, 72), (68, 82)], MAP_GREEN),
     ):
-        d.polygon(p, fill=NAVY)
+        d.polygon(p, fill=col)
     d.line([(42, 14), (42, 72)], fill=WHITE, width=4)
     d.line([(68, 24), (68, 82)], fill=WHITE, width=4)
     img.save("assets/icons/icon-map.png")
@@ -284,12 +290,29 @@ def draw_satellite_icon():
     s = 96
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.pieslice([-16, 16, 96, 116], 270, 360, fill=NAVY)    # parabolica
-    d.line([(40, 62), (88, 12)], fill=NAVY, width=11)     # brazo
-    d.ellipse([82, 0, 100, 18], fill=NAVY)                # alimentador
-    d.arc([84, -12, 110, 14], 260, 350, fill=NAVY, width=7)  # señal 1
-    d.arc([72, -24, 112, 24], 260, 350, fill=NAVY, width=7)  # señal 2
+    d.pieslice([-16, 20, 96, 120], 270, 360, fill=DISH)      # parabolica
+    d.line([(40, 66), (86, 18)], fill=DISH_DARK, width=11)   # brazo
+    d.ellipse([80, 6, 98, 24], fill=DISH_DARK)               # alimentador
+    d.arc([74, 12, 102, 40], 250, 335, fill=TURQ, width=7)   # señal 1
+    d.arc([64, 4, 112, 52], 250, 335, fill=TURQ, width=7)    # señal 2
     img.save("assets/icons/icon-satellite.png")
+
+
+LAYER_MID = (41, 128, 160)  # hoja intermedia de "Capas"
+
+
+def draw_layers_icon():
+    """Tres rombos apilados (glifo clasico de capas GIS), degradado
+    navy -> turquesa de abajo a arriba."""
+    s = 96
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    for col, oy in ((NAVY, 32), (LAYER_MID, 16), (TURQ, 0)):
+        d.polygon(
+            [(48, 14 + oy), (78, 30 + oy), (48, 46 + oy), (18, 30 + oy)],
+            fill=col,
+        )
+    img.save("assets/icons/icon-layers.png")
 
 
 def draw_faucet_icon():
@@ -349,6 +372,7 @@ def draw_alert_icon():
 
 draw_map_icon()
 draw_satellite_icon()
+draw_layers_icon()
 draw_faucet_icon()
 draw_wave_icon()
 draw_townhall_icon()

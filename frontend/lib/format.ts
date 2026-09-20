@@ -87,6 +87,20 @@ export const beachBaseName = (name: string) =>
     .replace(/\s+(I|II|III|IV)\s*(?=\))/, '')
     .replace(/\s+(I|II|III|IV)(?=\s*\(|\s*$)/, '');
 
+// Clave de agrupación insensible a artículos/preposiciones y acentos:
+// "PLAYA DE LA HORNILLA" ≡ "PLAYA LA HORNILLA" (OSM duplica arenales
+// con variantes de nombre). SOLO para la clave de grupo — el nombre
+// visible sigue saliendo de beachBaseName/displayBeachName
+export const beachGroupKey = (name: string) =>
+  beachBaseName(name)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .replace(/\b(DE LA|DE LOS|DE LAS|DEL|DE|EL|LA|LOS|LAS)\b/g, ' ')
+    .replace(/^PLAYA\s+/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 // Etiqueta del punto de muestreo dentro de su playa: "PM3"; si la
 // playa se subdivide por romano (Troya I/II) se antepone: "II · PM3"
 export const beachPointLabel = (name: string) => {

@@ -25,6 +25,7 @@ import {
 import { displayBeachName, fmtDate } from '../lib/format';
 import { pressSummary } from '../lib/press';
 import { colors, fonts } from '../lib/theme';
+import ScrollChips from './ScrollChips';
 import Skeleton from './Skeleton';
 
 // Estado de playa: usa properties.status (de /beaches + /alerts)
@@ -134,11 +135,36 @@ const fmtMonth = (iso: string) => {
 const fmtDistance = (m: number) =>
   m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
 
+// "Última comprobación" del estado oficial: no es cuando cambió el
+// estado sino cuándo nuestro scraper consultó Náyade por última vez —
+// por eso enseña hora (hoy 14:32 / ayer 14:32 / fecha)
+const fmtCheck = (iso: string) => {
+  const d = new Date(iso);
+  const hh = `${String(d.getHours()).padStart(2, '0')}:${String(
+    d.getMinutes(),
+  ).padStart(2, '0')}`;
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return `hoy ${hh}`;
+  const yest = new Date(now.getTime() - 86400000);
+  if (d.toDateString() === yest.toDateString()) return `ayer ${hh}`;
+  return `${fmtDate(iso.slice(0, 10))} ${hh}`;
+};
+
 const OUTFALL_STATUS_LABELS: Record<string, string> = {
   legal: 'Autorizado',
   illegal: 'No autorizado',
   unknown: 'En trámite',
 };
+
+// Foto satélite estática del punto (Esri World Imagery, mismo servicio
+// que la vista satélite del mapa). Bbox ~800x500 m centrada en la playa
+const SAT_DLON = 0.004;
+const SAT_DLAT = 0.0022;
+const satelliteShot = ([lon, lat]: [number, number]) =>
+  'https://server.arcgisonline.com/ArcGIS/rest/services/' +
+  `World_Imagery/MapServer/export?bbox=${lon - SAT_DLON},${lat - SAT_DLAT},` +
+  `${lon + SAT_DLON},${lat + SAT_DLAT}&bboxSR=4326&imageSR=4326&size=640,300` +
+  '&format=png&f=image';
 
 // Tipos de evento extraídos de prensa por el LLM (Hito 8.5)
 const NEWS_EVENT_LABELS: Record<string, string> = {
@@ -154,16 +180,16 @@ const NEWS_EVENT_LABELS: Record<string, string> = {
 export default function BeachDetail({
   feature,
   hasAlert,
-  scrollRef,
+  outfalls,
 }: {
   feature: GeoFeature;
   hasAlert: boolean;
-  // ScrollView padre: al desplegar "Ver titulares" se hace scrollToEnd
-  // (la sección de prensa es la última de la ficha)
-  scrollRef?: React.RefObject<ScrollView | null>;
+  // Emisarios cargados en la app: se superponen a la foto satélite
+  outfalls?: GeoFeature[];
 }) {
   const p = feature.properties;
   const unmonitored = p.monitored === false;
+  const [lon, lat] = feature.geometry.coordinates;
 
   const [incidents, setIncidents] = useState<BeachIncident[] | null>(null);
   const [quality, setQuality] = useState<BeachMeasurement[] | null>(null);
@@ -174,6 +200,8 @@ export default function BeachDetail({
     'ecoli',
   );
   const [chartW, setChartW] = useState(0);
+  // La foto satélite de Esri tarda en llegar: skeleton hasta que carga
+  const [shotLoaded, setShotLoaded] = useState(false);
 
   useEffect(() => {
     setIncidents(null);
@@ -181,6 +209,7 @@ export default function BeachDetail({
     setNearby(null);
     setNews(null);
     setNewsOpen(false);
+    setShotLoaded(false);
     fetchBeachNearbyOutfalls(feature.id)
       .then(setNearby)
       .catch(() => setNearby([]));
@@ -230,13 +259,21 @@ export default function BeachDetail({
       .filter(
         (d): d is { date: string; value: number } => d.value !== null,
       );
-    // Etiqueta de año bajo la primera barra de cada año
+    // Etiqueta de año bajo la primera barra de cada año; yearSpan =
+    // barras del año para decidir si la etiqueta cabe sin solaparse
     let lastYear = '';
-    return rows.map((d) => {
+    return rows.map((d, i) => {
       const year = d.date.slice(0, 4);
       const yearLabel = year !== lastYear ? year : null;
       lastYear = year;
-      return { ...d, yearLabel };
+      let yearSpan = 0;
+      if (yearLabel) {
+        for (let j = i; j < rows.length; j++) {
+          if (rows[j].date.slice(0, 4) !== year) break;
+          yearSpan++;
+        }
+      }
+      return { ...d, yearLabel, yearSpan };
     });
   }, [quality, chartParam]);
 
@@ -246,6 +283,13 @@ export default function BeachDetail({
     chartW > 0 && chartData.length > 0
       ? Math.max(8, chartW / chartData.length)
       : 8;
+
+  // Índice de la última etiqueta de año: siempre se muestra aunque su
+  // año tenga pocas barras (no hay etiqueta siguiente con la que solape)
+  const lastYearIdx = chartData.reduce(
+    (acc, d, i) => (d.yearLabel ? i : acc),
+    -1,
+  );
 
   // Titulares agrupados por evento+causa: la misma noticia cubierta
   // por varios medios queda como un solo bloque escaneable
@@ -263,6 +307,37 @@ export default function BeachDetail({
     }
     return [...groups.values()];
   }, [news]);
+
+  // Emisarios dentro del bbox de la foto satélite: posición interpolada
+  // lon/lat → % del contenedor (foto fija con la misma proyección que
+  // el bbox). Ordenados por cercanía a la playa, tope 14 para no
+  // saturar zonas densas como el puerto de Santa Cruz
+  const shotOutfalls = useMemo(() => {
+    const cos = Math.cos((lat * Math.PI) / 180);
+    return (outfalls ?? [])
+      .map((o) => {
+        const [ol, oa] = o.geometry.coordinates;
+        const dLonM = (ol - lon) * 111320 * cos;
+        const dLatM = (oa - lat) * 110540;
+        return {
+          id: o.id,
+          status: o.properties.status ?? 'unknown',
+          x: ((ol - (lon - SAT_DLON)) / (2 * SAT_DLON)) * 100,
+          y: (((lat + SAT_DLAT) - oa) / (2 * SAT_DLAT)) * 100,
+          d2: dLonM * dLonM + dLatM * dLatM,
+        };
+      })
+      .filter((o) => o.x >= 0 && o.x <= 100 && o.y >= 0 && o.y <= 100)
+      .sort((a, b) => a.d2 - b.d2)
+      .slice(0, 14);
+  }, [outfalls, lon, lat]);
+
+  // Estados presentes entre los emisarios del encuadre: la mini-leyenda
+  // solo muestra lo que realmente se ve en la foto
+  const shotStatuses = useMemo(
+    () => [...new Set(shotOutfalls.map((o) => o.status ?? 'unknown'))],
+    [shotOutfalls],
+  );
 
   // ¿El cierre de prensa sigue vivo? Si Sanidad registró un incidente
   // cerrado poco después del primer titular (<=15 días), es el mismo
@@ -323,6 +398,71 @@ export default function BeachDetail({
 
   return (
     <View>
+      {/* Vista satélite del entorno: la playa en el centro y los
+          emisarios catalogados situados en su posición real dentro del
+          encuadre, coloreados por estado */}
+      <View style={styles.shotWrap}>
+        {!shotLoaded && <Skeleton style={styles.shotSkeleton} />}
+        {!shotLoaded && (
+          <Text style={styles.shotLoading}>Cargando vista satélite…</Text>
+        )}
+        <Image
+          source={{ uri: satelliteShot(feature.geometry.coordinates) }}
+          style={styles.shot}
+          resizeMode="stretch"
+          onLoad={() => setShotLoaded(true)}
+          accessibilityLabel="Vista satélite de la zona de la playa"
+        />
+        {shotOutfalls.map((o) => (
+          <View
+            key={o.id}
+            style={[
+              styles.shotOutfall,
+              {
+                left: `${o.x}%`,
+                top: `${o.y}%`,
+                backgroundColor:
+                  colors.outfall[o.status as keyof typeof colors.outfall] ??
+                  colors.status.unknown,
+              },
+            ]}
+          >
+            <Image
+              source={require('../assets/icons/icon-faucet-sil.png')}
+              style={styles.shotOutfallIcon}
+            />
+          </View>
+        ))}
+        <View
+          style={[styles.shotDot, { backgroundColor: statusColor }]}
+        />
+        {shotStatuses.length > 0 && (
+          <View style={styles.shotLegend}>
+            {shotStatuses.map((s) => (
+              <View key={s} style={styles.shotLegendRow}>
+                <View
+                  style={[
+                    styles.shotLegendDot,
+                    {
+                      backgroundColor:
+                        colors.outfall[
+                          s as keyof typeof colors.outfall
+                        ] ?? colors.status.unknown,
+                    },
+                  ]}
+                />
+                <Text style={styles.shotLegendText}>
+                  {OUTFALL_STATUS_LABELS[s] ?? 'En trámite'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+        <Text style={styles.shotCredit}>
+          © Esri, Maxar, Earthstar Geographics
+        </Text>
+      </View>
+
       <View style={styles.topRow}>
         <View style={[styles.chip, { backgroundColor: statusColor }]}>
           <Text style={styles.chipText}>{statusText}</Text>
@@ -335,35 +475,44 @@ export default function BeachDetail({
           accessibilityLabel="Compartir estado de la playa"
         >
           <Image
-            source={require('../assets/icons/icon-share.png')}
+            source={require('../assets/icons/icon-share-outline.png')}
             style={styles.shareIcon}
           />
           <Text style={styles.shareText}>Compartir</Text>
         </Pressable>
       </View>
 
-      {p.municipality ? (
-        <Text style={styles.row}>Municipio: {p.municipality}</Text>
-      ) : null}
-      {unmonitored ? (
-        <Text style={styles.row}>
-          Playa sin controles sanitarios oficiales. Fuente: OpenStreetMap
-          (© colaboradores OSM)
-        </Text>
-      ) : (
-        <Text style={styles.row}>
-          Fuente: Censo Zonas de Baño 2025 (MITECO) · Incidencias: Náyade
-          (Min. Sanidad)
-        </Text>
+      {nearby !== null && nearby.length > 0 && (
+        <View style={styles.nearbyTop}>
+          <Text style={styles.historyTitle}>
+            Emisarios cercanos ({nearby.length})
+          </Text>
+          {nearby.map((o) => {
+            const accent =
+              colors.outfall[o.status] ?? colors.status.unknown;
+            return (
+              <View
+                key={o.outfall_id}
+                style={[styles.outfallRow, { borderLeftColor: accent }]}
+              >
+                <View style={styles.outfallRowBody}>
+                  <Text style={styles.outfallName} numberOfLines={1}>
+                    {o.name}
+                  </Text>
+                  <Text style={styles.outfallMeta}>
+                    {OUTFALL_STATUS_LABELS[o.status] ?? 'En trámite'} · a{' '}
+                    {fmtDistance(o.distance_m)}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+          <Text style={styles.chartFoot}>En un radio de 1 km</Text>
+        </View>
       )}
-      {!unmonitored && p.reported_at ? (
-        <Text style={styles.rowMuted}>
-          Estado actualizado: {fmtDate(p.reported_at.slice(0, 10))}
-        </Text>
-      ) : null}
 
-      {/* "¿Por qué?" según prensa, visible sin scroll; la lista de
-          titulares queda en la card "En la prensa" */}
+      {/* "¿Por qué?" según prensa: aviso compacto con los titulares
+          plegados — solo se expanden a petición del usuario */}
       {news !== null && news.items.length > 0 && (
         <View style={styles.pressBanner}>
           <Text style={styles.pressBannerText}>
@@ -382,6 +531,129 @@ export default function BeachDetail({
               }).sub
             }
           </Text>
+          <Pressable
+            onPress={() => setNewsOpen((v) => !v)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={
+              newsOpen
+                ? 'Ocultar titulares de prensa'
+                : `Ver ${news.summary.items_count} titulares de prensa`
+            }
+          >
+            <Text style={styles.newsToggle}>
+              {newsOpen
+                ? 'Ocultar titulares ▴'
+                : `Ver titulares (${news.summary.items_count}) ▾`}
+            </Text>
+          </Pressable>
+          {newsOpen && (
+            <>
+              {newsGroups.map((g) => (
+                <View key={g.label} style={styles.newsGroup}>
+                  <Text style={styles.newsGroupTitle}>{g.label}</Text>
+                  {g.items.map((n) => (
+                    <Pressable
+                      key={n.id}
+                      style={styles.newsRow}
+                      onPress={() =>
+                        Linking.openURL(n.url).catch(() => {})
+                      }
+                      accessibilityRole="link"
+                      accessibilityLabel={`Noticia: ${n.title}`}
+                    >
+                      <View style={styles.newsRowBody}>
+                        <Text style={styles.newsTitle} numberOfLines={2}>
+                          {n.title}
+                        </Text>
+                        <Text style={styles.newsMeta} numberOfLines={1}>
+                          {[
+                            n.source,
+                            n.published_at
+                              ? fmtDate(n.published_at.slice(0, 10))
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </Text>
+                      </View>
+                      <Text style={styles.newsChevron}>›</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ))}
+              <Text style={styles.chartFoot}>
+                Contexto de prensa: no altera el estado oficial (Náyade)
+              </Text>
+            </>
+          )}
+        </View>
+      )}
+
+      {incidents !== null && incidents.length > 0 && (
+        <View style={styles.history}>
+          <Text style={styles.historyTitle}>
+            Historial de incidencias ({incidents.length})
+          </Text>
+          <Text style={styles.incidentObs}>
+            {incidents.filter(isClosure).length} cierres ·{' '}
+            {incidents.filter((i) => !isClosure(i) && !isUnclassified(i)).length}{' '}
+            avisos
+            {incidents.some(isUnclassified)
+              ? ` · ${incidents.filter(isUnclassified).length} muestra${
+                  incidents.filter(isUnclassified).length === 1 ? '' : 's'
+                } sin calificar`
+              : ''}
+            {'\n'}
+            Cerrada {closuresInYears(incidents, 1)} vez
+            {closuresInYears(incidents, 1) === 1 ? '' : 'es'} el último año
+            · {closuresInYears(incidents, 5)} en los últimos 5 años
+          </Text>
+          <ScrollView style={styles.historyList} nestedScrollEnabled>
+            {incidents.map((inc) => {
+              const closure = isClosure(inc);
+              const unclassified = isUnclassified(inc);
+              const accent = closure
+                ? colors.status.closed
+                : colors.outfall.unknown;
+              return (
+                <View
+                  key={inc.id}
+                  style={[styles.incident, { borderLeftColor: accent }]}
+                >
+                  <View style={styles.incidentHead}>
+                    <Text style={styles.incidentDates}>
+                      {fmtDate(inc.opened_at)} →{' '}
+                      {inc.closed_at ? fmtDate(inc.closed_at) : 'hoy'}
+                    </Text>
+                    <View
+                      style={[
+                        styles.incidentTag,
+                        { backgroundColor: accent },
+                      ]}
+                    >
+                      <Text style={styles.incidentTagText}>
+                        {inc.closed_at
+                          ? closure
+                            ? 'CIERRE'
+                            : 'AVISO'
+                          : unclassified
+                            ? 'PENDIENTE'
+                            : 'ACTIVA'}
+                      </Text>
+                    </View>
+                  </View>
+                  {inc.observations ? (
+                    <Text style={styles.incidentObs}>
+                      {unclassified
+                        ? 'Muestra tomada pero nunca clasificada por Sanidad'
+                        : inc.observations}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })}
+          </ScrollView>
         </View>
       )}
 
@@ -492,11 +764,11 @@ export default function BeachDetail({
                   ))}
                 </View>
               </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
+              <ScrollChips
+                fadeRgb="255, 255, 255"
+                a11yLabel="la gráfica"
               >
-                <View>
+                <View style={styles.chartInner}>
                   <View style={styles.chartArea}>
                     <View
                       style={[
@@ -570,8 +842,9 @@ export default function BeachDetail({
                         key={i}
                         style={[styles.yearCol, { width: colW }]}
                       >
-                        {d.yearLabel ? (
-                          <Text style={styles.yearText}>
+                        {d.yearLabel &&
+                        (d.yearSpan * colW >= 30 || i === lastYearIdx) ? (
+                          <Text style={styles.yearText} numberOfLines={1}>
                             {d.yearLabel}
                           </Text>
                         ) : null}
@@ -579,7 +852,7 @@ export default function BeachDetail({
                     ))}
                   </View>
                 </View>
-              </ScrollView>
+              </ScrollChips>
               <Text style={styles.chartFoot}>
                 {chartData.length} muestreos · cada barra = un análisis
                 oficial · línea azul = límite normativo (
@@ -593,239 +866,88 @@ export default function BeachDetail({
         </View>
       )}
 
-      {nearby !== null && nearby.length > 0 && (
-        <View style={styles.history}>
-          <Text style={styles.historyTitle}>
-            Emisarios cercanos ({nearby.length})
-          </Text>
-          {nearby.map((o) => {
-            const accent =
-              colors.outfall[o.status] ?? colors.status.unknown;
-            return (
-              <View
-                key={o.outfall_id}
-                style={[styles.outfallRow, { borderLeftColor: accent }]}
-              >
-                <View style={styles.outfallRowBody}>
-                  <Text style={styles.outfallName} numberOfLines={1}>
-                    {o.name}
-                  </Text>
-                  <Text style={styles.outfallMeta}>
-                    {OUTFALL_STATUS_LABELS[o.status] ?? 'En trámite'} · a{' '}
-                    {fmtDistance(o.distance_m)}
-                  </Text>
-                </View>
-              </View>
-            );
-          })}
-          <Text style={styles.chartFoot}>En un radio de 1 km</Text>
-        </View>
-      )}
-
-      {incidents !== null && incidents.length > 0 && (
-        <View style={styles.history}>
-          <Text style={styles.historyTitle}>
-            Historial de incidencias ({incidents.length})
-          </Text>
-          <Text style={styles.incidentObs}>
-            {incidents.filter(isClosure).length} cierres ·{' '}
-            {incidents.filter((i) => !isClosure(i) && !isUnclassified(i)).length}{' '}
-            avisos
-            {incidents.some(isUnclassified)
-              ? ` · ${incidents.filter(isUnclassified).length} muestra${
-                  incidents.filter(isUnclassified).length === 1 ? '' : 's'
-                } sin calificar`
-              : ''}
-            {'\n'}
-            Cerrada {closuresInYears(incidents, 1)} vez
-            {closuresInYears(incidents, 1) === 1 ? '' : 'es'} el último año
-            · {closuresInYears(incidents, 5)} en los últimos 5 años
-          </Text>
-          <ScrollView style={styles.historyList} nestedScrollEnabled>
-            {incidents.map((inc) => {
-              const closure = isClosure(inc);
-              const unclassified = isUnclassified(inc);
-              const accent = closure
-                ? colors.status.closed
-                : colors.outfall.unknown;
-              return (
-                <View
-                  key={inc.id}
-                  style={[styles.incident, { borderLeftColor: accent }]}
-                >
-                  <View style={styles.incidentHead}>
-                    <Text style={styles.incidentDates}>
-                      {fmtDate(inc.opened_at)} →{' '}
-                      {inc.closed_at ? fmtDate(inc.closed_at) : 'hoy'}
-                    </Text>
-                    <View
-                      style={[
-                        styles.incidentTag,
-                        { backgroundColor: accent },
-                      ]}
-                    >
-                      <Text style={styles.incidentTagText}>
-                        {inc.closed_at
-                          ? closure
-                            ? 'CIERRE'
-                            : 'AVISO'
-                          : unclassified
-                            ? 'PENDIENTE'
-                            : 'ACTIVA'}
-                      </Text>
-                    </View>
-                  </View>
-                  {inc.observations ? (
-                    <Text style={styles.incidentObs}>
-                      {unclassified
-                        ? 'Muestra tomada pero nunca clasificada por Sanidad'
-                        : inc.observations}
-                    </Text>
-                  ) : null}
-                </View>
-              );
-            })}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Prensa al final: es contexto, no dato oficial */}
-      {news !== null && news.items.length > 0 && (
-        <View style={styles.history}>
-          <View style={styles.newsHead}>
-            <Text style={styles.historyTitle}>En la prensa</Text>
-            <View style={styles.pressTag}>
-              <Text style={styles.pressTagText}>según prensa</Text>
-            </View>
-          </View>
-          <Text style={styles.newsSummary}>
-            {
-              pressSummary(news.summary, {
-                stillClosed: pressStillClosed,
-                reopenedAt: pressReopenedAt,
-              }).main
-            }
-          </Text>
-          <Pressable
-            onPress={() => {
-              setNewsOpen((v) => !v);
-              if (!newsOpen) {
-                // La card puede estar ya a tope: baja a la lista nueva
-                setTimeout(
-                  () =>
-                    scrollRef?.current?.scrollToEnd({ animated: true }),
-                  120,
-                );
-              }
-            }}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={
-              newsOpen
-                ? 'Ocultar titulares de prensa'
-                : `Ver ${news.summary.items_count} titulares de prensa`
-            }
-          >
-            <Text style={styles.newsToggle}>
-              {newsOpen
-                ? 'Ocultar titulares ▴'
-                : `Ver titulares (${news.summary.items_count}) ▾`}
-            </Text>
-          </Pressable>
-          {newsOpen &&
-            newsGroups.map((g) => (
-              <View key={g.label} style={styles.newsGroup}>
-                <Text style={styles.newsGroupTitle}>{g.label}</Text>
-                {g.items.map((n) => (
-                  <Pressable
-                    key={n.id}
-                    style={styles.newsRow}
-                    onPress={() => Linking.openURL(n.url).catch(() => {})}
-                    accessibilityRole="link"
-                    accessibilityLabel={`Noticia: ${n.title}`}
-                  >
-                    <Text style={styles.newsTitle} numberOfLines={2}>
-                      {n.title}
-                    </Text>
-                    <Text style={styles.newsMeta} numberOfLines={1}>
-                      {[
-                        n.source,
-                        n.published_at
-                          ? fmtDate(n.published_at.slice(0, 10))
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            ))}
-          <Text style={styles.chartFoot}>
-            Contexto de prensa: no altera el estado oficial (Náyade)
-          </Text>
-        </View>
-      )}
+      {/* Atribución de fuentes + última comprobación: metadatos al pie,
+          no contenido */}
+      <Text style={styles.sourceFoot}>
+        {unmonitored
+          ? 'Playa sin controles sanitarios oficiales. Fuente: OpenStreetMap (© colaboradores OSM)'
+          : 'Fuentes: Censo Zonas de Baño 2025 (MITECO) · Incidencias: Náyade (Min. Sanidad)'}
+        {!unmonitored && p.reported_at
+          ? ` · Consultado ${fmtCheck(p.reported_at)}`
+          : ''}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Estado centrado como "titular" de la ficha; Compartir docked a la
+  // derecha en absoluto para no robarle el centro al chip
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
     marginTop: 8,
     marginBottom: 4,
+    minHeight: 30,
+    // Pequeña reserva a la derecha: el chip queda casi centrado y
+    // solo deja un margen de respiro junto al Compartir
+    paddingRight: 40,
   },
   chip: {
-    alignSelf: 'flex-start',
     borderRadius: 6,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 5,
   },
   chipText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fonts.bold,
   },
   shareBtn: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0, // estira a toda la fila para centrar su contenido
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#1a7f96', // azul océano del estilo del mapa
+    backgroundColor: colors.surface, // outline: el chip de estado es el único relleno
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#11586b',
+    borderColor: 'rgba(26,127,150,0.45)', // teal suavizado
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 0,
   },
   shareIcon: {
-    width: 13,
-    height: 13,
+    width: 12,
+    height: 12,
   },
   shareText: {
-    color: '#fff',
-    fontSize: 12,
+    color: '#1a7f96',
+    fontSize: 11,
     fontFamily: fonts.bold,
-  },
-  row: {
-    fontSize: 13,
-    fontFamily: fonts.regular,
-    color: colors.text,
-    marginTop: 4,
-  },
-  rowMuted: {
-    fontSize: 12,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
-    marginTop: 3,
   },
   history: {
     marginTop: 10,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: 8,
+  },
+  // "Emisarios cercanos" arriba de la ficha: sin borde superior, es el
+  // primer bloque de contenido tras la fila de estado
+  nearbyTop: {
+    marginTop: 10,
+    paddingTop: 2,
+  },
+  sourceFoot: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    marginTop: 16,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   historyTitle: {
     fontSize: 13,
@@ -905,15 +1027,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   toggleChip: {
-    borderRadius: 10,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   toggleChipOn: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: 'rgba(23,184,206,0.18)',
+    borderColor: colors.accent,
   },
   toggleChipText: {
     fontSize: 10,
@@ -921,7 +1043,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   toggleChipTextOn: {
-    color: '#fff',
+    color: colors.primaryDark,
   },
   chartArea: {
     flexDirection: 'row',
@@ -938,18 +1060,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryDark,
     opacity: 0.85,
   },
+  chartInner: {
+    paddingLeft: 8,
+  },
   yearRow: {
     flexDirection: 'row',
     marginTop: 2,
+    height: 22,
+    paddingRight: 34,
   },
   yearCol: {
     width: 8,
     alignItems: 'flex-start',
   },
   yearText: {
-    fontSize: 7,
+    position: 'absolute',
+    left: 2,
+    top: 0,
+    width: 34,
+    fontSize: 8,
     fontFamily: fonts.semibold,
     color: colors.textFaint,
+    transform: [{ rotate: '45deg' }],
+    transformOrigin: 'left top',
   },
   barCol: {
     justifyContent: 'flex-end',
@@ -1030,24 +1163,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
   },
-  newsHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  pressTag: {
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  pressTagText: {
-    color: colors.primary,
-    fontSize: 9,
-    fontFamily: fonts.extrabold,
-  },
   pressBanner: {
     marginTop: 8,
     borderLeftWidth: 3,
@@ -1068,16 +1183,10 @@ const styles = StyleSheet.create({
     color: colors.status.warning,
     marginTop: 1,
   },
-  newsSummary: {
-    fontSize: 13,
-    fontFamily: fonts.semibold,
-    color: colors.text,
-    marginBottom: 6,
-  },
   newsToggle: {
     fontSize: 12,
     fontFamily: fonts.semibold,
-    color: colors.primary,
+    color: colors.status.warning,
     marginBottom: 4,
   },
   newsGroup: {
@@ -1091,14 +1200,29 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginTop: 4,
   },
+  // Cada titular es una tarjeta blanca dentro de la caja ámbar "según
+  // prensa": el blanco la separa del crema y el chevron naranja al
+  // final anuncia que es pulsable (abre el artículo)
   newsRow: {
     borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
+    borderLeftColor: colors.status.warning,
     paddingLeft: 10,
+    paddingRight: 6,
     paddingVertical: 4,
     marginBottom: 8,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  newsRowBody: {
+    flex: 1,
+  },
+  newsChevron: {
+    fontSize: 18,
+    fontFamily: fonts.extrabold,
+    color: colors.status.warning,
+    marginLeft: 6,
   },
   newsTitle: {
     fontSize: 13,
@@ -1110,5 +1234,97 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 1,
+  },
+  // Vista satélite con overlay de emisarios
+  shotWrap: {
+    marginTop: 8,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: colors.border,
+  },
+  shot: {
+    width: '100%',
+    aspectRatio: 640 / 300,
+  },
+  shotSkeleton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 0,
+  },
+  shotLoading: {
+    position: 'absolute',
+    top: '50%',
+    alignSelf: 'center',
+    marginTop: -8,
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+  },
+  shotDot: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 16,
+    height: 16,
+    marginTop: -8,
+    marginLeft: -8,
+    borderRadius: 8,
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  shotOutfall: {
+    position: 'absolute',
+    width: 18,
+    height: 18,
+    marginLeft: -9,
+    marginTop: -9,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shotOutfallIcon: {
+    width: 10,
+    height: 10,
+    tintColor: '#fff',
+  },
+  shotLegend: {
+    position: 'absolute',
+    bottom: 4,
+    left: 6,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    gap: 1,
+  },
+  shotLegendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  shotLegendDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  shotLegendText: {
+    fontSize: 8,
+    fontFamily: fonts.semibold,
+    color: '#fff',
+  },
+  shotCredit: {
+    position: 'absolute',
+    bottom: 4,
+    right: 8,
+    fontSize: 9,
+    fontFamily: fonts.semibold,
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowRadius: 2,
   },
 });

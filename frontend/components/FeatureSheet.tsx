@@ -5,6 +5,7 @@ import {
   NativeSyntheticEvent,
   PanResponder,
   Platform,
+  ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -59,9 +60,12 @@ const fmtDistance = (m: number) =>
 export default function FeatureSheet({
   selection,
   onClose,
+  outfalls,
 }: {
   selection: Selection;
   onClose: () => void;
+  // Emisarios cargados en la app: BeachDetail los superpone a la foto
+  outfalls?: GeoFeature[];
 }) {
   const { feature } = selection;
   const p = feature.properties;
@@ -82,13 +86,35 @@ export default function FeatureSheet({
   // ~55%, así que "Ver más" no expandía de verdad.
   const NAV_INSET = Platform.OS === 'android' ? 30 : 0;
   const CARD_BOTTOM = 14 + NAV_INSET; // flota sobre la barra de gestos
-  const TOP_MARGIN = Math.round(winH * 0.08);
+  // La topbar queda siempre visible: la card ni en expandido la tapa
+  const TOP_MARGIN = 118;
   const CARD_MAX = Math.round(winH - CARD_BOTTOM - TOP_MARGIN);
   const HEADER_H = 64; // asa + titulo aprox
+  // Peek tope ~52% de pantalla: fichas con mucha info abren a media
+  // altura y el resto (informe de calidad, histórico…) se descubre
+  // con "Ver más" o arrastrando el asa
+  const PEEK_MAX = Math.round(winH * 0.64);
   const [bodyH, setBodyH] = useState(0);
-  // Peek = altura del contenido (con minimo razonable y tope CARD_MAX)
-  const peek = Math.max(170, Math.min(CARD_MAX, bodyH + HEADER_H));
+  // Peek = altura del contenido (con minimo razonable y tope PEEK_MAX)
+  const peek = Math.max(
+    170,
+    Math.min(PEEK_MAX, CARD_MAX, bodyH + HEADER_H),
+  );
   const h = useRef(new Animated.Value(0)).current; // cerrada = alto 0
+  const b = useRef(new Animated.Value(CARD_BOTTOM)).current;
+  // Card bajita en reposo: flota sobre el borde en vez de ir pegada
+  // abajo. Emisarios suben más (cards muy cortas), playas sin
+  // monitorizar un punto menos; las fichas con contenido o de playas
+  // monitorizadas siguen ancladas abajo
+  const liftFrac = !isBeach
+    ? 0.3
+    : beachStatusKey(feature) === 'unmonitored'
+      ? 0.2
+      : 0;
+  const restBottom =
+    liftFrac > 0 && peek < winH * 0.45
+      ? Math.round(winH * liftFrac)
+      : CARD_BOTTOM;
   const snapped = useRef(0);
   const expanded = useRef(false);
   const closing = useRef(false);
@@ -132,12 +158,21 @@ export default function FeatureSheet({
     snapped.current = target;
     expanded.current = isExpanded;
     setIsExpanded(isExpanded);
-    Animated.spring(h, {
-      toValue: target,
-      useNativeDriver: false,
-      damping: 22,
-      stiffness: 260,
-    }).start();
+    const bottom = isExpanded ? CARD_BOTTOM : restBottom;
+    Animated.parallel([
+      Animated.spring(h, {
+        toValue: target,
+        useNativeDriver: false,
+        damping: 22,
+        stiffness: 260,
+      }),
+      Animated.spring(b, {
+        toValue: bottom,
+        useNativeDriver: false,
+        damping: 22,
+        stiffness: 260,
+      }),
+    ]).start();
   };
 
   // Peek se reajusta cuando el contenido termina de medirse/cargar
@@ -168,9 +203,12 @@ export default function FeatureSheet({
           chosenPm.properties.name.match(/PM(\d+)$/)?.[1] ?? ''
         }`
       : '';
-  const title = showPmPicker
-    ? displayBeachName(beachBaseName(p.name))
-    : displayBeachName(stripPm(beachFeature.properties.name)) + pmSuffix;
+  const muni = isBeach ? beachFeature.properties.municipality : null;
+  const title =
+    (showPmPicker
+      ? displayBeachName(beachBaseName(p.name))
+      : displayBeachName(stripPm(beachFeature.properties.name)) +
+        pmSuffix) + (muni ? ` · ${muni}` : '');
 
   // Acento de la cabecera según estado (playa o vertido): tinta sutil
   // + línea superior del color de estado
@@ -201,7 +239,7 @@ export default function FeatureSheet({
 
   return (
     <Animated.View
-      style={[styles.sheet, { bottom: CARD_BOTTOM, height: h }]}
+      style={[styles.sheet, { bottom: b, height: h }]}
     >
       {/* Zona de agarre: asa + cabecera responden al arrastre */}
       <View
@@ -211,7 +249,7 @@ export default function FeatureSheet({
           { backgroundColor: `${accent}26`, borderTopColor: accent },
         ]}
       >
-        <View style={styles.handle} />
+        <View style={[styles.handle, { backgroundColor: accent }]} />
         <View style={styles.header}>
           <Text style={styles.title} numberOfLines={2}>
             {title}
@@ -309,7 +347,7 @@ export default function FeatureSheet({
                     ? chosenPm.properties.alert === true
                     : selection.hasAlert
                 }
-                scrollRef={bodyRef}
+                outfalls={outfalls}
               />
             </View>
           )
@@ -368,27 +406,31 @@ export default function FeatureSheet({
         <Pressable
           style={styles.moreBtn}
           onPress={() => {
-            if (!expanded.current) snapTo(CARD_MAX, true);
-            // El scroll espera a que el spring de expansión termine:
-            // si arranca con la card a medias, scrollToEnd apunta a un
-            // offset maximo antiguo y nunca llega al fondo real.
-            setTimeout(
-              () => bodyRef.current?.scrollToEnd({ animated: true }),
-              expanded.current ? 50 : 550,
-            );
-            // Respaldo: si el evento de scroll final no llega (race con
-            // la animación de altura), retira el botón — pero solo si
-            // la última métrica conocida sigue cerca del fondo (si el
-            // usuario subió a mano, respetar su posición).
+            // Sin expandir la card: "Ver más" solo baja el contenido
+            // una página (~85% del viewport) dentro de la misma altura
+            const m = scrollMetrics.current;
+            bodyRef.current?.scrollTo({
+              y: m.y + m.vh * 0.85,
+              animated: true,
+            });
+            // Respaldo: si el evento de scroll final no llega, retira
+            // el botón cuando la última métrica conocida siga cerca
+            // del fondo (si el usuario subió a mano, se respeta).
             setTimeout(() => {
-              const m = scrollMetrics.current;
-              if (m.ch > 0 && m.y + m.vh >= m.ch - 120) setShowMore(false);
-            }, 1200);
+              const m2 = scrollMetrics.current;
+              if (m2.ch > 0 && m2.y + m2.vh >= m2.ch - 120)
+                setShowMore(false);
+            }, 800);
           }}
           accessibilityRole="button"
           accessibilityLabel="Ver más contenido de la ficha"
         >
-          <Text style={styles.moreText}>Ver más ⌄</Text>
+          <ImageBackground
+            source={require('../assets/gradient-sea.png')}
+            style={StyleSheet.absoluteFill}
+            imageStyle={styles.moreBtnImg}
+          />
+          <Text style={styles.moreText}>Ver más</Text>
         </Pressable>
       )}
 
@@ -422,7 +464,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 5,
     borderRadius: 3,
-    backgroundColor: colors.border,
+    backgroundColor: '#000',
     marginTop: 8,
     marginBottom: 2,
   },
@@ -535,15 +577,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 10,
     alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
+    paddingHorizontal: 13,
+    paddingVertical: 6,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOpacity: 0.25,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
+  },
+  moreBtnImg: {
+    borderRadius: 12,
+    opacity: 0.7,
   },
   moreText: {
     fontSize: 12,

@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import {
   Camera,
@@ -23,7 +24,12 @@ import {
 } from '@maplibre/maplibre-react-native';
 
 import type { FeatureCollection, GeoFeature } from '../lib/api';
-import { beachBaseName, displayBeachName } from '../lib/format';
+import {
+  beachBaseName,
+  beachPointLabel,
+  displayBeachName,
+} from '../lib/format';
+import { groupKeyOf } from '../lib/beachGroups';
 import { colors, fonts } from '../lib/theme';
 import seaStyle from '../assets/mapstyle-sea.json';
 
@@ -31,19 +37,21 @@ import seaStyle from '../assets/mapstyle-sea.json';
 // paleta oceanica por scripts_gen_mapstyle.py). Sin API key.
 const SEA_STYLE = seaStyle as unknown as StyleSpecification;
 
-// Estilo raster satélite con Esri World Imagery + capa de etiquetas
-// transparente (vista híbrida). Gratuito, sin API key.
+// Estilo raster satélite con PNOA del IGN (ortofoto oficial española,
+// WMTS público sin key): cobertura uniforme — Esri World Imagery deja
+// tiles placeholder negros en Anaga/Teide a cualquier zoom. Las
+// etiquetas siguen siendo la capa transparente de Esri (híbrido).
 const SATELLITE_STYLE: StyleSpecification = {
   version: 8,
   sources: {
-    esri: {
+    pnoa: {
       type: 'raster',
       tiles: [
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        'https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&LAYER=OI.OrthoimageCoverage&STYLE=default&TileMatrixSet=GoogleMapsCompatible&TileMatrix={z}&TileRow={y}&TileCol={x}&FORMAT=image/jpeg',
       ],
       tileSize: 256,
       maxzoom: 19,
-      attribution: 'Esri, Maxar, Earthstar Geographics',
+      attribution: 'IGN España · PNOA',
     },
     'esri-labels': {
       type: 'raster',
@@ -56,7 +64,7 @@ const SATELLITE_STYLE: StyleSpecification = {
     },
   },
   layers: [
-    { id: 'esri', type: 'raster', source: 'esri' },
+    { id: 'pnoa', type: 'raster', source: 'pnoa' },
     { id: 'esri-labels', type: 'raster', source: 'esri-labels' },
   ],
 };
@@ -87,12 +95,22 @@ export type Selection =
 type CoastMapProps = {
   outfalls: FeatureCollection;
   beaches: FeatureCollection; // con properties.alert ya inyectado
-  focus?: [number, number] | null; // [lon, lat] a donde volar la cámara
+  // [lon, lat, zoom?] a donde volar la cámara; con zoom explícito se
+  // centra exacto (no hay card abierta que tape el punto)
+  focus?: [number, number, number?] | null;
   selectionActive: boolean; // hay card abierta -> al cerrar restaura vista
+  // id del PM representante de la playa seleccionada: su etiqueta de
+  // nombre se pinta en una capa propia que gana siempre los solapes
+  selectedBeachId?: number | null;
+  // id del vertido seleccionado: su pin se dibuja más grande (los
+  // emisarios no llevan etiqueta de nombre)
+  selectedOutfallId?: number | null;
   // Puntos de muestreo de la playa seleccionada (capa temporal de
   // dots coloreados por estado mientras la card está abierta)
   pmPoints?: FeatureCollection;
   onSelect: (selection: Selection) => void;
+  // Cierra la card abierta (Ayuda/Buscar la pisaban por encima)
+  onDismissSelection?: () => void;
   onOpenList?: () => void;
   onOpenMunicipalities?: () => void;
   onOpenOutfalls?: () => void;
@@ -101,6 +119,17 @@ type CoastMapProps = {
 
 const OUTFALL_COLORS = colors.outfall;
 const BEACH_COLORS = colors.status;
+
+// Solo un grupo con >=2 puntos de muestreo reales (etiqueta "PM" o
+// romano) abre el selector de PMs en la card: duplicados OSM sin
+// etiqueta agrupados por nombre (p.ej. La Hornilla) quedan como
+// playa simple
+const pmMembersOf = (members?: GeoFeature[]) => {
+  const labeled = (members ?? []).filter((m) =>
+    beachPointLabel(m.properties.name),
+  );
+  return labeled.length > 1 ? labeled : undefined;
+};
 
 type SearchItem = {
   key: string;
@@ -117,16 +146,17 @@ export default function CoastMap({
   beaches,
   focus,
   selectionActive,
+  selectedBeachId,
+  selectedOutfallId,
   pmPoints,
   onSelect,
+  onDismissSelection,
   onOpenList,
   onOpenMunicipalities,
   onOpenOutfalls,
   onOpenHelp,
 }: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
-  // Leyenda/capas plegable: cerrada por defecto para no saturar el mapa
-  const [legendOpen, setLegendOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   // Lista desplegable de playas en aviso (banner de alertas)
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -135,6 +165,22 @@ export default function CoastMap({
   const [showBeaches, setShowBeaches] = useState(true);
   const [pulse, setPulse] = useState(0);
   const cameraRef = useRef<CameraRef>(null);
+  const { height: winH } = useWindowDimensions();
+  // Con la card abierta la zona libre va de la topbar (~110px) al borde
+  // de la card (~62% de alto): el padding de cámara centra el pin en
+  // esa franja en PANTALLA — robusto a rotación y tamaño, a diferencia
+  // del antiguo offset en grados de latitud
+  const CARD_PAD = {
+    top: 110,
+    bottom: Math.round(winH * 0.62),
+  };
+  // La card de vertido flota alta (~30%): su pin baja más hacia el
+  // centro para no quedar despegado de la ficha
+  const CARD_PAD_OUTFALL = {
+    top: 110,
+    bottom: Math.round(winH * 0.5),
+  };
+
   // Vista actual + vista guardada antes de volar a un pin (para restaurar
   // al cerrar la card)
   const lastView = useRef<{ center: [number, number]; zoom: number }>({
@@ -159,6 +205,7 @@ export default function CoastMap({
       cameraRef.current?.flyTo({
         center: savedView.current.center,
         zoom: savedView.current.zoom,
+        padding: { top: 0, right: 0, bottom: 0, left: 0 },
         duration: 800,
       });
       savedView.current = null;
@@ -168,21 +215,28 @@ export default function CoastMap({
 
   // Vuela a una playa en aviso y abre su ficha (lista del banner)
   const openAlertBeach = (f: GeoFeature) => {
+    closeSearch();
     saveView();
-    const [lon, lat] = (
-      f.geometry as { coordinates: [number, number] }
-    ).coordinates;
+    // El pin se dibuja en el centroide del grupo, no en las coords del
+    // PM: la cámara apunta al mismo punto o queda descolocado
+    const gk = (f.properties as { groupKey?: string }).groupKey;
+    const g = gk ? beachGroups.get(gk) : undefined;
+    const [lon, lat] = (g?.center ??
+      (f.geometry as { coordinates: [number, number] })
+        .coordinates) as [number, number];
     cameraRef.current?.flyTo({
-      center: [lon, lat - 0.014],
+      center: [lon, lat],
       zoom: 13,
+      padding: CARD_PAD,
       duration: 1200,
     });
-    const gk = (f.properties as { groupKey?: string }).groupKey;
     onSelect({
       type: 'beach',
       feature: f,
       hasAlert: true,
-      members: gk ? beachGroups.get(gk)?.members : undefined,
+      members: pmMembersOf(
+        gk ? beachGroups.get(gk)?.members : undefined,
+      ),
     });
     setAlertsOpen(false);
   };
@@ -202,9 +256,7 @@ export default function CoastMap({
       }
     >();
     for (const f of beaches.features) {
-      const key = `${f.properties.municipality ?? ''}|${beachBaseName(
-        f.properties.name,
-      ).toUpperCase()}`;
+      const key = groupKeyOf(f);
       const g = groups.get(key) ?? { members: [], rep: f, center: [0, 0] as [number, number] };
       g.members.push(f);
       groups.set(key, g);
@@ -251,10 +303,14 @@ export default function CoastMap({
           members: g.members.length,
           // Nombre corto para la etiqueta del pin (zoom cercano)
           label: displayBeachName(beachBaseName(g.rep.properties.name)),
+          // Marca de seleccionada: su etiqueta va en capa propia.
+          // Casa contra cualquier PM del grupo, no solo el rep — si la
+          // card cambia de PM la etiqueta de la playa sigue puesta
+          sel: g.members.some((m) => m.id === selectedBeachId),
         },
       })),
     }),
-    [beachGroups],
+    [beachGroups, selectedBeachId],
   );
 
   // Conteo de alertas vivas: por playa (grupo), no por punto de muestreo
@@ -265,6 +321,22 @@ export default function CoastMap({
     (f) => f.properties.status === 'warning',
   ).length;
   const hasAlerts = closedCount + warningCount > 0;
+
+  // Vertido seleccionado: propiedad sel para agrandar su pin (los
+  // emisarios no llevan etiqueta de nombre)
+  const outfallsMarked = useMemo<FeatureCollection>(
+    () => ({
+      ...outfalls,
+      features: outfalls.features.map((f) => ({
+        ...f,
+        properties: {
+          ...f.properties,
+          sel: f.id === selectedOutfallId,
+        },
+      })),
+    }),
+    [outfalls, selectedOutfallId],
+  );
 
   const alertBeaches = useMemo<FeatureCollection>(
     () => ({
@@ -291,9 +363,28 @@ export default function CoastMap({
   useEffect(() => {
     if (focus) {
       saveView();
+      const exact = focus[2] != null;
+      // Si el foco casa con un PM de un grupo, el pin está en el
+      // centroide: volar ahí, no a las coords del PM
+      let cx = focus[0];
+      let cy = focus[1];
+      for (const g of beachGroups.values()) {
+        if (
+          g.members.some(
+            (m) =>
+              Math.abs(m.geometry.coordinates[0] - focus[0]) < 1e-6 &&
+              Math.abs(m.geometry.coordinates[1] - focus[1]) < 1e-6,
+          )
+        ) {
+          [cx, cy] = g.center;
+          break;
+        }
+      }
       cameraRef.current?.flyTo({
-        center: [focus[0], focus[1] - 0.014],
-        zoom: 13,
+        center: [cx, cy],
+        zoom: focus[2] ?? 13,
+        // Sin zoom explícito hay card abierta (o a punto) → padding
+        padding: exact ? undefined : CARD_PAD,
         duration: 1500,
       });
     }
@@ -335,7 +426,7 @@ export default function CoastMap({
           key: `o${f.id}`,
           kind: 'outfall',
           label: displayBeachName(f.properties.name ?? ''),
-          sub: 'Vertido',
+          sub: 'Emisario',
           feature: f,
         });
       }
@@ -376,8 +467,9 @@ export default function CoastMap({
       // Playa agrupada: vuela al centroide; ficha del PM representante
       const [lon, lat] = item.center ?? item.feature.geometry.coordinates;
       cameraRef.current?.flyTo({
-        center: [lon, lat - (item.kind === 'beach' ? 0.014 : 0.03)],
-        zoom: item.kind === 'beach' ? 13 : 12,
+        center: [lon, lat],
+        zoom: item.kind === 'beach' ? 15 : 13.5,
+        padding: item.kind === 'outfall' ? CARD_PAD_OUTFALL : CARD_PAD,
         duration: 1200,
       });
       onSelect(
@@ -386,7 +478,7 @@ export default function CoastMap({
               type: 'beach',
               feature: item.feature,
               hasAlert: item.feature.properties.alert === true,
-              members: item.members,
+              members: pmMembersOf(item.members),
             }
           : { type: 'outfall', feature: item.feature },
       );
@@ -397,6 +489,19 @@ export default function CoastMap({
         duration: 1400,
       });
     }
+  };
+
+  // La búsqueda se cierra al tocar el mapa o cualquier otro botón de
+  // la topbar — no solo al volver a pulsar la lupa o elegir resultado
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setQuery('');
+    Keyboard.dismiss();
+  };
+  // Lo mismo para el desplegable de avisos del banner
+  const closeOverlays = () => {
+    closeSearch();
+    setAlertsOpen(false);
   };
 
   const handlePress =
@@ -418,30 +523,50 @@ export default function CoastMap({
           : best;
       });
       saveView();
-      // Zoom de detalle + centro desplazado al sur: el pin queda justo
-      // por encima de la card flotante.
-      const [lon, lat] = (
-        feature.geometry as { coordinates: [number, number] }
-      ).coordinates;
+      // Zoom de detalle; el padding de cámara deja el pin en la franja
+      // libre sobre la card. En playas el pin está en el centroide del
+      // grupo, no en las coords del PM tocado
+      const groupKey = (feature.properties as { groupKey?: string })
+        .groupKey;
+      const g =
+        type === 'beach' && groupKey
+          ? beachGroups.get(groupKey)
+          : undefined;
+      const [lon, lat] = (g?.center ??
+        (feature.geometry as { coordinates: [number, number] })
+          .coordinates) as [number, number];
+      const rep = g?.rep ?? feature;
       cameraRef.current?.flyTo({
-        center: [lon, lat - (type === 'beach' ? 0.014 : 0.03)],
-        zoom: type === 'beach' ? 13 : 12,
+        center: [lon, lat],
+        zoom: type === 'beach' ? 13 : 13.5,
+        padding: type === 'outfall' ? CARD_PAD_OUTFALL : CARD_PAD,
         duration: 900,
       });
       if (type === 'outfall') {
-        onSelect({ type: 'outfall', feature });
+        // El feature del evento de tap puede no traer el id del
+        // GeoJSON (y sus coords vienen cuantizadas por el tiling):
+        // se resuelve el original más cercano para que
+        // selectedOutfallId funcione y el pin seleccionado crezca
+        const [fLon, fLat] = feature.geometry.coordinates;
+        const orig =
+          outfalls.features.reduce<GeoFeature | null>((best, o) => {
+            const d =
+              (o.geometry.coordinates[0] - fLon) ** 2 +
+              (o.geometry.coordinates[1] - fLat) ** 2;
+            const bd = best
+              ? (best.geometry.coordinates[0] - fLon) ** 2 +
+                (best.geometry.coordinates[1] - fLat) ** 2
+              : Infinity;
+            return d < bd ? o : best;
+          }, null) ?? feature;
+        onSelect({ type: 'outfall', feature: orig });
       } else {
         // El pin es el grupo: se abre la ficha del PM peor parado
-        const groupKey = (
-          feature.properties as { groupKey?: string }
-        ).groupKey;
-        const g = groupKey ? beachGroups.get(groupKey) : undefined;
-        const rep = g?.rep ?? feature;
         onSelect({
           type: 'beach',
           feature: rep,
           hasAlert: rep.properties.alert === true,
-          members: g?.members,
+          members: pmMembersOf(g?.members),
         });
       }
     };
@@ -452,6 +577,9 @@ export default function CoastMap({
         style={styles.map}
         mapStyle={satellite ? SATELLITE_STYLE : SEA_STYLE}
         attributionPosition={{ bottom: 8, right: 8 }}
+        onPress={() => {
+          if (searchOpen || alertsOpen) closeOverlays();
+        }}
         onRegionDidChange={(e) => {
           const vs = e.nativeEvent as unknown as {
             center: [number, number];
@@ -479,12 +607,13 @@ export default function CoastMap({
         {showOutfalls && (
           <GeoJSONSource
             id="outfalls"
-            data={outfalls}
+            data={outfallsMarked}
             onPress={handlePress('outfall')}
           >
             <Layer
               id="outfall-icons"
               type="symbol"
+              filter={['!=', ['get', 'sel'], true]}
               layout={{
                 'icon-image': [
                   'match',
@@ -495,7 +624,40 @@ export default function CoastMap({
                   'pin-outfall-illegal',
                   'pin-outfall-processing',
                 ],
-                'icon-size': 0.36,
+                'icon-size': [
+                  'interpolate',
+                  ['linear'],
+                  ['zoom'],
+                  9,
+                  0.16,
+                  13,
+                  0.28,
+                  16,
+                  0.38,
+                ],
+                'icon-anchor': 'bottom',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              }}
+            />
+            {/* El vertido seleccionado se repinta en capa propia con
+                tamaño fijo grande — data-driven icon-size con * se
+                lo tragaba en silencio */}
+            <Layer
+              id="outfall-icon-selected"
+              type="symbol"
+              filter={['==', ['get', 'sel'], true]}
+              layout={{
+                'icon-image': [
+                  'match',
+                  ['get', 'status'],
+                  'legal',
+                  'pin-outfall-legal',
+                  'illegal',
+                  'pin-outfall-illegal',
+                  'pin-outfall-processing',
+                ],
+                'icon-size': 0.45,
                 'icon-anchor': 'bottom',
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
@@ -533,6 +695,7 @@ export default function CoastMap({
             <Layer
               id="beach-pins"
               type="symbol"
+              filter={['!=', ['get', 'sel'], true]}
               layout={{
                 'icon-image': [
                   'case',
@@ -554,31 +717,94 @@ export default function CoastMap({
                     'pin-open',
                   ],
                 ],
-                'icon-size': 0.42,
+                'icon-size': [
+                  'interpolate',
+                  ['linear'],
+                  ['zoom'],
+                  9,
+                  0.2,
+                  13,
+                  0.34,
+                  16,
+                  0.45,
+                ],
                 'icon-anchor': 'bottom',
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
               }}
             />
-            {/* Nombre de la playa bajo el pin: solo a zoom de calle
-                (>=14), donde la densidad de pines es baja */}
+            {/* Pin de la playa seleccionada: capa propia a tamaño
+                fijo grande — mismo tratamiento que el vertido
+                seleccionado */}
+            <Layer
+              id="beach-pin-selected"
+              type="symbol"
+              filter={['==', ['get', 'sel'], true]}
+              layout={{
+                'icon-image': [
+                  'case',
+                  [
+                    'all',
+                    ['==', ['get', 'monitored'], false],
+                    ['!=', ['get', 'alert'], true],
+                  ],
+                  'pin-unmonitored',
+                  [
+                    'match',
+                    ['get', 'status'],
+                    'closed',
+                    'pin-closed',
+                    'warning',
+                    'pin-warning',
+                    'unknown',
+                    'pin-unmonitored',
+                    'pin-open',
+                  ],
+                ],
+                'icon-size': 0.45,
+                'icon-anchor': 'bottom',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              }}
+            />
+            {/* Nombre de la playa bajo el pin: visible ya a zoom 12 —
+                coincide con el zoom al que vuela la card (13).
+                symbol-sort-key da prioridad a la seleccionada: gana
+                las colisiones y el motor descarta las vecinas que le
+                pisen — así no se solapan al cambiar de playa */}
             <Layer
               id="beach-labels"
               type="symbol"
-              minzoom={14}
+              minzoom={12}
               layout={{
                 'text-field': ['get', 'label'],
-                'text-size': 11,
+                'text-size': [
+                  'case',
+                  ['==', ['get', 'sel'], true],
+                  13,
+                  11,
+                ],
                 'text-font': ['Noto Sans Bold'],
                 'text-offset': [0, 1.0],
                 'text-anchor': 'top',
                 'text-allow-overlap': false,
                 'text-ignore-placement': false,
+                'symbol-sort-key': [
+                  'case',
+                  ['==', ['get', 'sel'], true],
+                  0,
+                  1,
+                ],
               }}
               paint={{
                 'text-color': colors.text,
                 'text-halo-color': '#ffffff',
-                'text-halo-width': 1.8,
+                'text-halo-width': [
+                  'case',
+                  ['==', ['get', 'sel'], true],
+                  2.2,
+                  1.8,
+                ],
               }}
             />
           </GeoJSONSource>
@@ -643,7 +869,10 @@ export default function CoastMap({
           {onOpenList && (
             <Pressable
               style={styles.topbarBtn}
-              onPress={onOpenList}
+              onPress={() => {
+                closeOverlays();
+                onOpenList();
+              }}
               accessibilityRole="button"
               accessibilityLabel="Abrir lista de playas"
             >
@@ -657,21 +886,27 @@ export default function CoastMap({
           {onOpenOutfalls && (
             <Pressable
               style={styles.topbarBtn}
-              onPress={onOpenOutfalls}
+              onPress={() => {
+                closeOverlays();
+                onOpenOutfalls();
+              }}
               accessibilityRole="button"
-              accessibilityLabel="Abrir lista de vertidos"
+              accessibilityLabel="Abrir lista de emisarios"
             >
               <Image
                 source={require('../assets/icons/icon-faucet.png')}
                 style={styles.topbarIcon}
               />
-              <Text style={styles.topbarLabel}>Vertidos</Text>
+              <Text style={styles.topbarLabel}>Emisarios</Text>
             </Pressable>
           )}
           {onOpenMunicipalities && (
             <Pressable
               style={styles.topbarBtn}
-              onPress={onOpenMunicipalities}
+              onPress={() => {
+                closeOverlays();
+                onOpenMunicipalities();
+              }}
               accessibilityRole="button"
               accessibilityLabel="Abrir incidencias por municipio"
             >
@@ -685,11 +920,14 @@ export default function CoastMap({
           <Pressable
             style={styles.topbarBtn}
             onPress={() => {
-              setSearchOpen((v) => !v);
+              const next = !searchOpen;
+              setSearchOpen(next);
               setQuery('');
+              setAlertsOpen(false);
+              if (next) onDismissSelection?.();
             }}
             accessibilityRole="button"
-            accessibilityLabel="Buscar playa, vertido o municipio"
+            accessibilityLabel="Buscar playa, emisario o municipio"
           >
             <Image
               source={require('../assets/icons/icon-search.png')}
@@ -701,7 +939,11 @@ export default function CoastMap({
           {onOpenHelp && (
             <Pressable
               style={styles.topbarBtn}
-              onPress={onOpenHelp}
+              onPress={() => {
+                closeOverlays();
+                onDismissSelection?.();
+                onOpenHelp?.();
+              }}
               accessibilityRole="button"
               accessibilityLabel="Abrir ayuda"
             >
@@ -727,6 +969,7 @@ export default function CoastMap({
           onPress={() => {
             // Con alertas: despliega la lista de playas en aviso.
             // Sin alertas: abre la lista general.
+            closeSearch();
             if (hasAlerts) setAlertsOpen((v) => !v);
             else onOpenList?.();
           }}
@@ -753,7 +996,7 @@ export default function CoastMap({
                   .filter(Boolean)
                   .join(' · ')
               : 'Todas las playas sin incidencias'}
-            {hasAlerts ? ' ▾' : ''}
+            {hasAlerts ? (alertsOpen ? ' ▴' : ' ▾') : ''}
           </Text>
         </Pressable>
         {alertsOpen && hasAlerts && (
@@ -807,17 +1050,23 @@ export default function CoastMap({
         )}
         {searchOpen && (
           <View style={styles.searchWrap}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar playa, vertido o municipio..."
+            <View style={styles.searchBar}>
+              <Image
+                source={require('../assets/icons/icon-search.png')}
+                style={styles.searchIcon}
+              />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar playa, emisario o municipio..."
               placeholderTextColor={colors.textFaint}
               value={query}
               onChangeText={setQuery}
               autoFocus
               autoCorrect={false}
               returnKeyType="search"
-              accessibilityLabel="Buscar playa, vertido o municipio"
-            />
+              accessibilityLabel="Buscar playa, emisario o municipio"
+              />
+            </View>
             {searchResults.length > 0 && (
               <View style={styles.searchResults}>
                 {searchResults.map((item) => (
@@ -843,37 +1092,43 @@ export default function CoastMap({
         )}
       </View>
 
+      {/* Basemap mapa/satélite: cuadradito flotante arriba-derecha,
+          debajo de la topbar — gesto de "capas" tipo Google Maps,
+          icono fijo (el propio mapa ya muestra el estado) */}
+      <Pressable
+        style={styles.satBtn}
+        onPress={() => setSatellite((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={
+          satellite ? 'Volver a vista de mapa' : 'Cambiar a vista satélite'
+        }
+        accessibilityState={{ checked: satellite }}
+      >
+        <Image
+          source={require('../assets/icons/icon-layers.png')}
+          style={styles.satIcon}
+        />
+      </Pressable>
+
       <View style={styles.legend} pointerEvents="box-none">
-        <Pressable
-          style={[
-            styles.legendToggle,
-            legendOpen && styles.legendToggleOpen,
-          ]}
-          onPress={() => setLegendOpen((v) => !v)}
-          accessibilityRole="button"
-          accessibilityLabel={legendOpen ? 'Ocultar capas' : 'Ver capas'}
-        >
-          <Image
-            source={require('../assets/icons/icon-map.png')}
-            style={styles.legendIcon}
-          />
-          <Text style={styles.legendTitle}>Capas</Text>
-          <Text style={styles.legendChevron}>{legendOpen ? '▾' : '▸'}</Text>
-        </Pressable>
-        {legendOpen && (
-          <>
+        {/* Leyenda siempre visible: dos filas (Emisarios / Playas)
+            pegadas abajo — sin botón Capas */}
+        <View style={styles.legendCard}>
+          <View style={styles.layerRow}>
             <Pressable
-              style={[styles.legendRow, !showOutfalls && styles.legendOff]}
+              style={[
+                styles.legendRow,
+                !showOutfalls && styles.legendOff,
+              ]}
               onPress={() => setShowOutfalls((v) => !v)}
               accessibilityRole="switch"
-              accessibilityLabel="Capa de vertidos"
+              accessibilityLabel="Capa de emisarios"
               accessibilityState={{ checked: showOutfalls }}
             >
               <Image
                 source={require('../assets/icons/icon-faucet.png')}
                 style={styles.legendIcon}
               />
-              <Text style={styles.legendTitle}>Vertidos</Text>
               <View
                 style={[
                   styles.legendSwitch,
@@ -892,15 +1147,18 @@ export default function CoastMap({
                 [OUTFALL_COLORS.unknown, 'En trámite'],
               ].map(([color, label]) => (
                 <View key={label} style={styles.swatchRow}>
-                  <View style={[styles.dot, { backgroundColor: color }]} />
+                  <View
+                    style={[styles.dot, { backgroundColor: color }]}
+                  />
                   <Text style={styles.swatchText}>{label}</Text>
                 </View>
               ))}
             </View>
+          </View>
+          <View style={[styles.layerRow, { marginTop: 6 }]}>
             <Pressable
               style={[
                 styles.legendRow,
-                styles.legendRowGap,
                 !showBeaches && styles.legendOff,
               ]}
               onPress={() => setShowBeaches((v) => !v)}
@@ -912,7 +1170,6 @@ export default function CoastMap({
                 source={require('../assets/icons/beach.png')}
                 style={styles.legendIcon}
               />
-              <Text style={styles.legendTitle}>Playas</Text>
               <View
                 style={[
                   styles.legendSwitch,
@@ -932,47 +1189,15 @@ export default function CoastMap({
                 [BEACH_COLORS.unmonitored, 'Sin monitorizar'],
               ].map(([color, label]) => (
                 <View key={label} style={styles.swatchRow}>
-                  <View style={[styles.dot, { backgroundColor: color }]} />
+                  <View
+                    style={[styles.dot, { backgroundColor: color }]}
+                  />
                   <Text style={styles.swatchText}>{label}</Text>
                 </View>
               ))}
             </View>
-            <Pressable
-              style={[
-                styles.legendRow,
-                styles.legendRowGap,
-                !satellite && styles.legendOff,
-              ]}
-              onPress={() => setSatellite((v) => !v)}
-              accessibilityRole="switch"
-              accessibilityLabel="Vista satélite"
-              accessibilityState={{ checked: satellite }}
-            >
-              <Image
-                source={
-                  satellite
-                    ? require('../assets/icons/icon-map.png')
-                    : require('../assets/icons/icon-satellite.png')
-                }
-                style={styles.legendIcon}
-              />
-              <Text style={styles.legendTitle}>Satélite</Text>
-              <View
-                style={[
-                  styles.legendSwitch,
-                  satellite ? styles.switchOn : styles.switchOff,
-                ]}
-              >
-                <Text style={styles.switchText}>
-                  {satellite ? 'ON' : 'OFF'}
-                </Text>
-              </View>
-            </Pressable>
-            <Text style={styles.legendNote}>
-              Los nombres de las playas aparecen al acercar
-            </Text>
-          </>
-        )}
+          </View>
+        </View>
       </View>
 
     </View>
@@ -1106,15 +1331,26 @@ const styles = StyleSheet.create({
   searchWrap: {
     alignSelf: 'stretch',
   },
-  searchInput: {
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.94)',
     borderRadius: 12,
     paddingHorizontal: 14,
+    elevation: 4,
+  },
+  searchIcon: {
+    width: 16,
+    height: 16,
+    tintColor: colors.textFaint,
+  },
+  searchInput: {
+    flex: 1,
+    paddingLeft: 8,
     paddingVertical: 9,
     fontSize: 14,
     fontFamily: fonts.regular,
     color: colors.text,
-    elevation: 4,
   },
   searchResults: {
     backgroundColor: 'rgba(255,255,255,0.96)',
@@ -1144,45 +1380,50 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
   },
+  // Wrapper posicional a todo lo ancho: centra la tarjeta de capas y
+  // el satélite flotante; algo más de margen para que "flote"
   legend: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 42 : 12, // por encima de la barra de gestos
-    left: 5,
+    bottom: Platform.OS === 'android' ? 48 : 18,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  // Basemap flotante: solo icono, arriba-derecha bajo la topbar
+  satBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? 112 : 96,
+    right: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    zIndex: 5,
+  },
+  satIcon: {
+    width: 20,
+    height: 20,
+  },
+  legendCard: {
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
-    padding: 10,
+    padding: 8,
     elevation: 4,
   },
-  legendToggle: {
+  layerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 0,
-    minWidth: 140,
-  },
-  legendToggleOpen: {
-    marginBottom: 8,
-  },
-  legendChevron: {
-    marginLeft: 'auto',
-    fontSize: 17,
-    color: colors.textMuted,
-    fontFamily: fonts.bold,
-  },
-  legendNote: {
-    fontSize: 10,
-    fontFamily: fonts.regular,
-    color: colors.textFaint,
-    marginTop: 6,
-    maxWidth: 180,
-    lineHeight: 13,
-  },
-  legendRowGap: {
-    marginTop: 8,
   },
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 140,
+    minWidth: 76, // icono + switch, sin etiqueta
+    justifyContent: 'center',
     backgroundColor: colors.surface,
     borderRadius: 6,
     borderWidth: 1,
@@ -1221,10 +1462,13 @@ const styles = StyleSheet.create({
     height: 16,
     marginRight: 6,
   },
+  // Swatches en línea a la derecha del switch; envuelven si no caben
   legendSub: {
-    marginLeft: 14,
-    marginTop: 4,
-    marginBottom: 2,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    marginLeft: 8,
+    gap: 6,
   },
   swatchRow: {
     flexDirection: 'row',

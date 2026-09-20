@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 
 import BeachDetail from './BeachDetail';
-import Skeleton from './Skeleton';
+import ScrollChips from './ScrollChips';
 import { BeachStats, GeoFeature, fetchBeachStats } from '../lib/api';
 import {
   pointLongLabel,
@@ -47,19 +47,6 @@ const STATUS_COLORS = colors.status;
 const displayName = (name: string) =>
   displayBeachName(name.replace(/\s+PM\d+$/, ''));
 
-// Foto satélite estática del punto (Esri World Imagery, mismo servicio
-// que la vista satélite del mapa). Bbox ~800x500 m centrada en la playa
-const satelliteShot = ([lon, lat]: [number, number]) => {
-  const dLon = 0.004;
-  const dLat = 0.0022;
-  return (
-    'https://server.arcgisonline.com/ArcGIS/rest/services/' +
-    `World_Imagery/MapServer/export?bbox=${lon - dLon},${lat - dLat},` +
-    `${lon + dLon},${lat + dLat}&bboxSR=4326&imageSR=4326&size=640,300` +
-    '&format=png&f=image'
-  );
-};
-
 const SORT_LABELS: Record<SortMode, string> = {
   estado: 'Estado',
   cierres: 'Más cierres',
@@ -82,6 +69,7 @@ const fmtShort = (iso: string) => {
 
 export default function BeachList({
   beaches,
+  outfalls,
   visible,
   onSelect,
   onClose,
@@ -89,6 +77,8 @@ export default function BeachList({
   onOpenMunicipalities,
 }: {
   beaches: GeoFeature[];
+  // Emisarios cargados en la app: BeachDetail los superpone a la foto
+  outfalls?: GeoFeature[];
   visible: boolean;
   onSelect: (feature: GeoFeature) => void;
   onClose: () => void;
@@ -107,7 +97,6 @@ export default function BeachList({
   const [stats, setStats] = useState<Map<number, BeachStats>>(new Map());
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<GeoFeature | null>(null);
-  const [shotLoaded, setShotLoaded] = useState(false);
   // Scroll del detalle: BeachDetail baja a "Ver titulares" al expandir
   const detailScrollRef = useRef<ScrollView>(null);
   // "Ver más" del detalle: visible mientras quede contenido bajo el
@@ -138,11 +127,6 @@ export default function BeachList({
     setShowMore(false);
     setDetail(f);
   };
-
-  // La foto satélite de Esri tarda en llegar: skeleton hasta que carga
-  useEffect(() => {
-    setShotLoaded(false);
-  }, [detail]);
 
   // El componente queda montado (Modal visible): búsqueda, filtro,
   // expansión y orden se conservan entre aperturas. El municipio solo se
@@ -240,21 +224,33 @@ export default function BeachList({
           </View>
         </ImageBackground>
 
-        <TextInput
-          style={styles.search}
-          placeholder="Buscar playa..."
-          value={query}
-          onChangeText={setQuery}
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-          accessibilityLabel="Buscar playa por nombre"
-        />
+        <View style={styles.searchWrap}>
+          <Image
+            source={require('../assets/icons/icon-search.png')}
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={styles.search}
+            placeholder="Busca tu playa…"
+            placeholderTextColor={colors.textFaint}
+            value={query}
+            onChangeText={setQuery}
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+            accessibilityLabel="Buscar playa por nombre"
+          />
+        </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
+        <ImageBackground
+          source={require('../assets/gradient-filter.png')}
+          style={styles.filterBar}
+          imageStyle={styles.filterBarImg}
+        >
+        <ScrollChips
           style={styles.chips}
           contentContainerStyle={styles.chipsContent}
+          fadeRgbLeft="140,216,230"
+          fadeRgbRight="242,251,253"
         >
           <Pressable
             style={[
@@ -319,13 +315,13 @@ export default function BeachList({
               </Text>
             </Pressable>
           )}
-        </ScrollView>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
+        </ScrollChips>
+        <View style={styles.filterBarDivider} />
+        <ScrollChips
           style={styles.chips}
           contentContainerStyle={styles.chipsContent}
+          fadeRgbLeft="140,216,230"
+          fadeRgbRight="242,251,253"
         >
           {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
             <Pressable
@@ -378,7 +374,8 @@ export default function BeachList({
               </Text>
             </Pressable>
           ))}
-        </ScrollView>
+        </ScrollChips>
+        </ImageBackground>
 
         <FlatList
           data={groups}
@@ -522,8 +519,11 @@ export default function BeachList({
               >
                 <Text style={styles.backText}>‹</Text>
               </Pressable>
-              <Text style={styles.title} numberOfLines={1}>
+              <Text style={styles.title} numberOfLines={2}>
                 {displayBeachName(detail.properties.name)}
+                {detail.properties.municipality
+                  ? ` · ${detail.properties.municipality}`
+                  : ''}
               </Text>
               <Pressable
                 onPress={() => onSelect(detail)}
@@ -550,42 +550,11 @@ export default function BeachList({
               onMomentumScrollEnd={handleScroll}
               scrollEventThrottle={80}
             >
-              <View style={styles.mapShotWrap}>
-                {!shotLoaded && (
-                  <Skeleton style={styles.mapShotSkeleton} />
-                )}
-                {!shotLoaded && (
-                  <Text style={styles.mapShotLoading}>
-                    Cargando vista satélite…
-                  </Text>
-                )}
-                <Image
-                  source={{
-                    uri: satelliteShot(detail.geometry.coordinates),
-                  }}
-                  style={styles.mapShot}
-                  resizeMode="cover"
-                  onLoad={() => setShotLoaded(true)}
-                  accessibilityLabel="Vista satélite de la zona de la playa"
-                />
-                <View
-                  style={[
-                    styles.mapDot,
-                    {
-                      backgroundColor:
-                        STATUS_COLORS[statusOf(detail)],
-                    },
-                  ]}
-                />
-                <Text style={styles.mapCredit}>
-                  © Esri, Maxar, Earthstar Geographics
-                </Text>
-              </View>
               <View style={styles.detailBody}>
                 <BeachDetail
                   feature={detail}
                   hasAlert={detail.properties.alert === true}
-                  scrollRef={detailScrollRef}
+                  outfalls={outfalls}
                 />
               </View>
             </ScrollView>
@@ -680,56 +649,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: colors.background,
   },
-  mapShotWrap: {
-    margin: 12,
-    marginTop: 8,
-    borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: colors.border,
-  },
-  mapShot: {
-    width: '100%',
-    height: 190,
-  },
-  mapShotSkeleton: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 190,
-    borderRadius: 0,
-  },
-  mapShotLoading: {
-    position: 'absolute',
-    top: '50%',
-    alignSelf: 'center',
-    marginTop: -8,
-    fontSize: 11,
-    fontFamily: fonts.semibold,
-    color: colors.textMuted,
-  },
-  mapDot: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    width: 16,
-    height: 16,
-    marginTop: -8,
-    marginLeft: -8,
-    borderRadius: 8,
-    borderWidth: 3,
-    borderColor: '#fff',
-  },
-  mapCredit: {
-    position: 'absolute',
-    bottom: 4,
-    right: 8,
-    fontSize: 9,
-    fontFamily: fonts.semibold,
-    color: '#fff',
-    textShadowColor: 'rgba(0,0,0,0.7)',
-    textShadowRadius: 2,
-  },
   detailBody: {
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === 'android' ? 44 : 24,
@@ -765,47 +684,79 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: 'rgba(255,255,255,0.9)',
   },
-  search: {
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.surface,
     margin: 12,
     marginBottom: 8,
     borderRadius: 10,
     paddingHorizontal: 14,
+    elevation: 2,
+  },
+  searchIcon: {
+    width: 16,
+    height: 16,
+    tintColor: colors.textFaint,
+  },
+  search: {
+    flex: 1,
     paddingVertical: 10,
+    paddingLeft: 8,
     fontSize: 15,
     fontFamily: fonts.regular,
     color: colors.text,
+  },
+  // Barra única que contiene las dos filas de filtros sobre una
+  // aguada del degradado mar (40%: misma familia que la cabecera
+  // pero sin competir con ella); la divisoria separa "dónde"
+  // (municipios) de "cómo/cuál" (orden + estado)
+  filterBar: {
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    marginHorizontal: 12,
+    marginBottom: 4,
+    overflow: 'hidden',
     elevation: 2,
+  },
+  filterBarImg: {
+    borderRadius: 10,
+  },
+  filterBarDivider: {
+    height: 1,
+    backgroundColor: 'rgba(8,107,150,0.18)',
+    marginHorizontal: 10,
   },
   chips: {
     flexGrow: 0,
   },
   chipsContent: {
-    paddingHorizontal: 12,
-    gap: 8,
-    paddingBottom: 4,
-  },
-  chip: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
+    gap: 4,
     paddingVertical: 6,
-    elevation: 1,
+  },
+  // Segmentos de la barra: transparentes (no son botones sueltos) —
+  // la presencia la da el texto navy, no un relleno
+  chip: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   chipActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
   },
   chipText: {
     fontSize: 13,
     fontFamily: fonts.semibold,
-    color: colors.textMuted,
+    color: colors.text, // navy: presencia sin relleno de boton
   },
   chipTextActive: {
-    color: '#fff',
+    color: colors.text, // navy: mas contraste que blanco sobre turquesa
+    fontFamily: fonts.extrabold,
   },
   chipDivider: {
     width: 1,
-    backgroundColor: colors.border,
+    backgroundColor: 'rgba(8,107,150,0.18)',
     marginVertical: 6,
   },
   chipStatus: {

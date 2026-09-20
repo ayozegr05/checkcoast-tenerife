@@ -14,19 +14,19 @@ import { colors, fonts } from '../lib/theme';
 const HINTS: [ImageSourcePropType, string][] = [
   [
     require('../assets/icons/beach.png'),
-    'Playas: estado oficial, calidad del agua e historial de incidencias',
+    'Playas: estado oficial, calidad del agua e incidencias · toca un punto para su ficha',
   ],
   [
     require('../assets/icons/icon-faucet.png'),
-    'Vertidos: emisarios autorizados, en trámite o no autorizados',
+    'Emisarios: puntos de vertido autorizados, en trámite o no autorizados',
   ],
   [
     require('../assets/icons/icon-townhall.png'),
     'Municipios: ranking de afectación por municipio',
   ],
   [
-    require('../assets/icons/icon-satellite.png'),
-    'Mapa/Satélite para cambiar de vista · toca un punto para su ficha',
+    require('../assets/icons/icon-layers.png'),
+    'Capas: botón arriba a la derecha para alternar mapa y satélite',
   ],
 ];
 
@@ -47,8 +47,8 @@ export default function IntroCard({
         >
           <Text style={styles.title}>CheckCoast Tenerife</Text>
           <Text style={styles.subtitle}>
-            Estado de las playas y puntos de vertido de la isla, con
-            datos oficiales actualizados
+            Estado de las playas y emisarios de la isla, con datos
+            oficiales actualizados
           </Text>
         </ImageBackground>
 
@@ -59,9 +59,6 @@ export default function IntroCard({
               <Text style={styles.hintText}>{text}</Text>
             </View>
           ))}
-          <Text style={styles.note}>
-            Los puntos grises son playas sin monitorización oficial.
-          </Text>
         </View>
 
         <View style={styles.footer}>
@@ -151,13 +148,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.text,
     lineHeight: 18,
-  },
-  note: {
-    fontSize: 12,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
-    marginTop: 2,
-    marginBottom: 8,
   },
   footer: {
     flexDirection: 'row',

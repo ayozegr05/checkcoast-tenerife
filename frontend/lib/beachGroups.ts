@@ -2,7 +2,7 @@
 // PMs → una fila por playa (nombre base + municipio), orden por estado.
 
 import type { BeachStats, GeoFeature } from './api';
-import { beachBaseName } from './format';
+import { beachBaseName, beachGroupKey } from './format';
 
 // Orden de prioridad: lo que necesita atención del bañista primero;
 // las no monitorizadas van al final (no hay estado oficial que ordenar)
@@ -36,9 +36,9 @@ export type BeachGroup = {
 // El grupo solo es seguro dentro del mismo municipio: Náyade repite
 // nombres entre zonas distintas ("Caleta de Negros")
 export const groupKeyOf = (f: GeoFeature) =>
-  `${f.properties.municipality ?? ''}|${beachBaseName(
+  `${f.properties.municipality ?? ''}|${beachGroupKey(
     f.properties.name,
-  ).toUpperCase()}`;
+  )}`;
 
 export const worstStatusOf = (g: BeachGroup) =>
   g.members

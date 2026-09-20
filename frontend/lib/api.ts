@@ -50,6 +50,10 @@ export type MunicipalityIncident = {
   opened_at: string; // YYYY-MM-DD
   closed_at: string | null;
   observations: string | null;
+  // Fila sintética del cliente: alerta viva que viene SOLO de prensa
+  // (p.ej. Benijo) — no existe BeachIncident oficial. Se etiqueta
+  // "según prensa" y nunca se mezcla con el estado oficial
+  via_press?: boolean;
 };
 
 export type BeachStats = {

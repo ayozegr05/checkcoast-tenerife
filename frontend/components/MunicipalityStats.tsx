@@ -73,10 +73,13 @@ const durationDays = (inc: MunicipalityIncident) => {
 export default function MunicipalityStats({
   beaches,
   onSelect,
+  onSelectBeach,
   onClose,
 }: {
   beaches: GeoFeature[];
   onSelect: (municipality: string | null) => void;
+  // Tocar un incidente de la línea temporal abre la ficha de su playa
+  onSelectBeach?: (beachId: number) => void;
   onClose: () => void;
 }) {
   const [stats, setStats] = useState<Map<number, BeachStats>>(new Map());
@@ -95,11 +98,63 @@ export default function MunicipalityStats({
   // monitorizadas tienen incidentes, así que "Sin municipio" no tiene
   useEffect(() => {
     setIncidents(null);
-    if (!detail?.municipality) return;
+    // "Sin municipio" no tiene incidentes oficiales pero puede tener
+    // alertas de prensa (playas OSM): lista vacía, no skeleton eterno
+    if (!detail?.municipality) {
+      setIncidents([]);
+      return;
+    }
     fetchMunicipalityIncidents(detail.municipality)
       .then(setIncidents)
       .catch(() => setIncidents([]));
   }, [detail]);
+
+  // Línea temporal del municipio abierto: incidentes oficiales +
+  // alertas vivas que solo existen en prensa (playas OSM como
+  // Benijo no generan BeachIncident — sin esto no aparecen)
+  const detailRows = useMemo<MunicipalityIncident[]>(() => {
+    if (!detail) return [];
+    const official = incidents ?? [];
+    const activeOfficial = new Set(
+      official.filter((i) => !i.closed_at).map((i) => i.beach_id),
+    );
+    const pressRows: MunicipalityIncident[] = beaches
+      .filter(
+        (f) =>
+          (f.properties.municipality ?? 'Sin municipio') ===
+            detail.name &&
+          f.properties.alert === true &&
+          !activeOfficial.has(f.id),
+      )
+      .map((f) => ({
+        id: -f.id, // id negativo: no colisiona con incidentes reales
+        beach_id: f.id,
+        beach_name: f.properties.name,
+        municipality: detail.municipality,
+        kind:
+          f.properties.status === 'warning'
+            ? ('warning' as const)
+            : ('closure' as const),
+        opened_at: (f.properties.reported_at ?? '').slice(0, 10),
+        closed_at: null,
+        observations: 'Según prensa — sin incidente oficial en Náyade',
+        via_press: true,
+      }));
+    return [...official, ...pressRows].sort((a, b) =>
+      b.opened_at.localeCompare(a.opened_at),
+    );
+  }, [detail, incidents, beaches]);
+
+  // Estado vivo por playa: un incidente abierto cuyo observations no
+  // dice "prohibido" se clasifica como aviso, pero si la playa está
+  // cerrada ahora mismo el badge debe decir "Cierre activo"
+  const liveStatus = useMemo(
+    () =>
+      new Map(
+        beaches.map((f) => [f.id, f.properties.status ?? 'unknown']),
+      ),
+    [beaches],
+  );
 
   const rows = useMemo(() => {
     const byMuni = new Map<string, MuniAcc>();
@@ -121,10 +176,13 @@ export default function MunicipalityStats({
       // El conteo de playas incluye todas las catalogadas;
       // solo las monitorizadas tienen estado oficial ni stats
       m.beachNames.add(baseName(f.properties.name));
+      // El estado vivo cuenta para TODAS las playas: una OSM cerrada
+      // según prensa (Benijo) también es una afectación real. Los
+      // puntos de muestreo y el histórico sí son solo de monitorizadas
+      if (f.properties.status === 'closed') m.closedNow += 1;
+      else if (f.properties.status === 'warning') m.warningNow += 1;
       if (f.properties.monitored !== false) {
         m.points += 1;
-        if (f.properties.status === 'closed') m.closedNow += 1;
-        else if (f.properties.status === 'warning') m.warningNow += 1;
         const st = stats.get(f.id);
         if (st) {
           m.incidents += st.closures + st.warnings;
@@ -187,58 +245,92 @@ export default function MunicipalityStats({
             </ImageBackground>
 
             <FlatList
-              data={incidents ?? []}
+              data={detailRows}
               keyExtractor={(inc) => String(inc.id)}
               style={styles.list}
               contentContainerStyle={styles.listContent}
-              renderItem={({ item: inc, index }) => (
-                <View style={styles.tlItem}>
-                  <View style={styles.tlRail}>
-                    <View
-                      style={[
-                        styles.tlDot,
-                        {
-                          backgroundColor:
-                            inc.kind === 'closure'
-                              ? colors.status.closed
-                              : colors.status.warning,
-                        },
-                      ]}
-                    />
-                    {index < (incidents?.length ?? 0) - 1 && (
-                      <View style={styles.tlLine} />
-                    )}
-                  </View>
-                  <View style={styles.tlBody}>
-                    <View style={styles.tlHeader}>
-                      <Text style={styles.tlBeach} numberOfLines={1}>
-                        {displayBeachName(inc.beach_name)}
-                      </Text>
-                      <Text
+              renderItem={({ item: inc, index }) => {
+                // Solo un incidente sin fecha de cierre está "activo":
+                // el badge sólido se reserva a ese caso — los
+                // históricos van en outline para no leerse como vivos
+                const active = inc.closed_at === null;
+                // En incidentes vivos manda el estado actual de la
+                // playa (p.ej. Gaviotas: incidencia "aviso" pero la
+                // playa está cerrada por muestra no apta)
+                const live = liveStatus.get(inc.beach_id);
+                const kind =
+                  active && (live === 'closed' || live === 'warning')
+                    ? live === 'closed'
+                      ? 'closure'
+                      : 'warning'
+                    : inc.kind;
+                return (
+                  <View style={styles.tlItem}>
+                    <View style={styles.tlRail}>
+                      <View
                         style={[
-                          styles.badge,
-                          inc.kind === 'closure'
-                            ? styles.badgeClosed
-                            : styles.badgeWarning,
+                          styles.tlDot,
+                          !active && styles.tlDotEnded,
+                          active && {
+                            backgroundColor:
+                              kind === 'closure'
+                                ? colors.status.closed
+                                : colors.status.warning,
+                          },
                         ]}
-                      >
-                        {inc.kind === 'closure' ? 'Cierre' : 'Aviso'}
-                      </Text>
+                      />
+                      {index < detailRows.length - 1 && (
+                        <View style={styles.tlLine} />
+                      )}
                     </View>
-                    <Text style={styles.tlDates}>
-                      {fmtDate(inc.opened_at)}
-                      {' → '}
-                      {inc.closed_at ? fmtDate(inc.closed_at) : 'activo'}
-                      {' · '}
-                      {durationDays(inc)}{' '}
-                      {durationDays(inc) === 1 ? 'día' : 'días'}
-                    </Text>
-                    {inc.observations ? (
-                      <Text style={styles.tlObs}>{inc.observations}</Text>
-                    ) : null}
+                    <Pressable
+                      style={styles.tlBody}
+                      onPress={() => onSelectBeach?.(inc.beach_id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ver ficha de ${displayBeachName(
+                        inc.beach_name,
+                      )}`}
+                    >
+                      <View style={styles.tlHeader}>
+                        <Text style={styles.tlBeach} numberOfLines={1}>
+                          {displayBeachName(inc.beach_name)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.badge,
+                            active
+                              ? kind === 'closure'
+                                ? styles.badgeClosed
+                                : styles.badgeWarning
+                              : styles.badgeEnded,
+                          ]}
+                        >
+                          {kind === 'closure' ? 'Cierre' : 'Aviso'}
+                          {active ? ' activo' : ''}
+                        </Text>
+                        <Text style={styles.tlGo}>›</Text>
+                      </View>
+                      <Text style={styles.tlDates}>
+                        {inc.opened_at ? fmtDate(inc.opened_at) : '—'}
+                        {' → '}
+                        {inc.closed_at
+                          ? fmtDate(inc.closed_at)
+                          : 'activo'}
+                        {inc.opened_at
+                          ? ` · ${durationDays(inc)} ${
+                              durationDays(inc) === 1 ? 'día' : 'días'
+                            }`
+                          : ''}
+                      </Text>
+                      {inc.observations ? (
+                        <Text style={styles.tlObs}>
+                          {inc.observations}
+                        </Text>
+                      ) : null}
+                    </Pressable>
                   </View>
-                </View>
-              )}
+                );
+              }}
               ListEmptyComponent={
                 incidents === null ? (
                   <View>
@@ -477,6 +569,24 @@ const styles = StyleSheet.create({
   },
   badgeWarning: {
     backgroundColor: colors.status.warning,
+  },
+  // Incidente histórico (ya cerrado): outline apagado — el sólido se
+  // reserva a los activos para que no se lean como vigentes
+  badgeEnded: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.border,
+    color: colors.textMuted,
+  },
+  tlDotEnded: {
+    backgroundColor: colors.textFaint,
+  },
+  tlGo: {
+    fontSize: 18,
+    fontFamily: fonts.bold,
+    color: colors.textFaint,
+    marginLeft: 6,
+    marginTop: -2,
   },
   rowSub: {
     fontSize: 12,
