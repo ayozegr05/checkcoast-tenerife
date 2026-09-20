@@ -5,6 +5,8 @@ import {
   ImageBackground,
   Keyboard,
   Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -108,10 +110,32 @@ export default function BeachList({
   const [shotLoaded, setShotLoaded] = useState(false);
   // Scroll del detalle: BeachDetail baja a "Ver titulares" al expandir
   const detailScrollRef = useRef<ScrollView>(null);
+  // "Ver más" del detalle: visible mientras quede contenido bajo el
+  // viewport — misma mecánica que la card del mapa
+  const [showMore, setShowMore] = useState(false);
+  const scrollMetrics = useRef({ y: 0, vh: 0, ch: 0 });
+  const recomputeMore = () => {
+    const m = scrollMetrics.current;
+    setShowMore(
+      m.vh > 0 && m.ch > m.vh + 8 && m.y + m.vh < m.ch - 32,
+    );
+  };
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, layoutMeasurement, contentSize } =
+      e.nativeEvent;
+    scrollMetrics.current = {
+      y: contentOffset.y,
+      vh: layoutMeasurement.height,
+      ch: contentSize.height,
+    };
+    recomputeMore();
+  };
 
   // Abrir ficha: el teclado del buscador podía quedar sobre el overlay
   const openDetail = (f: GeoFeature) => {
     Keyboard.dismiss();
+    scrollMetrics.current = { y: 0, vh: 0, ch: 0 };
+    setShowMore(false);
     setDetail(f);
   };
 
@@ -510,7 +534,22 @@ export default function BeachList({
                 <Text style={styles.mapBtnText}>Ver en mapa</Text>
               </Pressable>
             </ImageBackground>
-            <ScrollView ref={detailScrollRef} style={styles.detailScroll}>
+            <ScrollView
+              ref={detailScrollRef}
+              style={styles.detailScroll}
+              onLayout={(e) => {
+                scrollMetrics.current.vh =
+                  e.nativeEvent.layout.height;
+                recomputeMore();
+              }}
+              onContentSizeChange={(_w, ch) => {
+                scrollMetrics.current.ch = ch;
+                recomputeMore();
+              }}
+              onScroll={handleScroll}
+              onMomentumScrollEnd={handleScroll}
+              scrollEventThrottle={80}
+            >
               <View style={styles.mapShotWrap}>
                 {!shotLoaded && (
                   <Skeleton style={styles.mapShotSkeleton} />
@@ -550,6 +589,27 @@ export default function BeachList({
                 />
               </View>
             </ScrollView>
+            {/* "Ver más": insinúa que hay contenido debajo; autoscroll
+                hasta el final y se oculta al llegar abajo */}
+            {showMore && (
+              <Pressable
+                style={styles.moreBtn}
+                onPress={() => {
+                  detailScrollRef.current?.scrollToEnd({
+                    animated: true,
+                  });
+                  setTimeout(() => {
+                    const m = scrollMetrics.current;
+                    if (m.ch > 0 && m.y + m.vh >= m.ch - 120)
+                      setShowMore(false);
+                  }, 1200);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Ver más contenido de la ficha"
+              >
+                <Text style={styles.moreText}>Ver más ⌄</Text>
+              </Pressable>
+            )}
           </View>
         )}
       </View>
@@ -673,6 +733,25 @@ const styles = StyleSheet.create({
   detailBody: {
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === 'android' ? 44 : 24,
+  },
+  moreBtn: {
+    position: 'absolute',
+    bottom: Platform.OS === 'android' ? 18 : 10,
+    alignSelf: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  moreText: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    color: '#fff',
   },
   title: {
     fontSize: 18,
