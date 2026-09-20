@@ -104,3 +104,28 @@ Los cambios de estado (scraper o manual) disparan push a los tokens
 registrados; los tokens muertos (`DeviceNotRegistered`) se purgan.
 Alternativa descartada: FCM directo — Expo ya abstrae credenciales y
 entrega, y el proyecto ya vive en EAS.
+
+### Deploy: Oracle Cloud Free Tier (VM) y no Render/Supabase/Railway
+
+El backend se autoaloja en una VM **Ampere A1 ARM** de Oracle (4 OCPU,
+24 GB, capa *Always Free* → $0 permanente) con el mismo
+`docker-compose.yml` de desarrollo: BD + API juntas, siempre
+despiertas, scheduler de Náyade corriendo 24/7.
+
+Alternativas evaluadas y descartadas:
+
+- **Railway**: la más cómoda (Docker + Postgres gestionado en un panel),
+  pero no es gratis — ~$5/mes tras el crédito de prueba
+- **Supabase (BD) + Render (API)**: $0 pero con trampas serias —
+  el Postgres free de Render **caduca a las pocas semanas** (borrado,
+  no pausa); el web service free de Render **duerme a los 15 min** sin
+  tráfico (cold start ~30 s y, peor, el scheduler/APScheduler no corre
+  dormido → alertas y push con lag); Supabase pausa la BD tras 7 días
+  sin uso. Se podía mitigar con un ping externo tipo cron-job.org, pero
+  es zona gris del free tier y frágil
+- **Fly.io**: sin free tier real y más configuración manual que Oracle
+  para el mismo resultado
+
+Trade-off aceptado: ser nuestro propio sysadmin (unattended-upgrades,
+restart policies, rotación de logs) a cambio de $0 real, siempre
+despierto y sin hacks.
