@@ -845,7 +845,10 @@ export default function CoastMap({
 
       <View style={styles.legend} pointerEvents="box-none">
         <Pressable
-          style={styles.legendToggle}
+          style={[
+            styles.legendToggle,
+            legendOpen && styles.legendToggleOpen,
+          ]}
           onPress={() => setLegendOpen((v) => !v)}
           accessibilityRole="button"
           accessibilityLabel={legendOpen ? 'Ocultar capas' : 'Ver capas'}
@@ -1156,9 +1159,12 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     minWidth: 140,
   },
+  legendToggleOpen: {
+    marginBottom: 8,
+  },
   legendChevron: {
     marginLeft: 'auto',
-    fontSize: 12,
+    fontSize: 17,
     color: colors.textMuted,
     fontFamily: fonts.bold,
   },
