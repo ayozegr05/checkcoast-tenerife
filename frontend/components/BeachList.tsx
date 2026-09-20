@@ -3,6 +3,7 @@ import {
   FlatList,
   Image,
   ImageBackground,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -108,6 +109,12 @@ export default function BeachList({
   // Scroll del detalle: BeachDetail baja a "Ver titulares" al expandir
   const detailScrollRef = useRef<ScrollView>(null);
 
+  // Abrir ficha: el teclado del buscador podía quedar sobre el overlay
+  const openDetail = (f: GeoFeature) => {
+    Keyboard.dismiss();
+    setDetail(f);
+  };
+
   // La foto satélite de Esri tarda en llegar: skeleton hasta que carga
   useEffect(() => {
     setShotLoaded(false);
@@ -179,77 +186,7 @@ export default function BeachList({
       onRequestClose={detail ? () => setDetail(null) : onClose}
     >
       <View style={styles.container}>
-        {detail ? (
-          <>
-            <ImageBackground
-              source={require('../assets/gradient-sea.png')}
-              style={styles.header}
-              resizeMode="cover"
-            >
-              <Pressable
-                onPress={() => setDetail(null)}
-                hitSlop={12}
-                style={styles.backBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Volver a la lista"
-              >
-                <Text style={styles.backText}>‹</Text>
-              </Pressable>
-              <Text style={styles.title} numberOfLines={1}>
-                {displayBeachName(detail.properties.name)}
-              </Text>
-              <Pressable
-                onPress={() => onSelect(detail)}
-                style={styles.mapBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Ver en el mapa"
-              >
-                <Text style={styles.mapBtnText}>Ver en mapa</Text>
-              </Pressable>
-            </ImageBackground>
-            <ScrollView ref={detailScrollRef} style={styles.detailScroll}>
-              <View style={styles.mapShotWrap}>
-                {!shotLoaded && (
-                  <Skeleton style={styles.mapShotSkeleton} />
-                )}
-                {!shotLoaded && (
-                  <Text style={styles.mapShotLoading}>
-                    Cargando vista satélite…
-                  </Text>
-                )}
-                <Image
-                  source={{
-                    uri: satelliteShot(detail.geometry.coordinates),
-                  }}
-                  style={styles.mapShot}
-                  resizeMode="cover"
-                  onLoad={() => setShotLoaded(true)}
-                  accessibilityLabel="Vista satélite de la zona de la playa"
-                />
-                <View
-                  style={[
-                    styles.mapDot,
-                    {
-                      backgroundColor:
-                        STATUS_COLORS[statusOf(detail)],
-                    },
-                  ]}
-                />
-                <Text style={styles.mapCredit}>
-                  © Esri, Maxar, Earthstar Geographics
-                </Text>
-              </View>
-              <View style={styles.detailBody}>
-                <BeachDetail
-                  feature={detail}
-                  hasAlert={detail.properties.alert === true}
-                  scrollRef={detailScrollRef}
-                />
-              </View>
-            </ScrollView>
-          </>
-        ) : (
-          <>
+        <>
         <ImageBackground
           source={require('../assets/gradient-sea.png')}
           style={styles.header}
@@ -436,7 +373,7 @@ export default function BeachList({
                   style={styles.rowMain}
                   onPress={() =>
                     g.members.length === 1
-                      ? setDetail(g.members[0])
+                      ? openDetail(g.members[0])
                       : setExpandedKey(expanded ? null : g.key)
                   }
                   accessibilityRole="button"
@@ -504,7 +441,7 @@ export default function BeachList({
                       <Pressable
                         key={f.id}
                         style={styles.pmRow}
-                        onPress={() => setDetail(f)}
+                        onPress={() => openDetail(f)}
                         accessibilityRole="button"
                         accessibilityLabel={`${
                           pointLongLabel(f.properties.name) ??
@@ -542,6 +479,78 @@ export default function BeachList({
           }
         />
           </>
+
+        {/* Ficha del PM como overlay: la lista queda montada debajo y
+            conserva scroll + expansión al volver atrás */}
+        {detail && (
+          <View style={styles.detailOverlay}>
+            <ImageBackground
+              source={require('../assets/gradient-sea.png')}
+              style={styles.header}
+              resizeMode="cover"
+            >
+              <Pressable
+                onPress={() => setDetail(null)}
+                hitSlop={12}
+                style={styles.backBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Volver a la lista"
+              >
+                <Text style={styles.backText}>‹</Text>
+              </Pressable>
+              <Text style={styles.title} numberOfLines={1}>
+                {displayBeachName(detail.properties.name)}
+              </Text>
+              <Pressable
+                onPress={() => onSelect(detail)}
+                style={styles.mapBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Ver en el mapa"
+              >
+                <Text style={styles.mapBtnText}>Ver en mapa</Text>
+              </Pressable>
+            </ImageBackground>
+            <ScrollView ref={detailScrollRef} style={styles.detailScroll}>
+              <View style={styles.mapShotWrap}>
+                {!shotLoaded && (
+                  <Skeleton style={styles.mapShotSkeleton} />
+                )}
+                {!shotLoaded && (
+                  <Text style={styles.mapShotLoading}>
+                    Cargando vista satélite…
+                  </Text>
+                )}
+                <Image
+                  source={{
+                    uri: satelliteShot(detail.geometry.coordinates),
+                  }}
+                  style={styles.mapShot}
+                  resizeMode="cover"
+                  onLoad={() => setShotLoaded(true)}
+                  accessibilityLabel="Vista satélite de la zona de la playa"
+                />
+                <View
+                  style={[
+                    styles.mapDot,
+                    {
+                      backgroundColor:
+                        STATUS_COLORS[statusOf(detail)],
+                    },
+                  ]}
+                />
+                <Text style={styles.mapCredit}>
+                  © Esri, Maxar, Earthstar Geographics
+                </Text>
+              </View>
+              <View style={styles.detailBody}>
+                <BeachDetail
+                  feature={detail}
+                  hasAlert={detail.properties.alert === true}
+                  scrollRef={detailScrollRef}
+                />
+              </View>
+            </ScrollView>
+          </View>
         )}
       </View>
     </Modal>
@@ -601,6 +610,15 @@ const styles = StyleSheet.create({
   },
   detailScroll: {
     flex: 1,
+  },
+  // Cubre toda la modal (lista incluida) — la lista sigue montada debajo
+  detailOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.background,
   },
   mapShotWrap: {
     margin: 12,
