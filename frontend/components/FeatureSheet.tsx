@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   PanResponder,
   Platform,
   Pressable,
@@ -96,6 +98,25 @@ export default function FeatureSheet({
   const bodyRef = useRef<ScrollView>(null);
   // "Ver más" se oculta cuando el usuario ya llegó al final
   const [atBottom, setAtBottom] = useState(false);
+  // Últimas métricas de scroll conocidas: el fallback de "Ver más" las
+  // usa para no ocultar el botón si el usuario subió durante el
+  // autoscroll
+  const scrollMetrics = useRef({ y: 0, vh: 0, ch: 0 });
+  const updateAtBottom = (
+    e: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    const { contentOffset, layoutMeasurement, contentSize } =
+      e.nativeEvent;
+    scrollMetrics.current = {
+      y: contentOffset.y,
+      vh: layoutMeasurement.height,
+      ch: contentSize.height,
+    };
+    setAtBottom(
+      contentOffset.y + layoutMeasurement.height >=
+        contentSize.height - 32,
+    );
+  };
 
   // Playa mas cercana al vertido (contexto de impacto)
   const [nearest, setNearest] = useState<OutfallNearestBeach | null>(null);
@@ -212,14 +233,8 @@ export default function FeatureSheet({
         contentContainerStyle={styles.bodyContent}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={(_w, ch) => setBodyH(ch)}
-        onScroll={(e) => {
-          const { contentOffset, layoutMeasurement, contentSize } =
-            e.nativeEvent;
-          setAtBottom(
-            contentOffset.y + layoutMeasurement.height >=
-              contentSize.height - 32,
-          );
-        }}
+        onScroll={updateAtBottom}
+        onMomentumScrollEnd={updateAtBottom}
         scrollEventThrottle={80}
       >
         {isBeach ? (
@@ -340,11 +355,21 @@ export default function FeatureSheet({
           style={styles.moreBtn}
           onPress={() => {
             if (!expanded.current) snapTo(CARD_MAX, true);
-            // Tras expandir (o ya expandida), baja al contenido nuevo
+            // El scroll espera a que el spring de expansión termine:
+            // si arranca con la card a medias, scrollToEnd apunta a un
+            // offset maximo antiguo y nunca llega al fondo real.
             setTimeout(
               () => bodyRef.current?.scrollToEnd({ animated: true }),
-              300,
+              expanded.current ? 50 : 550,
             );
+            // Respaldo: si el evento de scroll final no llega (race con
+            // la animación de altura), retira el botón — pero solo si
+            // la última métrica conocida sigue cerca del fondo (si el
+            // usuario subió a mano, respetar su posición).
+            setTimeout(() => {
+              const m = scrollMetrics.current;
+              if (m.ch > 0 && m.y + m.vh >= m.ch - 120) setAtBottom(true);
+            }, 1200);
           }}
           accessibilityRole="button"
           accessibilityLabel="Ver más contenido de la ficha"
