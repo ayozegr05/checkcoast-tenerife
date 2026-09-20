@@ -533,16 +533,9 @@ export default function CoastMap({
             data={groupedBeaches}
             onPress={handlePress('beach')}
           >
-            {/* Pines monitorizados + cualquier playa con alerta (p.ej.
-                Benijo cerrada por prensa): visibles en toda la isla */}
             <Layer
-              id="beach-pins-monitored"
+              id="beach-pins"
               type="symbol"
-              filter={[
-                'any',
-                ['!=', ['get', 'monitored'], false],
-                ['==', ['get', 'alert'], true],
-              ]}
               layout={{
                 'icon-image': [
                   'case',
@@ -564,25 +557,6 @@ export default function CoastMap({
                     'pin-open',
                   ],
                 ],
-                'icon-size': 0.42,
-                'icon-anchor': 'bottom',
-                'icon-allow-overlap': true,
-                'icon-ignore-placement': true,
-              }}
-            />
-            {/* Playas sin monitorizar: ~100 pines grises que saturan la
-                vista de isla — aparecen al acercar (zoom >= 11) */}
-            <Layer
-              id="beach-pins-unmonitored"
-              type="symbol"
-              minzoom={11}
-              filter={[
-                'all',
-                ['==', ['get', 'monitored'], false],
-                ['!=', ['get', 'alert'], true],
-              ]}
-              layout={{
-                'icon-image': 'pin-unmonitored',
                 'icon-size': 0.42,
                 'icon-anchor': 'bottom',
                 'icon-allow-overlap': true,
@@ -995,7 +969,7 @@ export default function CoastMap({
               </View>
             </Pressable>
             <Text style={styles.legendNote}>
-              Emisarios y playas sin monitorizar aparecen al acercar
+              Los emisarios aparecen al acercar (vista de costa)
             </Text>
           </>
         )}
