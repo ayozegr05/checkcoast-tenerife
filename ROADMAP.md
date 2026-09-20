@@ -191,14 +191,17 @@ locales → LLM extrae playa/evento/causa → se muestra etiquetado como
 
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
-| 9.1 | README completo: qué es, features, stack, fuentes de datos, cómo ejecutar | Pendiente | 🟡 Medio |
-| 9.2 | Screenshots/GIF de la app (mapa, ranking, vertidos, ficha) | Pendiente | 🟢 Trivial |
-| 9.3 | Diagrama de arquitectura (Expo → FastAPI → PostGIS ← scrapers/fuentes) | Pendiente | 🟢 Trivial |
-| 9.4 | Documentar decisiones técnicas (MapLibre vs Google, SDF teñido, scraper Náyade, PM↔playa) | Pendiente | 🟢 Trivial |
+| 9.1 | README completo: qué es, features, stack, fuentes de datos, cómo ejecutar | ✅ Hecho (`02fe195`) | 🟡 Medio |
+| 9.2 | Screenshots/GIF de la app (mapa, ranking, vertidos, ficha) | Pendiente — capturas del APK nuevo | 🟢 Trivial |
+| 9.3 | Diagrama de arquitectura (Mermaid en README) | ✅ Hecho (`02fe195`) | 🟢 Trivial |
+| 9.4 | Documentar decisiones técnicas | ✅ Hecho — `DECISIONS.md` (`02fe195`) | 🟢 Trivial |
+| 9.5 | Subir repo a GitHub (sin remote aún — activa CI + da URL pública) | Pendiente | 🟢 Trivial |
+| 9.6 | Vídeo demo breve (~45 s): grabación de pantalla + texto superpuesto, sin voz — hook "Náyade dice QUÉ, esto dice POR QUÉ" | Pendiente | 🟡 Medio |
+| 9.7 | Post LinkedIn: problema en 1 frase + vídeo/GIF + 3 bullets técnicos + link repo (requiere 9.5) | Pendiente | 🟢 Trivial |
 
 ---
 
 ### Estado actual
 **Hito activo:** 8 — Calidad y despliegue (8.5 prensa LLM completo:
 pipeline + resumen + alertas mixtas oficial/prensa)
-**Última actualización:** 2026-09-19
+**Última actualización:** 2026-09-20
