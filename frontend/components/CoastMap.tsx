@@ -485,9 +485,6 @@ export default function CoastMap({
             <Layer
               id="outfall-icons"
               type="symbol"
-              // Los emisarios saturan la vista de isla: aparecen al
-              // acercar (vista de costa/playa)
-              minzoom={11}
               layout={{
                 'icon-image': [
                   'match',
@@ -969,7 +966,7 @@ export default function CoastMap({
               </View>
             </Pressable>
             <Text style={styles.legendNote}>
-              Los emisarios aparecen al acercar (vista de costa)
+              Los nombres de las playas aparecen al acercar
             </Text>
           </>
         )}
