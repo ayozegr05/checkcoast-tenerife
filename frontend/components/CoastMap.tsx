@@ -402,10 +402,21 @@ export default function CoastMap({
   const handlePress =
     (type: 'outfall' | 'beach') =>
     (e: NativeSyntheticEvent<PressEventWithFeatures>) => {
-      const feature = e.nativeEvent.features?.[0] as unknown as
-        | GeoFeature
-        | undefined;
-      if (!feature) return;
+      const candidates = (e.nativeEvent.features ?? []) as unknown as
+        GeoFeature[];
+      if (!candidates.length) return;
+      // Los pines se solapan (icon-allow-overlap) y el hit-test devuelve
+      // todos los candidatos: gana el más cercano al punto tocado, no
+      // el primero por orden interno del source
+      const [tapLon, tapLat] = e.nativeEvent.lngLat;
+      const feature = candidates.reduce((best, f) => {
+        const [lon, lat] = f.geometry.coordinates;
+        const [bLon, bLat] = best.geometry.coordinates;
+        return (lon - tapLon) ** 2 + (lat - tapLat) ** 2 <
+          (bLon - tapLon) ** 2 + (bLat - tapLat) ** 2
+          ? f
+          : best;
+      });
       saveView();
       // Zoom de detalle + centro desplazado al sur: el pin queda justo
       // por encima de la card flotante.
