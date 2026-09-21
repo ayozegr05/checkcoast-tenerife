@@ -4,7 +4,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 
 from app.config import settings
-from app.routers import alerts, beaches, devices, outfalls
+from app.routers import alerts, beaches, devices, outfalls, share
 
 
 def _sync_beach_statuses() -> None:
@@ -61,6 +61,7 @@ app.include_router(outfalls.router)
 app.include_router(beaches.router)
 app.include_router(alerts.router)
 app.include_router(devices.router)
+app.include_router(share.router)
 
 
 @app.get("/health")

@@ -153,6 +153,11 @@ export const fetchMunicipalityIncidents = (municipality: string) =>
     `/incidents?municipality=${encodeURIComponent(municipality)}`,
   );
 
+// URL pública compartible de una playa (mini-página OG del backend);
+// WhatsApp/Telegram la convierten en tarjeta con foto satélite
+export const beachShareUrl = (beachId: number) =>
+  `${API_URL}/b/${beachId}`;
+
 // Registro del Expo push token en el backend (idempotente)
 export const registerDevice = (token: string, platform: string) =>
   fetch(`${API_URL}/devices`, {

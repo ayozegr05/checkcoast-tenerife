@@ -17,6 +17,7 @@ import {
   BeachNews,
   BeachNewsResponse,
   GeoFeature,
+  beachShareUrl,
   fetchBeachIncidents,
   fetchBeachNearbyOutfalls,
   fetchBeachNews,
@@ -361,8 +362,8 @@ export default function BeachDetail({
       ? colors.status.unmonitored
       : (BEACH_STATUS[beachKey]?.color ?? colors.status.unknown);
 
-  // Mensaje listo para WhatsApp/Telegram: estado + última evaluación +
-  // deep-link checkcoast://beach/{id} que abre la app en esta ficha
+  // Mensaje listo para WhatsApp/Telegram: el link /b/{id} del backend
+  // lleva Open Graph (foto satélite + estado) → tarjeta rica en el chat
   const share = () => {
     const lines = [
       `🏖️ ${displayBeachName(p.name)}${p.municipality ? ` (${p.municipality})` : ''}`,
@@ -375,8 +376,7 @@ export default function BeachDetail({
           `${latest.evaluation ?? 'sin evaluación'}`,
       );
     }
-    lines.push('Fuente: CheckCoast Tenerife (MITECO/Náyade/OSM)');
-    lines.push(`checkcoast://beach/${feature.id}`);
+    lines.push(beachShareUrl(feature.id));
     Share.share({ message: lines.join('\n') }).catch(() => {});
   };
 
