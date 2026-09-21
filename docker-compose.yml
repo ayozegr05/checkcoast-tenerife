@@ -29,6 +29,8 @@ services:
       # Dentro de la red de compose la BD es "db" en el puerto interno 5432
       DATABASE_URL: postgresql+psycopg2://checkcoast:checkcoast@db:5432/checkcoast
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Fingerprint SHA-256 del keystore EAS (Android App Links /b/{id})
+      ANDROID_CERT_SHA256: ${ANDROID_CERT_SHA256:-}
     ports:
       # Puerto externo 8001: el 8000 lo usa otro proyecto
       - "8001:8000"
