@@ -185,6 +185,7 @@ export default function App() {
     setListOpen(false);
     setMuniOpen(false);
     setOutfallListOpen(false);
+    setReturnToOutfalls(false);
     setSelection({
       type: 'beach',
       feature: f,
@@ -232,11 +233,16 @@ export default function App() {
     setListMunicipality(undefined);
     setSelection(null); // si había una ficha abierta en el mapa, tapaba el vuelo
     setReturnToMuni(false);
+    setReturnToOutfalls(false);
     setFocus([...feature.geometry.coordinates, 14.5]);
   };
 
+  // Emisario abierto desde la lista: al cerrar su ficha se vuelve a
+  // la lista de emisarios, no al mapa
+  const [returnToOutfalls, setReturnToOutfalls] = useState(false);
   const handleOutfallSelect = (feature: GeoFeature) => {
     setOutfallListOpen(false);
+    setReturnToOutfalls(true);
     setSelection({ type: 'outfall', feature });
     setFocus([...feature.geometry.coordinates]);
   };
@@ -261,6 +267,10 @@ export default function App() {
       setReturnToMuni(false);
       setMuniOpen(true);
     }
+    if (returnToOutfalls) {
+      setReturnToOutfalls(false);
+      setOutfallListOpen(true);
+    }
   };
 
   return (
@@ -277,10 +287,15 @@ export default function App() {
           selection?.type === 'outfall' ? selection.feature.id : null
         }
         pmPoints={pmPointsFC}
-        onSelect={setSelection}
+        onSelect={(s) => {
+          setSelection(s);
+          setReturnToMuni(false);
+          setReturnToOutfalls(false);
+        }}
         onDismissSelection={() => {
           setSelection(null);
           setReturnToMuni(false);
+          setReturnToOutfalls(false);
         }}
         onOpenList={() => setListOpen(true)}
         onOpenMunicipalities={() => setMuniOpen(true)}
@@ -354,6 +369,14 @@ export default function App() {
           selection={selection}
           onClose={closeSheet}
           outfalls={outfalls.features}
+          beaches={beachesFC.features}
+          onViewOnMap={() => {
+            // Tap en la foto satélite: cerrar la ficha y quedarse en
+            // el mapa (no volver a la lista de origen si la hubiera)
+            setReturnToMuni(false);
+            setReturnToOutfalls(false);
+            setSelection(null);
+          }}
         />
       )}
 

@@ -25,6 +25,7 @@ import {
 import { displayBeachName, fmtDate } from '../lib/format';
 import { pressSummary } from '../lib/press';
 import { colors, fonts } from '../lib/theme';
+import SatelliteShot from './SatelliteShot';
 import ScrollChips from './ScrollChips';
 import Skeleton from './Skeleton';
 
@@ -159,16 +160,6 @@ const OUTFALL_STATUS_LABELS: Record<string, string> = {
   unknown: 'En trámite',
 };
 
-// Foto satélite estática del punto (Esri World Imagery, mismo servicio
-// que la vista satélite del mapa). Bbox ~800x500 m centrada en la playa
-const SAT_DLON = 0.004;
-const SAT_DLAT = 0.0022;
-const satelliteShot = ([lon, lat]: [number, number]) =>
-  'https://server.arcgisonline.com/ArcGIS/rest/services/' +
-  `World_Imagery/MapServer/export?bbox=${lon - SAT_DLON},${lat - SAT_DLAT},` +
-  `${lon + SAT_DLON},${lat + SAT_DLAT}&bboxSR=4326&imageSR=4326&size=640,300` +
-  '&format=png&f=image';
-
 // Tipos de evento extraídos de prensa por el LLM (Hito 8.5)
 const NEWS_EVENT_LABELS: Record<string, string> = {
   closure: 'Cierre',
@@ -184,11 +175,14 @@ export default function BeachDetail({
   feature,
   hasAlert,
   outfalls,
+  onViewOnMap,
 }: {
   feature: GeoFeature;
   hasAlert: boolean;
   // Emisarios cargados en la app: se superponen a la foto satélite
   outfalls?: GeoFeature[];
+  // Tap en la foto satélite → ver la playa en el mapa
+  onViewOnMap?: () => void;
 }) {
   const p = feature.properties;
   const unmonitored = p.monitored === false;
@@ -203,8 +197,7 @@ export default function BeachDetail({
     'ecoli',
   );
   const [chartW, setChartW] = useState(0);
-  // La foto satélite de Esri tarda en llegar: skeleton hasta que carga
-  const [shotLoaded, setShotLoaded] = useState(false);
+
 
   useEffect(() => {
     setIncidents(null);
@@ -212,7 +205,6 @@ export default function BeachDetail({
     setNearby(null);
     setNews(null);
     setNewsOpen(false);
-    setShotLoaded(false);
     fetchBeachNearbyOutfalls(feature.id)
       .then(setNearby)
       .catch(() => setNearby([]));
@@ -311,35 +303,22 @@ export default function BeachDetail({
     return [...groups.values()];
   }, [news]);
 
-  // Emisarios dentro del bbox de la foto satélite: posición interpolada
-  // lon/lat → % del contenedor (foto fija con la misma proyección que
-  // el bbox). Ordenados por cercanía a la playa, tope 14 para no
-  // saturar zonas densas como el puerto de Santa Cruz
-  const shotOutfalls = useMemo(() => {
-    const cos = Math.cos((lat * Math.PI) / 180);
-    return (outfalls ?? [])
-      .map((o) => {
-        const [ol, oa] = o.geometry.coordinates;
-        const dLonM = (ol - lon) * 111320 * cos;
-        const dLatM = (oa - lat) * 110540;
+  // Emisarios como marcadores de la foto satélite: su posición real se
+  // proyecta al encuadre dentro de SatelliteShot
+  const shotMarkers = useMemo(
+    () =>
+      (outfalls ?? []).map((o) => {
+        const s = o.properties.status ?? 'unknown';
         return {
           id: o.id,
-          status: o.properties.status ?? 'unknown',
-          x: ((ol - (lon - SAT_DLON)) / (2 * SAT_DLON)) * 100,
-          y: (((lat + SAT_DLAT) - oa) / (2 * SAT_DLAT)) * 100,
-          d2: dLonM * dLonM + dLatM * dLatM,
+          coords: o.geometry.coordinates as [number, number],
+          color: colors.outfall[s as keyof typeof colors.outfall] ??
+            colors.status.unknown,
+          label: OUTFALL_STATUS_LABELS[s] ?? 'En trámite',
+          icon: require('../assets/icons/icon-faucet-sil.png'),
         };
-      })
-      .filter((o) => o.x >= 0 && o.x <= 100 && o.y >= 0 && o.y <= 100)
-      .sort((a, b) => a.d2 - b.d2)
-      .slice(0, 14);
-  }, [outfalls, lon, lat]);
-
-  // Estados presentes entre los emisarios del encuadre: la mini-leyenda
-  // solo muestra lo que realmente se ve en la foto
-  const shotStatuses = useMemo(
-    () => [...new Set(shotOutfalls.map((o) => o.status ?? 'unknown'))],
-    [shotOutfalls],
+      }),
+    [outfalls],
   );
 
   // ¿El cierre de prensa sigue vivo? Si Sanidad registró un incidente
@@ -403,68 +382,13 @@ export default function BeachDetail({
     <View>
       {/* Vista satélite del entorno: la playa en el centro y los
           emisarios catalogados situados en su posición real dentro del
-          encuadre, coloreados por estado */}
-      <View style={styles.shotWrap}>
-        {!shotLoaded && <Skeleton style={styles.shotSkeleton} />}
-        {!shotLoaded && (
-          <Text style={styles.shotLoading}>Cargando vista satélite…</Text>
-        )}
-        <Image
-          source={{ uri: satelliteShot(feature.geometry.coordinates) }}
-          style={styles.shot}
-          resizeMode="stretch"
-          onLoad={() => setShotLoaded(true)}
-          accessibilityLabel="Vista satélite de la zona de la playa"
-        />
-        {shotOutfalls.map((o) => (
-          <View
-            key={o.id}
-            style={[
-              styles.shotOutfall,
-              {
-                left: `${o.x}%`,
-                top: `${o.y}%`,
-                backgroundColor:
-                  colors.outfall[o.status as keyof typeof colors.outfall] ??
-                  colors.status.unknown,
-              },
-            ]}
-          >
-            <Image
-              source={require('../assets/icons/icon-faucet-sil.png')}
-              style={styles.shotOutfallIcon}
-            />
-          </View>
-        ))}
-        <View
-          style={[styles.shotDot, { backgroundColor: statusColor }]}
-        />
-        {shotStatuses.length > 0 && (
-          <View style={styles.shotLegend}>
-            {shotStatuses.map((s) => (
-              <View key={s} style={styles.shotLegendRow}>
-                <View
-                  style={[
-                    styles.shotLegendDot,
-                    {
-                      backgroundColor:
-                        colors.outfall[
-                          s as keyof typeof colors.outfall
-                        ] ?? colors.status.unknown,
-                    },
-                  ]}
-                />
-                <Text style={styles.shotLegendText}>
-                  {OUTFALL_STATUS_LABELS[s] ?? 'En trámite'}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-        <Text style={styles.shotCredit}>
-          © Esri, Maxar, Earthstar Geographics
-        </Text>
-      </View>
+          encuadre, coloreados por estado. La foto es clicable → mapa */}
+      <SatelliteShot
+        center={[lon, lat]}
+        centerColor={statusColor}
+        markers={shotMarkers}
+        onPress={onViewOnMap}
+      />
 
       <View style={styles.topRow}>
         <View style={[styles.chip, { backgroundColor: statusColor }]}>
@@ -1243,97 +1167,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 1,
-  },
-  // Vista satélite con overlay de emisarios
-  shotWrap: {
-    marginTop: 8,
-    borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: colors.border,
-  },
-  shot: {
-    width: '100%',
-    aspectRatio: 640 / 300,
-  },
-  shotSkeleton: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 0,
-  },
-  shotLoading: {
-    position: 'absolute',
-    top: '50%',
-    alignSelf: 'center',
-    marginTop: -8,
-    fontSize: 11,
-    fontFamily: fonts.semibold,
-    color: colors.textMuted,
-  },
-  shotDot: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    width: 16,
-    height: 16,
-    marginTop: -8,
-    marginLeft: -8,
-    borderRadius: 8,
-    borderWidth: 3,
-    borderColor: '#fff',
-  },
-  shotOutfall: {
-    position: 'absolute',
-    width: 18,
-    height: 18,
-    marginLeft: -9,
-    marginTop: -9,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    borderColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shotOutfallIcon: {
-    width: 10,
-    height: 10,
-    tintColor: '#fff',
-  },
-  shotLegend: {
-    position: 'absolute',
-    bottom: 4,
-    left: 6,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    gap: 1,
-  },
-  shotLegendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  shotLegendDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  shotLegendText: {
-    fontSize: 8,
-    fontFamily: fonts.semibold,
-    color: '#fff',
-  },
-  shotCredit: {
-    position: 'absolute',
-    bottom: 4,
-    right: 8,
-    fontSize: 9,
-    fontFamily: fonts.semibold,
-    color: '#fff',
-    textShadowColor: 'rgba(0,0,0,0.7)',
-    textShadowRadius: 2,
   },
 });

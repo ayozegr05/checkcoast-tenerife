@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   NativeScrollEvent,
@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import BeachDetail from './BeachDetail';
+import SatelliteShot from './SatelliteShot';
 import type { Selection } from './CoastMap';
 import type { GeoFeature } from '../lib/api';
 import {
@@ -61,11 +62,17 @@ export default function FeatureSheet({
   selection,
   onClose,
   outfalls,
+  beaches,
+  onViewOnMap,
 }: {
   selection: Selection;
   onClose: () => void;
-  // Emisarios cargados en la app: BeachDetail los superpone a la foto
+  // Emisarios cargados en la app: se superponen a la foto satélite
   outfalls?: GeoFeature[];
+  // Playas cargadas: se superponen a la foto satélite del emisario
+  beaches?: GeoFeature[];
+  // Tap en la foto satélite → ver el punto en el mapa
+  onViewOnMap?: () => void;
 }) {
   const { feature } = selection;
   const p = feature.properties;
@@ -154,6 +161,37 @@ export default function FeatureSheet({
       .catch(() => setNearest(null));
   }, [feature.id, isBeach]);
 
+  // Marcadores de la foto satélite del emisario: otros vertidos y las
+  // playas del entorno proyectados al encuadre (el propio emisario es
+  // el dot central)
+  const shotMarkers = useMemo(() => {
+    if (isBeach) return [];
+    const others = (outfalls ?? [])
+      .filter((o) => o.id !== feature.id)
+      .map((o) => {
+        const s = o.properties.status ?? 'unknown';
+        return {
+          id: `o${o.id}`,
+          coords: o.geometry.coordinates as [number, number],
+          color:
+            STATUS_COLORS[s as keyof typeof STATUS_COLORS] ??
+            colors.status.unknown,
+          label: STATUS_LABELS[s] ?? 'En trámite',
+          icon: require('../assets/icons/icon-faucet-sil.png'),
+        };
+      });
+    const beachMarks = (beaches ?? []).map((b) => {
+      const k = beachStatusKey(b);
+      return {
+        id: `b${b.id}`,
+        coords: b.geometry.coordinates as [number, number],
+        color: colors.status[k],
+        label: `Playa: ${BEACH_STATUS_TEXT[k]}`,
+      };
+    });
+    return [...beachMarks, ...others];
+  }, [isBeach, outfalls, beaches, feature.id]);
+
   const snapTo = (target: number, isExpanded = false) => {
     snapped.current = target;
     expanded.current = isExpanded;
@@ -180,15 +218,20 @@ export default function FeatureSheet({
     if (!expanded.current && !closing.current) snapTo(peek);
   }, [peek]);
 
-  const dismiss = () => {
+  const dismiss = (after?: () => void) => {
     if (closing.current) return;
     closing.current = true;
     Animated.timing(h, {
       toValue: 0,
       duration: 180,
       useNativeDriver: false,
-    }).start(({ finished }) => finished && onClose());
+    }).start(({ finished }) => finished && (after ?? onClose)());
   };
+
+  // Tap en la foto satélite: cierra la card con la misma animación y
+  // se queda en el mapa (ya centrado en el punto)
+  const handleViewOnMap =
+    onViewOnMap != null ? () => dismiss(onViewOnMap) : undefined;
 
   // Título: el picker muestra el nombre de la playa; el detalle el
   // del punto elegido (Teresitas -> "… · Punto 2" porque sus PMs se
@@ -255,7 +298,7 @@ export default function FeatureSheet({
             {title}
           </Text>
           <Pressable
-            onPress={dismiss}
+            onPress={() => dismiss()}
             hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel="Cerrar ficha"
@@ -348,11 +391,23 @@ export default function FeatureSheet({
                     : selection.hasAlert
                 }
                 outfalls={outfalls}
+                onViewOnMap={handleViewOnMap}
               />
             </View>
           )
         ) : (
           <View>
+            {/* Vista satélite del entorno: el emisario en el centro,
+                otros vertidos y playas alrededor. Clicable → mapa */}
+            <SatelliteShot
+              center={feature.geometry.coordinates as [number, number]}
+              centerColor={
+                STATUS_COLORS[statusKey] ?? colors.status.unknown
+              }
+              centerIcon={require('../assets/icons/icon-faucet-sil.png')}
+              markers={shotMarkers}
+              onPress={handleViewOnMap}
+            />
             <View
               style={[
                 styles.chip,

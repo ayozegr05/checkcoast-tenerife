@@ -147,10 +147,13 @@ export default function OutfallList({
           <Text style={styles.subtitle}>
             {municipality
               ? `${municipality} · ${counts.illegal ?? 0} no autorizados · ${counts.legal ?? 0} autorizados · ${counts.unknown ?? 0} en trámite`
-              : `Censo Tierra-Mar 2025 · ${outfalls.length} puntos de vertido · ${
+              : `${outfalls.length} puntos de vertido · ${
                   (counts.illegal ?? 0) + (counts.unknown ?? 0)
                 } sin autorizar`}
           </Text>
+          {!municipality && (
+            <Text style={styles.source}>Censo Tierra-Mar 2025 (Gob. Canarias)</Text>
+          )}
         </ImageBackground>
 
         <View style={styles.searchWrap}>
@@ -321,6 +324,13 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     paddingHorizontal: 16,
     marginTop: 4,
+  },
+  source: {
+    fontSize: 10,
+    fontFamily: fonts.regular,
+    color: 'rgba(255,255,255,0.55)',
+    paddingHorizontal: 16,
+    marginTop: 2,
   },
   close: {
     fontSize: 20,
