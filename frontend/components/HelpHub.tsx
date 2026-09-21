@@ -39,8 +39,8 @@ const TOPICS: Topic[] = [
         'Buscar localiza playas, emisarios y municipios; los nombres salen al acercar',
       ],
       [
-        require('../assets/icons/beach.png'),
-        'Los puntos grises son playas sin monitorización oficial',
+        require('../assets/icons/icon-compass.png'),
+        'La brújula (bajo el botón de capas) devuelve el norte al mapa',
       ],
     ],
   },
@@ -52,19 +52,19 @@ const TOPICS: Topic[] = [
     rows: [
       [
         require('../assets/icons/beach.png'),
-        'Estados: apta (azul), aviso (naranja), cerrada (roja), gris = sin monitorizar',
+        'Cuatro colores: azul apta, naranja aviso, roja cerrada, gris sin vigilancia',
       ],
       [
         require('../assets/icons/icon-satellite.png'),
-        'Cada ficha tiene foto satélite con zoom ±, emisarios cercanos, calidad del agua e incidencias',
+        'Toca una playa y verás su foto aérea, cómo está el agua y su historial de cierres',
       ],
       [
         require('../assets/icons/icon-map.png'),
-        'El botón de mapa de la ficha te lleva al punto con el pin destacado',
+        'El botón del mapa te lleva volando hasta la playa',
       ],
       [
         require('../assets/icons/icon-faucet.png'),
-        'Los emisarios cercanos son clables: vas a su pin y al volver regresas a la ficha',
+        '¿Hay un vertido cerca? Tócalo y lo ves en el mapa',
       ],
     ],
   },
