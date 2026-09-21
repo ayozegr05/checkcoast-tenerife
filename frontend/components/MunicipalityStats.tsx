@@ -52,10 +52,11 @@ const barColorOf = (m: MuniStats) =>
       ? colors.status.warning
       : colors.status.open;
 
-// Círculo de posición: medalla para el podio, neutro a partir del 4º.
-// La severidad del municipio la sigue mostrando la barra, no el número
-const MEDAL = ['#C9A227', '#9AA5B1', '#B5713A']; // oro, plata, bronce
-const rankColorOf = (index: number) => MEDAL[index] ?? '#8fa3ad';
+// Círculo de posición: el podio usa el color de severidad del municipio
+// (rojo = cierres ahora, naranja = avisos, azul = solo histórico) — el
+// top 3 marca "los que peor están", no un premio. Neutro del 4º en adelante
+const rankColorOf = (m: MuniStats, index: number) =>
+  index < 3 ? barColorOf(m) : '#8fa3ad';
 
 const fmtDate = (iso: string) => iso.split('-').reverse().join('/');
 
@@ -410,7 +411,7 @@ export default function MunicipalityStats({
                   style={[
                     styles.rank,
                     index < 3 && styles.rankPodium,
-                    { backgroundColor: rankColorOf(index) },
+                    { backgroundColor: rankColorOf(item, index) },
                   ]}
                 >
                   <Text style={styles.rankText}>{index + 1}</Text>
