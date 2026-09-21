@@ -141,8 +141,10 @@ npx tsc --noEmit                                        # typecheck
 
 - 167 playas: 61 oficiales + 106 OSM (gris = sin monitorizar)
 - ~3200 mediciones, 13 incidentes, alertas vivas: Las Gaviotas (warning,
-  muestra "Sin Calificar" pendiente desde jun), El Cabezo PM1 (closed,
-  enterococo 410 → prohibido sin incidente formal)
+  muestra "Sin Calificar" pendiente desde jun). Una muestra
+  "prohibido" YA es la prohibición oficial aunque no haya fila en
+  `beach_incidents` — la incidencia es trámite aparte (El Cabezo PM1
+  tuvo incidente real 9→14 sep 2026 tras su enterococo 410)
 - Frontend: iconos PNG Twemoji en `assets/icons/` (outfall_sil = SDF
   teñido legal/illegal/unknown; playas = círculo azul/naranja/gris +
   sombrilla)
