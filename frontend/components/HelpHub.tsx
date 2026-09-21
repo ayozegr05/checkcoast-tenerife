@@ -203,7 +203,7 @@ export default function HelpHub({
                           ¿Qué es CheckCoast?
                         </Text>
                         <Text style={styles.topicSub}>
-                          Primeros pasos · lo esencial en 5 líneas
+                          Primeros pasos: lo esencial en 5 líneas
                         </Text>
                       </View>
                       <Text style={styles.topicChevron}>›</Text>
