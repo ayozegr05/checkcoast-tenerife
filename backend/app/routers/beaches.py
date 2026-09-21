@@ -170,7 +170,7 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
 
 def _synth_observations(ev: SynthEvent) -> str:
     if ev.via == "measurement":
-        obs = "Prohibición por analítica — sin incidencia en Náyade"
+        obs = "Prohibido por analítica del agua — sin incidente oficial en Náyade"
         if ev.press_confirmed:
             obs += (
                 f" · {ev.press_count} "
@@ -178,7 +178,7 @@ def _synth_observations(ev: SynthEvent) -> str:
                 "de prensa lo recogieron"
             )
         return obs
-    obs = "Cierre recogido solo en prensa — sin registro en Náyade"
+    obs = "Cierre según prensa — sin incidente oficial en Náyade"
     if ev.end_estimated:
         obs += " · fin aproximado (última mención)"
     return obs
@@ -364,6 +364,15 @@ def beach_quality(
     ]
 
 
+def _event_mode(items: list[NewsItem]) -> str | None:
+    """Evento dominante: un cierre SIEMPRE gana — la reapertura es la
+    resolución del episodio, no el evento (El Médano: 2 titulares de
+    reapertura vs 1 de cierre, la noticia era el cierre)."""
+    if any(it.event_type == "closure" for it in items):
+        return "closure"
+    return _news_mode(items, "event_type")
+
+
 def _news_mode(items: list[NewsItem], attr: str) -> str | None:
     """Valor más frecuente de un campo extraído; en empate gana el del
     titular más reciente (items vienen ordenados desc por fecha)."""
@@ -407,7 +416,7 @@ def beach_news(
         .limit(30)
         .all()
     )
-    dominant = _news_mode(rows, "event_type")
+    dominant = _event_mode(rows)
     since = min(
         (r.published_at for r in rows
          if r.event_type == dominant and r.published_at),
