@@ -7,6 +7,8 @@ mini-ficha — réplica web de la ficha de la app — con enlace profundo
 """
 
 import html
+import math
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
@@ -16,7 +18,13 @@ from geoalchemy2 import Geography
 
 from app.config import settings
 from app.db import get_db
-from app.models import Beach, BeachMeasurement, NewsItem, Outfall
+from app.models import (
+    Beach,
+    BeachIncident,
+    BeachMeasurement,
+    NewsItem,
+    Outfall,
+)
 from app.queries import beaches_with_latest_status
 
 router = APIRouter(tags=["share"])
@@ -76,6 +84,33 @@ _OUTFALL_PIN = {
 }
 
 _NEARBY_OUTFALL_RADIUS_M = 1000  # mismo radio que /beaches/{id}/nearby-outfalls
+
+# Umbrales RD 1341/2007 (aguas costeras, UFC/100 mL) — mismos que la app
+_QUALITY = {
+    "ecoli": {"excellent": 250, "good": 500, "label": "E. coli"},
+    "enterococci": {"excellent": 100, "good": 200, "label": "Enterococo"},
+}
+_CHART_H = 88          # px, igual que la app
+_LOG_CAP = 100000      # los valores llegan a >24000
+
+
+def _num(raw: str | None) -> float | None:
+    """'9 UFC/100 mL' / '<10' / '>24000' -> número; None si no hay."""
+    if not raw:
+        return None
+    m = re.search(r"\d+(?:\.\d+)?", raw)
+    return float(m.group(0)) if m else None
+
+
+def _bar_h(v: float) -> int:
+    return max(3, round(_CHART_H * math.log10(max(v, 1)) / math.log10(_LOG_CAP)))
+
+
+def _qcolor(param: str, v: float) -> str:
+    t = _QUALITY[param]
+    if v <= t["excellent"]:
+        return "#0d9488"
+    return "#e65100" if v <= t["good"] else "#c62828"
 
 
 def _display_name(name: str) -> str:
@@ -138,11 +173,19 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
     state = status.status.value if status else "unknown"
     label, color = _STATUS.get(state, _STATUS["unknown"])
 
-    latest = (
+    measurements = (
         db.query(BeachMeasurement)
         .filter(BeachMeasurement.beach_id == beach.id)
-        .order_by(BeachMeasurement.sampled_at.desc())
-        .first()
+        .order_by(BeachMeasurement.sampled_at.asc())
+        .all()
+    )
+    latest = measurements[-1] if measurements else None
+    incidents = (
+        db.query(BeachIncident)
+        .filter(BeachIncident.beach_id == beach.id)
+        .order_by(BeachIncident.opened_at.desc())
+        .limit(8)
+        .all()
     )
     outfalls = (
         db.query(
@@ -210,6 +253,65 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
         '<div class="radius">En un radio de 1 km</div>'
         if outfalls else ""
     )
+
+    # Gráfica de evolución (barras log-escala como la app): dos series
+    # pre-renderizadas, el toggle solo cambia visibilidad
+    chart_block = ""
+    series: dict[str, list[tuple]] = {}
+    for param in ("ecoli", "enterococci"):
+        series[param] = [
+            (m.sampled_at, v)
+            for m in measurements
+            if (v := _num(getattr(m, param))) is not None
+        ]
+    if any(len(pts) >= 2 for pts in series.values()):
+        panels = ""
+        for param in ("ecoli", "enterococci"):
+            pts = series[param]
+            lim_y = _bar_h(_QUALITY[param]["good"])
+            bars = "".join(
+                f'<div class="bar" style="height:{_bar_h(v)}px;'
+                f'background:{_qcolor(param, v)}"'
+                f' title="{d.strftime("%d/%m/%Y")} · {v:g} UFC/100 mL"></div>'
+                for d, v in pts
+            )
+            hid = "" if param == "ecoli" else " hidden"
+            panels += (
+                f'<div id="chart-{param}" class="chartarea{hid}">'
+                f'<div class="lim" style="bottom:{lim_y}px"></div>'
+                f"{bars}</div>"
+            )
+        n_ec, n_en = len(series["ecoli"]), len(series["enterococci"])
+        chart_block = f"""
+      <div class="sec">Evolución del agua</div>
+      <div class="ctoggle">
+        <button id="tb-ecoli" class="tbtn ton" onclick="setChart('ecoli')">E. coli</button>
+        <button id="tb-enterococci" class="tbtn" onclick="setChart('enterococci')">Enterococo</button>
+      </div>
+      {panels}
+      <div class="radius">{n_ec} análisis E. coli · {n_en} enterococo ·
+        línea discontinua = límite legal</div>"""
+
+    inc_block = ""
+    if incidents:
+        items = "".join(
+            '<div class="irow"><b>'
+            f'{i.opened_at.strftime("%d/%m/%Y")}'
+            + (
+                f' → {i.closed_at.strftime("%d/%m/%Y")}'
+                if i.closed_at
+                else " → activo"
+            )
+            + "</b>"
+            + (
+                f'<span>{html.escape(i.observations[:120])}</span>'
+                if i.observations
+                else ""
+            )
+            + "</div>"
+            for i in incidents
+        )
+        inc_block = f'<div class="sec">Historial de incidencias</div>{items}'
 
     press = ""
     if news:
@@ -282,6 +384,19 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
   .radius {{ font-size:11px; color:#7a919c; margin-top:6px; }}
   .press {{ margin-top:16px; background:#fff7e8; border:1px solid #f0d9a8;
           border-radius:10px; padding:10px 12px; }}
+  .chartarea {{ position:relative; height:{_CHART_H}px; display:flex;
+          align-items:flex-end; gap:1px; margin-top:8px;
+          background:#f4f9fb; border-radius:8px; padding:0 6px; }}
+  .bar {{ flex:1; border-radius:2px 2px 0 0; }}
+  .lim {{ position:absolute; left:4px; right:4px;
+          border-top:2px dashed #c62828; }}
+  .ctoggle {{ display:flex; gap:8px; margin-top:8px; }}
+  .tbtn {{ border:1px solid #cddfe8; background:#fff; color:#0d3a52;
+          font-size:12px; font-weight:700; border-radius:999px;
+          padding:5px 12px; cursor:pointer; }}
+  .tbtn.ton {{ background:#075276; color:#fff; border-color:#075276; }}
+  .irow {{ margin-top:8px; font-size:12px; color:#0d3a52; }}
+  .irow span {{ display:block; color:#7a919c; font-size:11px; }}
   .ptag {{ display:inline-block; font-size:10px; font-weight:700;
           color:#8a6d1a; background:#f6e3b0; border-radius:999px;
           padding:2px 8px; text-transform:uppercase; }}
@@ -312,6 +427,8 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
       <span class="chip">{label}</span>
       {rows}
       {outfalls_block}
+      {chart_block}
+      {inc_block}
       {press}
       <a class="open" href="{deep}" onclick="openApp(); return false;">
         Abrir en la app</a>
@@ -335,6 +452,16 @@ function openApp() {{
   setTimeout(function () {{
     document.getElementById('noapp').style.display = 'block';
   }}, 1400);
+}}
+function setChart(p) {{
+  document.getElementById('chart-ecoli').className =
+    'chartarea' + (p === 'ecoli' ? '' : ' hidden');
+  document.getElementById('chart-enterococci').className =
+    'chartarea' + (p === 'enterococci' ? '' : ' hidden');
+  document.getElementById('tb-ecoli').className =
+    'tbtn' + (p === 'ecoli' ? ' ton' : '');
+  document.getElementById('tb-enterococci').className =
+    'tbtn' + (p === 'enterococci' ? ' ton' : '');
 }}
 var near = false;
 function toggleZoom() {{
