@@ -171,22 +171,6 @@ export default function HelpHub({
               ))
             : (
                 <>
-                  {TOPICS.map((t) => (
-                    <Pressable
-                      key={t.key}
-                      style={styles.topicRow}
-                      onPress={() => setTopic(t)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Ayuda sobre ${t.title}`}
-                    >
-                      <Image source={t.icon} style={styles.hintIcon} />
-                      <View style={styles.topicTextWrap}>
-                        <Text style={styles.topicTitle}>{t.title}</Text>
-                        <Text style={styles.topicSub}>{t.subtitle}</Text>
-                      </View>
-                      <Text style={styles.topicChevron}>›</Text>
-                    </Pressable>
-                  ))}
                   {onShowIntro && (
                     <Pressable
                       style={styles.topicRow}
@@ -209,6 +193,22 @@ export default function HelpHub({
                       <Text style={styles.topicChevron}>›</Text>
                     </Pressable>
                   )}
+                  {TOPICS.map((t) => (
+                    <Pressable
+                      key={t.key}
+                      style={styles.topicRow}
+                      onPress={() => setTopic(t)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ayuda sobre ${t.title}`}
+                    >
+                      <Image source={t.icon} style={styles.hintIcon} />
+                      <View style={styles.topicTextWrap}>
+                        <Text style={styles.topicTitle}>{t.title}</Text>
+                        <Text style={styles.topicSub}>{t.subtitle}</Text>
+                      </View>
+                      <Text style={styles.topicChevron}>›</Text>
+                    </Pressable>
+                  ))}
                 </>
               )}
         </View>
@@ -226,12 +226,14 @@ export default function HelpHub({
           ) : (
             <View />
           )}
-          <Pressable
-            style={styles.btn}
-            onPress={onClose}
-            accessibilityRole="button"
-          >
-            <Text style={styles.btnText}>Cerrar</Text>
+          <Pressable onPress={onClose} accessibilityRole="button">
+            <ImageBackground
+              source={require('../assets/gradient-sea.png')}
+              style={styles.btn}
+              resizeMode="cover"
+            >
+              <Text style={styles.btnText}>Cerrar</Text>
+            </ImageBackground>
           </Pressable>
         </View>
       </View>
@@ -351,10 +353,10 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   btn: {
-    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 9,
     paddingHorizontal: 20,
+    overflow: 'hidden',
   },
   btnText: {
     color: '#fff',
