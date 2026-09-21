@@ -13,6 +13,10 @@ import { colors, fonts } from '../lib/theme';
 
 const HINTS: [ImageSourcePropType, string][] = [
   [
+    require('../assets/icons/icon-bell.png'),
+    'Avisos: recibe una notificación si una playa cierra o reabre',
+  ],
+  [
     require('../assets/icons/beach.png'),
     'Playas: estado oficial, calidad del agua e incidencias · toca un punto para su ficha',
   ],
@@ -23,10 +27,6 @@ const HINTS: [ImageSourcePropType, string][] = [
   [
     require('../assets/icons/icon-townhall.png'),
     'Municipios: ranking de afectación por municipio',
-  ],
-  [
-    require('../assets/icons/icon-alert.png'),
-    'Avisos: recibe una notificación si una playa cierra o reabre',
   ],
   [
     require('../assets/icons/icon-layers.png'),

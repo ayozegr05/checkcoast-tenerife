@@ -169,22 +169,48 @@ export default function HelpHub({
                   <Text style={styles.hintText}>{text}</Text>
                 </View>
               ))
-            : TOPICS.map((t) => (
-                <Pressable
-                  key={t.key}
-                  style={styles.topicRow}
-                  onPress={() => setTopic(t)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Ayuda sobre ${t.title}`}
-                >
-                  <Image source={t.icon} style={styles.hintIcon} />
-                  <View style={styles.topicTextWrap}>
-                    <Text style={styles.topicTitle}>{t.title}</Text>
-                    <Text style={styles.topicSub}>{t.subtitle}</Text>
-                  </View>
-                  <Text style={styles.topicChevron}>›</Text>
-                </Pressable>
-              ))}
+            : (
+                <>
+                  {TOPICS.map((t) => (
+                    <Pressable
+                      key={t.key}
+                      style={styles.topicRow}
+                      onPress={() => setTopic(t)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ayuda sobre ${t.title}`}
+                    >
+                      <Image source={t.icon} style={styles.hintIcon} />
+                      <View style={styles.topicTextWrap}>
+                        <Text style={styles.topicTitle}>{t.title}</Text>
+                        <Text style={styles.topicSub}>{t.subtitle}</Text>
+                      </View>
+                      <Text style={styles.topicChevron}>›</Text>
+                    </Pressable>
+                  ))}
+                  {onShowIntro && (
+                    <Pressable
+                      style={styles.topicRow}
+                      onPress={onShowIntro}
+                      accessibilityRole="button"
+                      accessibilityLabel="Ver la tarjeta de bienvenida"
+                    >
+                      <Image
+                        source={require('../assets/icon.png')}
+                        style={styles.hintIcon}
+                      />
+                      <View style={styles.topicTextWrap}>
+                        <Text style={styles.topicTitle}>
+                          ¿Qué es esta app?
+                        </Text>
+                        <Text style={styles.topicSub}>
+                          La tarjeta de bienvenida, otra vez
+                        </Text>
+                      </View>
+                      <Text style={styles.topicChevron}>›</Text>
+                    </Pressable>
+                  )}
+                </>
+              )}
         </View>
 
         <View style={styles.footer}>
@@ -196,15 +222,6 @@ export default function HelpHub({
               accessibilityLabel="Volver al índice de ayuda"
             >
               <Text style={styles.backText}>‹ Temas</Text>
-            </Pressable>
-          ) : onShowIntro ? (
-            <Pressable
-              style={styles.backBtn}
-              onPress={onShowIntro}
-              accessibilityRole="button"
-              accessibilityLabel="Ver la introducción de la app"
-            >
-              <Text style={styles.backText}>Ver introducción</Text>
             </Pressable>
           ) : (
             <View />
