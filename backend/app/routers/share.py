@@ -293,6 +293,8 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
           text-decoration:none; font-weight:700; border-radius:10px;
           padding:12px; }}
   .src {{ margin-top:14px; font-size:11px; color:#7a919c; }}
+  .noapp {{ display:none; margin-top:8px; font-size:12px;
+          color:#8a6d1a; text-align:center; }}
 </style>
 </head>
 <body>
@@ -311,12 +313,29 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
       {rows}
       {outfalls_block}
       {press}
-      <a class="open" href="{deep}">Abrir en la app</a>
+      <a class="open" href="{deep}" onclick="openApp(); return false;">
+        Abrir en la app</a>
+      <p id="noapp" class="noapp">Si no se abrió, aún no tienes la app
+        instalada.</p>
       <p class="src">{foot}</p>
     </div>
   </div>
 </body>
 <script>
+// intent:// es la forma fiable de abrir apps en Chrome/Android: el
+// scheme pelado a veces se ignora en silencio
+function openApp() {{
+  var u = navigator.userAgent;
+  if (/Android/i.test(u)) {{
+    window.location = 'intent://beach/{beach.id}#Intent;scheme=checkcoast;'
+      + 'package=com.checkcoast.tenerife;end';
+  }} else {{
+    window.location = 'checkcoast://beach/{beach.id}';
+  }}
+  setTimeout(function () {{
+    document.getElementById('noapp').style.display = 'block';
+  }}, 1400);
+}}
 var near = false;
 function toggleZoom() {{
   near = !near;
