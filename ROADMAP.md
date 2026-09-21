@@ -161,7 +161,7 @@ Tres niveles, en orden de impacto/esfuerzo:
 
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
-| 8.1 | **Build EAS de validación**: verificar push notifications + AsyncStorage en build real | 🚧 APK preview construido e instalado (`09ad1cd4`, EAS) — funciona standalone contra la API de la VM; pendiente verificar recepción de push en dispositivo | 🟡 Medio |
+| 8.1 | **Build EAS de validación**: verificar push notifications + AsyncStorage en build real | ✅ Hecho — APK preview `09ad1cd4` instalado; test end-to-end real: POST cierre → push "Cierre de baño" + deep-link a ficha, POST reapertura → push "Reapertura"; limpieza de los estados ficticios tras la demo | 🟡 Medio |
 | 8.2 | **Dockerizar API**: servicio `api` en docker-compose | ✅ Hecho — `backend/Dockerfile` (python:3.12-slim) + servicio `api` en compose; `alembic upgrade head` al arrancar, healthcheck, `GEMINI_API_KEY` vía `.env` raíz | 🟡 Medio |
 | 8.3 | **Deploy backend** (Railway/Fly/Render) + Postgres PostGIS + migrar datos → app apuntando a URL real (requisito para notifs en producción) | ✅ Hecho — backend + PostGIS desplegados en VM (`130.110.233.198:8001`); el perfil `preview` de EAS apunta ahí vía `EXPO_PUBLIC_API_URL` | 🔴 Medio-alto |
 | 8.4 | **CI básico**: GitHub Actions con `pytest` + `tsc --noEmit` en push | ✅ Hecho — `.github/workflows/ci.yml` (PostGIS service + alembic + fixture sintético `seed_data` en conftest; backend ya no depende de la BD dev) | 🟢 Trivial |
@@ -227,7 +227,7 @@ locales → LLM extrae playa/evento/causa → se muestra etiquetado como
 ---
 
 ### Estado actual
-**Hito activo:** 8 — Calidad y despliegue (APK preview validada en
-dispositivo; quedan 8.1-verificación push real, 8.7-revocar token y el
-Hito 9 de portfolio: capturas, repo público, vídeo, post)
+**Hito activo:** 9 — Portfolio (8 cerrado salvo 8.7-revocar token, cosa
+del usuario; quedan capturas/vídeo del APK — ya hay grabación de 4 min —
+repo público en GitHub y post LinkedIn)
 **Última actualización:** 2026-09-21
