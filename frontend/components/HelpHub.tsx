@@ -120,7 +120,7 @@ const TOPICS: Topic[] = [
       ],
       [
         require('../assets/icons/icon-alert.png'),
-        'Siempre etiquetados "según prensa": nunca alteran el estado oficial',
+        'Las noticias dan contexto "según prensa"; cuando no hay dato oficial, pueden ser la única pista',
       ],
       [
         require('../assets/icons/beach.png'),
