@@ -32,11 +32,7 @@ const TOPICS: Topic[] = [
       ],
       [
         require('../assets/icons/icon-layers.png'),
-        'El botón de capas (arriba a la derecha) alterna entre mapa y vista aérea',
-      ],
-      [
-        require('../assets/icons/icon-alert.png'),
-        'El aviso superior despliega las playas con cierre o aviso activo',
+        'El botón de capas (arriba a la derecha) alterna entre mapa y vista satélite',
       ],
       [
         require('../assets/icons/icon-search.png'),
