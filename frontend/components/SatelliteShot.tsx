@@ -16,8 +16,6 @@ export type ShotMarker = {
   id: string | number;
   coords: [number, number];
   color: string;
-  // Etiqueta de la mini-leyenda (se deduplica por texto)
-  label: string;
   icon?: ImageSourcePropType;
 };
 
@@ -42,9 +40,8 @@ const shotUrl = (lon: number, lat: number, scale: number) => {
 };
 
 // Minimapa estático compartido por las fichas de playa y de emisario:
-// foto Esri + marcadores proyectados + leyenda + zoom ±. Si se pasa
-// onPress, la foto entera es clicable ("ver en el mapa") y muestra el
-// icono de mapa como affordance
+// foto Esri + marcadores proyectados + zoom ±. Si se pasa onPress, un
+// botón de mapa bajo los de zoom lleva al punto en el mapa real
 export default function SatelliteShot({
   center,
   centerColor,
@@ -95,40 +92,23 @@ export default function SatelliteShot({
       .slice(0, MAX_MARKERS);
   }, [markers, lon, lat, dLon, dLat]);
 
-  // La leyenda solo muestra lo que realmente se ve en el encuadre
-  const legend = useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const m of visible) if (!seen.has(m.label)) seen.set(m.label, m.color);
-    return [...seen.entries()].map(([label, color]) => ({ label, color }));
-  }, [visible]);
-
   const loading = loadedUri !== uri;
 
   return (
     <View style={styles.wrap}>
-      <Pressable
-        onPress={onPress}
-        disabled={!onPress}
-        accessibilityRole={onPress ? 'button' : 'image'}
-        accessibilityLabel={
-          onPress
-            ? 'Vista satélite de la zona. Ver en el mapa'
-            : 'Vista satélite de la zona'
-        }
-      >
-        {loading && <Skeleton style={styles.skeleton} />}
-        {loading && <Text style={styles.loading}>Cargando vista satélite…</Text>}
-        <Image
-          source={{ uri }}
-          style={styles.shot}
-          resizeMode="stretch"
-          onLoad={() => {
-            setLoadedUri(uri);
-            // Prefetch del encuadre alejado para que el botón − sea instantáneo
-            if (!far) Image.prefetch(shotUrl(lon, lat, FAR_SCALE)).catch(() => {});
-          }}
-        />
-      </Pressable>
+      {loading && <Skeleton style={styles.skeleton} />}
+      {loading && <Text style={styles.loading}>Cargando vista satélite…</Text>}
+      <Image
+        source={{ uri }}
+        style={styles.shot}
+        resizeMode="stretch"
+        accessibilityLabel="Vista satélite de la zona"
+        onLoad={() => {
+          setLoadedUri(uri);
+          // Prefetch del encuadre alejado para que el botón − sea instantáneo
+          if (!far) Image.prefetch(shotUrl(lon, lat, FAR_SCALE)).catch(() => {});
+        }}
+      />
 
       {visible.map((m) => (
         <View
@@ -153,21 +133,6 @@ export default function SatelliteShot({
         )}
       </View>
 
-      {legend.length > 0 && (
-        <View pointerEvents="none" style={styles.legend}>
-          {legend.map((l) => (
-            <View key={l.label} style={styles.legendRow}>
-              <View
-                style={[styles.legendDot, { backgroundColor: l.color }]}
-              />
-              <Text style={styles.legendText}>{l.label}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-
-
       <View style={styles.zoomCol}>
         <Pressable
           onPress={() => setFar(false)}
@@ -191,6 +156,20 @@ export default function SatelliteShot({
         >
           <Text style={[styles.zoomText, far && styles.zoomTextOff]}>−</Text>
         </Pressable>
+        {onPress && (
+          <Pressable
+            onPress={onPress}
+            hitSlop={6}
+            style={styles.zoomBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Ver en el mapa"
+          >
+            <Image
+              source={require('../assets/icons/icon-map.png')}
+              style={styles.mapBtnIcon}
+            />
+          </Pressable>
+        )}
       </View>
 
       <Text pointerEvents="none" style={styles.credit}>
@@ -266,32 +245,6 @@ const styles = StyleSheet.create({
     height: 10,
     tintColor: '#fff',
   },
-  legend: {
-    position: 'absolute',
-    bottom: 4,
-    left: 6,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    gap: 1,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  legendDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 8,
-    fontFamily: fonts.semibold,
-    color: '#fff',
-  },
-
   zoomCol: {
     position: 'absolute',
     top: 6,
@@ -319,6 +272,11 @@ const styles = StyleSheet.create({
   },
   zoomTextOff: {
     color: 'rgba(255,255,255,0.4)',
+  },
+  mapBtnIcon: {
+    width: 14,
+    height: 14,
+    tintColor: '#fff',
   },
   credit: {
     position: 'absolute',

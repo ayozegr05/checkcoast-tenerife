@@ -525,18 +525,6 @@ export default function BeachList({
                   ? ` · ${detail.properties.municipality}`
                   : ''}
               </Text>
-              <Pressable
-                onPress={() => onSelect(detail)}
-                style={styles.mapBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Ver en el mapa"
-              >
-                <Image
-                  source={require('../assets/icons/icon-map.png')}
-                  style={styles.mapBtnIcon}
-                />
-                <Text style={styles.mapBtnText}>Ver en mapa</Text>
-              </Pressable>
             </ImageBackground>
             <ScrollView
               ref={detailScrollRef}
@@ -629,26 +617,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     color: '#fff',
     marginTop: -4,
-  },
-  mapBtn: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginLeft: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  mapBtnIcon: {
-    width: 13,
-    height: 13,
-    tintColor: colors.primaryDark,
-  },
-  mapBtnText: {
-    color: colors.primaryDark,
-    fontSize: 12,
-    fontFamily: fonts.bold,
   },
   detailScroll: {
     flex: 1,

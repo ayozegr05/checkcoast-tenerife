@@ -314,7 +314,6 @@ export default function BeachDetail({
           coords: o.geometry.coordinates as [number, number],
           color: colors.outfall[s as keyof typeof colors.outfall] ??
             colors.status.unknown,
-          label: OUTFALL_STATUS_LABELS[s] ?? 'En trámite',
           icon: require('../assets/icons/icon-faucet-sil.png'),
         };
       }),
