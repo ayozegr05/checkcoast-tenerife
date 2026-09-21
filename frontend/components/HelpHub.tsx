@@ -200,10 +200,10 @@ export default function HelpHub({
                       />
                       <View style={styles.topicTextWrap}>
                         <Text style={styles.topicTitle}>
-                          Primeros pasos
+                          ¿Qué es CheckCoast?
                         </Text>
                         <Text style={styles.topicSub}>
-                          Lo esencial en 5 líneas
+                          Primeros pasos · lo esencial en 5 líneas
                         </Text>
                       </View>
                       <Text style={styles.topicChevron}>›</Text>
