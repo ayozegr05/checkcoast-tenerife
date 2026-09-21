@@ -23,6 +23,14 @@
           "resizeMode": "contain",
           "backgroundColor": "#075276"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
     ],
     "icon": "./assets/icon.png",
@@ -33,7 +41,6 @@
     "android": {
       "package": "com.checkcoast.tenerife",
       "googleServicesFile": "./google-services.json",
-      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#075276",
         "foregroundImage": "./assets/android-icon-foreground.png",
