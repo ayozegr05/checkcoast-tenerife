@@ -265,7 +265,19 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
             if (v := _num(getattr(m, param))) is not None
         ]
     if any(len(pts) >= 2 for pts in series.values()):
+        # Marcas rojas verticales en las fechas de incidente,
+        # interpoladas sobre el rango de fechas de las muestras
+        all_dates = [d for pts in series.values() for d, _ in pts]
+        d0, d1 = min(all_dates), max(all_dates)
+        span = max((d1 - d0).days, 1)
+        inc_marks = "".join(
+            f'<div class="inc" style="left:{pos:.1f}%"></div>'
+            for i in incidents
+            for pos in [((i.opened_at - d0).days / span) * 100]
+            if 0 <= pos <= 100
+        )
         panels = ""
+        foots = ""
         for param in ("ecoli", "enterococci"):
             pts = series[param]
             lim_y = _bar_h(_QUALITY[param]["good"])
@@ -276,12 +288,19 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
                 for d, v in pts
             )
             hid = "" if param == "ecoli" else " hidden"
+            hid2 = "" if param == "ecoli" else ' class="hidden"'
             panels += (
                 f'<div id="chart-{param}" class="chartarea{hid}">'
                 f'<div class="lim" style="bottom:{lim_y}px"></div>'
-                f"{bars}</div>"
+                f"{inc_marks}{bars}</div>"
             )
-        n_ec, n_en = len(series["ecoli"]), len(series["enterococci"])
+            foots += (
+                f'<span id="foot-{param}"{hid2}>'
+                f"{len(pts)} muestreos · cada barra = un análisis oficial"
+                f" · línea azul = límite normativo "
+                f"({_QUALITY[param]['good']} UFC/100 mL)"
+                f" · línea roja = cierre/aviso</span>"
+            )
         chart_block = f"""
       <div class="sec">Evolución del agua</div>
       <div class="ctoggle">
@@ -289,8 +308,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
         <button id="tb-enterococci" class="tbtn" onclick="setChart('enterococci')">Enterococo</button>
       </div>
       {panels}
-      <div class="radius">{n_ec} análisis E. coli · {n_en} enterococo ·
-        línea discontinua = límite legal</div>"""
+      <div class="radius">{foots}</div>"""
 
     inc_block = ""
     if incidents:
@@ -366,7 +384,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
           font-weight:700; font-size:13px; border-radius:8px;
           padding:6px 10px; cursor:pointer;
           box-shadow:0 1px 4px rgba(0,0,0,.35); }}
-  .hidden {{ display:none; }}
+  .hidden {{ display:none !important; }}
   .body {{ padding:16px 20px 20px; }}
   .chip {{ display:inline-block; background:{color}; color:#fff;
           font-weight:700; font-size:13px; border-radius:999px;
@@ -389,7 +407,9 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
           background:#f4f9fb; border-radius:8px; padding:0 6px; }}
   .bar {{ flex:1; border-radius:2px 2px 0 0; }}
   .lim {{ position:absolute; left:4px; right:4px;
-          border-top:2px dashed #c62828; }}
+          border-top:2px dashed #0b6e99; }}
+  .inc {{ position:absolute; top:0; bottom:0; width:2px;
+          background:#c62828; }}
   .ctoggle {{ display:flex; gap:8px; margin-top:8px; }}
   .tbtn {{ border:1px solid #cddfe8; background:#fff; color:#0d3a52;
           font-size:12px; font-weight:700; border-radius:999px;
@@ -462,6 +482,10 @@ function setChart(p) {{
     'tbtn' + (p === 'ecoli' ? ' ton' : '');
   document.getElementById('tb-enterococci').className =
     'tbtn' + (p === 'enterococci' ? ' ton' : '');
+  document.getElementById('foot-ecoli').className =
+    p === 'ecoli' ? '' : 'hidden';
+  document.getElementById('foot-enterococci').className =
+    p === 'enterococci' ? '' : 'hidden';
 }}
 var near = false;
 function toggleZoom() {{
