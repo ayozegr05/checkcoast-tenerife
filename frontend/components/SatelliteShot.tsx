@@ -22,11 +22,12 @@ export type ShotMarker = {
 };
 
 // Foto satélite estática del punto (Esri World Imagery, mismo servicio
-// que la vista satélite del mapa). Dos encuadres: cerca (~800x500 m) y
-// contexto (x3) para ver emisarios/playas a varios cientos de metros
-const BASE_DLON = 0.004;
-const BASE_DLAT = 0.0022;
-const FAR_SCALE = 3;
+// que la vista satélite del mapa). Dos encuadres: cerca (~1,2 km x
+// 750 m) y contexto (x2,5) para ver emisarios/playas a varios cientos
+// de metros
+const BASE_DLON = 0.006;
+const BASE_DLAT = 0.0033;
+const FAR_SCALE = 2.5;
 const MAX_MARKERS = 14;
 
 const shotUrl = (lon: number, lat: number, scale: number) => {
@@ -166,12 +167,18 @@ export default function SatelliteShot({
       )}
 
       {onPress && (
-        <View pointerEvents="none" style={styles.mapHint}>
+        <Pressable
+          onPress={onPress}
+          style={styles.mapHint}
+          accessibilityRole="button"
+          accessibilityLabel="Ver en el mapa"
+        >
           <Image
             source={require('../assets/icons/icon-map.png')}
             style={styles.mapHintIcon}
           />
-        </View>
+          <Text style={styles.mapHintText}>Ver en mapa</Text>
+        </Pressable>
       )}
 
       <View style={styles.zoomCol}>
@@ -301,17 +308,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 6,
     left: 6,
-    width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 9,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 5,
   },
   mapHintIcon: {
-    width: 15,
-    height: 15,
+    width: 13,
+    height: 13,
     tintColor: '#fff',
+  },
+  mapHintText: {
+    fontSize: 10,
+    fontFamily: fonts.bold,
+    color: '#fff',
   },
   zoomCol: {
     position: 'absolute',
