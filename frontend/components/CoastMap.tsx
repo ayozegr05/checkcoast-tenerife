@@ -1380,8 +1380,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
   },
-  // Wrapper posicional a todo lo ancho: centra la tarjeta de capas y
-  // el satélite flotante; algo más de margen para que "flote"
+  // Wrapper posicional a todo lo ancho: centra la tarjeta de capas
   legend: {
     position: 'absolute',
     bottom: Platform.OS === 'android' ? 48 : 18,
@@ -1393,7 +1392,7 @@ const styles = StyleSheet.create({
   satBtn: {
     position: 'absolute',
     top: Platform.OS === 'android' ? 112 : 96,
-    right: 10,
+    right: 18, // algo separado del borde: el gesto de scroll de Android se lo come
     width: 34,
     height: 34,
     borderRadius: 8,
@@ -1412,7 +1411,8 @@ const styles = StyleSheet.create({
   legendCard: {
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
-    padding: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 20, // tarjeta más ancha: tapa etiquetas de mar del basemap
     elevation: 4,
   },
   layerRow: {
@@ -1448,6 +1448,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontFamily: fonts.extrabold,
+    minWidth: 26, // sin esto Android recorta "ON" a "O"
+    textAlign: 'center',
   },
   legendOff: {
     opacity: 0.35,
