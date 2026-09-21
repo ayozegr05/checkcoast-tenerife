@@ -76,19 +76,15 @@ const TOPICS: Topic[] = [
     rows: [
       [
         require('../assets/icons/icon-faucet.png'),
-        'Autorizados (verde), en trámite (ámbar) o no autorizados (rojo)',
+        'Tres colores según su estado legal: verde autorizado, ámbar en trámite, rojo sin permiso',
       ],
       [
         require('../assets/icons/icon-satellite.png'),
-        'Su ficha muestra foto satélite con los vertidos y playas del entorno',
+        'Toca un emisario y verás su foto aérea con las playas que tiene alrededor',
       ],
       [
         require('../assets/icons/beach.png'),
-        'Toca "Playa más cercana" para saltar a su pin en el mapa y volver con atrás',
-      ],
-      [
-        require('../assets/icons/icon-faucet.png'),
-        'La lista de emisarios se abre desde la barra superior',
+        '"Playa más cercana" te dice a qué playa afecta y te lleva a ella',
       ],
     ],
   },
