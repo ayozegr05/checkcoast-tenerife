@@ -75,6 +75,7 @@ export default function BeachList({
   onClose,
   initialMunicipality,
   onOpenMunicipalities,
+  onSelectOutfall,
 }: {
   beaches: GeoFeature[];
   // Emisarios cargados en la app: BeachDetail los superpone a la foto
@@ -85,6 +86,12 @@ export default function BeachList({
   // undefined = sin filtro (Todos); null = "Sin municipio"
   initialMunicipality?: string | null;
   onOpenMunicipalities?: () => void;
+  // Tap en un emisario cercano dentro de la ficha → verlo en el mapa;
+  // el segundo argumento es la playa a restaurar al volver
+  onSelectOutfall?: (
+    feature: GeoFeature,
+    restore: GeoFeature | null,
+  ) => void;
 }) {
   const [query, setQuery] = useState('');
   const [municipality, setMunicipality] = useState<
@@ -548,6 +555,11 @@ export default function BeachList({
                   hasAlert={detail.properties.alert === true}
                   outfalls={outfalls}
                   onViewOnMap={() => onSelect(detail)}
+                  onSelectOutfall={
+                    onSelectOutfall
+                      ? (f) => onSelectOutfall(f, detail)
+                      : undefined
+                  }
                 />
               </View>
             </ScrollView>

@@ -86,6 +86,9 @@ export default function App() {
   // "Ver en mapa" desde la ficha: la card se oculta pero la selección
   // se mantiene — el pin queda grande y el mapa no restaura la vista
   const [sheetHidden, setSheetHidden] = useState(false);
+  // Emisario abierto desde "Emisarios cercanos" de una ficha de playa:
+  // la selección previa se guarda para restaurarla al cerrar/atrás
+  const [restoreSel, setRestoreSel] = useState<Selection | null>(null);
 
   const loadData = () => {
     setError(null);
@@ -271,7 +274,28 @@ export default function App() {
     setReturnToMuni(true);
     openBeachById(id);
   };
+  // Emisario cercano tocado en una ficha de playa: el mapa vuela al
+  // emisario con su pin seleccionado (card oculta) y la playa queda
+  // guardada para volver a ella al cerrar
+  const openOutfall = (feature: GeoFeature, restore: Selection | null) => {
+    setListOpen(false);
+    setMuniOpen(false);
+    setOutfallListOpen(false);
+    setRestoreSel(restore);
+    setSheetHidden(true);
+    setSelection({ type: 'outfall', feature });
+    setFocus([...feature.geometry.coordinates, 15.5]);
+  };
+
   const closeSheet = () => {
+    if (restoreSel) {
+      const back = restoreSel;
+      setRestoreSel(null);
+      setSheetHidden(false);
+      setSelection(back);
+      setFocus([...back.feature.geometry.coordinates, 15.5]);
+      return;
+    }
     setSelection(null);
     setSheetHidden(false);
     if (returnToMuni) {
@@ -301,10 +325,19 @@ export default function App() {
         onSelect={(s) => {
           setSelection(s);
           setSheetHidden(false);
+          setRestoreSel(null);
           setReturnToMuni(false);
           setReturnToOutfalls(false);
         }}
         onDismissSelection={() => {
+          if (restoreSel) {
+            const back = restoreSel;
+            setRestoreSel(null);
+            setSheetHidden(false);
+            setSelection(back);
+            setFocus([...back.feature.geometry.coordinates, 15.5]);
+            return;
+          }
           setSelection(null);
           setSheetHidden(false);
           setReturnToMuni(false);
@@ -347,6 +380,18 @@ export default function App() {
         outfalls={outfalls.features}
         initialMunicipality={listMunicipality}
         onSelect={handleListSelect}
+        onSelectOutfall={(f, restore) =>
+          openOutfall(
+            f,
+            restore
+              ? {
+                  type: 'beach',
+                  feature: restore,
+                  hasAlert: restore.properties.alert === true,
+                }
+              : null,
+          )
+        }
         onClose={() => {
           setListOpen(false);
           // Si la lista venia del ranking de municipios, al cerrar se
@@ -383,6 +428,7 @@ export default function App() {
           onClose={closeSheet}
           outfalls={outfalls.features}
           beaches={beachesFC.features}
+          onSelectOutfall={(f) => openOutfall(f, selection)}
           onViewOnMap={() => {
             // Ocultar la card pero mantener la selección: el pin sigue
             // destacado y el mapa vuela cerca del punto

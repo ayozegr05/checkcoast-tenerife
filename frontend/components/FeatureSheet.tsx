@@ -64,6 +64,7 @@ export default function FeatureSheet({
   outfalls,
   beaches,
   onViewOnMap,
+  onSelectOutfall,
 }: {
   selection: Selection;
   onClose: () => void;
@@ -73,6 +74,8 @@ export default function FeatureSheet({
   beaches?: GeoFeature[];
   // Tap en la foto satélite → ver el punto en el mapa
   onViewOnMap?: () => void;
+  // Tap en un emisario cercano de la ficha de playa → verlo en el mapa
+  onSelectOutfall?: (feature: GeoFeature) => void;
 }) {
   const { feature } = selection;
   const p = feature.properties;
@@ -391,6 +394,7 @@ export default function FeatureSheet({
                 }
                 outfalls={outfalls}
                 onViewOnMap={handleViewOnMap}
+                onSelectOutfall={onSelectOutfall}
               />
             </View>
           )

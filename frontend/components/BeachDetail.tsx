@@ -176,6 +176,7 @@ export default function BeachDetail({
   hasAlert,
   outfalls,
   onViewOnMap,
+  onSelectOutfall,
 }: {
   feature: GeoFeature;
   hasAlert: boolean;
@@ -183,6 +184,8 @@ export default function BeachDetail({
   outfalls?: GeoFeature[];
   // Tap en la foto satélite → ver la playa en el mapa
   onViewOnMap?: () => void;
+  // Tap en un emisario cercano → verlo en el mapa (pin seleccionado)
+  onSelectOutfall?: (feature: GeoFeature) => void;
 }) {
   const p = feature.properties;
   const unmonitored = p.monitored === false;
@@ -416,10 +419,21 @@ export default function BeachDetail({
           {nearby.map((o) => {
             const accent =
               colors.outfall[o.status] ?? colors.status.unknown;
+            const target = (outfalls ?? []).find(
+              (f) => f.id === o.outfall_id,
+            );
             return (
-              <View
+              <Pressable
                 key={o.outfall_id}
                 style={[styles.outfallRow, { borderLeftColor: accent }]}
+                onPress={
+                  target && onSelectOutfall
+                    ? () => onSelectOutfall(target)
+                    : undefined
+                }
+                disabled={!target || !onSelectOutfall}
+                accessibilityRole="button"
+                accessibilityLabel={`${o.name}, ver en el mapa`}
               >
                 <View style={styles.outfallRowBody}>
                   <Text style={styles.outfallName} numberOfLines={1}>
@@ -430,7 +444,10 @@ export default function BeachDetail({
                     {fmtDistance(o.distance_m)}
                   </Text>
                 </View>
-              </View>
+                {target && onSelectOutfall && (
+                  <Text style={styles.outfallChevron}>›</Text>
+                )}
+              </Pressable>
             );
           })}
           <Text style={styles.chartFoot}>En un radio de 1 km</Text>
@@ -1046,8 +1063,17 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     backgroundColor: colors.background,
     borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  outfallChevron: {
+    fontSize: 16,
+    fontFamily: fonts.semibold,
+    color: colors.textFaint,
+    paddingRight: 8,
   },
   outfallRowBody: {
+    flex: 1,
     paddingRight: 4,
   },
   outfallName: {
