@@ -212,6 +212,28 @@ locales → LLM extrae playa/evento/causa → se muestra etiquetado como
 - [x] **Fix Android**: `lineHeight` explícito en textos pequeños del mapa
   (leyenda cortaba «Autorizado», «En trámite»…); ayuda actualizada
 
+## Hito 8.8 — Compartir con tarjeta rica 🚧
+
+El share de 6.6 mandaba texto plano con un `checkcoast://` que WhatsApp
+no convierte en enlace. Objetivo: que al compartir una playa llegue una
+**tarjeta con foto** (Open Graph) como una noticia.
+
+- [x] **Landing pública por playa** `GET /b/{id}` (`routers/share.py`):
+  HTML con `og:title`/`og:description`/`og:image` (foto satélite Esri
+  vía `export?bbox=`), mini-ficha con degradado mar, chip de estado,
+  botón "Abrir en la app" (`checkcoast://beach/{id}`) y créditos
+  (`8dba5a5`, `fef3754`)
+- [x] **Frontend**: `beachShareUrl()` en `lib/api.ts`; el mensaje de
+  share lleva la URL pública en vez del esquema propio
+- [ ] **Dominio + HTTPS**: WhatsApp/Telegram NO generan preview en URLs
+  con IP pelada + puerto raro (`http://130.110.233.198:8001/b/87`).
+  Subdominio **DuckDNS** → VM + abrir 80/443 en la Security List de OCI
+  + **Caddy** en docker-compose (TLS automático Let's Encrypt,
+  reverse proxy a la api)
+- [ ] **Cambiar `API_PUBLIC_URL`** al dominio https una vez activo
+- [ ] **Verificación end-to-end**: compartir desde la app → tarjeta con
+  foto en WhatsApp y Telegram
+
 ## Hito 9 — Portfolio ⬜
 
 | # | Tarea | Estado | Esfuerzo |
@@ -227,7 +249,7 @@ locales → LLM extrae playa/evento/causa → se muestra etiquetado como
 ---
 
 ### Estado actual
-**Hito activo:** 9 — Portfolio (8 cerrado salvo 8.7-revocar token, cosa
-del usuario; quedan capturas/vídeo del APK — ya hay grabación de 4 min —
-repo público en GitHub y post LinkedIn)
+**Hito activo:** 8.8 — Share con tarjeta rica (falta dominio+HTTPS y
+verificación en WhatsApp; luego 9: capturas/vídeo del APK, repo público
+en GitHub y post LinkedIn; 8.7-token sigue pendiente del usuario)
 **Última actualización:** 2026-09-21
