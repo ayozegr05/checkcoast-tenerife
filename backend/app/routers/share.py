@@ -20,9 +20,9 @@ from app.queries import beaches_with_latest_status
 
 router = APIRouter(tags=["share"])
 
-# Mismo encuadre cercano que SatelliteShot del frontend (640×300 px)
-_SHOT_DLON = 0.006
-_SHOT_DLAT = 0.0033
+# Encuadres como los zooms de SatelliteShot: cerca y lejos (640×300 px)
+_SHOT_NEAR = (0.006, 0.0033)
+_SHOT_FAR = (0.015, 0.0083)
 _SHOT_W = 640
 _SHOT_H = 300
 
@@ -65,20 +65,35 @@ def _display_name(name: str) -> str:
                     for i, w in enumerate(words))
 
 
-def _shot_url(lon: float, lat: float) -> str:
+def _shot_url(lon: float, lat: float, dlon: float, dlat: float) -> str:
     return (
         "https://server.arcgisonline.com/ArcGIS/rest/services/"
-        f"World_Imagery/MapServer/export?bbox={lon - _SHOT_DLON},"
-        f"{lat - _SHOT_DLAT},{lon + _SHOT_DLON},{lat + _SHOT_DLAT}"
+        f"World_Imagery/MapServer/export?bbox={lon - dlon},"
+        f"{lat - dlat},{lon + dlon},{lat + dlat}"
         "&bboxSR=4326&imageSR=4326&size=640,300&format=png&f=image"
     )
 
 
-def _px(lon: float, lat: float, clon: float, clat: float) -> tuple[float, float]:
+def _px(
+    lon: float, lat: float, clon: float, clat: float,
+    dlon: float, dlat: float,
+) -> tuple[float, float]:
     """lon/lat → posición (x%, y%) dentro del recuadro satélite."""
-    x = (lon - (clon - _SHOT_DLON)) / (2 * _SHOT_DLON) * 100
-    y = ((clat + _SHOT_DLAT) - lat) / (2 * _SHOT_DLAT) * 100
+    x = (lon - (clon - dlon)) / (2 * dlon) * 100
+    y = ((clat + dlat) - lat) / (2 * dlat) * 100
     return x, y
+
+
+def _dots(outfalls, lon: float, lat: float, dlon: float, dlat: float) -> str:
+    """Pins de emisarios sobre la foto (mismos PNG que la app)."""
+    return "".join(
+        f'<img class="odot" style="left:{x:.1f}%;top:{y:.1f}%"'
+        f' src="/icons/{_OUTFALL_PIN.get(o.status.value, _OUTFALL_PIN["unknown"])}.png"'
+        f' title="{html.escape(o.name)}" alt="">'
+        for o in outfalls
+        for x, y in [_px(o.olon, o.olat, lon, lat, dlon, dlat)]
+        if 0 <= x <= 100 and 0 <= y <= 100  # fuera del encuadre: no pintar
+    )
 
 
 @router.get("/b/{beach_id}", response_class=HTMLResponse)
@@ -140,18 +155,13 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
     muni = html.escape(beach.municipality or "Tenerife")
     title = f"{name} · {muni}"
     desc = f"Estado: {label} — CheckCoast Tenerife"
-    img = html.escape(_shot_url(lon, lat))
+    img_far = html.escape(_shot_url(lon, lat, *_SHOT_FAR))
+    img_near = html.escape(_shot_url(lon, lat, *_SHOT_NEAR))
     deep = f"checkcoast://beach/{beach.id}"
 
-    # Pins de emisarios sobre la foto (mismos PNG que la app)
-    dots = "".join(
-        f'<img class="odot" style="left:{x:.1f}%;top:{y:.1f}%"'
-        f' src="/icons/{_OUTFALL_PIN.get(o.status.value, _OUTFALL_PIN["unknown"])}.png"'
-        f' title="{html.escape(o.name)}" alt="">'
-        for o in outfalls
-        for x, y in [_px(o.olon, o.olat, lon, lat)]
-        if 0 <= x <= 100 and 0 <= y <= 100  # fuera del encuadre: no pintar
-    )
+    # Dots de cada nivel de zoom (el pin de playa siempre va centrado)
+    dots_far = _dots(outfalls, lon, lat, *_SHOT_FAR)
+    dots_near = _dots(outfalls, lon, lat, *_SHOT_NEAR)
 
     rows = ""
     if latest:
@@ -204,7 +214,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
 <meta property="og:type" content="website">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{desc}">
-<meta property="og:image" content="{img}">
+<meta property="og:image" content="{img_far}">
 <meta name="twitter:card" content="summary_large_image">
 <style>
   body {{ margin:0; font-family:system-ui,sans-serif; background:#eaf3f7;
@@ -223,6 +233,12 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
   .odot {{ position:absolute; width:24px;
           transform:translate(-50%,-95%);
           filter:drop-shadow(0 1px 3px rgba(0,0,0,.5)); }}
+  .zoom {{ position:absolute; top:8px; right:8px; border:0;
+          background:rgba(255,255,255,.92); color:#0d3a52;
+          font-weight:700; font-size:13px; border-radius:8px;
+          padding:6px 10px; cursor:pointer;
+          box-shadow:0 1px 4px rgba(0,0,0,.35); }}
+  .hidden {{ display:none; }}
   .body {{ padding:16px 20px 20px; }}
   .chip {{ display:inline-block; background:{color}; color:#fff;
           font-weight:700; font-size:13px; border-radius:999px;
@@ -257,10 +273,12 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
   <div class="card">
     <div class="head"><h1>{name}</h1><p>{muni} · CheckCoast Tenerife</p></div>
     <div class="shotwrap">
-      <img class="shot" src="{img}" alt="Vista aérea de {name}">
-      {dots}
+      <img id="shot" class="shot" src="{img_far}" alt="Vista aérea de {name}">
+      <span id="dots-far">{dots_far}</span>
+      <span id="dots-near" class="hidden">{dots_near}</span>
       <img class="pin" src="/icons/{_PIN.get(state, _PIN['unknown'])}.png"
         alt="{name}">
+      <button class="zoom" onclick="toggleZoom()" id="zoombtn">Acercar</button>
     </div>
     <div class="body">
       <span class="chip">{label}</span>
@@ -272,4 +290,14 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
     </div>
   </div>
 </body>
+<script>
+var near = false;
+function toggleZoom() {{
+  near = !near;
+  document.getElementById('shot').src = near ? '{img_near}' : '{img_far}';
+  document.getElementById('dots-far').className = near ? 'hidden' : '';
+  document.getElementById('dots-near').className = near ? '' : 'hidden';
+  document.getElementById('zoombtn').textContent = near ? 'Alejar' : 'Acercar';
+}}
+</script>
 </html>"""
