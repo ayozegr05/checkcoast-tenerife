@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.5-flash"
     news_sync_seconds: int = 21600  # 6 h
     news_max_llm_calls: int = 50  # tope de titulares nuevos por pasada
+    # SHA-256 del keystore EAS que firma el APK (Android App Links:
+    # https://checkcoast.duckdns.org/b/{id} abre la app si instalada)
+    android_cert_sha256: str | None = None
 
 
 settings = Settings()

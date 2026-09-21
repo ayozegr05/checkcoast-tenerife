@@ -41,6 +41,20 @@
     "android": {
       "package": "com.checkcoast.tenerife",
       "googleServicesFile": "./google-services.json",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "checkcoast.duckdns.org",
+              "pathPrefix": "/b"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#075276",
         "foregroundImage": "./assets/android-icon-foreground.png",

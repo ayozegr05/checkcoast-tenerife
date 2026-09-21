@@ -219,12 +219,13 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
-  // Deep-links compartidos: checkcoast://beach/123 (y el equivalente
-  // del dev-client exp+...://...beach/123). Funciona al tocar un link
-  // con la app abierta y como URL de arranque.
+  // Deep-links compartidos: checkcoast://beach/123, el equivalente del
+  // dev-client (exp+...://...beach/123) y los App Links https
+  // (checkcoast.duckdns.org/b/123). Funciona al tocar un link con la
+  // app abierta y como URL de arranque.
   useEffect(() => {
     const handle = (url: string | null) => {
-      const m = url?.match(/beach\/(\d+)/);
+      const m = url?.match(/(?:beach|b)\/(\d+)/);
       if (m) openBeachRef.current(Number(m[1]));
     };
     Linking.getInitialURL().then(handle).catch(() => {});

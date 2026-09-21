@@ -14,11 +14,33 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from geoalchemy2 import Geography
 
+from app.config import settings
 from app.db import get_db
 from app.models import Beach, BeachMeasurement, NewsItem, Outfall
 from app.queries import beaches_with_latest_status
 
 router = APIRouter(tags=["share"])
+
+_ANDROID_PACKAGE = "com.checkcoast.tenerife"
+
+
+@router.get("/.well-known/assetlinks.json")
+def assetlinks() -> list[dict]:
+    """Declaración Android App Links: qué app firmada puede abrir
+    https://<dominio>/b/{id}. Vacío hasta configurar
+    ANDROID_CERT_SHA256 con el fingerprint del keystore de EAS."""
+    if not settings.android_cert_sha256:
+        return []
+    return [
+        {
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": _ANDROID_PACKAGE,
+                "sha256_cert_fingerprints": [settings.android_cert_sha256],
+            },
+        }
+    ]
 
 # Encuadres como los zooms de SatelliteShot: cerca y lejos (640×300 px)
 _SHOT_NEAR = (0.006, 0.0033)
