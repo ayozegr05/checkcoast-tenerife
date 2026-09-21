@@ -50,10 +50,11 @@ export type MunicipalityIncident = {
   opened_at: string; // YYYY-MM-DD
   closed_at: string | null;
   observations: string | null;
-  // Fila sintética del cliente: alerta viva que viene SOLO de prensa
-  // (p.ej. Benijo) — no existe BeachIncident oficial. Se etiqueta
-  // "según prensa" y nunca se mezcla con el estado oficial
-  via_press?: boolean;
+  // Procedencia del episodio: "official" (incidencia Náyade) |
+  // "measurement" (analítica prohibida sin incidencia) | "press"
+  // (cierre solo recogido por prensa). El backend compone el texto de
+  // observations con la aclaración correspondiente
+  via?: 'official' | 'measurement' | 'press';
 };
 
 export type BeachStats = {
@@ -65,6 +66,9 @@ export type BeachStats = {
   total_samples: number;
   latest_evaluation: string | null;
   latest_sampled_at: string | null;
+  // Episodios reconstruidos (analítica sin incidencia + cierres solo
+  // en prensa): cuentan en el ranking como incidentes reales
+  reconstructed?: number;
 };
 
 export type BeachNearbyOutfall = {

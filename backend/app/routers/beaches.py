@@ -6,6 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.events import SynthEvent, synthesize_events
 from app.models import (
     Beach,
     BeachIncident,
@@ -69,11 +70,13 @@ def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
 
 @router.get("/beaches/stats", response_model=list[BeachStatsOut])
 def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
-    """Agregados por playa monitorizada para el ranking:
-    cierres totales / último año, muestras no aptas y última evaluación."""
+    """Agregados por playa para el ranking: cierres totales / último
+    año, muestras no aptas, última evaluación y episodios
+    reconstruidos (analítica sin incidencia + cierres solo en prensa).
+    Las playas no monitorizadas solo aportan `reconstructed`."""
     year_ago = date.today() - timedelta(days=365)
     stats: list[BeachStatsOut] = []
-    for beach in db.query(Beach).filter(Beach.monitored.is_(True)):
+    for beach in db.query(Beach):
         closures = warnings = closures_last_year = 0
         for inc in beach.incidents:
             if inc.observations and "prohib" in inc.observations.lower():
@@ -98,9 +101,26 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                 total_samples=len(beach.measurements),
                 latest_evaluation=latest.evaluation if latest else None,
                 latest_sampled_at=latest.sampled_at if latest else None,
+                reconstructed=len(synthesize_events(beach)),
             )
         )
     return stats
+
+
+def _synth_observations(ev: SynthEvent) -> str:
+    if ev.via == "measurement":
+        obs = "Prohibición por analítica — sin incidencia en Náyade"
+        if ev.press_confirmed:
+            obs += (
+                f" · {ev.press_count} "
+                f"{'noticia' if ev.press_count == 1 else 'noticias'} "
+                "de prensa lo recogieron"
+            )
+        return obs
+    obs = "Cierre recogido solo en prensa — sin registro en Náyade"
+    if ev.end_estimated:
+        obs += " · fin aproximado (última mención)"
+    return obs
 
 
 @router.get("/incidents", response_model=list[MunicipalityIncidentOut])
@@ -109,31 +129,58 @@ def municipality_incidents(
     db: Session = Depends(get_db),
 ) -> list[MunicipalityIncidentOut]:
     """Todos los incidentes de las playas de un municipio, más reciente
-    primero. Alimenta la línea temporal del ranking municipal."""
+    primero. Alimenta la línea temporal del ranking municipal.
+
+    Además de las incidencias oficiales emite eventos reconstruidos:
+    ventanas de analítica prohibida sin incidencia (`via=measurement`)
+    y cierres que solo existen en prensa (`via=press`)."""
+    beaches = (
+        db.query(Beach).filter(Beach.municipality == municipality).all()
+    )
+    by_id = {b.id: b for b in beaches}
     rows = (
-        db.query(BeachIncident, Beach)
-        .join(Beach, BeachIncident.beach_id == Beach.id)
-        .filter(Beach.municipality == municipality)
+        db.query(BeachIncident)
+        .filter(BeachIncident.beach_id.in_(by_id))
         .order_by(BeachIncident.opened_at.desc())
         .all()
     )
-    return [
+    out = [
         MunicipalityIncidentOut(
             id=inc.id,
             beach_id=inc.beach_id,
-            beach_name=beach.name,
-            municipality=beach.municipality,
+            beach_name=by_id[inc.beach_id].name,
+            municipality=municipality,
             kind=(
                 "closure"
-                if inc.observations and "prohib" in inc.observations.lower()
+                if inc.observations
+                and "prohib" in inc.observations.lower()
                 else "warning"
             ),
             opened_at=inc.opened_at,
             closed_at=inc.closed_at,
             observations=inc.observations,
         )
-        for inc, beach in rows
+        for inc in rows
     ]
+    synth_id = -1
+    for beach in beaches:
+        for ev in synthesize_events(beach):
+            out.append(
+                MunicipalityIncidentOut(
+                    id=synth_id,
+                    beach_id=beach.id,
+                    beach_name=beach.name,
+                    municipality=municipality,
+                    kind=ev.kind,
+                    opened_at=ev.opened_at,
+                    closed_at=ev.closed_at,
+                    observations=_synth_observations(ev),
+                    via=ev.via,
+                )
+            )
+            synth_id -= 1
+    out.sort(key=lambda r: r.opened_at, reverse=True)
+    return out
 
 
 @router.get(

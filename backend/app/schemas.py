@@ -52,6 +52,9 @@ class MunicipalityIncidentOut(BaseModel):
     opened_at: date
     closed_at: date | None
     observations: str | None
+    # "official" = incidencia Náyade | "measurement" = ventana de
+    # analítica prohibida sin incidencia | "press" = solo en prensa
+    via: str = "official"
 
 
 class BeachMeasurementOut(BaseModel):
@@ -73,6 +76,9 @@ class BeachStatsOut(BaseModel):
     total_samples: int
     latest_evaluation: str | None
     latest_sampled_at: date | None
+    # Episodios reconstruidos (analítica sin incidencia + cierres solo
+    # en prensa): cuentan en el ranking pero no son BeachIncident
+    reconstructed: int = 0
 
 
 class OutfallNearestBeachOut(BaseModel):

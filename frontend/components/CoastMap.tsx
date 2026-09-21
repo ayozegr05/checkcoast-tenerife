@@ -1409,10 +1409,11 @@ const styles = StyleSheet.create({
     height: 20,
   },
   legendCard: {
+    width: '96%', // ancho fijo: tapa las etiquetas de mar a los lados
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
     paddingVertical: 8,
-    paddingHorizontal: 20, // tarjeta más ancha: tapa etiquetas de mar del basemap
+    paddingHorizontal: 12,
     elevation: 4,
   },
   layerRow: {
@@ -1466,11 +1467,12 @@ const styles = StyleSheet.create({
   },
   // Swatches en línea a la derecha del switch; envuelven si no caben
   legendSub: {
+    flex: 1, // ocupa el resto de la tarjeta: el contenido respira
     flexDirection: 'row',
     flexWrap: 'wrap',
-    flexShrink: 1,
-    marginLeft: 8,
-    gap: 6,
+    justifyContent: 'space-evenly',
+    marginLeft: 10,
+    gap: 8,
   },
   swatchRow: {
     flexDirection: 'row',

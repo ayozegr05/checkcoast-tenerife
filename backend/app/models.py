@@ -3,6 +3,7 @@ from datetime import date, datetime
 
 from geoalchemy2 import Geometry, WKBElement
 from sqlalchemy import (
+    ARRAY,
     Date,
     DateTime,
     Enum,
@@ -64,6 +65,10 @@ class Beach(Base):
     name: Mapped[str] = mapped_column(String(255))
     municipality: Mapped[str | None] = mapped_column(String(120))
     monitored: Mapped[bool] = mapped_column(default=True)
+    # Nombres populares que usa la prensa ("Los Guanches" → PLAYA
+    # CANDELARIA): el matching de noticias los consulta además del
+    # nombre oficial del censo
+    press_aliases: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     geom: Mapped[WKBElement] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326), nullable=False
     )

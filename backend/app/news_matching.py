@@ -9,7 +9,9 @@ sufijo PM) y añade una clave de comparación `_press_key` que además:
 
 Un candidato es cualquier playa cuya clave sea igual al nombre extraído
 o lo contenga en cualquier dirección ("EL CABEZO" ⊂ "EL CABEZO-PASEO DE
-LAS PALMERAS").
+LAS PALMERAS"). La playa aporta una clave por su nombre del censo y una
+por cada `press_alias` — nombres populares que usa la prensa ("Los
+Guanches" para Candelaria).
 
 - Con municipio extraído: casa solo si TODOS los candidatos de ese
   municipio comparten la misma clave — varios PMs de una misma playa
@@ -73,14 +75,24 @@ def match_beaches(
 
     candidates = []
     for b in beaches:
-        key = _press_key(b.name)
-        name_match = (
-            key == target
-            or target in key
-            or (len(key) >= _MIN_NAME_LEN and key in target)
+        # La playa aporta todas sus claves: nombre del censo + aliases
+        # de prensa ("Los Guanches" → PLAYA CANDELARIA)
+        keys = [_press_key(b.name)] + [
+            _press_key(a)
+            for a in (getattr(b, "press_aliases", None) or [])
+        ]
+        hit = next(
+            (
+                k
+                for k in keys
+                if k == target
+                or target in k
+                or (len(k) >= _MIN_NAME_LEN and k in target)
+            ),
+            None,
         )
-        if name_match:
-            candidates.append((b, key))
+        if hit is not None:
+            candidates.append((b, hit))
 
     if muni is None:
         # Sin municipio: un solo grupo (misma clave + municipio)

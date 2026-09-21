@@ -76,14 +76,33 @@ export default function OutfallList({
     [outfalls],
   );
 
+  // Conteos por estado — acotados al municipio activo cuando hay filtro
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
     for (const f of outfalls) {
+      if (
+        municipality !== undefined &&
+        f.properties.municipality !== municipality
+      )
+        continue;
       const s = f.properties.status ?? 'unknown';
       c[s] = (c[s] ?? 0) + 1;
     }
     return c;
+  }, [outfalls, municipality]);
+
+  // Total por municipio — va en el chip de cada uno
+  const muniCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const f of outfalls) {
+      const m = f.properties.municipality;
+      if (m) c[m] = (c[m] ?? 0) + 1;
+    }
+    return c;
   }, [outfalls]);
+
+  const scopedTotal =
+    (counts.illegal ?? 0) + (counts.legal ?? 0) + (counts.unknown ?? 0);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -126,9 +145,11 @@ export default function OutfallList({
             </Pressable>
           </View>
           <Text style={styles.subtitle}>
-            Censo Tierra-Mar 2025 · {counts.illegal ?? 0} no autorizados ·{' '}
-            {counts.legal ?? 0} autorizados · {counts.unknown ?? 0} en
-            trámite
+            {municipality
+              ? `${municipality} · ${counts.illegal ?? 0} no autorizados · ${counts.legal ?? 0} autorizados · ${counts.unknown ?? 0} en trámite`
+              : `Censo Tierra-Mar 2025 · ${outfalls.length} puntos de vertido · ${
+                  (counts.illegal ?? 0) + (counts.unknown ?? 0)
+                } sin autorizar`}
           </Text>
         </ImageBackground>
 
@@ -170,7 +191,7 @@ export default function OutfallList({
                 status === undefined && styles.chipTextActive,
               ]}
             >
-              Todos ({outfalls.length})
+              Todos ({scopedTotal})
             </Text>
           </Pressable>
           {(['illegal', 'unknown', 'legal'] as const).map((s) => (
@@ -227,7 +248,7 @@ export default function OutfallList({
                   municipality === m && styles.chipTextActive,
                 ]}
               >
-                {m}
+                {m} ({muniCounts[m] ?? 0})
               </Text>
             </Pressable>
           ))}

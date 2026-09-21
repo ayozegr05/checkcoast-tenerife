@@ -109,22 +109,19 @@ export default function MunicipalityStats({
       .catch(() => setIncidents([]));
   }, [detail]);
 
-  // Línea temporal del municipio abierto: incidentes oficiales +
-  // alertas vivas que solo existen en prensa (playas OSM como
-  // Benijo no generan BeachIncident — sin esto no aparecen)
+  // Línea temporal del municipio abierto: el backend ya devuelve
+  // incidentes oficiales + eventos reconstruidos (analítica/prensa).
+  // Solo "Sin municipio" necesita síntesis en cliente: el endpoint
+  // no puede filtrar por municipio NULL
   const detailRows = useMemo<MunicipalityIncident[]>(() => {
     if (!detail) return [];
     const official = incidents ?? [];
-    const activeOfficial = new Set(
-      official.filter((i) => !i.closed_at).map((i) => i.beach_id),
-    );
+    if (detail.municipality) return official;
     const pressRows: MunicipalityIncident[] = beaches
       .filter(
         (f) =>
           (f.properties.municipality ?? 'Sin municipio') ===
-            detail.name &&
-          f.properties.alert === true &&
-          !activeOfficial.has(f.id),
+            detail.name && f.properties.alert === true,
       )
       .map((f) => ({
         id: -f.id, // id negativo: no colisiona con incidentes reales
@@ -138,7 +135,7 @@ export default function MunicipalityStats({
         opened_at: (f.properties.reported_at ?? '').slice(0, 10),
         closed_at: null,
         observations: 'Según prensa — sin incidente oficial en Náyade',
-        via_press: true,
+        via: 'press',
       }));
     return [...official, ...pressRows].sort((a, b) =>
       b.opened_at.localeCompare(a.opened_at),
@@ -190,6 +187,11 @@ export default function MunicipalityStats({
           m.badSamples += st.bad_samples;
         }
       }
+      // Los episodios reconstruidos (analítica sin incidencia, cierres
+      // solo en prensa) cuentan como incidentes reales también en las
+      // playas no monitorizadas — Benijo cerró de verdad
+      const st = stats.get(f.id);
+      if (st?.reconstructed) m.incidents += st.reconstructed;
       byMuni.set(name, m);
     }
     return [...byMuni.values()]
