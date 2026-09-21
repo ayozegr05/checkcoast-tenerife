@@ -1251,6 +1251,7 @@ const styles = StyleSheet.create({
   },
   topbarLabel: {
     fontSize: 9,
+    lineHeight: 12,
     fontFamily: fonts.semibold,
     color: colors.text,
     marginTop: 2,
@@ -1283,6 +1284,7 @@ const styles = StyleSheet.create({
   bannerText: {
     color: '#fff',
     fontSize: 13,
+    lineHeight: 17,
     fontFamily: fonts.bold,
   },
   alertList: {
@@ -1320,12 +1322,14 @@ const styles = StyleSheet.create({
   },
   alertSub: {
     fontSize: 11,
+    lineHeight: 15,
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 1,
   },
   alertState: {
     fontSize: 12,
+    lineHeight: 16,
     fontFamily: fonts.bold,
   },
   searchWrap: {
@@ -1377,6 +1381,7 @@ const styles = StyleSheet.create({
   },
   searchSub: {
     fontSize: 12,
+    lineHeight: 16,
     fontFamily: fonts.regular,
     color: colors.textMuted,
   },
@@ -1448,6 +1453,7 @@ const styles = StyleSheet.create({
   switchText: {
     color: '#fff',
     fontSize: 10,
+    lineHeight: 14,
     fontFamily: fonts.extrabold,
     minWidth: 26, // sin esto Android recorta "ON" a "O"
     textAlign: 'center',
@@ -1489,6 +1495,7 @@ const styles = StyleSheet.create({
   },
   swatchText: {
     fontSize: 11,
+    lineHeight: 16, // sin esto Android recorta ascendentes/descendentes
     fontFamily: fonts.regular,
     color: colors.textMuted,
   },
