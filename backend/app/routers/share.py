@@ -40,6 +40,19 @@ _OUTFALL_STATUS = {
     "unknown": ("En trámite", "#e65100"),
 }
 
+# Mismos PNG que el mapa de la app (servidos desde /icons)
+_PIN = {
+    "closed": "pin-closed",
+    "warning": "pin-warning",
+    "open": "pin-open",
+    "unknown": "pin-unmonitored",
+}
+_OUTFALL_PIN = {
+    "legal": "pin-outfall-legal",
+    "illegal": "pin-outfall-illegal",
+    "unknown": "pin-outfall-processing",
+}
+
 _NEARBY_OUTFALL_RADIUS_M = 1000  # mismo radio que /beaches/{id}/nearby-outfalls
 
 
@@ -130,11 +143,11 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
     img = html.escape(_shot_url(lon, lat))
     deep = f"checkcoast://beach/{beach.id}"
 
-    # Dots de emisarios sobre la foto (misma mecánica que la app)
+    # Pins de emisarios sobre la foto (mismos PNG que la app)
     dots = "".join(
-        f'<span class="dot" style="left:{x:.1f}%;top:{y:.1f}%;'
-        f'background:{_OUTFALL_STATUS.get(o.status.value, _OUTFALL_STATUS["unknown"])[1]}"'
-        f' title="{html.escape(o.name)}"></span>'
+        f'<img class="odot" style="left:{x:.1f}%;top:{y:.1f}%"'
+        f' src="/icons/{_OUTFALL_PIN.get(o.status.value, _OUTFALL_PIN["unknown"])}.png"'
+        f' title="{html.escape(o.name)}" alt="">'
         for o in outfalls
         for x, y in [_px(o.olon, o.olat, lon, lat)]
         if 0 <= x <= 100 and 0 <= y <= 100  # fuera del encuadre: no pintar
@@ -204,15 +217,12 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
   .head p {{ margin:4px 0 0; font-size:13px; opacity:.9; }}
   .shotwrap {{ position:relative; }}
   .shot {{ display:block; width:100%; height:auto; }}
-  .pin {{ position:absolute; left:50%; top:50%;
-          transform:translate(-50%,-92%); }}
-  .pin i {{ display:block; width:26px; height:26px; background:{color};
-          border:3px solid #fff; border-radius:50% 50% 50% 0;
-          transform:rotate(-45deg);
-          box-shadow:0 2px 8px rgba(0,0,0,.45); }}
-  .dot {{ position:absolute; width:11px; height:11px; border-radius:50%;
-          border:2px solid #fff; transform:translate(-50%,-50%);
-          box-shadow:0 1px 4px rgba(0,0,0,.5); }}
+  .pin {{ position:absolute; left:50%; top:50%; width:42px;
+          transform:translate(-50%,-92%);
+          filter:drop-shadow(0 2px 5px rgba(0,0,0,.5)); }}
+  .odot {{ position:absolute; width:24px;
+          transform:translate(-50%,-95%);
+          filter:drop-shadow(0 1px 3px rgba(0,0,0,.5)); }}
   .body {{ padding:16px 20px 20px; }}
   .chip {{ display:inline-block; background:{color}; color:#fff;
           font-weight:700; font-size:13px; border-radius:999px;
@@ -249,7 +259,8 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
     <div class="shotwrap">
       <img class="shot" src="{img}" alt="Vista aérea de {name}">
       {dots}
-      <div class="pin"><i></i></div>
+      <img class="pin" src="/icons/{_PIN.get(state, _PIN['unknown'])}.png"
+        alt="{name}">
     </div>
     <div class="body">
       <span class="chip">{label}</span>

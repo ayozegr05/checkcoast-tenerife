@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.routers import alerts, beaches, devices, outfalls, share
@@ -62,6 +63,13 @@ app.include_router(beaches.router)
 app.include_router(alerts.router)
 app.include_router(devices.router)
 app.include_router(share.router)
+
+# Iconos PNG (pins del mapa) para la mini-ficha pública de share
+app.mount(
+    "/icons",
+    StaticFiles(directory="app/static/icons"),
+    name="icons",
+)
 
 
 @app.get("/health")
