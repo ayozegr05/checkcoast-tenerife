@@ -41,6 +41,9 @@ class BeachIncidentOut(BaseModel):
     closed_at: date | None
     observations: str | None
     source_url: str | None
+    # "official" = incidencia Náyade | "measurement" = ventana de
+    # analítica prohibida sin incidencia | "press" = solo en prensa
+    via: str = "official"
 
 
 class MunicipalityIncidentOut(BaseModel):

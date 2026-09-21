@@ -6,7 +6,12 @@ Función pura sobre objetos en memoria — no toca BD.
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from app.events import synthesize_events
+from app.events import (
+    Episode,
+    cluster_episodes,
+    merged_episode,
+    synthesize_events,
+)
 
 TODAY = date(2026, 9, 21)
 
@@ -150,3 +155,90 @@ def test_separate_press_clusters_make_separate_events():
     assert all(e.via == "press" for e in evs)
     # Más reciente primero
     assert evs[0].opened_at == date(2025, 8, 1)
+
+
+def test_still_closed_press_merges_all_clusters():
+    """Benijo: cierre largo con picos de cobertura y reaperturas
+    espurias del LLM — si el último cambio es un cierre y la cobertura
+    sigue fresca, todo es UN episodio abierto desde la fecha más
+    antigua."""
+    b = beach(
+        items=[
+            news(date(2026, 5, 21), "closure"),
+            news(date(2026, 5, 24), "reopening"),  # "agilizan obras"
+            news(date(2026, 7, 24), "closure"),
+            news(date(2026, 7, 31), "reopening"),
+            news(TODAY - timedelta(days=3), "closure"),  # fresco
+        ]
+    )
+    (ev,) = synthesize_events(b, today=TODAY)
+    assert ev.via == "press"
+    assert ev.opened_at == date(2026, 5, 21)
+    assert ev.closed_at is None
+    assert ev.press_count == 5
+
+
+def ep(beach_id, base, start, end=None, via="official", kind="closure"):
+    return Episode(
+        beach_id=beach_id,
+        base=base,
+        municipality="M",
+        kind=kind,
+        start=start,
+        end=end,
+        via=via,
+        ref_id=beach_id,
+        obs=None,
+    )
+
+
+def test_cluster_episodes_merges_pms_same_window():
+    eps = [
+        ep(1, "PLAYA JARDIN", date(2026, 1, 10), date(2026, 1, 20)),
+        ep(2, "PLAYA JARDIN", date(2026, 1, 12), date(2026, 1, 22)),
+        ep(1, "PLAYA JARDIN", date(2026, 5, 1), date(2026, 5, 10)),
+        ep(3, "PLAYA OTRA", date(2026, 1, 11), date(2026, 1, 21)),
+    ]
+    groups = cluster_episodes(eps, today=TODAY)
+    assert len(groups) == 3  # ene fusionado, mayo aparte, otra playa
+    merged = merged_episode(groups[0])
+    assert merged.start == date(2026, 1, 10)
+    assert merged.end == date(2026, 1, 22)
+    assert merged.via == "official"
+    assert merged.beach_id == 1
+
+
+def test_cluster_episodes_merges_mixed_via_same_window():
+    """Los Cristianos: cierre oficial en PM2 + prensa en PM4, misma
+    ventana → un episodio oficial con mención a prensa."""
+    eps = [
+        Episode(
+            beach_id=1,
+            base="LOS CRISTIANOS",
+            municipality="M",
+            kind="closure",
+            start=date(2026, 8, 24),
+            end=date(2026, 8, 26),
+            via="official",
+            ref_id=10,
+            obs="Baño prohibido",
+        ),
+        Episode(
+            beach_id=2,
+            base="LOS CRISTIANOS",
+            municipality="M",
+            kind="closure",
+            start=date(2026, 8, 21),
+            end=date(2026, 8, 21),
+            via="press",
+            ref_id=-1,
+            obs="Cierre recogido solo en prensa",
+            press_count=2,
+        ),
+    ]
+    groups = cluster_episodes(eps, today=TODAY)
+    assert len(groups) == 1
+    m = merged_episode(groups[0])
+    assert m.via == "official"
+    assert m.start == date(2026, 8, 21)  # el más antiguo gana
+    assert "2 noticias en prensa" in (m.obs or "")

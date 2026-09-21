@@ -231,6 +231,7 @@ export default function App() {
     setMuniOpen(false);
     setListMunicipality(undefined);
     setSelection(null); // si había una ficha abierta en el mapa, tapaba el vuelo
+    setReturnToMuni(false);
     setFocus([...feature.geometry.coordinates, 14.5]);
   };
 
@@ -245,6 +246,21 @@ export default function App() {
     setMuniOpen(false);
     setListMunicipality(municipality);
     setListOpen(true);
+  };
+
+  // Ficha abierta desde un incidente de Municipios: al cerrarla se
+  // vuelve a la línea temporal del municipio, no al mapa
+  const [returnToMuni, setReturnToMuni] = useState(false);
+  const openBeachFromMuni = (id: number) => {
+    setReturnToMuni(true);
+    openBeachById(id);
+  };
+  const closeSheet = () => {
+    setSelection(null);
+    if (returnToMuni) {
+      setReturnToMuni(false);
+      setMuniOpen(true);
+    }
   };
 
   return (
@@ -262,7 +278,10 @@ export default function App() {
         }
         pmPoints={pmPointsFC}
         onSelect={setSelection}
-        onDismissSelection={() => setSelection(null)}
+        onDismissSelection={() => {
+          setSelection(null);
+          setReturnToMuni(false);
+        }}
         onOpenList={() => setListOpen(true)}
         onOpenMunicipalities={() => setMuniOpen(true)}
         onOpenOutfalls={() => setOutfallListOpen(true)}
@@ -320,19 +339,20 @@ export default function App() {
         onClose={() => setOutfallListOpen(false)}
       />
 
-      {muniOpen && (
-        <MunicipalityStats
-          beaches={beachesFC.features}
-          onSelect={handleMunicipalitySelect}
-          onSelectBeach={openBeachById}
-          onClose={() => setMuniOpen(false)}
-        />
-      )}
+      {/* Montado siempre (visible): conserva municipio/scroll al abrir
+          una ficha de playa desde su línea temporal */}
+      <MunicipalityStats
+        visible={muniOpen}
+        beaches={beachesFC.features}
+        onSelect={handleMunicipalitySelect}
+        onSelectBeach={openBeachFromMuni}
+        onClose={() => setMuniOpen(false)}
+      />
 
       {selection && (
         <FeatureSheet
           selection={selection}
-          onClose={() => setSelection(null)}
+          onClose={closeSheet}
           outfalls={outfalls.features}
         />
       )}

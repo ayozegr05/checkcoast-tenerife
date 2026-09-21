@@ -36,8 +36,11 @@ const BEACH_STATUS: Record<string, { label: string; color: string }> = {
   open: { label: 'Sin alertas activas', color: colors.status.open },
 };
 
-// Un incidente es "cierre" si la observación prohíbe el baño
+// Un incidente es "cierre" si la observación prohíbe el baño; los
+// eventos reconstruidos (analítica/prensa) siempre son cierres
 const isClosure = (inc: BeachIncident) =>
+  inc.via === 'press' ||
+  inc.via === 'measurement' ||
   /prohib/i.test(inc.observations ?? '');
 
 // Náyade a veces abre una "incidencia" cuyo texto es solo la
@@ -616,6 +619,18 @@ export default function BeachDetail({
               const accent = closure
                 ? colors.status.closed
                 : colors.outfall.unknown;
+              const tag =
+                inc.via === 'press'
+                  ? 'SEGÚN PRENSA'
+                  : inc.via === 'measurement'
+                    ? 'SEGÚN ANALÍTICA'
+                    : inc.closed_at
+                      ? closure
+                        ? 'CIERRE'
+                        : 'AVISO'
+                      : unclassified
+                        ? 'PENDIENTE'
+                        : 'ACTIVA';
               return (
                 <View
                   key={inc.id}
@@ -632,15 +647,7 @@ export default function BeachDetail({
                         { backgroundColor: accent },
                       ]}
                     >
-                      <Text style={styles.incidentTagText}>
-                        {inc.closed_at
-                          ? closure
-                            ? 'CIERRE'
-                            : 'AVISO'
-                          : unclassified
-                            ? 'PENDIENTE'
-                            : 'ACTIVA'}
-                      </Text>
+                      <Text style={styles.incidentTagText}>{tag}</Text>
                     </View>
                   </View>
                   {inc.observations ? (

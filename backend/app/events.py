@@ -50,6 +50,10 @@ class SynthEvent:
     press_count: int = 0
     end_estimated: bool = False  # closed_at es la última mención
     sources: list[str] = field(default_factory=list)
+    # Último cierre de prensa del clúster: una reapertura solo cierra
+    # el episodio si se publica después (las del LLM a veces son
+    # "agilizan las obras" mal clasificadas)
+    last_closure: date | None = None
 
 
 def _bad(m) -> bool:
@@ -165,6 +169,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
         else:
             cluster.opened_at = min(cluster.opened_at, pub)
         cluster.press_count += 1
+        cluster.last_closure = max(cluster.last_closure or pub, pub)
         if n.source and n.source not in cluster.sources:
             cluster.sources.append(n.source)
 
@@ -187,7 +192,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                 for ev in events
                 if ev.via == "press"
                 and ev.closed_at is None
-                and ev.opened_at <= pub
+                and (ev.last_closure or ev.opened_at) <= pub
             ]
             if open_press:
                 ev = max(open_press, key=lambda e: e.opened_at)
@@ -196,11 +201,11 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                 if n.source and n.source not in ev.sources:
                     ev.sources.append(n.source)
 
-    # 6. Cierre de prensa sin reapertura: sigue "activo" si la
-    # cobertura está fresca y el último cambio es un cierre — misma
-    # regla que /alerts (_press_event + PRESS_ALERT_MAX_AGE), para que
-    # la línea temporal no contradiga el banner. Ya frío, el fin es
-    # incierto: usamos la última mención como cota y lo declaramos
+    # 6. Si la cobertura sigue fresca y el último cambio es un cierre,
+    # la playa sigue cerrada según prensa (misma regla que /alerts):
+    # todos los clústeres son UN solo episodio continuo — se fusionan
+    # con la fecha más antigua (Benijo: cierre de 2024 con picos de
+    # noticias en mayo y julio)
     fresh = bool(items) and (
         items[-1].published_at.date() >= today - PRESS_STALE
     )
@@ -217,24 +222,124 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
         and latest_change is not None
         and latest_change.event_type == "closure"
     )
-    # Solo el clúster de prensa más reciente puede seguir abierto
-    open_candidates = [
-        ev for ev in events if ev.via == "press" and ev.closed_at is None
-    ]
-    live = (
-        max(open_candidates, key=lambda e: e.opened_at)
-        if open_candidates and still_closed
-        else None
-    )
-    for ev in open_candidates:
-        if ev is live:
-            continue
-        last = max(
-            (n.published_at.date() for n in closures
-             if n.published_at.date() >= ev.opened_at),
-            default=ev.opened_at,
+    press_evs = [ev for ev in events if ev.via == "press"]
+    if still_closed and press_evs:
+        merged = SynthEvent(
+            kind="closure",
+            opened_at=min(e.opened_at for e in press_evs),
+            closed_at=None,
+            via="press",
+            press_confirmed=True,
+            press_count=sum(e.press_count for e in press_evs),
+            sources=sorted({s for e in press_evs for s in e.sources}),
         )
-        ev.closed_at = last
-        ev.end_estimated = True
+        events = [e for e in events if e.via != "press"] + [merged]
+    else:
+        # Cierre de prensa frío sin reapertura: el fin es incierto —
+        # usamos la última mención como cota y lo declaramos
+        for ev in press_evs:
+            if ev.closed_at is not None:
+                continue
+            last = ev.last_closure or ev.opened_at
+            if today - last > PRESS_STALE:
+                ev.closed_at = last
+                ev.end_estimated = True
 
     return sorted(events, key=lambda e: e.opened_at, reverse=True)
+
+
+# ── Agrupación por episodio ──────────────────────────────────────────
+# Una playa extensa tiene varios puntos de muestreo (PM1, PM4…): un
+# mismo episodio real (vertido, analítica mala) aparece una vez por PM.
+# Para la línea temporal y el ranking cuenta como UN incidente.
+
+EPISODE_GAP = timedelta(days=14)
+
+
+@dataclass
+class Episode:
+    """Una fila de línea temporal pre-agrupación."""
+
+    beach_id: int
+    base: str  # nombre de playa sin sufijo PMx
+    municipality: str | None
+    kind: str  # "closure" | "warning"
+    start: date
+    end: date | None
+    via: str  # "official" | "measurement" | "press"
+    ref_id: int  # id del BeachIncident oficial o negativo sintético
+    obs: str | None
+    press_count: int = 0
+    end_estimated: bool = False
+
+
+def base_name(name: str) -> str:
+    """Nombre de playa sin el sufijo de punto de muestreo."""
+    import re
+
+    return re.sub(r"\s+PM\d+$", "", name)
+
+
+def _near(a_end: date | None, b_start: date, today: date) -> bool:
+    """Un episodio abierto absorbe todo lo posterior; si no, hueco ≤14d
+    entre el fin de uno y el inicio del siguiente = mismo episodio."""
+    return b_start <= (a_end or today) + EPISODE_GAP
+
+
+def cluster_episodes(
+    eps: list[Episode], today: date | None = None
+) -> list[list[Episode]]:
+    """Agrupa episodios de la misma playa (base+municipio) cuyas
+    ventanas se solapan o distan ≤14 días. Devuelve grupos en el orden
+    de llegada (eps ya deben venir ordenados por start asc)."""
+    today = today or date.today()
+    groups: list[list[Episode]] = []
+    for ep in sorted(eps, key=lambda e: e.start):
+        for g in groups:
+            g0 = g[0]
+            if (g0.municipality, g0.base) != (ep.municipality, ep.base):
+                continue
+            g_end = max(e.end or today for e in g)
+            if ep.start <= g_end + EPISODE_GAP:
+                g.append(ep)
+                break
+        else:
+            groups.append([ep])
+    return groups
+
+
+def merged_episode(g: list[Episode]) -> Episode:
+    """Una fila por episodio: playa base, ventana unión, via del mejor
+    respaldo (official > measurement > press)."""
+    via = (
+        "official"
+        if any(e.via == "official" for e in g)
+        else "measurement"
+        if any(e.via == "measurement" for e in g)
+        else "press"
+    )
+    official_obs = next((e.obs for e in g if e.via == "official"), None)
+    press_n = sum(e.press_count for e in g)
+    if official_obs is not None:
+        media = "noticia" if press_n == 1 else "noticias"
+        obs = official_obs + (f" · {press_n} {media} en prensa" if press_n else "")
+    else:
+        # los eventos sintéticos ya llevan la mención a prensa en su obs
+        obs = next((e.obs for e in g if e.obs), None)
+    return Episode(
+        beach_id=min(e.beach_id for e in g),
+        base=g[0].base,
+        municipality=g[0].municipality,
+        kind="closure" if any(e.kind == "closure" for e in g) else "warning",
+        start=min(e.start for e in g),
+        end=None if any(e.end is None for e in g) else max(
+            e.end for e in g if e.end
+        ),
+        via=via,
+        ref_id=next(
+            (e.ref_id for e in g if e.via == "official"), g[0].ref_id
+        ),
+        obs=obs,
+        press_count=press_n,
+        end_estimated=any(e.end_estimated for e in g),
+    )

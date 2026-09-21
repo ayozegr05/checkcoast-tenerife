@@ -71,11 +71,13 @@ const durationDays = (inc: MunicipalityIncident) => {
 };
 
 export default function MunicipalityStats({
+  visible,
   beaches,
   onSelect,
   onSelectBeach,
   onClose,
 }: {
+  visible: boolean;
   beaches: GeoFeature[];
   onSelect: (municipality: string | null) => void;
   // Tocar un incidente de la línea temporal abre la ficha de su playa
@@ -208,6 +210,7 @@ export default function MunicipalityStats({
 
   return (
     <Modal
+      visible={visible}
       animationType="slide"
       onRequestClose={detail ? () => setDetail(null) : onClose}
     >

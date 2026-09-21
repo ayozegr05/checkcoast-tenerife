@@ -29,6 +29,9 @@ export type BeachIncident = {
   closed_at: string | null;
   observations: string | null;
   source_url: string | null;
+  // 'official' = incidencia Náyade | 'measurement' = ventana de
+  // analítica prohibida sin incidencia | 'press' = solo en prensa
+  via?: 'official' | 'measurement' | 'press';
 };
 
 export type BeachMeasurement = {
