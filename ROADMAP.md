@@ -161,9 +161,9 @@ Tres niveles, en orden de impacto/esfuerzo:
 
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
-| 8.1 | **Build EAS de validación**: verificar push notifications + AsyncStorage en build real | Pendiente | 🟡 Medio |
+| 8.1 | **Build EAS de validación**: verificar push notifications + AsyncStorage en build real | 🚧 APK preview construido e instalado (`09ad1cd4`, EAS) — funciona standalone contra la API de la VM; pendiente verificar recepción de push en dispositivo | 🟡 Medio |
 | 8.2 | **Dockerizar API**: servicio `api` en docker-compose | ✅ Hecho — `backend/Dockerfile` (python:3.12-slim) + servicio `api` en compose; `alembic upgrade head` al arrancar, healthcheck, `GEMINI_API_KEY` vía `.env` raíz | 🟡 Medio |
-| 8.3 | **Deploy backend** (Railway/Fly/Render) + Postgres PostGIS + migrar datos → app apuntando a URL real (requisito para notifs en producción) | Pendiente | 🔴 Medio-alto |
+| 8.3 | **Deploy backend** (Railway/Fly/Render) + Postgres PostGIS + migrar datos → app apuntando a URL real (requisito para notifs en producción) | ✅ Hecho — backend + PostGIS desplegados en VM (`130.110.233.198:8001`); el perfil `preview` de EAS apunta ahí vía `EXPO_PUBLIC_API_URL` | 🔴 Medio-alto |
 | 8.4 | **CI básico**: GitHub Actions con `pytest` + `tsc --noEmit` en push | ✅ Hecho — `.github/workflows/ci.yml` (PostGIS service + alembic + fixture sintético `seed_data` en conftest; backend ya no depende de la BD dev) | 🟢 Trivial |
 | 8.5 | Tests frontend mínimos (jest-expo): lógica agrupación PM→playa, orden por estado | ✅ Hecho — 22 tests en `__tests__/` (lógica pura extraída a `lib/beachGroups.ts`, `lib/press.ts`, `lib/format.ts`) | 🟡 Medio |
 | 8.6 | Actualizar a Node LTS (Expo pide ≥20.19.4, hoy 20.12.2) | ✅ Hecho — Node 24.21.0 LTS vía nvm (`nvm use 24.21.0`) | 🟢 Trivial |
@@ -187,6 +187,31 @@ locales → LLM extrae playa/evento/causa → se muestra etiquetado como
 | 8.5.8 | **Alertas de prensa en `/alerts`**: cierre/aviso según prensa entra en la lista normal (`via="press"`); verificación mixta — oficial open + cierre fresco ≤14 d alerta (lag de Náyade), `closed_at` posterior al titular = reapertura probada, sin cobertura <21 d no alerta; warning oficial + prensa dominada por cierres ⇒ se muestra `closed` | ✅ Hecho (`bf08a1d`, `27e1ad9`, `3418e7d`) | 🔴 Alto |
 | 8.5.9 | **Banner con ciclo de vida**: "Cerrada por X · desde el D" solo si sigue cerrada; "Estuvo cerrada · el D" + "Sanidad la reabrió el D2" cuando el incidente oficial cerró ≤15 d tras el titular | ✅ Hecho (`3f6bca1`, `121f402`) | 🟡 Medio |
 
+## Hito 8.6 — Reconstrucción de episodios y UX de fichas ✅
+
+- [x] **Síntesis de eventos** (`events.py`): episodios `measurement`/`press`
+  fusionados temporalmente; la última reapertura de prensa posterior a la
+  última muestra mala fija el cierre real (El Pris cierra el 13-abr, no el
+  25-may); si una muestra prohibida posterior la desmiente, manda la
+  analítica y la reapertura queda como anotación (La Pinta)
+- [x] **Cobertura retroactiva**: prensa real insertada para Troya I/II y
+  El Puertito (mayo-2025, anterior al arranque del pipeline RSS)
+- [x] **`SatelliteShot` compartido**: foto Esri en fichas de playa Y
+  emisario, zoom ± (cerca ~1,2 km / lejos ~3 km, prefetch), overlays de
+  playas y emisarios con iconos, botón 🗺 «Ver en mapa» → pin grande a
+  zoom 15,5
+- [x] **Navegación cruzada**: «Emisarios cercanos» ↔ «Playa más cercana»
+  navegables con stack de retorno; `BackHandler` Android cierra la ficha
+  (o restaura la anterior) en vez de salir de la app
+- [x] **Retorno a listas**: cerrar ficha vuelve a municipios / lista de
+  playas / lista de emisarios según origen
+- [x] **Pins**: el seleccionado siempre destaca (normales 0,32/0,36 vs
+  0,45 a zoom 16)
+- [x] **Cabecera Emisarios**: dato primero («180 puntos · 121 sin
+  autorizar»), fuente atenuada debajo
+- [x] **Fix Android**: `lineHeight` explícito en textos pequeños del mapa
+  (leyenda cortaba «Autorizado», «En trámite»…); ayuda actualizada
+
 ## Hito 9 — Portfolio ⬜
 
 | # | Tarea | Estado | Esfuerzo |
@@ -202,6 +227,7 @@ locales → LLM extrae playa/evento/causa → se muestra etiquetado como
 ---
 
 ### Estado actual
-**Hito activo:** 8 — Calidad y despliegue (8.5 prensa LLM completo:
-pipeline + resumen + alertas mixtas oficial/prensa)
-**Última actualización:** 2026-09-20
+**Hito activo:** 8 — Calidad y despliegue (APK preview validada en
+dispositivo; quedan 8.1-verificación push real, 8.7-revocar token y el
+Hito 9 de portfolio: capturas, repo público, vídeo, post)
+**Última actualización:** 2026-09-21
