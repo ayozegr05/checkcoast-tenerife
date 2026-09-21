@@ -48,7 +48,7 @@ const TOPICS: Topic[] = [
     key: 'playas',
     icon: require('../assets/icons/beach.png'),
     title: 'Playas y fichas',
-    subtitle: 'Estado oficial y qué contiene cada ficha',
+    subtitle: 'Estado, calidad del agua e incidencias',
     rows: [
       [
         require('../assets/icons/beach.png'),
@@ -72,7 +72,7 @@ const TOPICS: Topic[] = [
     key: 'vertidos',
     icon: require('../assets/icons/icon-faucet.png'),
     title: 'Emisarios',
-    subtitle: 'Puntos de vertido al mar y su estado legal',
+    subtitle: 'Los 180 vertidos de la isla y su estado legal',
     rows: [
       [
         require('../assets/icons/icon-faucet.png'),
@@ -96,7 +96,7 @@ const TOPICS: Topic[] = [
     key: 'municipios',
     icon: require('../assets/icons/icon-townhall.png'),
     title: 'Municipios',
-    subtitle: 'Ranking de afectación por municipio',
+    subtitle: 'Qué municipios acumulan más incidencias',
     rows: [
       [
         require('../assets/icons/icon-townhall.png'),
@@ -116,7 +116,7 @@ const TOPICS: Topic[] = [
     key: 'prensa',
     icon: require('../assets/icons/icon-news.png'),
     title: 'Noticias',
-    subtitle: 'Contexto de prensa local',
+    subtitle: 'El porqué que Sanidad no da',
     rows: [
       [
         require('../assets/icons/icon-news.png'),
@@ -200,10 +200,10 @@ export default function HelpHub({
                       />
                       <View style={styles.topicTextWrap}>
                         <Text style={styles.topicTitle}>
-                          ¿Qué es esta app?
+                          Primeros pasos
                         </Text>
                         <Text style={styles.topicSub}>
-                          La tarjeta de bienvenida, otra vez
+                          Lo esencial en 5 líneas
                         </Text>
                       </View>
                       <Text style={styles.topicChevron}>›</Text>
