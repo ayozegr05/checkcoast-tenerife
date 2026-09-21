@@ -35,12 +35,16 @@ const TOPICS: Topic[] = [
         'El botón de capas (arriba a la derecha) alterna entre mapa y vista aérea',
       ],
       [
-        require('../assets/icons/beach.png'),
-        'Los puntos grises son playas sin monitorización oficial',
+        require('../assets/icons/icon-alert.png'),
+        'El aviso superior despliega las playas con cierre o aviso activo',
       ],
       [
         require('../assets/icons/icon-search.png'),
-        'Los nombres de las playas aparecen al acercar el mapa',
+        'Buscar localiza playas, emisarios y municipios; los nombres salen al acercar',
+      ],
+      [
+        require('../assets/icons/beach.png'),
+        'Los puntos grises son playas sin monitorización oficial',
       ],
     ],
   },
@@ -56,11 +60,19 @@ const TOPICS: Topic[] = [
       ],
       [
         require('../assets/icons/icon-satellite.png'),
-        'La ficha muestra foto satélite, emisarios cercanos, calidad del agua e incidencias',
+        'Cada ficha tiene foto satélite con zoom ±, emisarios cercanos, calidad del agua e incidencias',
       ],
       [
         require('../assets/icons/icon-map.png'),
-        'Desde la lista, "Ver en mapa" te lleva directo a la playa',
+        'El botón de mapa de la ficha te lleva al punto con el pin destacado',
+      ],
+      [
+        require('../assets/icons/icon-faucet.png'),
+        'Los emisarios cercanos son clables: vas a su pin y al volver regresas a la ficha',
+      ],
+      [
+        require('../assets/icons/icon-alert.png'),
+        'Cierres reconstruidos por analítica o prensa van etiquetados aparte del estado oficial',
       ],
     ],
   },
@@ -76,15 +88,15 @@ const TOPICS: Topic[] = [
       ],
       [
         require('../assets/icons/icon-satellite.png'),
-        'Aparecen en el mapa y sobre la foto satélite de cada ficha de playa',
+        'Su ficha muestra foto satélite con los vertidos y playas del entorno',
       ],
       [
         require('../assets/icons/beach.png'),
-        'La ficha de cada emisario indica la playa más cercana y a qué distancia está',
+        'Toca "Playa más cercana" para saltar a su pin en el mapa y volver con atrás',
       ],
       [
-        require('../assets/icons/icon-faucet-sil.png'),
-        'La lista de emisarios se abre desde el grifo de la barra superior',
+        require('../assets/icons/icon-faucet.png'),
+        'La lista de emisarios se abre desde la barra superior',
       ],
     ],
   },
@@ -104,7 +116,7 @@ const TOPICS: Topic[] = [
       ],
       [
         require('../assets/icons/beach.png'),
-        'Toca un municipio para ver sus playas filtradas en la lista',
+        'Toca un municipio para ver su línea temporal de incidencias y abrir cada playa',
       ],
     ],
   },
@@ -120,7 +132,7 @@ const TOPICS: Topic[] = [
       ],
       [
         require('../assets/icons/icon-alert.png'),
-        'Siempre etiquetados "según prensa": nunca alteran el estado oficial',
+        'Siempre etiquetados "según prensa" o "según analítica": nunca alteran el estado oficial',
       ],
       [
         require('../assets/icons/beach.png'),
