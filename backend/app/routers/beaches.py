@@ -177,6 +177,18 @@ def _synth_observations(ev: SynthEvent) -> str:
                 f"{'noticia' if ev.press_count == 1 else 'noticias'} "
                 "de prensa lo recogieron"
             )
+        if ev.end_from_press and ev.press_reopening:
+            obs += (
+                f" · reabierta el "
+                f"{ev.press_reopening.strftime('%d/%m/%Y')} según prensa"
+            )
+        elif ev.press_reopening:
+            # El ayuntamiento anunció reapertura pero el laboratorio
+            # siguió dando prohibido — la fecha de cierre es la apta
+            obs += (
+                f" · prensa anunció reapertura el "
+                f"{ev.press_reopening.strftime('%d/%m/%Y')}"
+            )
         return obs
     obs = "Cierre según prensa — sin incidente oficial en Náyade"
     if ev.end_estimated:

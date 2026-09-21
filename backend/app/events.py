@@ -54,6 +54,14 @@ class SynthEvent:
     # el episodio si se publica después (las del LLM a veces son
     # "agilizan las obras" mal clasificadas)
     last_closure: date | None = None
+    # Reaperturas anunciadas en prensa dentro de la ventana. La última
+    # posterior a la última muestra mala es el cierre real (Náyade
+    # muestrea cada ~14d y puede tardar meses en publicar la apta);
+    # una reapertura anterior a una mala posterior quedó desmentida
+    # por el laboratorio y solo se anota
+    press_reopening: date | None = None  # última reapertura en ventana
+    reopenings_in_window: list[date] = field(default_factory=list)
+    end_from_press: bool = False
 
 
 def _bad(m) -> bool:
@@ -183,6 +191,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
             ):
                 ev.press_confirmed = True
                 ev.press_count += 1
+                ev.reopenings_in_window.append(pub)
                 if n.source and n.source not in ev.sources:
                     ev.sources.append(n.source)
                 break
@@ -200,6 +209,32 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                 ev.press_count += 1
                 if n.source and n.source not in ev.sources:
                     ev.sources.append(n.source)
+
+    # 5b. La última reapertura de prensa posterior a la última muestra
+    # mala es el cierre real de la ventana (El Pris: reabierta 13-abr,
+    # Náyade no publicó apta hasta el 25-may; La Pinta: reabierta 4-sep,
+    # apta publicada el 16-sep). Si toda reapertura quedó desmentida por
+    # una mala posterior, la ventana manda y solo se anota
+    for ev in events:
+        if ev.via != "measurement" or not ev.reopenings_in_window:
+            continue
+        last_bad = max(
+            (
+                m.sampled_at
+                for m in ms
+                if _bad(m)
+                and ev.opened_at <= m.sampled_at <= (ev.closed_at or today)
+            ),
+            default=None,
+        )
+        candidates = [
+            d for d in ev.reopenings_in_window
+            if last_bad is None or d > last_bad
+        ]
+        ev.press_reopening = max(ev.reopenings_in_window)
+        if candidates:
+            ev.closed_at = max(candidates)
+            ev.end_from_press = True
 
     # 6. Si la cobertura sigue fresca y el último cambio es un cierre,
     # la playa sigue cerrada según prensa (misma regla que /alerts):

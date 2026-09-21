@@ -102,6 +102,57 @@ def test_reopening_news_confirms_window_and_never_stands_alone():
     assert ev.press_confirmed and ev.press_count == 1
 
 
+def test_press_reopening_inside_window_is_the_real_end():
+    """El Pris: reabierta por el Ayuntamiento el 13-abr pero Náyade no
+    publicó apta hasta mayo — el cierre es la fecha de prensa."""
+    b = beach(
+        measurements=[
+            meas(date(2025, 9, 15), BAD),
+            meas(date(2026, 5, 25), APT),
+        ],
+        items=[news(date(2026, 4, 13), "reopening")],
+    )
+    (ev,) = synthesize_events(b, today=TODAY)
+    assert ev.closed_at == date(2026, 4, 13)
+    assert ev.end_from_press
+
+
+def test_press_reopening_loses_to_later_bad_sample():
+    """Una reapertura desmentida por una muestra mala posterior no
+    fija el cierre — la ventana de analítica manda."""
+    b = beach(
+        measurements=[
+            meas(date(2024, 8, 19), BAD),
+            meas(date(2024, 9, 2), BAD),
+            meas(date(2024, 9, 16), APT),
+        ],
+        items=[news(date(2024, 8, 23), "reopening")],
+    )
+    (ev,) = synthesize_events(b, today=TODAY)
+    assert ev.closed_at == date(2024, 9, 16)
+    assert not ev.end_from_press
+    assert ev.press_reopening == date(2024, 8, 23)
+
+
+def test_last_reopening_after_last_bad_sample_is_the_end():
+    """La Pinta real: reabrieron el 23-ago (mala el 2-sep) y el 4-sep
+    (tras la última mala) — el cierre es el 4-sep, no la apta del 16."""
+    b = beach(
+        measurements=[
+            meas(date(2024, 8, 19), BAD),
+            meas(date(2024, 9, 2), BAD),
+            meas(date(2024, 9, 16), APT),
+        ],
+        items=[
+            news(date(2024, 8, 23), "reopening"),
+            news(date(2024, 9, 4), "reopening"),
+        ],
+    )
+    (ev,) = synthesize_events(b, today=TODAY)
+    assert ev.closed_at == date(2024, 9, 4)
+    assert ev.end_from_press
+
+
 def test_press_closure_alone_makes_press_event():
     b = beach(
         items=[
