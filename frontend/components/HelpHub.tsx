@@ -28,19 +28,19 @@ const TOPICS: Topic[] = [
     rows: [
       [
         require('../assets/icons/icon-map.png'),
-        'La leyenda inferior activa o quita playas y emisarios',
+        'Abajo tienes dos interruptores para mostrar u ocultar playas y vertidos',
       ],
       [
         require('../assets/icons/icon-layers.png'),
-        'El botón de capas (arriba a la derecha) alterna entre mapa y vista satélite',
+        '¿Quieres ver la foto real? El botón de arriba cambia a vista satélite',
       ],
       [
         require('../assets/icons/icon-search.png'),
-        'Buscar localiza playas, emisarios y municipios; los nombres salen al acercar',
+        'Busca una playa, un vertido o un municipio y te lleva directo',
       ],
       [
         require('../assets/icons/icon-compass.png'),
-        'La brújula (bajo el botón de capas) devuelve el norte al mapa',
+        'Si giras el mapa, la brújula te devuelve el norte',
       ],
     ],
   },
