@@ -44,6 +44,9 @@ class BeachIncidentOut(BaseModel):
     # "official" = incidencia Náyade | "measurement" = ventana de
     # analítica prohibida sin incidencia | "press" = solo en prensa
     via: str = "official"
+    # La ventana de analítica además la recogió la prensa — en la ficha
+    # se muestra como CIERRE igual que uno oficial (fue real)
+    press_confirmed: bool = False
 
 
 class MunicipalityIncidentOut(BaseModel):

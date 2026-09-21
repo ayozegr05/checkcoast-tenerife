@@ -327,6 +327,7 @@ def beach_incidents(
                 observations=_synth_observations(ev),
                 source_url=None,
                 via=ev.via,
+                press_confirmed=ev.press_confirmed,
             )
         )
         synth_id -= 1

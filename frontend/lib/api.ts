@@ -32,6 +32,8 @@ export type BeachIncident = {
   // 'official' = incidencia Náyade | 'measurement' = ventana de
   // analítica prohibida sin incidencia | 'press' = solo en prensa
   via?: 'official' | 'measurement' | 'press';
+  // La ventana de analítica además la recogió la prensa
+  press_confirmed?: boolean;
 };
 
 export type BeachMeasurement = {

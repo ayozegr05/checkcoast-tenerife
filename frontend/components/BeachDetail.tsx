@@ -619,10 +619,12 @@ export default function BeachDetail({
               const accent = closure
                 ? colors.status.closed
                 : colors.outfall.unknown;
+              // Analítica con respaldo de prensa = cierre real, mismo
+              // cartel que el oficial; la procedencia va abajo en gris
               const tag =
                 inc.via === 'press'
                   ? 'SEGÚN PRENSA'
-                  : inc.via === 'measurement'
+                  : inc.via === 'measurement' && !inc.press_confirmed
                     ? 'SEGÚN ANALÍTICA'
                     : inc.closed_at
                       ? closure
