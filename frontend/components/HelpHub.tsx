@@ -66,10 +66,6 @@ const TOPICS: Topic[] = [
         require('../assets/icons/icon-faucet.png'),
         'Los emisarios cercanos son clables: vas a su pin y al volver regresas a la ficha',
       ],
-      [
-        require('../assets/icons/icon-alert.png'),
-        'Cierres reconstruidos por analítica o prensa van etiquetados aparte del estado oficial',
-      ],
     ],
   },
   {
@@ -128,7 +124,7 @@ const TOPICS: Topic[] = [
       ],
       [
         require('../assets/icons/icon-alert.png'),
-        'Siempre etiquetados "según prensa" o "según analítica": nunca alteran el estado oficial',
+        'Siempre etiquetados "según prensa": nunca alteran el estado oficial',
       ],
       [
         require('../assets/icons/beach.png'),
