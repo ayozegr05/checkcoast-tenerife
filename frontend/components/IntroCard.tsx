@@ -25,6 +25,10 @@ const HINTS: [ImageSourcePropType, string][] = [
     'Municipios: ranking de afectación por municipio',
   ],
   [
+    require('../assets/icons/icon-alert.png'),
+    'Avisos: recibe una notificación si una playa cierra o reabre',
+  ],
+  [
     require('../assets/icons/icon-layers.png'),
     'Capas: botón arriba a la derecha para alternar mapa y satélite',
   ],

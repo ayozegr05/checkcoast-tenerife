@@ -134,7 +134,13 @@ const TOPICS: Topic[] = [
   },
 ];
 
-export default function HelpHub({ onClose }: { onClose: () => void }) {
+export default function HelpHub({
+  onClose,
+  onShowIntro,
+}: {
+  onClose: () => void;
+  onShowIntro?: () => void;
+}) {
   const [topic, setTopic] = useState<Topic | null>(null);
 
   return (
@@ -190,6 +196,15 @@ export default function HelpHub({ onClose }: { onClose: () => void }) {
               accessibilityLabel="Volver al índice de ayuda"
             >
               <Text style={styles.backText}>‹ Temas</Text>
+            </Pressable>
+          ) : onShowIntro ? (
+            <Pressable
+              style={styles.backBtn}
+              onPress={onShowIntro}
+              accessibilityRole="button"
+              accessibilityLabel="Ver la introducción de la app"
+            >
+              <Text style={styles.backText}>Ver introducción</Text>
             </Pressable>
           ) : (
             <View />

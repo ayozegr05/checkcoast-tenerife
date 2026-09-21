@@ -405,7 +405,15 @@ export default function App() {
         <IntroCard onClose={closeIntro} />
       )}
 
-      {helpOpen && <HelpHub onClose={() => setHelpOpen(false)} />}
+      {helpOpen && (
+        <HelpHub
+          onClose={() => setHelpOpen(false)}
+          onShowIntro={() => {
+            setHelpOpen(false);
+            setIntroVisible(true);
+          }}
+        />
+      )}
 
       <BeachList
         visible={listOpen}
