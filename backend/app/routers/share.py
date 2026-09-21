@@ -177,8 +177,12 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
     muni = html.escape(beach.municipality or "Tenerife")
     title = f"{name} · {muni}"
     desc = f"Estado: {label} — CheckCoast Tenerife"
-    img_far = html.escape(_shot_url(lon, lat, *_SHOT_FAR))
-    img_near = html.escape(_shot_url(lon, lat, *_SHOT_NEAR))
+    url_far = _shot_url(lon, lat, *_SHOT_FAR)
+    url_near = _shot_url(lon, lat, *_SHOT_NEAR)
+    # En atributos HTML & va escapado como &amp;; en el JS va en crudo
+    # (si no, Esri recibe 'amp;bboxSR' y devuelve error)
+    img_far = html.escape(url_far)
+    img_near = html.escape(url_near)
     deep = f"checkcoast://beach/{beach.id}"
 
     # Dots de cada nivel de zoom (el pin de playa siempre va centrado)
@@ -316,7 +320,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
 var near = false;
 function toggleZoom() {{
   near = !near;
-  document.getElementById('shot').src = near ? '{img_near}' : '{img_far}';
+  document.getElementById('shot').src = near ? '{url_near}' : '{url_far}';
   document.getElementById('dots-far').className = near ? 'hidden' : '';
   document.getElementById('dots-near').className = near ? '' : 'hidden';
   document.getElementById('zoombtn').textContent = near ? 'Alejar' : 'Acercar';
