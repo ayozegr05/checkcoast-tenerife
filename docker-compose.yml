@@ -39,5 +39,24 @@ services:
       retries: 3
       start_period: 15s
 
+  # Solo en la VM (perfil prod): TLS automático con Let's Encrypt para
+  # checkcoast.duckdns.org; requiere 80/443 abiertos en OCI.
+  caddy:
+    image: caddy:2-alpine
+    container_name: checkcoast-caddy
+    restart: unless-stopped
+    profiles: ["prod"]
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:

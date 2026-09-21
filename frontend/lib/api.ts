@@ -154,9 +154,12 @@ export const fetchMunicipalityIncidents = (municipality: string) =>
   );
 
 // URL pública compartible de una playa (mini-página OG del backend);
-// WhatsApp/Telegram la convierten en tarjeta con foto satélite
+// WhatsApp/Telegram la convierten en tarjeta con foto satélite.
+// Usa el dominio https (Caddy en la VM): una IP pelada + puerto raro
+// no genera tarjeta de preview en los chats.
+const SHARE_BASE_URL = 'https://checkcoast.duckdns.org';
 export const beachShareUrl = (beachId: number) =>
-  `${API_URL}/b/${beachId}`;
+  `${SHARE_BASE_URL}/b/${beachId}`;
 
 // Registro del Expo push token en el backend (idempotente)
 export const registerDevice = (token: string, platform: string) =>
