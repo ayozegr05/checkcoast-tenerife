@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
-  Image,
   ImageBackground,
   Modal,
   Platform,
@@ -415,14 +414,7 @@ export default function MunicipalityStats({
                     { backgroundColor: rankColorOf(item, index) },
                   ]}
                 >
-                  {index < 3 ? (
-                    <Image
-                      source={require('../assets/icons/icon-alert.png')}
-                      style={styles.rankIcon}
-                    />
-                  ) : (
-                    <Text style={styles.rankText}>{index + 1}</Text>
-                  )}
+                  <Text style={styles.rankText}>{index + 1}</Text>
                 </View>
                 <Text style={styles.rowName}>{item.name}</Text>
                 <Text style={styles.rowBeaches}>
@@ -550,10 +542,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.extrabold,
     color: '#fff',
   },
-  rankIcon: {
-    width: 14,
-    height: 14,
-  },
+
   rowName: {
     fontSize: 15,
     fontFamily: fonts.bold,
