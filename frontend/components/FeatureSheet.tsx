@@ -65,6 +65,7 @@ export default function FeatureSheet({
   beaches,
   onViewOnMap,
   onSelectOutfall,
+  onSelectBeach,
 }: {
   selection: Selection;
   onClose: () => void;
@@ -76,6 +77,8 @@ export default function FeatureSheet({
   onViewOnMap?: () => void;
   // Tap en un emisario cercano de la ficha de playa → verlo en el mapa
   onSelectOutfall?: (feature: GeoFeature) => void;
+  // Tap en "Playa más cercana" de la ficha de emisario → verla en el mapa
+  onSelectBeach?: (feature: GeoFeature) => void;
 }) {
   const { feature } = selection;
   const p = feature.properties;
@@ -429,23 +432,41 @@ export default function FeatureSheet({
               <Text style={styles.row}>Municipio: {p.municipality}</Text>
             ) : null}
             {nearest ? (
-              <View
-                style={[
-                  styles.nearestBox,
-                  {
-                    borderLeftColor:
-                      STATUS_COLORS[statusKey] ?? colors.status.unknown,
-                  },
-                ]}
-              >
-                <Text style={styles.nearestText}>
-                  Playa más cercana:{' '}
-                  <Text style={styles.nearestName}>
-                    {displayBeachName(nearest.beach_name)}
-                  </Text>
-                  {' · '}a {fmtDistance(nearest.distance_m)}
-                </Text>
-              </View>
+              (() => {
+                const beachTarget = (beaches ?? []).find(
+                  (b) => b.id === nearest.beach_id,
+                );
+                return (
+                  <Pressable
+                    style={[
+                      styles.nearestBox,
+                      {
+                        borderLeftColor:
+                          STATUS_COLORS[statusKey] ?? colors.status.unknown,
+                      },
+                    ]}
+                    onPress={
+                      beachTarget && onSelectBeach
+                        ? () => onSelectBeach(beachTarget)
+                        : undefined
+                    }
+                    disabled={!beachTarget || !onSelectBeach}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${displayBeachName(nearest.beach_name)}, ver en el mapa`}
+                  >
+                    <Text style={[styles.nearestText, { flex: 1 }]}>
+                      Playa más cercana:{' '}
+                      <Text style={styles.nearestName}>
+                        {displayBeachName(nearest.beach_name)}
+                      </Text>
+                      {' · '}a {fmtDistance(nearest.distance_m)}
+                    </Text>
+                    {beachTarget && onSelectBeach && (
+                      <Text style={styles.nearestChevron}>›</Text>
+                    )}
+                  </Pressable>
+                );
+              })()
             ) : null}
             <Text style={styles.row}>
               Fuente: Censo de Vertidos 2025 (Gob. Canarias)
@@ -577,6 +598,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     backgroundColor: colors.background,
     borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nearestChevron: {
+    fontSize: 16,
+    fontFamily: fonts.semibold,
+    color: colors.textFaint,
+    paddingRight: 8,
   },
   nearestText: {
     fontSize: 12,
