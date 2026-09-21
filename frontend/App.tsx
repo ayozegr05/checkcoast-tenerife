@@ -10,6 +10,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   Linking,
   NativeModules,
   Pressable,
@@ -307,6 +308,23 @@ export default function App() {
       setOutfallListOpen(true);
     }
   };
+
+  // Botón atrás de Android: la ficha no es un Modal, así que sin este
+  // handler atrás cerraría la app. Con selección activa (card abierta
+  // o pin destacado tras "Ver en mapa") atrás = closeSheet, que ya
+  // sabe restaurar la ficha previa o reabrir la lista de origen
+  const closeSheetRef = useRef(closeSheet);
+  closeSheetRef.current = closeSheet;
+  const hasSelectionRef = useRef(false);
+  hasSelectionRef.current = selection !== null;
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!hasSelectionRef.current) return false;
+      closeSheetRef.current();
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
 
   return (
     <View style={styles.container}>
