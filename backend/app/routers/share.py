@@ -2,7 +2,8 @@
 
 Sirve HTML con Open Graph (título, estado, foto satélite Esri) para que
 los mensajeros generen la tarjeta rica; en el navegador muestra una
-mini-ficha con enlace profundo `checkcoast://beach/{id}` a la app.
+mini-ficha — réplica web de la ficha de la app — con enlace profundo
+`checkcoast://beach/{id}`.
 """
 
 import html
@@ -11,23 +12,35 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from geoalchemy2 import Geography
 
 from app.db import get_db
-from app.models import Beach
+from app.models import Beach, BeachMeasurement, NewsItem, Outfall
 from app.queries import beaches_with_latest_status
 
 router = APIRouter(tags=["share"])
 
-# Mismo encuadre cercano que SatelliteShot del frontend
+# Mismo encuadre cercano que SatelliteShot del frontend (640×300 px)
 _SHOT_DLON = 0.006
 _SHOT_DLAT = 0.0033
+_SHOT_W = 640
+_SHOT_H = 300
 
+# Mismos textos que la ficha de la app
 _STATUS = {
-    "closed": ("Cerrada", "#c62828"),
+    "closed": ("Cierre activo", "#c62828"),
     "warning": ("Aviso activo", "#e65100"),
-    "open": ("Sin alertas activas", "#0d9488"),
+    "open": ("Apta", "#0d9488"),
     "unknown": ("Sin datos oficiales", "#8fa3ad"),
 }
+
+_OUTFALL_STATUS = {
+    "legal": ("Autorizado", "#2e9e6b"),
+    "illegal": ("No autorizado", "#c62828"),
+    "unknown": ("En trámite", "#e65100"),
+}
+
+_NEARBY_OUTFALL_RADIUS_M = 1000  # mismo radio que /beaches/{id}/nearby-outfalls
 
 
 def _display_name(name: str) -> str:
@@ -46,6 +59,13 @@ def _shot_url(lon: float, lat: float) -> str:
         f"{lat - _SHOT_DLAT},{lon + _SHOT_DLON},{lat + _SHOT_DLAT}"
         "&bboxSR=4326&imageSR=4326&size=640,300&format=png&f=image"
     )
+
+
+def _px(lon: float, lat: float, clon: float, clat: float) -> tuple[float, float]:
+    """lon/lat → posición (x%, y%) dentro del recuadro satélite."""
+    x = (lon - (clon - _SHOT_DLON)) / (2 * _SHOT_DLON) * 100
+    y = ((clat + _SHOT_DLAT) - lat) / (2 * _SHOT_DLAT) * 100
+    return x, y
 
 
 @router.get("/b/{beach_id}", response_class=HTMLResponse)
@@ -68,12 +88,99 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
     state = status.status.value if status else "unknown"
     label, color = _STATUS.get(state, _STATUS["unknown"])
 
+    latest = (
+        db.query(BeachMeasurement)
+        .filter(BeachMeasurement.beach_id == beach.id)
+        .order_by(BeachMeasurement.sampled_at.desc())
+        .first()
+    )
+    outfalls = (
+        db.query(
+            Outfall.name,
+            Outfall.status,
+            func.ST_Distance(
+                Beach.geom.cast(Geography), Outfall.geom.cast(Geography)
+            ).label("distance_m"),
+            func.ST_X(Outfall.geom).label("olon"),
+            func.ST_Y(Outfall.geom).label("olat"),
+        )
+        .filter(Beach.id == beach.id)
+        .filter(
+            func.ST_DWithin(
+                Beach.geom.cast(Geography),
+                Outfall.geom.cast(Geography),
+                _NEARBY_OUTFALL_RADIUS_M,
+            )
+        )
+        .order_by("distance_m")
+        .limit(5)
+        .all()
+    )
+    news = (
+        db.query(NewsItem)
+        .filter(NewsItem.beach_id == beach.id, NewsItem.relevant.is_(True))
+        .order_by(NewsItem.published_at.desc())
+        .first()
+    )
+
     name = html.escape(_display_name(beach.name))
     muni = html.escape(beach.municipality or "Tenerife")
     title = f"{name} · {muni}"
     desc = f"Estado: {label} — CheckCoast Tenerife"
     img = html.escape(_shot_url(lon, lat))
     deep = f"checkcoast://beach/{beach.id}"
+
+    # Dots de emisarios sobre la foto (misma mecánica que la app)
+    dots = "".join(
+        f'<span class="dot" style="left:{x:.1f}%;top:{y:.1f}%;'
+        f'background:{_OUTFALL_STATUS.get(o.status.value, _OUTFALL_STATUS["unknown"])[1]}"'
+        f' title="{html.escape(o.name)}"></span>'
+        for o in outfalls
+        for x, y in [_px(o.olon, o.olat, lon, lat)]
+        if 0 <= x <= 100 and 0 <= y <= 100  # fuera del encuadre: no pintar
+    )
+
+    rows = ""
+    if latest:
+        ev = html.escape(latest.evaluation) if latest.evaluation else "sin evaluación"
+        rows += (
+            '<div class="row"><span>Último análisis</span>'
+            f"<b>{latest.sampled_at.strftime('%d/%m/%Y')} · {ev}</b></div>"
+        )
+
+    outfall_rows = "".join(
+        f'<div class="ofrow" style="border-color:'
+        f'{_OUTFALL_STATUS.get(o.status.value, _OUTFALL_STATUS["unknown"])[1]}">'
+        f'<div class="ofname">{html.escape(o.name)}</div>'
+        f'<div class="ofmeta">{_OUTFALL_STATUS.get(o.status.value, _OUTFALL_STATUS["unknown"])[0]}'
+        f" · a {round(o.distance_m)} m</div></div>"
+        for o in outfalls
+    )
+    outfalls_block = (
+        f'<div class="sec">Emisarios cercanos</div>{outfall_rows}'
+        '<div class="radius">En un radio de 1 km</div>'
+        if outfalls else ""
+    )
+
+    press = ""
+    if news:
+        when = (
+            news.published_at.strftime("%d/%m/%Y") if news.published_at else ""
+        )
+        press = (
+            '<div class="press"><div class="ptag">según prensa</div>'
+            f'<a class="ptitle" href="{html.escape(news.url)}">'
+            f"{html.escape(news.title)}</a>"
+            f'<div class="pmeta">{html.escape(news.source or "")}'
+            f"{' · ' + when if when else ''}</div></div>"
+        )
+
+    foot = (
+        "Playa sin controles sanitarios oficiales. Fuente: OpenStreetMap"
+        if not beach.monitored
+        else "Estado oficial: Náyade / Min. Sanidad · "
+             "Foto: © Esri, Maxar, Earthstar Geographics"
+    )
 
     return f"""<!doctype html>
 <html lang="es">
@@ -95,11 +202,40 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
           color:#fff; padding:18px 20px 14px; }}
   .head h1 {{ margin:0; font-size:20px; }}
   .head p {{ margin:4px 0 0; font-size:13px; opacity:.9; }}
+  .shotwrap {{ position:relative; }}
   .shot {{ display:block; width:100%; height:auto; }}
+  .pin {{ position:absolute; left:50%; top:50%;
+          transform:translate(-50%,-92%); }}
+  .pin i {{ display:block; width:26px; height:26px; background:{color};
+          border:3px solid #fff; border-radius:50% 50% 50% 0;
+          transform:rotate(-45deg);
+          box-shadow:0 2px 8px rgba(0,0,0,.45); }}
+  .dot {{ position:absolute; width:11px; height:11px; border-radius:50%;
+          border:2px solid #fff; transform:translate(-50%,-50%);
+          box-shadow:0 1px 4px rgba(0,0,0,.5); }}
   .body {{ padding:16px 20px 20px; }}
   .chip {{ display:inline-block; background:{color}; color:#fff;
           font-weight:700; font-size:13px; border-radius:999px;
           padding:6px 14px; }}
+  .row {{ display:flex; justify-content:space-between; gap:12px;
+          margin-top:12px; font-size:13px; }}
+  .row span {{ color:#7a919c; }}
+  .row b {{ color:#0d3a52; font-weight:600; text-align:right; }}
+  .sec {{ margin-top:16px; font-size:13px; font-weight:700;
+          color:#0d3a52; }}
+  .ofrow {{ margin-top:8px; padding:8px 12px; border-left:3px solid;
+          background:#f4f9fb; border-radius:0 8px 8px 0; }}
+  .ofname {{ font-size:13px; font-weight:600; color:#0d3a52; }}
+  .ofmeta {{ font-size:11px; color:#7a919c; margin-top:1px; }}
+  .radius {{ font-size:11px; color:#7a919c; margin-top:6px; }}
+  .press {{ margin-top:16px; background:#fff7e8; border:1px solid #f0d9a8;
+          border-radius:10px; padding:10px 12px; }}
+  .ptag {{ display:inline-block; font-size:10px; font-weight:700;
+          color:#8a6d1a; background:#f6e3b0; border-radius:999px;
+          padding:2px 8px; text-transform:uppercase; }}
+  .ptitle {{ display:block; margin-top:6px; font-size:13px;
+          font-weight:600; color:#0d3a52; text-decoration:none; }}
+  .pmeta {{ font-size:11px; color:#7a919c; margin-top:3px; }}
   .open {{ display:block; margin-top:16px; text-align:center;
           background:linear-gradient(90deg,#075276,#17b8ce); color:#fff;
           text-decoration:none; font-weight:700; border-radius:10px;
@@ -110,12 +246,18 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
 <body>
   <div class="card">
     <div class="head"><h1>{name}</h1><p>{muni} · CheckCoast Tenerife</p></div>
-    <img class="shot" src="{img}" alt="Vista aérea de {name}">
+    <div class="shotwrap">
+      <img class="shot" src="{img}" alt="Vista aérea de {name}">
+      {dots}
+      <div class="pin"><i></i></div>
+    </div>
     <div class="body">
       <span class="chip">{label}</span>
+      {rows}
+      {outfalls_block}
+      {press}
       <a class="open" href="{deep}">Abrir en la app</a>
-      <p class="src">Estado oficial: Náyade / Min. Sanidad ·
-        Foto: © Esri, Maxar, Earthstar Geographics</p>
+      <p class="src">{foot}</p>
     </div>
   </div>
 </body>
