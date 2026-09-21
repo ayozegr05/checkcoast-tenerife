@@ -96,15 +96,15 @@ const TOPICS: Topic[] = [
     rows: [
       [
         require('../assets/icons/icon-townhall.png'),
-        'Ordena los municipios por playas cerradas, avisos e incidencias',
+        'Un ranking de quién acumula más cierres, avisos e incidencias',
       ],
       [
         require('../assets/icons/icon-alert.png'),
-        'La barra de severidad resume el estado general de cada municipio',
+        'La barra de color te dice cómo está cada uno: roja si hay cierres ahora, naranja avisos, azul solo pasado; cuanto más larga, peor estado',
       ],
       [
         require('../assets/icons/beach.png'),
-        'Toca un municipio para ver su línea temporal de incidencias y abrir cada playa',
+        'Toca un municipio y verás su historial completo de incidencias: qué playa, cuándo y por qué',
       ],
     ],
   },
