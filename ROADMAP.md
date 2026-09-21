@@ -225,14 +225,21 @@ no convierte en enlace. Objetivo: que al compartir una playa llegue una
   (`8dba5a5`, `fef3754`)
 - [x] **Frontend**: `beachShareUrl()` en `lib/api.ts`; el mensaje de
   share lleva la URL pública en vez del esquema propio
-- [ ] **Dominio + HTTPS**: WhatsApp/Telegram NO generan preview en URLs
-  con IP pelada + puerto raro (`http://130.110.233.198:8001/b/87`).
-  Subdominio **DuckDNS** → VM + abrir 80/443 en la Security List de OCI
-  + **Caddy** en docker-compose (TLS automático Let's Encrypt,
-  reverse proxy a la api)
-- [ ] **Cambiar `API_PUBLIC_URL`** al dominio https una vez activo
+- [x] **Dominio + HTTPS**: WhatsApp/Telegram NO generan preview en URLs
+  con IP pelada + puerto raro. `checkcoast.duckdns.org` → VM + **Caddy**
+  en compose (perfil `prod`, TLS automático Let's Encrypt, proxy a la
+  api); share URL → `https://checkcoast.duckdns.org/b/{id}` (`b6d586e`)
+- [x] **Mini-ficha rica**: pins PNG del mapa servidos en `/icons`
+  (sombrilla + grifos posicionados por coordenadas), lista "Emisarios
+  cercanos" con estado/distancia, caja "según prensa", zoom
+  Acercar/Alejar con dos encuadres Esri (`a927556`, `f655d63`, `aaa6fa0`)
+- [x] **Android App Links**: intent-filter `autoVerify` para
+  `https://checkcoast.duckdns.org/b/*` + `/.well-known/assetlinks.json`
+  con el fingerprint del keystore EAS (`ANDROID_CERT_SHA256` en `.env`
+  de la VM) — el link abre la app directo si está instalada (`b8ad36e`,
+  `4bad920`)
 - [ ] **Verificación end-to-end**: compartir desde la app → tarjeta con
-  foto en WhatsApp y Telegram
+  foto en WhatsApp/Telegram + link abre la app instalada
 
 ## Hito 9 — Portfolio ⬜
 
