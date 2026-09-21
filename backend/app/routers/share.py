@@ -9,6 +9,7 @@ mini-ficha — réplica web de la ficha de la app — con enlace profundo
 import html
 import math
 import re
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
@@ -170,7 +171,76 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
         raise HTTPException(status_code=404, detail="Beach not found")
 
     beach, status, lon, lat = row
-    state = status.status.value if status else "unknown"
+    official = status.status.value if status else None
+
+    news_items = (
+        db.query(NewsItem)
+        .filter(NewsItem.beach_id == beach.id, NewsItem.relevant.is_(True))
+        .order_by(NewsItem.published_at.desc().nulls_last())
+        .limit(30)
+        .all()
+    )
+    news = news_items[0] if news_items else None
+
+    # Estado eficaz: replica la regla de /alerts — el oficial manda,
+    # pero prensa fresca dominada por cierres escala warning->closed y
+    # decide en playas sin monitorización (Las Gaviotas, Benijo)
+    state = official or "unknown"
+    press_label: str | None = None
+    cutoff = datetime.now(timezone.utc) - timedelta(days=21)
+    if news_items and news_items[0].published_at and news_items[0].published_at >= cutoff:
+        change = next(
+            (i for i in news_items
+             if i.event_type in ("closure", "reopening")), None,
+        )
+        warn = next(
+            (i for i in news_items
+             if i.event_type in ("warning", "pollution")), None,
+        )
+        press_ev = None
+        if change and change.event_type == "closure":
+            press_ev = change
+        elif warn and (
+            change is None
+            or (warn.published_at or datetime.min.replace(tzinfo=timezone.utc))
+            > (change.published_at or datetime.min.replace(tzinfo=timezone.utc))
+        ):
+            press_ev = warn
+        counts: dict[str, int] = {}
+        for i in news_items:
+            if i.event_type and i.event_type != "other":
+                counts[i.event_type] = counts.get(i.event_type, 0) + 1
+        dominant = (
+            "closure" if counts.get("closure")
+            else (max(counts, key=counts.get) if counts else None)
+        )
+        pstate = (
+            "closed" if press_ev and press_ev.event_type == "closure"
+            else ("warning" if press_ev else None)
+        )
+        if official in ("closed", "warning"):
+            if pstate == "closed" or dominant == "closure":
+                state, press_label = "closed", "según prensa"
+        elif official == "open":
+            # ventana de gracia 14 días + sin reapertura formal posterior
+            grace = datetime.now(timezone.utc) - timedelta(days=14)
+            resolved = (
+                db.query(func.max(BeachIncident.closed_at))
+                .filter(
+                    BeachIncident.beach_id == beach.id,
+                    BeachIncident.closed_at.isnot(None),
+                )
+                .scalar()
+            )
+            when = press_ev.published_at if press_ev else None
+            if (
+                pstate == "closed" and when and when >= grace
+                and not (resolved and resolved >= when.date())
+            ):
+                state, press_label = "closed", "según prensa"
+        elif pstate:
+            state, press_label = pstate, "según prensa"
+
     label, color = _STATUS.get(state, _STATUS["unknown"])
 
     measurements = (
@@ -209,15 +279,14 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
         .limit(5)
         .all()
     )
-    news = (
-        db.query(NewsItem)
-        .filter(NewsItem.beach_id == beach.id, NewsItem.relevant.is_(True))
-        .order_by(NewsItem.published_at.desc())
-        .first()
-    )
 
     name = html.escape(_display_name(beach.name))
     muni = html.escape(beach.municipality or "Tenerife")
+    # Cabecera teñida por estado efectivo, como la ficha de la app
+    head_bg = {
+        "closed": "linear-gradient(180deg,#7a1f1f,#c62828)",
+        "warning": "linear-gradient(180deg,#8a3c00,#e65100)",
+    }.get(state, "linear-gradient(180deg,#075276,#17b8ce)")
     title = f"{name} · {muni}"
     desc = f"Estado: {label} — CheckCoast Tenerife"
     url_far = _shot_url(lon, lat, *_SHOT_FAR)
@@ -313,12 +382,12 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
     inc_block = ""
     if incidents:
         items = "".join(
-            '<div class="irow"><b>'
+            f'<div class="irow{"" if i.closed_at else " iact"}"><b>'
             f'{i.opened_at.strftime("%d/%m/%Y")}'
             + (
                 f' → {i.closed_at.strftime("%d/%m/%Y")}'
                 if i.closed_at
-                else " → activo"
+                else ' <em>activo</em>'
             )
             + "</b>"
             + (
@@ -331,13 +400,54 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
         )
         inc_block = f'<div class="sec">Historial de incidencias</div>{items}'
 
+    # Banner "según prensa" como en la app: evento dominante + causa +
+    # desde + nº medios; debajo el último titular enlazable
     press = ""
-    if news:
+    if news_items:
+        counts_ev: dict[str, int] = {}
+        for it in news_items:
+            if it.event_type and it.event_type != "other":
+                counts_ev[it.event_type] = counts_ev.get(it.event_type, 0) + 1
+        dom = "closure" if counts_ev.get("closure") else (
+            max(counts_ev, key=counts_ev.get) if counts_ev else None
+        )
+        # Causa = la más frecuente entre los titulares del evento
+        # dominante (moda, como el resumen de la app)
+        dom_items = [it for it in news_items if it.event_type == dom]
+        ccount: dict[str, int] = {}
+        for it in dom_items:
+            if it.cause:
+                ccount[it.cause] = ccount.get(it.cause, 0) + 1
+        cause = max(ccount, key=ccount.get) if ccount else None
+        since = min(
+            (it.published_at for it in dom_items if it.published_at),
+            default=None,
+        )
+        outlets = len({it.source for it in news_items if it.source})
+        ev_word = {
+            "closure": "Cerrada", "warning": "Aviso en",
+            "pollution": "Contaminación en", "reopening": "Reabierta",
+        }.get(dom or "", "Mencionada")
+        if dom == "closure" and state != "closed":
+            ev_word = "Estuvo cerrada" if state == "open" else "Cerrada"
+        line = ev_word + (f" por {html.escape(cause)}" if cause else "")
+        if since:
+            line += f" · desde el {since.strftime('%d/%m/%Y')}"
+        # reapertura oficial probada: incidente cerrado tras el titular
+        closed_after = next(
+            (i.closed_at for i in incidents
+             if i.closed_at and since and i.closed_at >= since.date()),
+            None,
+        )
+        if closed_after:
+            line += f" · Sanidad la reabrió el {closed_after.strftime('%d/%m/%Y')}"
         when = (
             news.published_at.strftime("%d/%m/%Y") if news.published_at else ""
         )
         press = (
-            '<div class="press"><div class="ptag">según prensa</div>'
+            f'<div class="press"><div class="psum">{line}</div>'
+            f'<div class="ptag">según prensa · {outlets} '
+            f'medio{"s" if outlets != 1 else ""}</div>'
             f'<a class="ptitle" href="{html.escape(news.url)}">'
             f"{html.escape(news.title)}</a>"
             f'<div class="pmeta">{html.escape(news.source or "")}'
@@ -367,7 +477,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
          display:flex; justify-content:center; padding:24px 16px; }}
   .card {{ max-width:420px; width:100%; background:#fff; border-radius:16px;
           overflow:hidden; box-shadow:0 6px 24px rgba(7,43,62,.18); }}
-  .head {{ background:linear-gradient(180deg,#075276,#17b8ce);
+  .head {{ background:{head_bg};
           color:#fff; padding:18px 20px 14px; }}
   .head h1 {{ margin:0; font-size:20px; }}
   .head p {{ margin:4px 0 0; font-size:13px; opacity:.9; }}
@@ -415,11 +525,19 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
           font-size:12px; font-weight:700; border-radius:999px;
           padding:5px 12px; cursor:pointer; }}
   .tbtn.ton {{ background:#075276; color:#fff; border-color:#075276; }}
-  .irow {{ margin-top:8px; font-size:12px; color:#0d3a52; }}
+  .irow {{ margin-top:8px; font-size:12px; color:#0d3a52;
+          border-left:3px solid #cddfe8; padding-left:10px; }}
+  .irow.iact {{ border-left-color:#c62828; }}
+  .irow.iact b {{ color:#c62828; }}
+  .irow em {{ font-style:normal; background:#c62828; color:#fff;
+          font-size:10px; font-weight:700; border-radius:999px;
+          padding:2px 8px; }}
   .irow span {{ display:block; color:#7a919c; font-size:11px; }}
-  .ptag {{ display:inline-block; font-size:10px; font-weight:700;
-          color:#8a6d1a; background:#f6e3b0; border-radius:999px;
-          padding:2px 8px; text-transform:uppercase; }}
+  .psum {{ font-size:13px; font-weight:600; color:#8a5a00; }}
+  .ptag {{ display:inline-block; margin-top:6px; font-size:10px;
+          font-weight:700; color:#8a6d1a; background:#f6e3b0;
+          border-radius:999px; padding:2px 8px;
+          text-transform:uppercase; }}
   .ptitle {{ display:block; margin-top:6px; font-size:13px;
           font-weight:600; color:#0d3a52; text-decoration:none; }}
   .pmeta {{ font-size:11px; color:#7a919c; margin-top:3px; }}
@@ -445,6 +563,8 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
     </div>
     <div class="body">
       <span class="chip">{label}</span>
+      {"<span class='ptag' style='margin-top:0'>" + press_label + "</span>"
+       if press_label else ""}
       {rows}
       {outfalls_block}
       {chart_block}
