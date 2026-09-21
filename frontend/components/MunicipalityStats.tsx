@@ -259,6 +259,12 @@ export default function MunicipalityStats({
                 // el badge sólido se reserva a ese caso — los
                 // históricos van en outline para no leerse como vivos
                 const active = inc.closed_at === null;
+                // "Sin Calificar" = Náyade abrió ficha por una muestra
+                // pendiente de clasificar (p.ej. San Marcos por la
+                // pérdida de arena): no es ni cierre ni aviso real
+                const unclassified = /sin\s*calificar/i.test(
+                  inc.observations ?? '',
+                );
                 // En incidentes vivos manda el estado actual de la
                 // playa (p.ej. Gaviotas: incidencia "aviso" pero la
                 // playa está cerrada por muestra no apta)
@@ -310,8 +316,12 @@ export default function MunicipalityStats({
                               : styles.badgeEnded,
                           ]}
                         >
-                          {kind === 'closure' ? 'Cierre' : 'Aviso'}
-                          {active ? ' activo' : ''}
+                          {unclassified
+                            ? 'Pendiente'
+                            : kind === 'closure'
+                              ? 'Cierre'
+                              : 'Aviso'}
+                          {active && !unclassified ? ' activo' : ''}
                         </Text>
                         <Text style={styles.tlGo}>›</Text>
                       </View>
