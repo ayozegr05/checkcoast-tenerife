@@ -78,11 +78,16 @@ export default function IntroCard({
             <Text style={styles.checkLabel}>No volver a mostrar</Text>
           </Pressable>
           <Pressable
-            style={styles.btn}
             onPress={() => onClose(dontShow)}
             accessibilityRole="button"
           >
-            <Text style={styles.btnText}>Entendido</Text>
+            <ImageBackground
+              source={require('../assets/gradient-sea.png')}
+              style={styles.btn}
+              resizeMode="cover"
+            >
+              <Text style={styles.btnText}>Entendido</Text>
+            </ImageBackground>
           </Pressable>
         </View>
       </View>
@@ -191,10 +196,10 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   btn: {
-    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 9,
     paddingHorizontal: 20,
+    overflow: 'hidden',
   },
   btnText: {
     color: '#fff',
