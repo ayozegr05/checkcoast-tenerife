@@ -945,13 +945,13 @@ export default function CoastMap({
                 onOpenHelp?.();
               }}
               accessibilityRole="button"
-              accessibilityLabel="Abrir ayuda"
+              accessibilityLabel="Abrir guía de uso"
             >
               <Image
-                source={require('../assets/icons/icon-help.png')}
+                source={require('../assets/icons/icon-book.png')}
                 style={styles.topbarIcon}
               />
-              <Text style={styles.topbarLabel}>Ayuda</Text>
+              <Text style={styles.topbarLabel}>Guía</Text>
             </Pressable>
           )}
         </View>
@@ -1106,6 +1106,25 @@ export default function CoastMap({
       >
         <Image
           source={require('../assets/icons/icon-layers.png')}
+          style={styles.satIcon}
+        />
+      </Pressable>
+
+      {/* Brujula: reorienta el mapa al norte (como en Google Maps) */}
+      <Pressable
+        style={styles.compassBtn}
+        onPress={() =>
+          cameraRef.current?.easeTo({
+            center: lastView.current.center,
+            bearing: 0,
+            duration: 400,
+          })
+        }
+        accessibilityRole="button"
+        accessibilityLabel="Orientar el mapa al norte"
+      >
+        <Image
+          source={require('../assets/icons/icon-compass.png')}
           style={styles.satIcon}
         />
       </Pressable>
@@ -1412,6 +1431,21 @@ const styles = StyleSheet.create({
   satIcon: {
     width: 20,
     height: 20,
+  },
+  compassBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? 152 : 136, // bajo el boton de capas
+    right: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    zIndex: 5,
   },
   legendCard: {
     width: '96%', // ancho fijo: tapa las etiquetas de mar a los lados

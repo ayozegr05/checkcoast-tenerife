@@ -152,7 +152,7 @@ export default function HelpHub({
           resizeMode="cover"
         >
           <Text style={styles.title}>
-            {topic ? topic.title : 'Ayuda'}
+            {topic ? topic.title : 'Guía'}
           </Text>
           <Text style={styles.subtitle}>
             {topic
