@@ -30,6 +30,15 @@ _STATUS = {
 }
 
 
+def _display_name(name: str) -> str:
+    """'PLAYA DE LA VIUDA' -> 'Playa de la Viuda' (minúscula en
+    artículos/preposiciones salvo al inicio)."""
+    low = {"de", "del", "la", "el", "las", "los", "y", "en"}
+    words = name.title().split()
+    return " ".join(w if i == 0 or w.lower() not in low else w.lower()
+                    for i, w in enumerate(words))
+
+
 def _shot_url(lon: float, lat: float) -> str:
     return (
         "https://server.arcgisonline.com/ArcGIS/rest/services/"
@@ -59,7 +68,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
     state = status.status.value if status else "unknown"
     label, color = _STATUS.get(state, _STATUS["unknown"])
 
-    name = html.escape(beach.name.title())
+    name = html.escape(_display_name(beach.name))
     muni = html.escape(beach.municipality or "Tenerife")
     title = f"{name} · {muni}"
     desc = f"Estado: {label} — CheckCoast Tenerife"
