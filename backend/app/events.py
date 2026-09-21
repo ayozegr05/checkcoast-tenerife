@@ -196,18 +196,45 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                 if n.source and n.source not in ev.sources:
                     ev.sources.append(n.source)
 
-    # 6. Cierre de prensa sin reapertura y ya frío: el fin es incierto
-    # — usamos la última mención como cota y lo declaramos
-    for ev in events:
-        if ev.via != "press" or ev.closed_at is not None:
+    # 6. Cierre de prensa sin reapertura: sigue "activo" si la
+    # cobertura está fresca y el último cambio es un cierre — misma
+    # regla que /alerts (_press_event + PRESS_ALERT_MAX_AGE), para que
+    # la línea temporal no contradiga el banner. Ya frío, el fin es
+    # incierto: usamos la última mención como cota y lo declaramos
+    fresh = bool(items) and (
+        items[-1].published_at.date() >= today - PRESS_STALE
+    )
+    latest_change = next(
+        (
+            n
+            for n in reversed(items)
+            if n.event_type in ("closure", "reopening")
+        ),
+        None,
+    )
+    still_closed = (
+        fresh
+        and latest_change is not None
+        and latest_change.event_type == "closure"
+    )
+    # Solo el clúster de prensa más reciente puede seguir abierto
+    open_candidates = [
+        ev for ev in events if ev.via == "press" and ev.closed_at is None
+    ]
+    live = (
+        max(open_candidates, key=lambda e: e.opened_at)
+        if open_candidates and still_closed
+        else None
+    )
+    for ev in open_candidates:
+        if ev is live:
             continue
         last = max(
             (n.published_at.date() for n in closures
              if n.published_at.date() >= ev.opened_at),
             default=ev.opened_at,
         )
-        if today - last > PRESS_STALE:
-            ev.closed_at = last
-            ev.end_estimated = True
+        ev.closed_at = last
+        ev.end_estimated = True
 
     return sorted(events, key=lambda e: e.opened_at, reverse=True)
