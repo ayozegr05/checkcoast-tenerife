@@ -83,6 +83,9 @@ export default function App() {
   );
   const [introVisible, setIntroVisible] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  // "Ver en mapa" desde la ficha: la card se oculta pero la selección
+  // se mantiene — el pin queda grande y el mapa no restaura la vista
+  const [sheetHidden, setSheetHidden] = useState(false);
 
   const loadData = () => {
     setError(null);
@@ -186,6 +189,7 @@ export default function App() {
     setMuniOpen(false);
     setOutfallListOpen(false);
     setReturnToOutfalls(false);
+    setSheetHidden(false);
     setSelection({
       type: 'beach',
       feature: f,
@@ -224,17 +228,22 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
-  // "Ver en mapa" desde la lista: solo cerrar y volar cerca de la
-  // playa — la ficha ya se vio; el pin abierto queda al alcance del
-  // dedo si se quiere reabrir
+  // "Ver en mapa" desde la lista: cerrar y volar cerca de la playa con
+  // la selección mantenida pero sin card — el pin queda grande al
+  // alcance del dedo si se quiere reabrir la ficha
   const handleListSelect = (feature: GeoFeature) => {
     setListOpen(false);
     setMuniOpen(false);
     setListMunicipality(undefined);
-    setSelection(null); // si había una ficha abierta en el mapa, tapaba el vuelo
     setReturnToMuni(false);
     setReturnToOutfalls(false);
-    setFocus([...feature.geometry.coordinates, 14.5]);
+    setSheetHidden(true);
+    setSelection({
+      type: 'beach',
+      feature,
+      hasAlert: feature.properties.alert === true,
+    });
+    setFocus([...feature.geometry.coordinates, 15.5]);
   };
 
   // Emisario abierto desde la lista: al cerrar su ficha se vuelve a
@@ -243,6 +252,7 @@ export default function App() {
   const handleOutfallSelect = (feature: GeoFeature) => {
     setOutfallListOpen(false);
     setReturnToOutfalls(true);
+    setSheetHidden(false);
     setSelection({ type: 'outfall', feature });
     setFocus([...feature.geometry.coordinates]);
   };
@@ -263,6 +273,7 @@ export default function App() {
   };
   const closeSheet = () => {
     setSelection(null);
+    setSheetHidden(false);
     if (returnToMuni) {
       setReturnToMuni(false);
       setMuniOpen(true);
@@ -289,11 +300,13 @@ export default function App() {
         pmPoints={pmPointsFC}
         onSelect={(s) => {
           setSelection(s);
+          setSheetHidden(false);
           setReturnToMuni(false);
           setReturnToOutfalls(false);
         }}
         onDismissSelection={() => {
           setSelection(null);
+          setSheetHidden(false);
           setReturnToMuni(false);
           setReturnToOutfalls(false);
         }}
@@ -364,18 +377,23 @@ export default function App() {
         onClose={() => setMuniOpen(false)}
       />
 
-      {selection && (
+      {selection && !sheetHidden && (
         <FeatureSheet
           selection={selection}
           onClose={closeSheet}
           outfalls={outfalls.features}
           beaches={beachesFC.features}
           onViewOnMap={() => {
-            // Tap en la foto satélite: cerrar la ficha y quedarse en
-            // el mapa (no volver a la lista de origen si la hubiera)
+            // Ocultar la card pero mantener la selección: el pin sigue
+            // destacado y el mapa vuela cerca del punto
             setReturnToMuni(false);
             setReturnToOutfalls(false);
-            setSelection(null);
+            setSheetHidden(true);
+            setFocus([
+              selection.feature.geometry.coordinates[0],
+              selection.feature.geometry.coordinates[1],
+              15.5,
+            ]);
           }}
         />
       )}
