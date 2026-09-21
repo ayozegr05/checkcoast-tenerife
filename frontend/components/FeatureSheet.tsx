@@ -185,6 +185,7 @@ export default function FeatureSheet({
         id: `b${b.id}`,
         coords: b.geometry.coordinates as [number, number],
         color: colors.status[k],
+        icon: require('../assets/icons/beach_sil.png'),
       };
     });
     return [...beachMarks, ...others];
