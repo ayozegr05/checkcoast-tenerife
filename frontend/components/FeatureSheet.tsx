@@ -5,6 +5,7 @@ import {
   NativeSyntheticEvent,
   PanResponder,
   Platform,
+  Image,
   ImageBackground,
   Pressable,
   ScrollView,
@@ -297,6 +298,21 @@ export default function FeatureSheet({
           <Text style={styles.title} numberOfLines={2}>
             {title}
           </Text>
+          {handleViewOnMap && (
+            <Pressable
+              onPress={handleViewOnMap}
+              style={styles.mapBtn}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Ver en el mapa"
+            >
+              <Image
+                source={require('../assets/icons/icon-map.png')}
+                style={styles.mapBtnIcon}
+              />
+              <Text style={styles.mapBtnText}>Ver en mapa</Text>
+            </Pressable>
+          )}
           <Pressable
             onPress={() => dismiss()}
             hitSlop={12}
@@ -536,6 +552,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fonts.bold,
     color: colors.text,
+  },
+  mapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.75)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  mapBtnIcon: {
+    width: 12,
+    height: 12,
+    tintColor: colors.primaryDark,
+  },
+  mapBtnText: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+    color: colors.primaryDark,
   },
   close: {
     fontSize: 18,

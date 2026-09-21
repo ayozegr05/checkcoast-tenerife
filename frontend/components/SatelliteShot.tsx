@@ -166,20 +166,7 @@ export default function SatelliteShot({
         </View>
       )}
 
-      {onPress && (
-        <Pressable
-          onPress={onPress}
-          style={styles.mapHint}
-          accessibilityRole="button"
-          accessibilityLabel="Ver en el mapa"
-        >
-          <Image
-            source={require('../assets/icons/icon-map.png')}
-            style={styles.mapHintIcon}
-          />
-          <Text style={styles.mapHintText}>Ver en mapa</Text>
-        </Pressable>
-      )}
+
 
       <View style={styles.zoomCol}>
         <Pressable
@@ -304,28 +291,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     color: '#fff',
   },
-  mapHint: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    height: 26,
-    borderRadius: 13,
-    paddingHorizontal: 9,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  mapHintIcon: {
-    width: 13,
-    height: 13,
-    tintColor: '#fff',
-  },
-  mapHintText: {
-    fontSize: 10,
-    fontFamily: fonts.bold,
-    color: '#fff',
-  },
+
   zoomCol: {
     position: 'absolute',
     top: 6,
