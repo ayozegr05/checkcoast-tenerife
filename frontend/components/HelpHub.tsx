@@ -147,14 +147,28 @@ export default function HelpHub({
           style={styles.header}
           resizeMode="cover"
         >
-          <Text style={styles.title}>
-            {topic ? topic.title : 'Guía'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {topic
-              ? topic.subtitle
-              : 'Elige un tema para ver cómo funciona'}
-          </Text>
+          <View style={styles.titleRow}>
+            {topic && (
+              <Pressable
+                style={styles.headerBack}
+                onPress={() => setTopic(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Volver al índice de la guía"
+              >
+                <Text style={styles.headerBackText}>‹</Text>
+              </Pressable>
+            )}
+            <View style={styles.titleWrap}>
+              <Text style={styles.title}>
+                {topic ? topic.title : 'Guía'}
+              </Text>
+              <Text style={styles.subtitle}>
+                {topic
+                  ? topic.subtitle
+                  : 'Elige un tema para ver cómo funciona'}
+              </Text>
+            </View>
+          </View>
         </ImageBackground>
 
         <View style={styles.body}>
@@ -210,18 +224,7 @@ export default function HelpHub({
         </View>
 
         <View style={styles.footer}>
-          {topic ? (
-            <Pressable
-              style={styles.backBtn}
-              onPress={() => setTopic(null)}
-              accessibilityRole="button"
-              accessibilityLabel="Volver al índice de ayuda"
-            >
-              <Text style={styles.backText}>‹ Temas</Text>
-            </Pressable>
-          ) : (
-            <View />
-          )}
+          <View />
           <Pressable onPress={onClose} accessibilityRole="button">
             <ImageBackground
               source={require('../assets/gradient-sea.png')}
@@ -265,6 +268,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 14,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  titleWrap: {
+    flex: 1,
+  },
+  headerBack: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  headerBackText: {
+    color: '#fff',
+    fontSize: 22,
+    fontFamily: fonts.bold,
+    marginTop: -3,
   },
   title: {
     fontSize: 20,
@@ -342,11 +367,6 @@ const styles = StyleSheet.create({
   backBtn: {
     paddingVertical: 9,
     paddingRight: 12,
-  },
-  backText: {
-    fontSize: 14,
-    fontFamily: fonts.bold,
-    color: colors.primary,
   },
   btn: {
     borderRadius: 8,
