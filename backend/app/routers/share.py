@@ -27,6 +27,7 @@ from app.models import (
     Beach,
     BeachIncident,
     BeachMeasurement,
+    BeachStatus,
     NewsItem,
     Outfall,
 )
@@ -455,7 +456,6 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         "warning": "linear-gradient(180deg,#8a3c00,#e65100)",
     }.get(state, "linear-gradient(180deg,#075276,#17b8ce)")
     title = f"{name} · {muni}"
-    desc = f"Estado: {label} — CheckCoast Tenerife"
     urls = [_shot_url(lon, lat, *d) for d in _SHOT_LEVELS]
     # En atributos HTML & va escapado como &amp;; en el JS va en crudo
     # (si no, Esri recibe 'amp;bboxSR' y devuelve error)
@@ -528,12 +528,23 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
                 f' title="{d.strftime("%d/%m/%Y")} · {v:g} UFC/100 mL"></div>'
                 for d, v in pts
             )
+            # Etiqueta de año en la primera barra de cada año
+            ycells, last_yr = "", None
+            for d, _ in pts:
+                yr = d.strftime("%Y")
+                ycells += (
+                    f'<div class="yrcell">{yr}</div>'
+                    if yr != last_yr else '<div class="yrcell"></div>'
+                )
+                last_yr = yr
             hid = "" if param == "ecoli" else " hidden"
             hid2 = "" if param == "ecoli" else ' class="hidden"'
+            yhid = "" if param == "ecoli" else " hidden"
             panels += (
                 f'<div id="chart-{param}" class="chartarea{hid}">'
                 f'<div class="lim" style="bottom:{lim_y}px"></div>'
                 f"{inc_marks}{bars}</div>"
+                f'<div id="yrs-{param}" class="yrow{yhid}">{ycells}</div>'
             )
             foots += (
                 f'<span id="foot-{param}"{hid2}>'
@@ -653,12 +664,30 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
                     f"Sanidad</div></div>"
                 )
 
+    # og:description lleva el motivo cuando hay cierre/aviso —
+    # es lo que la gente quiere saber al ver la tarjeta
+    desc = f"Estado: {label} — CheckCoast Tenerife"
+    if notice:
+        reason = re.sub(r"<[^>]+>", "", notice)
+        reason = re.sub(r"\s+", " ", reason).split("según prensa")[0]
+        reason = reason.split("estado oficial")[0].strip()
+        desc = f"{reason} — CheckCoast Tenerife"
+
     foot = (
         "Playa sin controles sanitarios oficiales. Fuente: OpenStreetMap"
         if not beach.monitored
         else "Estado oficial: Náyade / Min. Sanidad · "
              "Foto: © Esri, Maxar, Earthstar Geographics"
     )
+
+    # Contadores vivos para el panel lateral desktop
+    status_counts = {
+        (k.value if hasattr(k, "value") else k): v
+        for k, v in db.query(BeachStatus.status, func.count())
+        .group_by(BeachStatus.status)
+        .all()
+    }
+    total_beaches = db.query(func.count(Beach.id)).scalar()
 
     page = f"""<!doctype html>
 <html lang="es">
@@ -670,6 +699,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="CheckCoast Tenerife">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{desc}">
 <meta property="og:image"
@@ -681,15 +711,19 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 <style>
   body {{ margin:0; font-family:'Inter',system-ui,sans-serif;
          min-height:100vh;
-         background:linear-gradient(160deg,#bcd9e6 0%,#eaf3f7 45%,#d5e9ee 100%);
+         background:
+          radial-gradient(900px 480px at 88% -5%,rgba(23,184,206,.22),transparent 60%),
+          radial-gradient(720px 420px at 6% 104%,rgba(13,148,136,.16),transparent 62%),
+          linear-gradient(160deg,#bcd9e6 0%,#eaf3f7 45%,#d5e9ee 100%);
          display:flex; justify-content:center; padding:24px 16px; }}
   .page {{ display:flex; flex-direction:column; align-items:center;
           width:100%; max-width:420px; }}
   .brand {{ display:flex; align-items:center; gap:10px;
           margin-bottom:14px; color:#0d3a52; font-weight:700;
-          font-size:15px; }}
-  .brand img {{ width:34px; height:34px; border-radius:8px;
+          font-size:17px; letter-spacing:.2px; }}
+  .brand img {{ width:38px; height:38px; border-radius:9px;
           box-shadow:0 1px 4px rgba(0,0,0,.25); }}
+  .tfe {{ font-weight:400; color:#4a7a94; }}
   .card {{ max-width:420px; width:100%; background:#fff; border-radius:16px;
           overflow:hidden; box-shadow:0 6px 24px rgba(7,43,62,.18);
           align-self:flex-start; }}
@@ -703,9 +737,16 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
             box-shadow:0 18px 60px rgba(7,43,62,.30); }}
     .side {{ display:block; width:300px; padding-top:6px; }}
     .sbrand {{ display:flex; align-items:center; gap:12px;
-            font-weight:700; font-size:19px; color:#0d3a52; }}
-    .sbrand img {{ width:44px; height:44px; border-radius:11px;
+            font-weight:700; font-size:22px; color:#0d3a52;
+            letter-spacing:.2px; }}
+    .sbrand img {{ width:50px; height:50px; border-radius:12px;
             box-shadow:0 2px 8px rgba(0,0,0,.3); }}
+    .sstat {{ margin-top:4px; background:rgba(255,255,255,.75);
+            border:1px solid rgba(13,58,82,.12); border-radius:12px;
+            padding:10px 14px; font-size:13px; color:#0d3a52; }}
+    .sstat b {{ color:#075276; }}
+    .sstat .sl {{ font-size:11px; color:#6d8b9a; font-weight:600;
+            text-transform:uppercase; letter-spacing:.4px; }}
     .stag {{ font-size:14px; line-height:1.55; color:#33566b;
             margin:16px 0; }}
     .sleg {{ background:rgba(255,255,255,.6);
@@ -745,7 +786,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
   .secsub {{ font-weight:400; color:#7a919c; font-size:11px; }}
   .row {{ display:flex; justify-content:space-between; gap:12px;
           margin-top:12px; font-size:13px; }}
-  .row span {{ color:#7a919c; }}
+  .row span {{ color:#7a919c; white-space:nowrap; }}
   .row b {{ color:#0d3a52; font-weight:600; text-align:right; }}
   .sec {{ margin-top:16px; font-size:13px; font-weight:700;
           color:#0d3a52; }}
@@ -756,6 +797,9 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
   .radius {{ font-size:11px; color:#7a919c; margin-top:6px; }}
   .press {{ margin-top:16px; background:#fff7e8; border:1px solid #f0d9a8;
           border-radius:10px; padding:10px 12px; }}
+  .yrow {{ display:flex; gap:1px; padding:3px 6px 0; }}
+  .yrcell {{ flex:1; font-size:9px; font-weight:600; color:#8fa3ad;
+          white-space:nowrap; overflow:visible; }}
   .chartarea {{ position:relative; height:{_CHART_H}px; display:flex;
           align-items:flex-end; gap:1px; margin-top:8px;
           background:#f4f9fb; border-radius:8px; padding:0 6px; }}
@@ -782,8 +826,8 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
           font-weight:700; color:#8a6d1a; background:#f6e3b0;
           border-radius:999px; padding:2px 8px;
           text-transform:uppercase; }}
-  .ptitle {{ display:block; margin-top:6px; font-size:13px;
-          font-weight:600; color:#0d3a52; text-decoration:none; }}
+  .ptitle {{ display:block; margin-top:6px; font-size:12px;
+          font-weight:500; color:#0d3a52; text-decoration:none; }}
   .pmeta {{ font-size:11px; color:#7a919c; margin-top:3px; }}
   .open {{ display:block; margin-top:16px; text-align:center;
           background:linear-gradient(90deg,#075276,#17b8ce); color:#fff;
@@ -797,10 +841,11 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 <body>
 <div class="page">
   <div class="brand">
-    <img src="/icons/app-icon.png" alt="">CheckCoast Tenerife
+    <img src="/icons/app-icon.png" alt="">CheckCoast
+    <span class="tfe">Tenerife</span>
   </div>
   <div class="card">
-    <div class="head"><h1>{name}</h1><p>{muni} · CheckCoast Tenerife</p></div>
+    <div class="head"><h1>{name}</h1><p>{muni}</p></div>
     <div class="shotwrap">
       <img id="shot" class="shot" src="{imgs[start]}"
         alt="Vista aérea de {name}">
@@ -831,12 +876,17 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
   </div>
   <aside class="side">
     <div class="sbrand">
-      <img src="/icons/app-icon.png" alt="">CheckCoast Tenerife
+      <img src="/icons/app-icon.png" alt="">CheckCoast
+      <span class="tfe">Tenerife</span>
     </div>
     <p class="stag">El estado oficial de las playas de Tenerife —
       cierres, avisos y calidad del agua según Náyade (Min. Sanidad) —
       y los puntos de vertido que hay junto a ellas. Cuando el parte
       oficial no dice el porqué, la prensa local ayuda a explicarlo.</p>
+    <div class="sstat"><div class="sl">Ahora mismo en Tenerife</div>
+      <b>{status_counts.get('closed', 0)}</b> cerradas ·
+      <b>{status_counts.get('warning', 0)}</b> con aviso ·
+      <b>{total_beaches}</b> playas mapeadas</div>
     <div class="sleg">
       <div><img src="/icons/pin-open.png" alt=""> Playa — el color
         marca su estado</div>
@@ -847,8 +897,8 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
       <div><img src="/icons/pin-outfall-illegal.png" alt=""> Emisario
         no autorizado</div>
     </div>
-    <p class="sfoot">Datos: Náyade / Min. Sanidad · MITECO ·
-      OpenStreetMap · © Esri</p>
+    <p class="sfoot">App gratuita para Android · Datos: Náyade /
+      Min. Sanidad · MITECO · OpenStreetMap · © Esri</p>
   </aside>
 </div>
 </body>
@@ -872,6 +922,10 @@ function setChart(p) {{
     'chartarea' + (p === 'ecoli' ? '' : ' hidden');
   document.getElementById('chart-enterococci').className =
     'chartarea' + (p === 'enterococci' ? '' : ' hidden');
+  document.getElementById('yrs-ecoli').className =
+    'yrow' + (p === 'ecoli' ? '' : ' hidden');
+  document.getElementById('yrs-enterococci').className =
+    'yrow' + (p === 'enterococci' ? '' : ' hidden');
   document.getElementById('tb-ecoli').className =
     'tbtn' + (p === 'ecoli' ? ' ton' : '');
   document.getElementById('tb-enterococci').className =
