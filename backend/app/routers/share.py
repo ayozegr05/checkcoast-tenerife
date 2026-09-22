@@ -318,8 +318,9 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         for o in outfalls
     )
     outfalls_block = (
-        f'<div class="sec">Emisarios cercanos</div>{outfall_rows}'
-        '<div class="radius">En un radio de 1 km</div>'
+        '<div class="sec">Emisarios cercanos '
+        '<span class="secsub">en un radio de 1 km</span></div>'
+        f'{outfall_rows}'
         if outfalls else ""
     )
 
@@ -524,8 +525,10 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
   .hidden {{ display:none !important; }}
   .body {{ padding:16px 20px 20px; }}
   .chip {{ display:inline-block; background:{color}; color:#fff;
-          font-weight:700; font-size:13px; border-radius:999px;
+          font-weight:700; font-size:13px; border-radius:10px;
           padding:6px 14px; }}
+  .chip.ctr {{ display:table; margin:0 auto; }}
+  .secsub {{ font-weight:400; color:#7a919c; font-size:11px; }}
   .row {{ display:flex; justify-content:space-between; gap:12px;
           margin-top:12px; font-size:13px; }}
   .row span {{ color:#7a919c; }}
@@ -589,9 +592,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
       <button class="zoom" onclick="toggleZoom()" id="zoombtn">Acercar</button>
     </div>
     <div class="body">
-      <span class="chip">{label}</span>
-      {"<span class='ptag' style='margin-top:0'>" + press_label + "</span>"
-       if press_label else ""}
+      <span class="chip{' ctr' if notice else ''}">{label}</span>
       {notice}
       {rows}
       {outfalls_block}
