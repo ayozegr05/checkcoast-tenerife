@@ -7,6 +7,7 @@ mini-ficha — réplica web de la ficha de la app — con enlace profundo
 """
 
 import html
+import json
 import math
 import re
 from datetime import datetime, timedelta, timezone
@@ -51,11 +52,12 @@ def assetlinks() -> list[dict]:
         }
     ]
 
-# Encuadres como los zooms de SatelliteShot: cerca y lejos (640×300 px)
-_SHOT_NEAR = (0.006, 0.0033)
-_SHOT_FAR = (0.015, 0.0083)
-_SHOT_W = 640
-_SHOT_H = 300
+# Encuadres satélite de más cerca a más lejos (dlon, dlat en grados)
+_SHOT_LEVELS = [
+    (0.003, 0.0017),   # muy cerca
+    (0.006, 0.0033),   # cerca
+    (0.015, 0.0083),   # lejos
+]
 
 # Mismos textos que la ficha de la app
 _STATUS = {
@@ -289,17 +291,21 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     }.get(state, "linear-gradient(180deg,#075276,#17b8ce)")
     title = f"{name} · {muni}"
     desc = f"Estado: {label} — CheckCoast Tenerife"
-    url_far = _shot_url(lon, lat, *_SHOT_FAR)
-    url_near = _shot_url(lon, lat, *_SHOT_NEAR)
+    urls = [_shot_url(lon, lat, *d) for d in _SHOT_LEVELS]
     # En atributos HTML & va escapado como &amp;; en el JS va en crudo
     # (si no, Esri recibe 'amp;bboxSR' y devuelve error)
-    img_far = html.escape(url_far)
-    img_near = html.escape(url_near)
+    imgs = [html.escape(u) for u in urls]
     deep = f"checkcoast://beach/{beach.id}"
 
-    # Dots de cada nivel de zoom (el pin de playa siempre va centrado)
-    dots_far = _dots(outfalls, lon, lat, *_SHOT_FAR)
-    dots_near = _dots(outfalls, lon, lat, *_SHOT_NEAR)
+    # Un span de dots por nivel de zoom; se empieza en el más lejano
+    start = len(_SHOT_LEVELS) - 1
+    dots_spans = "".join(
+        f'<span id="dots-{i}" class="{"hidden" if i != start else ""}">'
+        f"{d}</span>"
+        for i, d in enumerate(
+            _dots(outfalls, lon, lat, *d_) for d_ in _SHOT_LEVELS
+        )
+    )
 
     rows = ""
     if latest:
@@ -498,7 +504,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 <meta property="og:type" content="website">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{desc}">
-<meta property="og:image" content="{img_far}">
+<meta property="og:image" content="{imgs[start]}">
 <meta name="twitter:card" content="summary_large_image">
 <style>
   body {{ margin:0; font-family:system-ui,sans-serif; background:#eaf3f7;
@@ -524,6 +530,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
           font-weight:700; font-size:16px; width:30px; height:28px;
           cursor:pointer; line-height:1; padding:0; }}
   .zbtn + .zbtn {{ border-top:1px solid #cddfe8; }}
+  .zbtn:disabled {{ opacity:.45; cursor:default; }}
   .hidden {{ display:none !important; }}
   .body {{ padding:16px 20px 20px; }}
   .chip {{ display:inline-block; background:{color}; color:#fff;
@@ -586,14 +593,16 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
   <div class="card">
     <div class="head"><h1>{name}</h1><p>{muni} · CheckCoast Tenerife</p></div>
     <div class="shotwrap">
-      <img id="shot" class="shot" src="{img_far}" alt="Vista aérea de {name}">
-      <span id="dots-far">{dots_far}</span>
-      <span id="dots-near" class="hidden">{dots_near}</span>
+      <img id="shot" class="shot" src="{imgs[start]}"
+        alt="Vista aérea de {name}">
+      {dots_spans}
       <img class="pin" src="/icons/{_PIN.get(state, _PIN['unknown'])}.png"
         alt="{name}">
       <div class="zoom">
-        <button class="zbtn" onclick="setZoom(true)" aria-label="Acercar">+</button>
-        <button class="zbtn" onclick="setZoom(false)" aria-label="Alejar">−</button>
+        <button class="zbtn" id="zin" onclick="zoom(-1)"
+          aria-label="Acercar">+</button>
+        <button class="zbtn" id="zout" onclick="zoom(1)"
+          aria-label="Alejar">−</button>
       </div>
     </div>
     <div class="body">
@@ -641,13 +650,19 @@ function setChart(p) {{
   document.getElementById('foot-enterococci').className =
     p === 'enterococci' ? '' : 'hidden';
 }}
-var near = false;
-function setZoom(n) {{
-  near = n;
-  document.getElementById('shot').src = near ? '{url_near}' : '{url_far}';
-  document.getElementById('dots-far').className = near ? 'hidden' : '';
-  document.getElementById('dots-near').className = near ? '' : 'hidden';
+var urls = {json.dumps(urls)};
+var z = {start};
+function zoom(d) {{
+  z = Math.max(0, Math.min(urls.length - 1, z + d));
+  document.getElementById('shot').src = urls[z];
+  for (var i = 0; i < urls.length; i++) {{
+    document.getElementById('dots-' + i).className =
+      i === z ? '' : 'hidden';
+  }}
+  document.getElementById('zin').disabled = z === 0;
+  document.getElementById('zout').disabled = z === urls.length - 1;
 }}
+zoom(0);
 </script>
 </html>"""
     # no-cache: el HTML se revalida siempre (los navegadores cacheaban la
