@@ -476,8 +476,8 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     if latest:
         ev = html.escape(latest.evaluation) if latest.evaluation else "sin evaluación"
         rows += (
-            '<div class="row"><span>Último análisis</span>'
-            f"<b>{latest.sampled_at.strftime('%d/%m/%Y')} · {ev}</b></div>"
+            f'<div class="row"><b>Último análisis: '
+            f"{latest.sampled_at.strftime('%d/%m/%Y')} · {ev}</b></div>"
         )
 
     outfall_rows = "".join(

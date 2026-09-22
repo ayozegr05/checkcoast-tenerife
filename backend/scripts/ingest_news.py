@@ -44,7 +44,7 @@ def _rematch_pending(db, beaches: list[Beach]) -> int:
             beach_name=item.extracted_beach,
             municipality=item.extracted_municipality,
         )
-        hits = match_beaches(ext, beaches)
+        hits = match_beaches(ext, beaches, title=item.title)
         if not hits:
             continue
         item.beach_id = hits[0].id
@@ -100,7 +100,10 @@ def run() -> tuple[int, int, int]:
             ext = extract_event(art, extractor)
             if ext is None:
                 continue  # fallo del proveedor: se reintenta la próxima pasada
-            hits = match_beaches(ext, beaches) if ext.relevant else []
+            hits = (
+                match_beaches(ext, beaches, title=art.title)
+                if ext.relevant else []
+            )
             for beach in hits or [None]:  # una fila por PM de la playa
                 db.add(
                     NewsItem(

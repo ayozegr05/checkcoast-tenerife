@@ -65,7 +65,9 @@ Marca relevant=false cuando:
 
 Si relevant=true extrae:
 - beach_name: nombre de la playa tal como aparece en el titular
-- municipality: municipio de Tenerife si se menciona o se deduce claramente
+- municipality: municipio de Tenerife SOLO si se menciona en el titular;
+  nunca lo deduzcas por la playa (hay playas homónimas en varios
+  municipios: "El Cabezo" existe en Güímar, Granadilla y Adeje)
 - event_type: "closure" | "reopening" | "warning" | "pollution" | "other"
 - cause: frase corta con la causa ("vertido de aguas residuales",
   "bacterias fecales", "gasoil") o null si no se indica

@@ -48,8 +48,10 @@ def ext(beach_name, municipality=None, **kw):
     )
 
 
-def ids(ext_obj, beaches=BEACHES):
-    return sorted(b.id for b in match_beaches(ext_obj, beaches))
+def ids(ext_obj, beaches=BEACHES, title=""):
+    return sorted(
+        b.id for b in match_beaches(ext_obj, beaches, title=title)
+    )
 
 
 def test_exact_name_match_without_municipality():
@@ -60,12 +62,32 @@ def test_containment_requires_municipality():
     # "Playa del Cabezo" contiene "CABEZO": sin municipio hay dos
     # municipios candidatos → no casa
     assert ids(ext("Playa del Cabezo")) == []
-    assert ids(ext("Playa del Cabezo", "Güímar")) == [7, 8]
+    # con municipio extraído hay que verlo en el titular: el LLM a
+    # veces lo deduce mal
+    assert ids(ext("Playa del Cabezo", "Güímar")) == []
+    assert ids(
+        ext("Playa del Cabezo", "Güímar"),
+        title="Güímar reabre la playa de El Cabezo",
+    ) == [7, 8]
+
+
+def test_llm_wrong_municipality_rejected():
+    # Regresión real: "Cierre de Playa del Cabezo y Paseo de las
+    # Palmeras por aguas residuales" (Güímar) fue adjudicada a
+    # Granadilla por deducción del LLM — el titular no lo nombra
+    assert ids(
+        ext("Playa del Cabezo", "Granadilla de Abona"),
+        title="Cierre de Playa del Cabezo y Paseo de las Palmeras "
+              "por aguas residuales",
+    ) == []
 
 
 def test_multi_pm_same_beach_returns_all():
     # Misma playa con dos PMs: la noticia se sirve en ambas fichas
-    assert ids(ext("El Cabezo", "Güímar")) == [7, 8]
+    assert ids(
+        ext("El Cabezo", "Güímar"),
+        title="Güímar reabre la playa de El Cabezo",
+    ) == [7, 8]
 
 
 def test_municipality_alias_la_laguna():
@@ -80,14 +102,20 @@ def test_contradictory_municipality_rejects():
 def test_ambiguous_name_needs_municipality():
     # Dos playas llamadas "Playa de la Arena": sin municipio no casa
     assert ids(ext("Playa de la Arena")) == []
-    assert ids(ext("Playa de la Arena", "Tacoronte")) == [5]
+    assert ids(
+        ext("Playa de la Arena", "Tacoronte"),
+        title="Cierre de La Arena en Tacoronte",
+    ) == [5]
 
 
 def test_inverted_mitec_name_matches():
     # "El Cabezo" en prensa ↔ "PLAYA CABEZO (EL) PM1" en el censo;
     # hay dos El Cabezo en municipios distintos → ambiguo sin municipio
     assert ids(ext("El Cabezo")) == []
-    assert ids(ext("El Cabezo", "Granadilla de Abona")) == [6]
+    assert ids(
+        ext("El Cabezo", "Granadilla de Abona"),
+        title="Granadilla cierra la playa de El Cabezo, en El Médano",
+    ) == [6]
 
 
 def test_no_beach_name_returns_none():

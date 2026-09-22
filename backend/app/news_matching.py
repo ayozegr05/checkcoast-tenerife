@@ -62,10 +62,12 @@ def _norm_muni(name: str | None) -> str | None:
 
 
 def match_beaches(
-    ext: EventExtraction, beaches: list[Beach]
+    ext: EventExtraction, beaches: list[Beach], title: str | None = None
 ) -> list[Beach]:
     """Playas a las que ligar la noticia. Varios PMs de la misma playa
     (misma clave + municipio) devuelven todos sus registros."""
+    if title is None:
+        title = getattr(ext, "title", None) or ""
     if not ext.beach_name:
         return []
     target = _press_key(ext.beach_name)
@@ -106,6 +108,24 @@ def match_beaches(
     hits = [
         (b, k) for b, k in candidates if _norm_muni(b.municipality) == muni
     ]
+    # El LLM a veces deduce el municipio y se equivoca (El Cabezo de
+    # Güímar adjudicado a Granadilla). Con playas homónimas en varios
+    # municipios solo se confía en el municipio extraído si aparece
+    # literalmente en el titular.
+    cand_munis = {_norm_muni(b.municipality) for b, _ in candidates}
+    if len(cand_munis) > 1:
+        norm_title = _normalize(title)
+        muni_in_title = (
+            muni in norm_title
+            or muni.split()[0] in norm_title
+            or any(
+                a in norm_title
+                for a, off in MUNICIPALITY_ALIASES.items()
+                if off == muni
+            )
+        )
+        if not muni_in_title:
+            return []
     keys = {k for _, k in hits}
     if len(hits) >= 1 and len(keys) == 1:
         return [b for b, _ in hits]
