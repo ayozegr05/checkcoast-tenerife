@@ -68,7 +68,7 @@ _STATUS = {
 _OUTFALL_STATUS = {
     "legal": ("Autorizado", "#2e9e6b"),
     "illegal": ("No autorizado", "#c62828"),
-    "unknown": ("En trámite", "#e65100"),
+    "unknown": ("En trámite", "#f9a825"),
 }
 
 # Mismos PNG que el mapa de la app (servidos desde /icons)
@@ -111,7 +111,7 @@ def _qcolor(param: str, v: float) -> str:
     t = _QUALITY[param]
     if v <= t["excellent"]:
         return "#0d9488"
-    return "#e65100" if v <= t["good"] else "#c62828"
+    return "#f9a825" if v <= t["good"] else "#c62828"
 
 
 def _display_name(name: str) -> str:
@@ -155,7 +155,7 @@ def _dots(outfalls, lon: float, lat: float, dlon: float, dlat: float) -> str:
 
 
 @router.get("/b/{beach_id}", response_class=HTMLResponse)
-def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
+def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     """Landing compartible de una playa: OG para la tarjeta del
     mensajero + mini-ficha con deep-link a la app."""
     row = (
@@ -461,7 +461,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> str:
              "Foto: © Esri, Maxar, Earthstar Geographics"
     )
 
-    return f"""<!doctype html>
+    page = f"""<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -617,3 +617,9 @@ function toggleZoom() {{
 }}
 </script>
 </html>"""
+    # no-cache: el HTML se revalida siempre (los navegadores cacheaban la
+    # landing y se veían versiones viejas tras cada despliegue)
+    return HTMLResponse(
+        content=page,
+        headers={"Cache-Control": "no-cache"},
+    )
