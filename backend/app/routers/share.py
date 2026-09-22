@@ -454,6 +454,33 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
             f"{' · ' + when if when else ''}</div></div>"
         )
 
+    # Con cierre/aviso activo el motivo es lo primero que importa:
+    # si el estado lo decide la prensa, su banner sube arriba del todo;
+    # si es oficial, se resume el incidente abierto
+    notice = ""
+    if state in ("closed", "warning"):
+        if press and press_label:
+            notice, press = press, ""
+        else:
+            active_inc = next(
+                (i for i in incidents if i.closed_at is None), None
+            )
+            if active_inc:
+                verb = "Cerrada" if state == "closed" else "Aviso activo"
+                obs = (active_inc.observations or "").strip()
+                nline = verb + (
+                    f" — {html.escape(obs[:140])}" if obs else ""
+                )
+                nline += (
+                    f" · desde el "
+                    f"{active_inc.opened_at.strftime('%d/%m/%Y')}"
+                )
+                notice = (
+                    f'<div class="press"><div class="psum">{nline}</div>'
+                    f'<div class="ptag">estado oficial · Náyade / '
+                    f"Sanidad</div></div>"
+                )
+
     foot = (
         "Playa sin controles sanitarios oficiales. Fuente: OpenStreetMap"
         if not beach.monitored
@@ -565,6 +592,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
       <span class="chip">{label}</span>
       {"<span class='ptag' style='margin-top:0'>" + press_label + "</span>"
        if press_label else ""}
+      {notice}
       {rows}
       {outfalls_block}
       {chart_block}
