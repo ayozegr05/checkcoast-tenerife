@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     # SHA-256 del keystore EAS que firma el APK (Android App Links:
     # https://checkcoast.duckdns.org/b/{id} abre la app si instalada)
     android_cert_sha256: str | None = None
+    # URL pública HTTPS (og:image y canonical de las landings /b/{id})
+    public_url: str = "https://checkcoast.duckdns.org"
 
 
 settings = Settings()

@@ -7,13 +7,16 @@ mini-ficha — réplica web de la ficha de la app — con enlace profundo
 """
 
 import html
+import io
 import json
 import math
 import re
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from geoalchemy2 import Geography
@@ -88,6 +91,16 @@ _OUTFALL_PIN = {
 
 _NEARBY_OUTFALL_RADIUS_M = 1000  # mismo radio que /beaches/{id}/nearby-outfalls
 
+_ICONS = Path(__file__).resolve().parent.parent / "static" / "icons"
+_FONTS = [
+    ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+    # Windows (desarrollo local)
+    ("C:/Windows/Fonts/arialbd.ttf", "C:/Windows/Fonts/arial.ttf"),
+]
+_OG_W, _OG_H = 1200, 630
+_og_cache: dict[tuple[int, str], bytes] = {}
+
 # Umbrales RD 1341/2007 (aguas costeras, UFC/100 mL) — mismos que la app
 _QUALITY = {
     "ecoli": {"excellent": 250, "good": 500, "label": "E. coli"},
@@ -116,13 +129,58 @@ def _qcolor(param: str, v: float) -> str:
     return "#f9a825" if v <= t["good"] else "#c62828"
 
 
+# Port de lib/format.ts (capName + displayBeachName): el censo llega en
+# mayúsculas con el artículo en paréntesis — "PLAYA GAVIOTAS (LAS) PM1"
+_CONNECTORS = {"de", "del", "y", "e", "en", "a", "o", "u"}
+_ARTICLES = {"el", "la", "los", "las"}
+_ROMANS = {"i", "ii", "iii", "iv", "v", "vi"}
+_ACCENTS = {
+    "medano": "médano", "guios": "guíos", "guimar": "güímar",
+    "americas": "américas", "camison": "camisón", "jaquita": "jaquita",
+    "almaciga": "almáciga", "amricas": "américas", "camisn": "camisón",
+    "gimar": "güímar",
+}
+_ARTICLE_PAREN = re.compile(r"\s*\((EL|LA|LOS|LAS)\)", re.I)
+_DE_FORMS = {"el": "del", "la": "de la", "los": "de los",
+             "las": "de las"}
+_WORD = re.compile(r"[a-záéíóúñü]+", re.I)
+
+
+def _cap_name(name: str) -> str:
+    """Capitaliza estilo español: conectores en minúscula, artículos
+    solo en minúscula tras 'de'; restaura acentos conocidos."""
+    prev = ""
+    out = []
+    for p in re.split(f"({_WORD.pattern})", name.lower().replace("", "")):
+        if not _WORD.fullmatch(p):
+            out.append(p)
+            continue
+        w = _ACCENTS.get(p, p)
+        if w in _ROMANS:
+            prev = w
+            out.append(w.upper())
+            continue
+        lower = prev != "" and (
+            w in _CONNECTORS or (w in _ARTICLES and prev == "de")
+        )
+        out.append(w if lower else w[0].upper() + w[1:])
+        prev = w
+    return "".join(out)
+
+
 def _display_name(name: str) -> str:
-    """'PLAYA DE LA VIUDA' -> 'Playa de la Viuda' (minúscula en
-    artículos/preposiciones salvo al inicio)."""
-    low = {"de", "del", "la", "el", "las", "los", "y", "en"}
-    words = name.title().split()
-    return " ".join(w if i == 0 or w.lower() not in low else w.lower()
-                    for i, w in enumerate(words))
+    """'PLAYA GAVIOTAS (LAS) PM1' -> 'Playa de las Gaviotas'."""
+    name = re.sub(r"\s+PM\d+$", "", name)
+    m = _ARTICLE_PAREN.search(name)
+    if not m:
+        return _cap_name(name)
+    base = re.sub(r" -(?=\S)", "-", _ARTICLE_PAREN.sub("", name))
+    if re.match(r"^PLAYA\s", base, re.I):
+        art = _DE_FORMS[m.group(1).lower()]
+        return _cap_name(
+            re.sub(r"^PLAYA\s+", f"PLAYA {art} ", base, flags=re.I)
+        )
+    return _cap_name(f"{m.group(1)} {base}")
 
 
 def _shot_url(lon: float, lat: float, dlon: float, dlat: float) -> str:
@@ -156,37 +214,12 @@ def _dots(outfalls, lon: float, lat: float, dlon: float, dlat: float) -> str:
     )
 
 
-@router.get("/b/{beach_id}", response_class=HTMLResponse)
-def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Landing compartible de una playa: OG para la tarjeta del
-    mensajero + mini-ficha con deep-link a la app."""
-    row = (
-        beaches_with_latest_status(db)
-        .add_columns(
-            func.ST_X(Beach.geom).label("lon"),
-            func.ST_Y(Beach.geom).label("lat"),
-        )
-        .filter(Beach.id == beach_id)
-        .one_or_none()
-    )
-    if row is None:
-        raise HTTPException(status_code=404, detail="Beach not found")
-
-    beach, status, lon, lat = row
-    official = status.status.value if status else None
-
-    news_items = (
-        db.query(NewsItem)
-        .filter(NewsItem.beach_id == beach.id, NewsItem.relevant.is_(True))
-        .order_by(NewsItem.published_at.desc().nulls_last())
-        .limit(30)
-        .all()
-    )
-    news = news_items[0] if news_items else None
-
-    # Estado eficaz: replica la regla de /alerts — el oficial manda,
-    # pero prensa fresca dominada por cierres escala warning->closed y
-    # decide en playas sin monitorización (Las Gaviotas, Benijo)
+def _effective_state(
+    db: Session, beach: Beach, official: str | None, news_items: list
+) -> tuple[str, str | None]:
+    """(state, press_label) — replica la regla de /alerts: el oficial
+    manda, pero prensa fresca dominada por cierres escala
+    warning->closed y decide en playas sin monitorización."""
     state = official or "unknown"
     press_label: str | None = None
     cutoff = datetime.now(timezone.utc) - timedelta(days=21)
@@ -242,6 +275,137 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
                 state, press_label = "closed", "según prensa"
         elif pstate:
             state, press_label = pstate, "según prensa"
+    return state, press_label
+
+
+def _og_png(beach, lon: float, lat: float, state: str, label: str,
+            color: str) -> bytes:
+    """Compone la og:image 1200×630: foto satélite Esri + pin de la
+    playa + banda inferior con nombre, municipio y chip de estado."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    img = Image.new("RGB", (_OG_W, _OG_H), "#075276")
+    try:
+        r = httpx.get(
+            _shot_url(lon, lat, *_SHOT_LEVELS[-1]).replace(
+                "size=640,300", "size=1200,630"
+            ),
+            timeout=10,
+        )
+        img = Image.open(io.BytesIO(r.content)).convert("RGBA")
+    except Exception:
+        img = img.convert("RGBA")
+
+    # Pin de playa centrado (mismo PNG que el mapa de la app)
+    pin = Image.open(
+        _ICONS / f"{_PIN.get(state, _PIN['unknown'])}.png"
+    ).convert("RGBA")
+    pin = pin.resize((104, 104))
+    img.alpha_composite(pin, (_OG_W // 2 - 52, 240))
+
+    # Banda inferior con degradado a oscuro
+    band = Image.new("RGBA", (_OG_W, 190), (8, 32, 46, 0))
+    bd = ImageDraw.Draw(band)
+    for y in range(190):
+        bd.line([(0, y), (_OG_W, y)],
+                fill=(8, 32, 46, int(235 * (y / 190))))
+    img.alpha_composite(band, (0, _OG_H - 190))
+
+    d = ImageDraw.Draw(img)
+    for bold, reg in _FONTS:
+        try:
+            f_name = ImageFont.truetype(bold, 52)
+            f_sub = ImageFont.truetype(reg, 30)
+            f_chip = ImageFont.truetype(bold, 30)
+            break
+        except OSError:
+            continue
+    else:
+        f_name = f_sub = f_chip = ImageFont.load_default()
+
+    name = _display_name(beach.name)
+    sub = f"{beach.municipality or 'Tenerife'} · CheckCoast Tenerife"
+    d.text((46, _OG_H - 140), name, font=f_name, fill="#ffffff")
+    d.text((46, _OG_H - 72), sub, font=f_sub, fill="#cfe3ec")
+
+    # Chip de estado abajo-derecha
+    tw = d.textlength(label, font=f_chip)
+    cw, ch = tw + 52, 58
+    cx, cy = _OG_W - cw - 46, _OG_H - 140
+    d.rounded_rectangle([cx, cy, cx + cw, cy + ch], radius=14, fill=color)
+    d.text((cx + 26, cy + 12), label, font=f_chip, fill="#ffffff")
+
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, "PNG")
+    return buf.getvalue()
+
+
+@router.get("/b/{beach_id}/og.png")
+def share_og(beach_id: int, db: Session = Depends(get_db)) -> Response:
+    """Imagen OG compuesta: lo que WhatsApp/Telegram enseñan en la
+    tarjeta. Cacheada por (playa, estado) — regenera si cambia."""
+    row = (
+        beaches_with_latest_status(db)
+        .add_columns(
+            func.ST_X(Beach.geom).label("lon"),
+            func.ST_Y(Beach.geom).label("lat"),
+        )
+        .filter(Beach.id == beach_id)
+        .one_or_none()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Beach not found")
+    beach, status, lon, lat = row
+    official = status.status.value if status else None
+    news_items = (
+        db.query(NewsItem)
+        .filter(NewsItem.beach_id == beach.id, NewsItem.relevant.is_(True))
+        .order_by(NewsItem.published_at.desc().nulls_last())
+        .limit(30)
+        .all()
+    )
+    state, _ = _effective_state(db, beach, official, news_items)
+    key = (beach_id, state)
+    if key not in _og_cache:
+        label, color = _STATUS.get(state, _STATUS["unknown"])
+        _og_cache[key] = _og_png(beach, lon, lat, state, label, color)
+    return Response(
+        content=_og_cache[key],
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+@router.get("/b/{beach_id}", response_class=HTMLResponse)
+def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
+    """Landing compartible de una playa: OG para la tarjeta del
+    mensajero + mini-ficha con deep-link a la app."""
+    row = (
+        beaches_with_latest_status(db)
+        .add_columns(
+            func.ST_X(Beach.geom).label("lon"),
+            func.ST_Y(Beach.geom).label("lat"),
+        )
+        .filter(Beach.id == beach_id)
+        .one_or_none()
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Beach not found")
+
+    beach, status, lon, lat = row
+    official = status.status.value if status else None
+
+    news_items = (
+        db.query(NewsItem)
+        .filter(NewsItem.beach_id == beach.id, NewsItem.relevant.is_(True))
+        .order_by(NewsItem.published_at.desc().nulls_last())
+        .limit(30)
+        .all()
+    )
+    news = news_items[0] if news_items else None
+    state, press_label = _effective_state(
+        db, beach, official, news_items
+    )
 
     label, color = _STATUS.get(state, _STATUS["unknown"])
 
@@ -501,18 +665,33 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title} — CheckCoast Tenerife</title>
+<link rel="icon" type="image/png" href="/icons/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <meta property="og:type" content="website">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{desc}">
-<meta property="og:image" content="{imgs[start]}">
+<meta property="og:image"
+  content="{settings.public_url}/b/{beach.id}/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <style>
-  body {{ margin:0; font-family:system-ui,sans-serif; background:#eaf3f7;
+  body {{ margin:0; font-family:'Inter',system-ui,sans-serif;
+         min-height:100vh;
+         background:linear-gradient(160deg,#bcd9e6 0%,#eaf3f7 45%,#d5e9ee 100%);
          display:flex; justify-content:center; padding:24px 16px; }}
   .card {{ max-width:420px; width:100%; background:#fff; border-radius:16px;
-          overflow:hidden; box-shadow:0 6px 24px rgba(7,43,62,.18); }}
+          overflow:hidden; box-shadow:0 6px 24px rgba(7,43,62,.18);
+          align-self:flex-start; }}
+  @media (min-width:720px) {{
+    body {{ align-items:center; padding:48px 24px; }}
+    .card {{ max-width:520px;
+            box-shadow:0 18px 60px rgba(7,43,62,.30); }}
+  }}
   .head {{ background:{head_bg};
-          color:#fff; padding:18px 20px 14px; }}
+          color:#fff; padding:18px 20px 14px;
+          display:flex; align-items:center; gap:12px; }}
+  .logo {{ width:38px; height:38px; border-radius:9px;
+          box-shadow:0 1px 4px rgba(0,0,0,.3); }}
   .head h1 {{ margin:0; font-size:20px; }}
   .head p {{ margin:4px 0 0; font-size:13px; opacity:.9; }}
   .shotwrap {{ position:relative; }}
@@ -591,7 +770,10 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 </head>
 <body>
   <div class="card">
-    <div class="head"><h1>{name}</h1><p>{muni} · CheckCoast Tenerife</p></div>
+    <div class="head">
+      <img class="logo" src="/icons/app-icon.png" alt="">
+      <div><h1>{name}</h1><p>{muni} · CheckCoast Tenerife</p></div>
+    </div>
     <div class="shotwrap">
       <img id="shot" class="shot" src="{imgs[start]}"
         alt="Vista aérea de {name}">
