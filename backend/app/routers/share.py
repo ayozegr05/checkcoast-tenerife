@@ -319,7 +319,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     )
     outfalls_block = (
         '<div class="sec">Emisarios cercanos '
-        '<span class="secsub">en un radio de 1 km</span></div>'
+        '<span class="secsub">· en un radio de 1 km</span></div>'
         f'{outfall_rows}'
         if outfalls else ""
     )
@@ -517,11 +517,13 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
   .odot {{ position:absolute; width:24px;
           transform:translate(-50%,-95%);
           filter:drop-shadow(0 1px 3px rgba(0,0,0,.5)); }}
-  .zoom {{ position:absolute; top:8px; right:8px; border:0;
-          background:rgba(255,255,255,.92); color:#0d3a52;
-          font-weight:700; font-size:13px; border-radius:8px;
-          padding:6px 10px; cursor:pointer;
+  .zoom {{ position:absolute; top:8px; right:8px; display:flex;
+          flex-direction:column; border-radius:8px; overflow:hidden;
           box-shadow:0 1px 4px rgba(0,0,0,.35); }}
+  .zbtn {{ border:0; background:rgba(255,255,255,.92); color:#0d3a52;
+          font-weight:700; font-size:16px; width:30px; height:28px;
+          cursor:pointer; line-height:1; padding:0; }}
+  .zbtn + .zbtn {{ border-top:1px solid #cddfe8; }}
   .hidden {{ display:none !important; }}
   .body {{ padding:16px 20px 20px; }}
   .chip {{ display:inline-block; background:{color}; color:#fff;
@@ -589,7 +591,10 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
       <span id="dots-near" class="hidden">{dots_near}</span>
       <img class="pin" src="/icons/{_PIN.get(state, _PIN['unknown'])}.png"
         alt="{name}">
-      <button class="zoom" onclick="toggleZoom()" id="zoombtn">Acercar</button>
+      <div class="zoom">
+        <button class="zbtn" onclick="setZoom(true)" aria-label="Acercar">+</button>
+        <button class="zbtn" onclick="setZoom(false)" aria-label="Alejar">−</button>
+      </div>
     </div>
     <div class="body">
       <span class="chip{' ctr' if notice else ''}">{label}</span>
@@ -637,12 +642,11 @@ function setChart(p) {{
     p === 'enterococci' ? '' : 'hidden';
 }}
 var near = false;
-function toggleZoom() {{
-  near = !near;
+function setZoom(n) {{
+  near = n;
   document.getElementById('shot').src = near ? '{url_near}' : '{url_far}';
   document.getElementById('dots-far').className = near ? 'hidden' : '';
   document.getElementById('dots-near').className = near ? '' : 'hidden';
-  document.getElementById('zoombtn').textContent = near ? 'Alejar' : 'Acercar';
 }}
 </script>
 </html>"""
