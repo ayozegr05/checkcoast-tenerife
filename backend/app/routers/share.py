@@ -287,7 +287,7 @@ def _og_png(beach, lon: float, lat: float, state: str, label: str,
     img = Image.new("RGB", (_OG_W, _OG_H), "#075276")
     try:
         r = httpx.get(
-            _shot_url(lon, lat, *_SHOT_LEVELS[-1]).replace(
+            _shot_url(lon, lat, *_SHOT_LEVELS[1]).replace(
                 "size=640,300", "size=1200,630"
             ),
             timeout=10,
@@ -335,12 +335,13 @@ def _og_png(beach, lon: float, lat: float, state: str, label: str,
     d.rounded_rectangle([cx, cy, cx + cw, cy + ch], radius=14, fill=color)
     d.text((cx + 26, cy + 12), label, font=f_chip, fill="#ffffff")
 
+    # JPEG: el PNG salía >1 MB y WhatsApp se rendía a miniatura
     buf = io.BytesIO()
-    img.convert("RGB").save(buf, "PNG")
+    img.convert("RGB").save(buf, "JPEG", quality=82, optimize=True)
     return buf.getvalue()
 
 
-@router.get("/b/{beach_id}/og.png")
+@router.get("/b/{beach_id}/og.jpg")
 def share_og(beach_id: int, db: Session = Depends(get_db)) -> Response:
     """Imagen OG compuesta: lo que WhatsApp/Telegram enseñan en la
     tarjeta. Cacheada por (playa, estado) — regenera si cambia."""
@@ -371,7 +372,7 @@ def share_og(beach_id: int, db: Session = Depends(get_db)) -> Response:
         _og_cache[key] = _og_png(beach, lon, lat, state, label, color)
     return Response(
         content=_og_cache[key],
-        media_type="image/png",
+        media_type="image/jpeg",
         headers={"Cache-Control": "public, max-age=3600"},
     )
 
@@ -672,26 +673,51 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{desc}">
 <meta property="og:image"
-  content="{settings.public_url}/b/{beach.id}/og.png">
+  content="{settings.public_url}/b/{beach.id}/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <style>
   body {{ margin:0; font-family:'Inter',system-ui,sans-serif;
          min-height:100vh;
          background:linear-gradient(160deg,#bcd9e6 0%,#eaf3f7 45%,#d5e9ee 100%);
          display:flex; justify-content:center; padding:24px 16px; }}
+  .page {{ display:flex; flex-direction:column; align-items:center;
+          width:100%; max-width:420px; }}
+  .brand {{ display:flex; align-items:center; gap:10px;
+          margin-bottom:14px; color:#0d3a52; font-weight:700;
+          font-size:15px; }}
+  .brand img {{ width:34px; height:34px; border-radius:8px;
+          box-shadow:0 1px 4px rgba(0,0,0,.25); }}
   .card {{ max-width:420px; width:100%; background:#fff; border-radius:16px;
           overflow:hidden; box-shadow:0 6px 24px rgba(7,43,62,.18);
           align-self:flex-start; }}
-  @media (min-width:720px) {{
+  .side {{ display:none; }}
+  @media (min-width:900px) {{
     body {{ align-items:center; padding:48px 24px; }}
+    .page {{ flex-direction:row; align-items:flex-start;
+            max-width:none; width:auto; gap:44px; }}
+    .brand {{ display:none; }}
     .card {{ max-width:520px;
             box-shadow:0 18px 60px rgba(7,43,62,.30); }}
+    .side {{ display:block; width:300px; padding-top:6px; }}
+    .sbrand {{ display:flex; align-items:center; gap:12px;
+            font-weight:700; font-size:19px; color:#0d3a52; }}
+    .sbrand img {{ width:44px; height:44px; border-radius:11px;
+            box-shadow:0 2px 8px rgba(0,0,0,.3); }}
+    .stag {{ font-size:14px; line-height:1.55; color:#33566b;
+            margin:16px 0; }}
+    .sleg {{ background:rgba(255,255,255,.6);
+            border:1px solid rgba(13,58,82,.12); border-radius:12px;
+            padding:12px 14px; font-size:12px; color:#33566b; }}
+    .sleg div {{ display:flex; align-items:center; gap:9px;
+            margin:5px 0; }}
+    .sleg img {{ width:20px; height:20px; }}
+    .sfoot {{ margin-top:14px; font-size:11px; color:#6d8b9a; }}
   }}
   .head {{ background:{head_bg};
-          color:#fff; padding:18px 20px 14px;
-          display:flex; align-items:center; gap:12px; }}
-  .logo {{ width:38px; height:38px; border-radius:9px;
-          box-shadow:0 1px 4px rgba(0,0,0,.3); }}
+          color:#fff; padding:18px 20px 14px; }}
   .head h1 {{ margin:0; font-size:20px; }}
   .head p {{ margin:4px 0 0; font-size:13px; opacity:.9; }}
   .shotwrap {{ position:relative; }}
@@ -769,11 +795,12 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 </style>
 </head>
 <body>
+<div class="page">
+  <div class="brand">
+    <img src="/icons/app-icon.png" alt="">CheckCoast Tenerife
+  </div>
   <div class="card">
-    <div class="head">
-      <img class="logo" src="/icons/app-icon.png" alt="">
-      <div><h1>{name}</h1><p>{muni} · CheckCoast Tenerife</p></div>
-    </div>
+    <div class="head"><h1>{name}</h1><p>{muni} · CheckCoast Tenerife</p></div>
     <div class="shotwrap">
       <img id="shot" class="shot" src="{imgs[start]}"
         alt="Vista aérea de {name}">
@@ -802,6 +829,28 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
       <p class="src">{foot}</p>
     </div>
   </div>
+  <aside class="side">
+    <div class="sbrand">
+      <img src="/icons/app-icon.png" alt="">CheckCoast Tenerife
+    </div>
+    <p class="stag">El estado oficial de las playas de Tenerife —
+      cierres, avisos y calidad del agua según Náyade (Min. Sanidad) —
+      y los puntos de vertido que hay junto a ellas. Cuando el parte
+      oficial no dice el porqué, la prensa local ayuda a explicarlo.</p>
+    <div class="sleg">
+      <div><img src="/icons/pin-open.png" alt=""> Playa — el color
+        marca su estado</div>
+      <div><img src="/icons/pin-outfall-legal.png" alt=""> Emisario
+        autorizado</div>
+      <div><img src="/icons/pin-outfall-processing.png" alt="">
+        Emisario en trámite</div>
+      <div><img src="/icons/pin-outfall-illegal.png" alt=""> Emisario
+        no autorizado</div>
+    </div>
+    <p class="sfoot">Datos: Náyade / Min. Sanidad · MITECO ·
+      OpenStreetMap · © Esri</p>
+  </aside>
+</div>
 </body>
 <script>
 // intent:// es la forma fiable de abrir apps en Chrome/Android: el
