@@ -912,6 +912,10 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
   .src {{ margin-top:14px; font-size:11px; color:#7a919c; }}
   .noapp {{ display:none; margin-top:8px; font-size:12px;
           color:#8a6d1a; text-align:center; }}
+  .homelink {{ display:block; margin-top:10px; text-align:center;
+          font-size:12px; color:#075276; font-weight:600;
+          text-decoration:none; }}
+  .homelink:hover {{ text-decoration:underline; }}
 </style>
 </head>
 <body>
@@ -951,6 +955,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         Abrir en la app</a>
       <p id="noapp" class="noapp">Si no se abrió, aún no tienes la app
         instalada.</p>
+      <a class="homelink" href="/">← Todas las playas</a>
       <p class="src">{foot}</p>
     </div>
   </div>
@@ -1038,7 +1043,21 @@ zoom(0);
 
 
 # Encuadre de Tenerife entera para la portada (centro aprox. de la isla)
-_ISLAND = (-16.55, 28.30, 0.42, 0.30)
+_ISLAND = (-16.55, 28.30, 0.44, 0.31)
+
+
+def _shot_url_fit(lon: float, lat: float, dlon: float, dlat: float,
+                  w: int) -> str:
+    """_shot_url con alto proporcional al bbox. Esri expande el bbox
+    cuando su ratio no coincide con size — eso descuadraba los puntos
+    del mapa de la isla respecto a la costa."""
+    h = round(w * dlat / dlon)
+    return (
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        f"World_Imagery/MapServer/export?bbox={lon - dlon},"
+        f"{lat - dlat},{lon + dlon},{lat + dlat}"
+        f"&bboxSR=4326&imageSR=4326&size={w},{h}&format=png&f=image"
+    )
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -1163,7 +1182,7 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
         if cards else ""
     )
 
-    island_url = _shot_url(clon, clat, dlon, dlat)
+    island_url = _shot_url_fit(clon, clat, dlon, dlat, 920)
     page = f"""<!doctype html>
 <html lang="es">
 <head>
@@ -1190,7 +1209,7 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
          background:linear-gradient(160deg,
            rgba(7,43,62,.62),rgba(7,82,118,.42)); }}
   .page {{ width:100%; max-width:480px; }}
-  @media (min-width:900px) {{ .page {{ max-width:560px; }} }}
+  @media (min-width:900px) {{ .page {{ max-width:880px; }} }}
   .brand {{ display:flex; align-items:center; gap:10px; color:#fff;
           font-weight:700; font-size:19px; letter-spacing:.2px;
           text-shadow:0 1px 4px rgba(0,0,0,.4); }}
@@ -1227,6 +1246,16 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
           font-weight:600; }}
   .sal:hover b {{ color:#075276; }}
   .sal span {{ font-size:10.5px; color:#7a919c; }}
+  .cols2 {{ margin-top:16px; }}
+  .cols2 .sleg {{ margin-top:0; }}
+  @media (min-width:900px) {{
+    .abox {{ display:grid; grid-template-columns:1fr 1fr;
+            gap:0 24px; }}
+    .bgrid {{ grid-template-columns:repeat(4,1fr) !important; }}
+    .cols2 {{ display:grid; grid-template-columns:1fr 1fr;
+             gap:8px 28px; align-items:start; }}
+    .cols2 > div {{ min-width:0; }}
+  }}
   .bgrid {{ display:grid; grid-template-columns:1fr 1fr; gap:10px;
           margin-top:10px; }}
   .bc {{ text-decoration:none; border-radius:12px; overflow:hidden;
@@ -1284,34 +1313,40 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
     <div class="ibody">
       {alerts_block}
       {examples_block}
-      <div class="sec steps">Cómo funciona</div>
-      <div class="step"><div class="stepn">1</div><div>
-        <b>Náyade / Sanidad</b>
-        <span>Estado oficial, cierres y analíticas del agua cada hora.</span>
-      </div></div>
-      <div class="step"><div class="stepn">2</div><div>
-        <b>Prensa local</b>
-        <span>El porqué de los cierres, etiquetado «según prensa» —
-          y ahora también avisa por push.</span>
-      </div></div>
-      <div class="step"><div class="stepn">3</div><div>
-        <b>Emisarios</b>
-        <span>Los 180 vertidos del censo costero con su situación legal,
-          junto a cada playa.</span>
-      </div></div>
-      <div class="sleg">
-        <div><img src="/icons/pin-open.png" alt=""> Playa — el color
-          marca su estado</div>
-        <div><img src="/icons/pin-outfall-legal.png" alt=""> Emisario
-          autorizado</div>
-        <div><img src="/icons/pin-outfall-processing.png" alt="">
-          Emisario en trámite</div>
-        <div><img src="/icons/pin-outfall-illegal.png" alt=""> Emisario
-          no autorizado</div>
+      <div class="cols2">
+        <div>
+          <div class="sec">Cómo funciona</div>
+          <div class="step"><div class="stepn">1</div><div>
+            <b>Náyade / Sanidad</b>
+            <span>Estado oficial, cierres y analíticas del agua cada hora.</span>
+          </div></div>
+          <div class="step"><div class="stepn">2</div><div>
+            <b>Prensa local</b>
+            <span>El porqué de los cierres, etiquetado «según prensa» —
+              y ahora también avisa por push.</span>
+          </div></div>
+          <div class="step"><div class="stepn">3</div><div>
+            <b>Emisarios</b>
+            <span>Los 180 vertidos del censo costero con su situación legal,
+              junto a cada playa.</span>
+          </div></div>
+        </div>
+        <div>
+          <div class="sleg">
+            <div><img src="/icons/pin-open.png" alt=""> Playa — el color
+              marca su estado</div>
+            <div><img src="/icons/pin-outfall-legal.png" alt=""> Emisario
+              autorizado</div>
+            <div><img src="/icons/pin-outfall-processing.png" alt="">
+              Emisario en trámite</div>
+            <div><img src="/icons/pin-outfall-illegal.png" alt=""> Emisario
+              no autorizado</div>
+          </div>
+          <p class="src">App gratuita para Android · notificaciones push
+            al cerrar o reabrir una playa · Datos: Náyade / Min. Sanidad ·
+            MITECO · OpenStreetMap · © Esri</p>
+        </div>
       </div>
-      <p class="src">App gratuita para Android · notificaciones push
-        al cerrar o reabrir una playa · Datos: Náyade / Min. Sanidad ·
-        MITECO · OpenStreetMap · © Esri</p>
     </div>
   </div>
   <p class="foot">CheckCoast Tenerife · proyecto cívico de datos
