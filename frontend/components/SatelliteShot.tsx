@@ -20,12 +20,13 @@ export type ShotMarker = {
 };
 
 // Foto satélite estática del punto (Esri World Imagery, mismo servicio
-// que la vista satélite del mapa). Dos encuadres: cerca (~1,2 km x
-// 750 m) y contexto (x2,5) para ver emisarios/playas a varios cientos
-// de metros
+// que la vista satélite del mapa). Tres encuadres: muy cerca (x0,5 —
+// detalle de la arena/el espigón), cerca (~1,2 km x 750 m) y contexto
+// (x2,5) para ver emisarios/playas a varios cientos de metros
 const BASE_DLON = 0.006;
 const BASE_DLAT = 0.0033;
-const FAR_SCALE = 2.5;
+const LEVELS = [0.5, 1, 2.5];
+const START_LEVEL = 1;
 const MAX_MARKERS = 14;
 
 const shotUrl = (lon: number, lat: number, scale: number) => {
@@ -56,19 +57,19 @@ export default function SatelliteShot({
   onPress?: () => void;
 }) {
   const [lon, lat] = center;
-  const [far, setFar] = useState(false);
+  const [level, setLevel] = useState(START_LEVEL);
   // Uri ya cargada: el skeleton solo tapa la foto si la actual aún no
-  // llegó (la alejada se prefetcha al cargar la cercana → zoom instantáneo)
+  // llegó (los demás niveles se prefetchan → zoom instantáneo)
   const [loadedUri, setLoadedUri] = useState<string | null>(null);
-  const uri = shotUrl(lon, lat, far ? FAR_SCALE : 1);
+  const uri = shotUrl(lon, lat, LEVELS[level]);
 
   useEffect(() => {
-    setFar(false);
+    setLevel(START_LEVEL);
     setLoadedUri(null);
   }, [lon, lat]);
 
-  const dLon = BASE_DLON * (far ? FAR_SCALE : 1);
-  const dLat = BASE_DLAT * (far ? FAR_SCALE : 1);
+  const dLon = BASE_DLON * LEVELS[level];
+  const dLat = BASE_DLAT * LEVELS[level];
 
   // Marcadores dentro del encuadre actual: lon/lat → % del contenedor.
   // Ordenados por cercanía al centro, con tope para no saturar zonas
@@ -105,8 +106,11 @@ export default function SatelliteShot({
         accessibilityLabel="Vista satélite de la zona"
         onLoad={() => {
           setLoadedUri(uri);
-          // Prefetch del encuadre alejado para que el botón − sea instantáneo
-          if (!far) Image.prefetch(shotUrl(lon, lat, FAR_SCALE)).catch(() => {});
+          // Prefetch del resto de niveles para que ± sea instantáneo
+          LEVELS.forEach((s, i) => {
+            if (i !== level)
+              Image.prefetch(shotUrl(lon, lat, s)).catch(() => {});
+          });
         }}
       />
 
@@ -135,26 +139,40 @@ export default function SatelliteShot({
 
       <View style={styles.zoomCol}>
         <Pressable
-          onPress={() => setFar(false)}
-          disabled={!far}
+          onPress={() => setLevel((l) => l - 1)}
+          disabled={level === 0}
           hitSlop={6}
-          style={[styles.zoomBtn, !far && styles.zoomBtnOff]}
+          style={[styles.zoomBtn, level === 0 && styles.zoomBtnOff]}
           accessibilityRole="button"
           accessibilityLabel="Acercar vista satélite"
-          accessibilityState={{ disabled: !far }}
+          accessibilityState={{ disabled: level === 0 }}
         >
-          <Text style={[styles.zoomText, !far && styles.zoomTextOff]}>+</Text>
+          <Text
+            style={[styles.zoomText, level === 0 && styles.zoomTextOff]}
+          >
+            +
+          </Text>
         </Pressable>
         <Pressable
-          onPress={() => setFar(true)}
-          disabled={far}
+          onPress={() => setLevel((l) => l + 1)}
+          disabled={level === LEVELS.length - 1}
           hitSlop={6}
-          style={[styles.zoomBtn, far && styles.zoomBtnOff]}
+          style={[
+            styles.zoomBtn,
+            level === LEVELS.length - 1 && styles.zoomBtnOff,
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Alejar vista satélite"
-          accessibilityState={{ disabled: far }}
+          accessibilityState={{ disabled: level === LEVELS.length - 1 }}
         >
-          <Text style={[styles.zoomText, far && styles.zoomTextOff]}>−</Text>
+          <Text
+            style={[
+              styles.zoomText,
+              level === LEVELS.length - 1 && styles.zoomTextOff,
+            ]}
+          >
+            −
+          </Text>
         </Pressable>
         {onPress && (
           <Pressable
