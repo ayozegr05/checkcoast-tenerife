@@ -801,7 +801,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
   .odot {{ position:absolute; width:24px;
           transform:translate(-50%,-95%);
           filter:drop-shadow(0 1px 3px rgba(0,0,0,.5)); }}
-  .zoom {{ position:absolute; top:8px; right:8px; display:flex;
+  .zoom {{ position:absolute; top:30px; right:8px; display:flex;
           flex-direction:column; border-radius:8px; overflow:hidden;
           box-shadow:0 1px 4px rgba(0,0,0,.35); }}
   .zbtn {{ border:0; background:rgba(255,255,255,.92); color:#0d3a52;
