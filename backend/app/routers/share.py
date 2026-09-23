@@ -455,6 +455,11 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         "closed": "linear-gradient(180deg,#7a1f1f,#c62828)",
         "warning": "linear-gradient(180deg,#8a3c00,#e65100)",
     }.get(state, "linear-gradient(180deg,#075276,#17b8ce)")
+    # La ola que separa cabecera y foto sigue el color final del
+    # degradado del header
+    wave_c = {"closed": "#c62828", "warning": "#e65100"}.get(
+        state, "#17b8ce"
+    )
     title = f"{name} · {muni}"
     urls = [_shot_url(lon, lat, *d) for d in _SHOT_LEVELS]
     # En atributos HTML & va escapado como &amp;; en el JS va en crudo
@@ -711,19 +716,26 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 <style>
   body {{ margin:0; font-family:'Inter',system-ui,sans-serif;
          min-height:100vh;
-         background:
-          radial-gradient(900px 480px at 88% -5%,rgba(23,184,206,.22),transparent 60%),
-          radial-gradient(720px 420px at 6% 104%,rgba(13,148,136,.16),transparent 62%),
-          linear-gradient(160deg,#bcd9e6 0%,#eaf3f7 45%,#d5e9ee 100%);
+         background:linear-gradient(160deg,#0d3a52,#075276);
          display:flex; justify-content:center; padding:24px 16px; }}
+  /* Fondo = la misma foto satélite de la card, difuminada: cero
+     peticiones extra (la URL ya está cacheada) y cada playa
+     "ambienta" su landing con su costa real */
+  body::before {{ content:''; position:fixed; inset:-70px; z-index:-2;
+         background:url("{urls[start]}") center/cover no-repeat;
+         filter:blur(30px) brightness(.8) saturate(1.15); }}
+  body::after {{ content:''; position:fixed; inset:0; z-index:-1;
+         background:linear-gradient(160deg,
+           rgba(7,43,62,.62),rgba(7,82,118,.42)); }}
   .page {{ display:flex; flex-direction:column; align-items:center;
           width:100%; max-width:420px; }}
   .brand {{ display:flex; align-items:center; gap:10px;
-          margin-bottom:14px; color:#0d3a52; font-weight:700;
-          font-size:17px; letter-spacing:.2px; }}
+          margin-bottom:14px; color:#fff; font-weight:700;
+          font-size:17px; letter-spacing:.2px;
+          text-shadow:0 1px 4px rgba(0,0,0,.4); }}
   .brand img {{ width:38px; height:38px; border-radius:9px;
           box-shadow:0 1px 4px rgba(0,0,0,.25); }}
-  .tfe {{ font-weight:400; color:#4a7a94; }}
+  .tfe {{ font-weight:400; color:#a8d4e0; }}
   .card {{ max-width:420px; width:100%; background:#fff; border-radius:16px;
           overflow:hidden; box-shadow:0 6px 24px rgba(7,43,62,.18);
           align-self:flex-start; }}
@@ -737,31 +749,51 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
             box-shadow:0 18px 60px rgba(7,43,62,.30); }}
     .side {{ display:block; width:300px; padding-top:6px; }}
     .sbrand {{ display:flex; align-items:center; gap:12px;
-            font-weight:700; font-size:22px; color:#0d3a52;
-            letter-spacing:.2px; }}
+            font-weight:700; font-size:22px; color:#fff;
+            letter-spacing:.2px; text-shadow:0 1px 4px rgba(0,0,0,.4); }}
     .sbrand img {{ width:50px; height:50px; border-radius:12px;
             box-shadow:0 2px 8px rgba(0,0,0,.3); }}
-    .sstat {{ margin-top:4px; background:rgba(255,255,255,.75);
-            border:1px solid rgba(13,58,82,.12); border-radius:12px;
+    .sstat {{ margin-top:4px; background:rgba(255,255,255,.9);
+            border:1px solid rgba(255,255,255,.25); border-radius:12px;
             padding:10px 14px; font-size:13px; color:#0d3a52; }}
     .sstat b {{ color:#075276; }}
     .sstat .sl {{ font-size:11px; color:#6d8b9a; font-weight:600;
             text-transform:uppercase; letter-spacing:.4px; }}
-    .stag {{ font-size:14px; line-height:1.55; color:#33566b;
-            margin:16px 0; }}
-    .sleg {{ background:rgba(255,255,255,.6);
-            border:1px solid rgba(13,58,82,.12); border-radius:12px;
+    .stag {{ font-size:14px; line-height:1.55; color:#dcebf2;
+            margin:16px 0; text-shadow:0 1px 3px rgba(0,0,0,.35); }}
+    .sleg {{ background:rgba(255,255,255,.88);
+            border:1px solid rgba(255,255,255,.25); border-radius:12px;
             padding:12px 14px; font-size:12px; color:#33566b; }}
     .sleg div {{ display:flex; align-items:center; gap:9px;
             margin:5px 0; }}
     .sleg img {{ width:20px; height:20px; }}
-    .sfoot {{ margin-top:14px; font-size:11px; color:#6d8b9a; }}
+    /* Mockup de la app: marco de teléfono CSS con la misma foto
+       satélite y su pin — vende la descarga sin assets nuevos */
+    .sphone {{ margin-top:18px; width:152px; border-radius:24px;
+            border:6px solid #0d3a52; overflow:hidden;
+            position:relative; background:#0d3a52;
+            box-shadow:0 10px 30px rgba(7,43,62,.35); }}
+    .sphone::before {{ content:''; position:absolute; top:5px;
+            left:50%; transform:translateX(-50%); width:46px;
+            height:5px; border-radius:3px; background:#0d3a52;
+            z-index:2; }}
+    .sphone .spshot {{ display:block; width:100%; height:190px;
+            object-fit:cover; }}
+    .sphone .sppin {{ position:absolute; left:50%; top:46%;
+            width:28px; transform:translate(-50%,-92%);
+            filter:drop-shadow(0 2px 4px rgba(0,0,0,.5)); }}
+    .spcap {{ margin-top:7px; font-size:11px; color:#a8c4d2; }}
+    .sfoot {{ margin-top:14px; font-size:11px; color:#a8c4d2; }}
   }}
   .head {{ background:{head_bg};
           color:#fff; padding:18px 20px 14px; }}
   .head h1 {{ margin:0; font-size:20px; }}
   .head p {{ margin:4px 0 0; font-size:13px; opacity:.9; }}
   .shotwrap {{ position:relative; }}
+  /* Ola divisoria: la cabecera teñida "cae" sobre la foto con curva
+     en vez de corte recto — el fill sigue el color final del header */
+  .wave {{ position:absolute; top:0; left:0; width:100%; height:22px;
+          z-index:2; display:block; }}
   .shot {{ display:block; width:100%; height:auto; }}
   .pin {{ position:absolute; left:50%; top:50%; width:42px;
           transform:translate(-50%,-92%);
@@ -847,6 +879,10 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
   <div class="card">
     <div class="head"><h1>{name}</h1><p>{muni}</p></div>
     <div class="shotwrap">
+      <svg class="wave" viewBox="0 0 420 24" preserveAspectRatio="none"
+        aria-hidden="true"><path fill="{wave_c}"
+        d="M0,0 L420,0 L420,7 C365,20 305,3 215,11 C140,18 70,7 0,15 Z"/>
+      </svg>
       <img id="shot" class="shot" src="{imgs[start]}"
         alt="Vista aérea de {name}">
       {dots_spans}
@@ -897,6 +933,12 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
       <div><img src="/icons/pin-outfall-illegal.png" alt=""> Emisario
         no autorizado</div>
     </div>
+    <div class="sphone">
+      <img class="spshot" src="{imgs[start]}" alt="">
+      <img class="sppin" src="/icons/{_PIN.get(state, _PIN['unknown'])}.png"
+        alt="">
+    </div>
+    <p class="spcap">Así se ve en la app</p>
     <p class="sfoot">App gratuita para Android · Datos: Náyade /
       Min. Sanidad · MITECO · OpenStreetMap · © Esri</p>
   </aside>

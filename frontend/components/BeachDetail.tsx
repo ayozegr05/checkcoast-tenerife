@@ -380,6 +380,86 @@ export default function BeachDetail({
     Share.share({ message: lines.join('\n') }).catch(() => {});
   };
 
+  // Con cierre activo el "por qué" es lo primero que importa:
+  // el banner de prensa sube bajo el chip, como en la landing /b/{id}
+  const alertActive = beachKey === 'closed';
+  const pressBanner = news !== null && news.items.length > 0 && (
+    <View style={styles.pressBanner}>
+      <Text style={styles.pressBannerText}>
+        {
+          pressSummary(news.summary, {
+            stillClosed: pressStillClosed,
+            reopenedAt: pressReopenedAt,
+          }).main
+        }
+      </Text>
+      <Text style={styles.pressBannerSub}>
+        {
+          pressSummary(news.summary, {
+            stillClosed: pressStillClosed,
+            reopenedAt: pressReopenedAt,
+          }).sub
+        }
+      </Text>
+      <Pressable
+        onPress={() => setNewsOpen((v) => !v)}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={
+          newsOpen
+            ? 'Ocultar titulares de prensa'
+            : `Ver ${news.summary.items_count} titulares de prensa`
+        }
+      >
+        <Text style={styles.newsToggle}>
+          {newsOpen
+            ? 'Ocultar titulares ▴'
+            : `Ver titulares (${news.summary.items_count}) ▾`}
+        </Text>
+      </Pressable>
+      {newsOpen && (
+        <>
+          {newsGroups.map((g) => (
+            <View key={g.label} style={styles.newsGroup}>
+              <Text style={styles.newsGroupTitle}>{g.label}</Text>
+              {g.items.map((n) => (
+                <Pressable
+                  key={n.id}
+                  style={styles.newsRow}
+                  onPress={() =>
+                    Linking.openURL(n.url).catch(() => {})
+                  }
+                  accessibilityRole="link"
+                  accessibilityLabel={`Noticia: ${n.title}`}
+                >
+                  <View style={styles.newsRowBody}>
+                    <Text style={styles.newsTitle} numberOfLines={2}>
+                      {n.title}
+                    </Text>
+                    <Text style={styles.newsMeta} numberOfLines={1}>
+                      {[
+                        n.source,
+                        n.published_at
+                          ? fmtDate(n.published_at.slice(0, 10))
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                  </View>
+                  <Text style={styles.newsChevron}>›</Text>
+                </Pressable>
+              ))}
+            </View>
+          ))}
+          <Text style={styles.chartFoot}>
+            Contexto de prensa: no altera el estado oficial (Náyade)
+          </Text>
+        </>
+      )}
+    </View>
+  );
+
   return (
     <View>
       {/* Vista satélite del entorno: la playa en el centro y los
@@ -410,6 +490,8 @@ export default function BeachDetail({
           <Text style={styles.shareText}>Compartir</Text>
         </Pressable>
       </View>
+
+      {alertActive && pressBanner}
 
       {nearby !== null && nearby.length > 0 && (
         <View style={styles.nearbyTop}>
@@ -454,84 +536,9 @@ export default function BeachDetail({
         </View>
       )}
 
-      {/* "¿Por qué?" según prensa: aviso compacto con los titulares
-          plegados — solo se expanden a petición del usuario */}
-      {news !== null && news.items.length > 0 && (
-        <View style={styles.pressBanner}>
-          <Text style={styles.pressBannerText}>
-            {
-              pressSummary(news.summary, {
-                stillClosed: pressStillClosed,
-                reopenedAt: pressReopenedAt,
-              }).main
-            }
-          </Text>
-          <Text style={styles.pressBannerSub}>
-            {
-              pressSummary(news.summary, {
-                stillClosed: pressStillClosed,
-                reopenedAt: pressReopenedAt,
-              }).sub
-            }
-          </Text>
-          <Pressable
-            onPress={() => setNewsOpen((v) => !v)}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={
-              newsOpen
-                ? 'Ocultar titulares de prensa'
-                : `Ver ${news.summary.items_count} titulares de prensa`
-            }
-          >
-            <Text style={styles.newsToggle}>
-              {newsOpen
-                ? 'Ocultar titulares ▴'
-                : `Ver titulares (${news.summary.items_count}) ▾`}
-            </Text>
-          </Pressable>
-          {newsOpen && (
-            <>
-              {newsGroups.map((g) => (
-                <View key={g.label} style={styles.newsGroup}>
-                  <Text style={styles.newsGroupTitle}>{g.label}</Text>
-                  {g.items.map((n) => (
-                    <Pressable
-                      key={n.id}
-                      style={styles.newsRow}
-                      onPress={() =>
-                        Linking.openURL(n.url).catch(() => {})
-                      }
-                      accessibilityRole="link"
-                      accessibilityLabel={`Noticia: ${n.title}`}
-                    >
-                      <View style={styles.newsRowBody}>
-                        <Text style={styles.newsTitle} numberOfLines={2}>
-                          {n.title}
-                        </Text>
-                        <Text style={styles.newsMeta} numberOfLines={1}>
-                          {[
-                            n.source,
-                            n.published_at
-                              ? fmtDate(n.published_at.slice(0, 10))
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </Text>
-                      </View>
-                      <Text style={styles.newsChevron}>›</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ))}
-              <Text style={styles.chartFoot}>
-                Contexto de prensa: no altera el estado oficial (Náyade)
-              </Text>
-            </>
-          )}
-        </View>
-      )}
+      {/* Sin alerta activa la prensa queda en su sitio: contexto
+          histórico bajo los datos oficiales */}
+      {!alertActive && pressBanner}
 
       {incidents !== null && incidents.length > 0 && (
         <View style={styles.history}>
