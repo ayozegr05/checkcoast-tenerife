@@ -1035,3 +1035,291 @@ zoom(0);
         content=page,
         headers={"Cache-Control": "no-cache"},
     )
+
+
+# Encuadre de Tenerife entera para la portada (centro aprox. de la isla)
+_ISLAND = (-16.55, 28.30, 0.42, 0.30)
+
+
+@router.get("/", response_class=HTMLResponse)
+def home(db: Session = Depends(get_db)) -> HTMLResponse:
+    """Portada del proyecto: la puerta de entrada pública.
+
+    Hero + mapa vivo de la isla + alertas reales + playas de ejemplo
+    enlazables a su /b/{id} — la demo completa sin instalar nada."""
+    from app.routers.alerts import list_alerts
+
+    status_counts = {
+        (k.value if hasattr(k, "value") else k): v
+        for k, v in db.query(BeachStatus.status, func.count())
+        .group_by(BeachStatus.status)
+        .all()
+    }
+    total_beaches = db.query(func.count(Beach.id)).scalar()
+    island_alerts = list_alerts(db)
+    alert_state = {a.beach_id: a.status for a in island_alerts}
+
+    # Puntos del mapa isla: cada playa con su estado (oficial; las
+    # alertas vivas — incluidas las de prensa — pisan al oficial para
+    # que el mapa cuente lo mismo que la lista de alertas)
+    all_beaches = (
+        beaches_with_latest_status(db)
+        .add_columns(
+            func.ST_X(Beach.geom).label("lon"),
+            func.ST_Y(Beach.geom).label("lat"),
+        )
+        .all()
+    )
+    clon, clat, dlon, dlat = _ISLAND
+    dots = ""
+    for beach, status, lon, lat in all_beaches:
+        if lon is None:
+            continue
+        st = alert_state.get(
+            beach.id, status.status.value if status else "unknown"
+        )
+        x, y = _px(lon, lat, clon, clat, dlon, dlat)
+        if 0 <= x <= 100 and 0 <= y <= 100:
+            dots += (
+                f'<i class="mdot" style="left:{x:.1f}%;top:{y:.1f}%;'
+                f'background:{_STATUS.get(st, _STATUS["unknown"])[1]}"'
+                f' title="{html.escape(_display_name(beach.name))}"></i>'
+            )
+
+    # Alertas vivas (misma lista que el panel lateral de /b/)
+    alert_rows = ""
+    now = datetime.now(timezone.utc)
+    for a in island_alerts[:5]:
+        rep = a.reported_at
+        if rep is not None and rep.tzinfo is None:
+            rep = rep.replace(tzinfo=timezone.utc)
+        days = (now - rep).days if rep else 0
+        ago = "hoy" if days == 0 else "ayer" if days == 1 else f"hace {days} días"
+        via = "según prensa" if a.via == "press" else "oficial"
+        acolor = _STATUS.get(a.status, _STATUS["unknown"])[1]
+        aword = "cerrada" if a.status == "closed" else "aviso"
+        alert_rows += (
+            f'<a class="sal" href="/b/{a.beach_id}">'
+            f'<i style="background:{acolor}"></i><div>'
+            f"<b>{html.escape(_display_name(a.beach_name))}</b>"
+            f"<span>{aword} · {ago} · {via} · "
+            f'{html.escape(a.municipality or "")}</span></div></a>'
+        )
+    alerts_block = (
+        f'<div class="sec">Alertas activas en la isla</div>'
+        f'<div class="abox">{alert_rows}</div>'
+        if alert_rows else ""
+    )
+
+    # Playas de ejemplo: las alertas actuales + las monitorizadas con
+    # más analíticas (su landing enseña la gráfica histórica)
+    example_ids = [a.beach_id for a in island_alerts[:3]]
+    fillers = (
+        db.query(BeachMeasurement.beach_id, func.count().label("n"))
+        .group_by(BeachMeasurement.beach_id)
+        .order_by(func.count().desc())
+        .limit(6)
+        .all()
+    )
+    for f in fillers:
+        if len(example_ids) >= 4:
+            break
+        if f.beach_id not in example_ids:
+            example_ids.append(f.beach_id)
+
+    cards = ""
+    ex_rows = {
+        b.id: (b, st, lon, lat)
+        for b, st, lon, lat in all_beaches
+        if b.id in example_ids
+    }
+    for bid in example_ids:
+        row = ex_rows.get(bid)
+        if not row:
+            continue
+        b, st, lon, lat = row
+        state = alert_state.get(bid, st.status.value if st else "unknown")
+        lbl, col = _STATUS.get(state, _STATUS["unknown"])
+        alert = next(
+            (a for a in island_alerts if a.beach_id == bid), None
+        )
+        via = (
+            ' · <span class="bcvia">según prensa</span>'
+            if alert and alert.via == "press" else ""
+        )
+        thumb = _shot_url(lon, lat, 0.006, 0.0033)
+        cards += (
+            f'<a class="bc" href="/b/{bid}">'
+            f'<div class="bimg" style="background-image:url(\'{html.escape(thumb)}\')">'
+            f'<span class="bcchip" style="background:{col}">{lbl}</span>'
+            f"</div>"
+            f'<div class="bcname">{html.escape(_display_name(b.name))}</div>'
+            f'<div class="bcmuni">{html.escape(b.municipality or "")}{via}</div>'
+            f"</a>"
+        )
+    examples_block = (
+        f'<div class="sec">Explora una playa</div>'
+        f'<div class="bgrid">{cards}</div>'
+        if cards else ""
+    )
+
+    island_url = _shot_url(clon, clat, dlon, dlat)
+    page = f"""<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CheckCoast Tenerife — ¿Puedes bañarte hoy?</title>
+<link rel="icon" type="image/png" href="/icons/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CheckCoast Tenerife">
+<meta property="og:title" content="CheckCoast Tenerife">
+<meta property="og:description" content="El estado oficial de cada playa de Tenerife — y el porqué cuando el parte no lo dice.">
+<meta property="og:image" content="{html.escape(island_url)}">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  body {{ margin:0; font-family:'Inter',system-ui,sans-serif;
+         min-height:100vh; display:flex; justify-content:center;
+         padding:24px 16px; }}
+  body::before {{ content:''; position:fixed; inset:-70px; z-index:-2;
+         background:url("{island_url}") center/cover no-repeat;
+         filter:blur(30px) brightness(.8) saturate(1.15); }}
+  body::after {{ content:''; position:fixed; inset:0; z-index:-1;
+         background:linear-gradient(160deg,
+           rgba(7,43,62,.62),rgba(7,82,118,.42)); }}
+  .page {{ width:100%; max-width:480px; }}
+  @media (min-width:900px) {{ .page {{ max-width:560px; }} }}
+  .brand {{ display:flex; align-items:center; gap:10px; color:#fff;
+          font-weight:700; font-size:19px; letter-spacing:.2px;
+          text-shadow:0 1px 4px rgba(0,0,0,.4); }}
+  .brand img {{ width:42px; height:42px; border-radius:10px;
+          box-shadow:0 2px 6px rgba(0,0,0,.3); }}
+  .tfe {{ font-weight:400; color:#a8d4e0; }}
+  .hero {{ color:#fff; margin:18px 0 16px;
+          text-shadow:0 1px 4px rgba(0,0,0,.4); }}
+  .hero h1 {{ margin:0; font-size:26px; line-height:1.2; }}
+  .hero p {{ margin:8px 0 0; font-size:14px; line-height:1.5;
+          color:#dcebf2; }}
+  .stat {{ background:rgba(255,255,255,.92); border-radius:12px;
+          padding:10px 14px; font-size:13px; color:#0d3a52;
+          margin-bottom:14px; }}
+  .stat b {{ color:#075276; }}
+  .stat .sl {{ font-size:11px; color:#6d8b9a; font-weight:600;
+          text-transform:uppercase; letter-spacing:.4px; }}
+  .card {{ background:#fff; border-radius:16px; overflow:hidden;
+          box-shadow:0 18px 60px rgba(7,43,62,.30); }}
+  .imap {{ position:relative; }}
+  .imap img {{ display:block; width:100%; height:auto; }}
+  .mdot {{ position:absolute; width:8px; height:8px; border-radius:50%;
+          border:1.5px solid rgba(255,255,255,.9);
+          transform:translate(-50%,-50%);
+          box-shadow:0 1px 3px rgba(0,0,0,.45); }}
+  .ibody {{ padding:16px 20px 20px; }}
+  .sec {{ margin-top:4px; font-size:13px; font-weight:700;
+          color:#0d3a52; }}
+  .abox {{ margin-top:8px; }}
+  .sal {{ display:flex; align-items:center; gap:9px; margin-top:9px;
+          text-decoration:none; }}
+  .sal i {{ flex:none; width:9px; height:9px; border-radius:50%; }}
+  .sal b {{ display:block; font-size:12px; color:#0d3a52;
+          font-weight:600; }}
+  .sal:hover b {{ color:#075276; }}
+  .sal span {{ font-size:10.5px; color:#7a919c; }}
+  .bgrid {{ display:grid; grid-template-columns:1fr 1fr; gap:10px;
+          margin-top:10px; }}
+  .bc {{ text-decoration:none; border-radius:12px; overflow:hidden;
+          background:#f4f9fb; border:1px solid #e2edf2; }}
+  .bc:hover {{ border-color:#17b8ce; }}
+  .bimg {{ position:relative; height:86px; background-size:cover;
+          background-position:center; }}
+  .bcchip {{ position:absolute; left:8px; bottom:8px; color:#fff;
+          font-size:10px; font-weight:700; border-radius:999px;
+          padding:3px 9px; }}
+  .bcname {{ font-size:12.5px; font-weight:700; color:#0d3a52;
+          padding:8px 10px 0; }}
+  .bcmuni {{ font-size:10.5px; color:#7a919c; padding:1px 10px 9px; }}
+  .bcvia {{ color:#8a6d1a; font-weight:600; }}
+  .steps {{ margin-top:16px; }}
+  .step {{ display:flex; gap:10px; margin-top:10px;
+          align-items:flex-start; }}
+  .stepn {{ flex:none; width:20px; height:20px; border-radius:50%;
+          background:#075276; color:#fff; font-size:11px;
+          font-weight:700; display:flex; align-items:center;
+          justify-content:center; margin-top:1px; }}
+  .step b {{ font-size:12.5px; color:#0d3a52; }}
+  .step span {{ display:block; font-size:11.5px; color:#5b7a8a;
+          margin-top:1px; }}
+  .sleg {{ margin-top:16px; background:#f4f9fb; border-radius:12px;
+          padding:12px 14px; font-size:12px; color:#33566b; }}
+  .sleg div {{ display:flex; align-items:center; gap:9px;
+          margin:5px 0; }}
+  .sleg img {{ width:20px; height:20px; }}
+  .src {{ margin-top:14px; font-size:11px; color:#7a919c; }}
+  .foot {{ margin:14px 4px 0; font-size:11px; color:#a8c4d2;
+          text-align:center; }}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="brand">
+    <img src="/icons/app-icon.png" alt="">CheckCoast
+    <span class="tfe">Tenerife</span>
+  </div>
+  <div class="hero">
+    <h1>¿Puedes bañarte hoy?</h1>
+    <p>El estado oficial de cada playa de Tenerife — y el porqué
+      cuando el parte no lo dice.</p>
+  </div>
+  <div class="stat"><div class="sl">Ahora mismo en Tenerife</div>
+    <b>{status_counts.get('closed', 0)}</b> cerradas ·
+    <b>{status_counts.get('warning', 0)}</b> con aviso ·
+    <b>{total_beaches}</b> playas mapeadas</div>
+  <div class="card">
+    <div class="imap">
+      <img src="{html.escape(island_url)}" alt="Tenerife">
+      {dots}
+    </div>
+    <div class="ibody">
+      {alerts_block}
+      {examples_block}
+      <div class="sec steps">Cómo funciona</div>
+      <div class="step"><div class="stepn">1</div><div>
+        <b>Náyade / Sanidad</b>
+        <span>Estado oficial, cierres y analíticas del agua cada hora.</span>
+      </div></div>
+      <div class="step"><div class="stepn">2</div><div>
+        <b>Prensa local</b>
+        <span>El porqué de los cierres, etiquetado «según prensa» —
+          y ahora también avisa por push.</span>
+      </div></div>
+      <div class="step"><div class="stepn">3</div><div>
+        <b>Emisarios</b>
+        <span>Los 180 vertidos del censo costero con su situación legal,
+          junto a cada playa.</span>
+      </div></div>
+      <div class="sleg">
+        <div><img src="/icons/pin-open.png" alt=""> Playa — el color
+          marca su estado</div>
+        <div><img src="/icons/pin-outfall-legal.png" alt=""> Emisario
+          autorizado</div>
+        <div><img src="/icons/pin-outfall-processing.png" alt="">
+          Emisario en trámite</div>
+        <div><img src="/icons/pin-outfall-illegal.png" alt=""> Emisario
+          no autorizado</div>
+      </div>
+      <p class="src">App gratuita para Android · notificaciones push
+        al cerrar o reabrir una playa · Datos: Náyade / Min. Sanidad ·
+        MITECO · OpenStreetMap · © Esri</p>
+    </div>
+  </div>
+  <p class="foot">CheckCoast Tenerife · proyecto cívico de datos
+    abiertos</p>
+</div>
+</body>
+</html>"""
+    return HTMLResponse(
+        content=page,
+        headers={"Cache-Control": "no-cache"},
+    )
