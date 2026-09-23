@@ -766,7 +766,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
             text-transform:uppercase; letter-spacing:.4px; }}
     .stag {{ font-size:14px; line-height:1.55; color:#dcebf2;
             margin:16px 0; text-shadow:0 1px 3px rgba(0,0,0,.35); }}
-    .sleg {{ background:rgba(255,255,255,.88);
+    .sleg {{ margin-top:12px; background:rgba(255,255,255,.88);
             border:1px solid rgba(255,255,255,.25); border-radius:12px;
             padding:12px 14px; font-size:12px; color:#33566b; }}
     .sleg div {{ display:flex; align-items:center; gap:9px;
@@ -832,8 +832,10 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
           border-radius:10px; padding:10px 12px; }}
   /* El banner de aviso (arriba) se tiñe por estado; el de contexto
      (abajo, en playas abiertas) queda ámbar neutro */
-  .press.n-closed {{ background:#fdecea; border-color:#f0b4ac; }}
-  .press.n-warning {{ background:#fff3e2; border-color:#f0cf9e; }}
+  .press.n-closed {{ background:#fbdeda; border-color:#e8a49c;
+          border-left:4px solid #c62828; }}
+  .press.n-warning {{ background:#fdeed3; border-color:#eec27e;
+          border-left:4px solid #e65100; }}
   .yrow {{ display:flex; gap:1px; padding:3px 6px 0; }}
   .yrcell {{ flex:1; font-size:9px; font-weight:600; color:#8fa3ad;
           white-space:nowrap; overflow:visible; }}
