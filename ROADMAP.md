@@ -261,8 +261,8 @@ no convierte en enlace. Objetivo: que al compartir una playa llegue una
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
 | 10.1 | Borrar noticia fake La Viuda (`news_items.id=347` + `beach_statuses.id=250`) + script `seed_fake_news` para re-inyectarla al grabar el vídeo | ✅ Hecho — SSH `ubuntu@vm` con `ssh-key-2026-09-20.key`; script en la VM y dentro del contenedor | 🟢 Trivial |
-| 10.2 | App Links con APK local: añadir fingerprint SHA-256 del debug keystore a `assetlinks.json` (o recuperar keystore EAS para firmar local) | Pendiente | 🟢 Trivial |
-| 10.3 | Verificar en dispositivo la APK local: banner prensa arriba en cerradas, nombre emisario seleccionado, zoom 15, 3 niveles satélite | Pendiente | 🟢 Trivial |
+| 10.2 | App Links con APK local: añadir fingerprint debug a `assetlinks.json` | ❌ Descartado — solo servía para la APK local; la firma de producción la pondrá EAS/Play Store | 🟢 Trivial |
+| 10.3 | Verificar en dispositivo la APK local: banner prensa arriba en cerradas, nombre emisario seleccionado, zoom 15, 3 niveles satélite, push oficial + "según prensa" | ✅ Hecho (2026-09-23) — push E2E verificado | 🟢 Trivial |
 | 10.4 | Build local Windows documentado: `expo prebuild` + `gradlew assembleRelease` (firma debug → desinstalar app EAS antes de instalar) | ✅ Hecho (2026-09-23) | 🟡 Medio |
 
 ---
