@@ -20,12 +20,13 @@ export type ShotMarker = {
 };
 
 // Foto satélite estática del punto (Esri World Imagery, mismo servicio
-// que la vista satélite del mapa). Tres encuadres: muy cerca (x0,5 —
-// detalle de la arena/el espigón), cerca (~1,2 km x 750 m) y contexto
+// que la vista satélite del mapa). Tres encuadres: muy cerca (x0,25 —
+// ~300 m, detalle de la arena/el espigón), cerca (~1,2 km x 750 m) y
+// contexto
 // (x2,5) para ver emisarios/playas a varios cientos de metros
 const BASE_DLON = 0.006;
 const BASE_DLAT = 0.0033;
-const LEVELS = [0.5, 1, 2.5];
+const LEVELS = [0.25, 1, 2.5];
 const START_LEVEL = 1;
 const MAX_MARKERS = 14;
 
