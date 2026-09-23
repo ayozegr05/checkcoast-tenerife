@@ -699,6 +699,42 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     }
     total_beaches = db.query(func.count(Beach.id)).scalar()
 
+    # Alertas vivas de la isla para el panel lateral: la misma regla
+    # que /alerts, enlazables a su propia landing
+    from app.routers.alerts import list_alerts
+
+    salerts = ""
+    island_alerts = list_alerts(db)[:4]
+    if island_alerts:
+        now = datetime.now(timezone.utc)
+        rows_a = ""
+        for a in island_alerts:
+            rep = a.reported_at
+            if rep is not None and rep.tzinfo is None:
+                rep = rep.replace(tzinfo=timezone.utc)
+            days = (now - rep).days if rep else 0
+            ago = (
+                "hoy" if days == 0
+                else "ayer" if days == 1
+                else f"hace {days} días"
+            )
+            via = "según prensa" if a.via == "press" else "oficial"
+            acolor = _STATUS.get(a.status, _STATUS["unknown"])[1]
+            aword = "cerrada" if a.status == "closed" else "aviso"
+            amuni = html.escape(a.municipality or "")
+            rows_a += (
+                f'<a class="sal" href="/b/{a.beach_id}">'
+                f'<i style="background:{acolor}"></i><div>'
+                f"<b>{html.escape(_display_name(a.beach_name))}</b>"
+                f"<span>{aword} · {ago} · {via} · {amuni}</span>"
+                "</div></a>"
+            )
+        salerts = (
+            '<div class="salerts"><div class="sl">Alertas activas '
+            "en la isla</div>"
+            f"{rows_a}</div>"
+        )
+
     page = f"""<!doctype html>
 <html lang="es">
 <head>
@@ -772,17 +808,18 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     .sleg div {{ display:flex; align-items:center; gap:9px;
             margin:5px 0; }}
     .sleg img {{ width:20px; height:20px; }}
-    .steps {{ margin-top:18px; background:rgba(255,255,255,.88);
+    .salerts {{ margin-top:12px; background:rgba(255,255,255,.88);
             border:1px solid rgba(255,255,255,.25); border-radius:12px;
             padding:12px 14px; }}
-    .step {{ display:flex; gap:10px; margin:9px 0; font-size:12px;
-            line-height:1.45; color:#33566b; }}
-    .step b {{ display:block; font-size:12px; color:#0d3a52; }}
-    .stepn {{ flex:none; width:20px; height:20px; border-radius:50%;
-            background:linear-gradient(135deg,#075276,#17b8ce);
-            color:#fff; font-size:11px; font-weight:700;
-            display:flex; align-items:center; justify-content:center;
-            margin-top:1px; }}
+    .salerts .sl {{ font-size:11px; color:#6d8b9a; font-weight:600;
+            text-transform:uppercase; letter-spacing:.4px; }}
+    .sal {{ display:flex; align-items:center; gap:9px; margin-top:9px;
+            text-decoration:none; }}
+    .sal i {{ flex:none; width:9px; height:9px; border-radius:50%; }}
+    .sal b {{ display:block; font-size:12px; color:#0d3a52;
+            font-weight:600; }}
+    .sal:hover b {{ color:#075276; }}
+    .sal span {{ font-size:10.5px; color:#7a919c; }}
     .sfoot {{ margin-top:14px; font-size:11px; color:#a8c4d2; }}
   }}
   .head {{ background:{head_bg};
@@ -922,14 +959,13 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
       <img src="/icons/app-icon.png" alt="">CheckCoast
       <span class="tfe">Tenerife</span>
     </div>
-    <p class="stag">El estado oficial de las playas de Tenerife —
-      cierres, avisos y calidad del agua según Náyade (Min. Sanidad) —
-      y los puntos de vertido que hay junto a ellas. Cuando el parte
-      oficial no dice el porqué, la prensa local ayuda a explicarlo.</p>
+    <p class="stag">¿Puedes bañarte hoy? El estado oficial de cada
+      playa de Tenerife — y el porqué cuando el parte no lo dice.</p>
     <div class="sstat"><div class="sl">Ahora mismo en Tenerife</div>
       <b>{status_counts.get('closed', 0)}</b> cerradas ·
       <b>{status_counts.get('warning', 0)}</b> con aviso ·
       <b>{total_beaches}</b> playas mapeadas</div>
+    {salerts}
     <div class="sleg">
       <div><img src="/icons/pin-open.png" alt=""> Playa — el color
         marca su estado</div>
@@ -939,19 +975,6 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         Emisario en trámite</div>
       <div><img src="/icons/pin-outfall-illegal.png" alt=""> Emisario
         no autorizado</div>
-    </div>
-    <div class="steps">
-      <div class="step"><span class="stepn">1</span><div>
-        <b>Náyade / Sanidad</b>El estado oficial de cada playa:
-        cierres, avisos y analíticas de calidad del agua.</div></div>
-      <div class="step"><span class="stepn">2</span><div>
-        <b>Prensa local</b>Cuando el parte oficial no dice el porqué,
-        la prensa lo explica — siempre etiquetada "según prensa".
-        </div></div>
-      <div class="step"><span class="stepn">3</span><div>
-        <b>Emisarios</b>Los 180 puntos de vertido del censo
-        tierra-mar junto a cada playa, con su situación legal.
-        </div></div>
     </div>
     <p class="sfoot">App gratuita para Android · Datos: Náyade /
       Min. Sanidad · MITECO · OpenStreetMap · © Esri</p>
