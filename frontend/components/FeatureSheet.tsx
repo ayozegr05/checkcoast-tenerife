@@ -438,10 +438,16 @@ export default function FeatureSheet({
                 );
                 return (
                   <>
+                    <Text style={styles.nearTitle}>
+                      Playa más cercana{' '}
+                      <Text style={styles.nearSub}>
+                        · aleja el zoom para verla
+                      </Text>
+                    </Text>
                     <Pressable
                       style={[
                         styles.nearestBox,
-                      {
+                        {
                           borderLeftColor:
                             STATUS_COLORS[statusKey] ??
                             colors.status.unknown,
@@ -457,7 +463,6 @@ export default function FeatureSheet({
                       accessibilityLabel={`${displayBeachName(nearest.beach_name)}, ver en el mapa`}
                     >
                       <Text style={[styles.nearestText, { flex: 1 }]}>
-                        Playa más cercana:{' '}
                         <Text style={styles.nearestName}>
                           {displayBeachName(nearest.beach_name)}
                         </Text>
@@ -467,13 +472,10 @@ export default function FeatureSheet({
                         <Text style={styles.nearestChevron}>›</Text>
                       )}
                     </Pressable>
-                  <Text style={styles.nearestFoot}>
-                    Aleja el zoom de la foto para verla
-                  </Text>
-                </>
-              );
-            })()
-          ) : null}
+                  </>
+                );
+              })()
+            ) : null}
             <Text style={styles.row}>
               Fuente: Censo de Vertidos 2025 (Gob. Canarias)
             </Text>
@@ -618,11 +620,16 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
   },
-  nearestFoot: {
+  nearTitle: {
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    color: colors.text,
+    marginTop: 8,
+  },
+  nearSub: {
     fontSize: 11,
     fontFamily: fonts.regular,
     color: colors.textFaint,
-    marginTop: 3,
   },
   nearestName: {
     fontFamily: fonts.bold,
