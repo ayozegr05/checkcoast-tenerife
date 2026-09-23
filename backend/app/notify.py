@@ -27,28 +27,16 @@ def _display_name(name: str) -> str:
     return re.sub(r"Pm(\d+)", r"PM\1", name.title())
 
 
-def notify_beach_status(
-    db: Session, beach: Beach, state: BeachState
-) -> int:
-    """Push a todos los dispositivos registrados. Devuelve los mensajes
-    aceptados por Expo. Los errores de red se loguean, no se propagan:
-    una notificación fallida no debe romper la ingesta ni la API."""
-    tokens = [t for (t,) in db.query(DeviceToken.token).all()]
-    if not tokens:
-        return 0
+_PRESS_LABEL = {
+    "closure": "Cierre de baño",
+    "warning": "Aviso en la playa",
+}
 
-    muni = beach.municipality or "Tenerife"
-    messages = [
-        {
-            "to": token,
-            "title": _display_name(beach.name),
-            "body": f"{_STATE_LABEL[state]} · {muni}",
-            "data": {"beach_id": beach.id},
-            "sound": "default",
-            "channelId": "alerts",
-        }
-        for token in tokens
-    ]
+
+def _send(db: Session, tokens: list[str], messages: list[dict]) -> int:
+    """POST al Expo Push Service + poda de tokens muertos. Devuelve los
+    mensajes aceptados. Los errores de red se loguean, no se propagan:
+    una notificación fallida no debe romper la ingesta ni la API."""
     try:
         resp = requests.post(EXPO_PUSH_URL, json=messages, timeout=15)
         resp.raise_for_status()
@@ -69,3 +57,40 @@ def notify_beach_status(
         )
         db.commit()
     return len(messages) - len(dead)
+
+
+def _messages(db: Session, beach: Beach, body: str) -> tuple[list[str], list[dict]]:
+    tokens = [t for (t,) in db.query(DeviceToken.token).all()]
+    muni = beach.municipality or "Tenerife"
+    return tokens, [
+        {
+            "to": token,
+            "title": _display_name(beach.name),
+            "body": body.format(muni=muni),
+            "data": {"beach_id": beach.id},
+            "sound": "default",
+            "channelId": "alerts",
+        }
+        for token in tokens
+    ]
+
+
+def notify_beach_status(
+    db: Session, beach: Beach, state: BeachState
+) -> int:
+    """Push a todos los dispositivos registrados al cambiar el estado
+    oficial de una playa."""
+    tokens, messages = _messages(db, beach, f"{_STATE_LABEL[state]} · {{muni}}")
+    return _send(db, tokens, messages) if tokens else 0
+
+
+def notify_press_event(db: Session, beach: Beach, event_type: str) -> int:
+    """Push de una alerta detectada por prensa antes que por Sanidad.
+
+    Mismo formato que la oficial con el matiz "según prensa" al final —
+    la etiqueta que separa contexto de dato oficial en toda la app."""
+    label = _PRESS_LABEL.get(event_type)
+    if label is None:
+        return 0
+    tokens, messages = _messages(db, beach, f"{label} · {{muni}} · según prensa")
+    return _send(db, tokens, messages) if tokens else 0

@@ -12,7 +12,9 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
   - `app/routers/` — `outfalls.py`, `beaches.py`, `alerts.py`,
     `devices.py` (`POST /devices` registra Expo push tokens)
   - `app/notify.py` — push vía Expo Push Service al cambiar estado de
-    playa (scraper + POST manual); purga tokens DeviceNotRegistered
+    playa (scraper + POST manual) y al entrar una alerta de prensa
+    (`notify_press_event`, etiqueta "· según prensa"); purga tokens
+    DeviceNotRegistered
   - `app/queries.py` — `beaches_with_latest_status` (join último estado)
   - `app/main.py` — lifespan con APScheduler (`_sync_beach_statuses` cada
     `NAYADE_SYNC_SECONDS`, 1 h; `_sync_news` cada `NEWS_SYNC_SECONDS`,

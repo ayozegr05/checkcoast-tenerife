@@ -13,20 +13,72 @@ Por pasada:
 Uso: python -m scripts.ingest_news
 """
 
+import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.config import settings
 from app.db import SessionLocal
-from app.models import Beach, NewsItem
+from app.models import Beach, BeachState, BeachStatus, NewsItem
 from app.news_llm import EventExtraction, GeminiExtractor, extract_event
 from app.news_matching import match_beaches
 from app.news_sources import fetch_news, source_excluded
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
+# Solo estos eventos de prensa despiertan el móvil; el resto queda como
+# contexto en la ficha
+_PRESS_PUSH_EVENTS = {"closure", "warning"}
+# Ventana de dedup: noticias del mismo evento suelen salir en días
+# consecutivos — un push por evento, no por titular
+_PRESS_PUSH_DAYS = 7
 
-def _rematch_pending(db, beaches: list[Beach]) -> int:
+
+def _press_push_candidate(
+    db, beach: Beach, event_type: str | None, published_at, exclude_id=None
+) -> bool:
+    """¿Esta noticia abre una alerta de prensa nueva digna de push?
+
+    No si es un eco del mismo evento (otro medio contando lo mismo),
+    si la noticia es vieja (recasada de pasadas) o si el estado oficial
+    ya la cubre — en ese caso el push oficial ya salió."""
+    if event_type not in _PRESS_PUSH_EVENTS or not published_at:
+        return False
+    now = datetime.now(timezone.utc)
+    if now - published_at > timedelta(days=_PRESS_PUSH_DAYS):
+        return False
+    echo_q = db.query(NewsItem.id).filter(
+        NewsItem.beach_id == beach.id,
+        NewsItem.event_type == event_type,
+        NewsItem.published_at >= now - timedelta(days=_PRESS_PUSH_DAYS),
+    )
+    if exclude_id is not None:
+        echo_q = echo_q.filter(NewsItem.id != exclude_id)
+    echo = echo_q.first()
+    if echo:
+        return False
+    latest = (
+        db.query(BeachStatus)
+        .filter(BeachStatus.beach_id == beach.id)
+        .order_by(BeachStatus.reported_at.desc())
+        .first()
+    )
+    if latest and (
+        latest.status == BeachState.closed
+        or (event_type == "warning" and latest.status == BeachState.warning)
+    ):
+        return False
+    return True
+
+
+def _push_key(beach: Beach, event_type: str) -> tuple[str, str, str]:
+    """Playas multi-PM comparten alerta: una sola notificación por playa
+    base + municipio + tipo de evento."""
+    base = re.sub(r"\s+PM\d+$", "", beach.name, flags=re.IGNORECASE)
+    return (base, beach.municipality or "", event_type)
+
+
+def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
     """Reintenta casar relevantes sin playa de pasadas anteriores.
 
     Recupera noticias cuando mejora el matcher o entran playas nuevas —
@@ -65,6 +117,13 @@ def _rematch_pending(db, beaches: list[Beach]) -> int:
                 )
             )
         rematched += 1
+        for b in hits:
+            if _press_push_candidate(
+                db, b, item.event_type, item.published_at, exclude_id=item.id
+            ):
+                to_notify.setdefault(
+                    _push_key(b, item.event_type), (b, item.event_type)
+                )
     if rematched:
         db.commit()
     return rematched
@@ -83,6 +142,7 @@ def run() -> tuple[int, int, int]:
 
     db = SessionLocal()
     inserted = processed = 0
+    to_notify: dict[tuple[str, str, str], tuple[Beach, str]] = {}
     try:
         seen = {url for (url,) in db.query(NewsItem.url).all()}
         fresh = [
@@ -105,6 +165,13 @@ def run() -> tuple[int, int, int]:
                 if ext.relevant else []
             )
             for beach in hits or [None]:  # una fila por PM de la playa
+                if beach and _press_push_candidate(
+                    db, beach, ext.event_type, art.published_at
+                ):
+                    to_notify.setdefault(
+                        _push_key(beach, ext.event_type),
+                        (beach, ext.event_type),
+                    )
                 db.add(
                     NewsItem(
                         url=art.url,
@@ -127,7 +194,12 @@ def run() -> tuple[int, int, int]:
                 continue
             inserted += ext.relevant
             time.sleep(2)  # free tier de Gemini: respirar entre llamadas
-        rematched = _rematch_pending(db, beaches)
+        rematched = _rematch_pending(db, beaches, to_notify)
+        # Push de alertas de prensa: tras confirmar todos los inserts
+        from app.notify import notify_press_event
+
+        for beach, ev in to_notify.values():
+            notify_press_event(db, beach, ev)
         return inserted, processed, rematched
     except Exception:
         db.rollback()

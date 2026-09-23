@@ -186,6 +186,7 @@ locales → LLM extrae playa/evento/causa → se muestra etiquetado como
 | 8.5.7 | **Resumen determinista**: `summary` en `/beaches/{id}/news` (evento+causa dominantes, nº medios, `since`) sin llamadas LLM; banner ámbar junto al estado, titulares plegables agrupados por evento al final de la ficha | ✅ Hecho (`1fa0080`, `d55f52a`, `f5c5de8`) | 🟡 Medio |
 | 8.5.8 | **Alertas de prensa en `/alerts`**: cierre/aviso según prensa entra en la lista normal (`via="press"`); verificación mixta — oficial open + cierre fresco ≤14 d alerta (lag de Náyade), `closed_at` posterior al titular = reapertura probada, sin cobertura <21 d no alerta; warning oficial + prensa dominada por cierres ⇒ se muestra `closed` | ✅ Hecho (`bf08a1d`, `27e1ad9`, `3418e7d`) | 🔴 Alto |
 | 8.5.9 | **Banner con ciclo de vida**: "Cerrada por X · desde el D" solo si sigue cerrada; "Estuvo cerrada · el D" + "Sanidad la reabrió el D2" cuando el incidente oficial cerró ≤15 d tras el titular | ✅ Hecho (`3f6bca1`, `121f402`) | 🟡 Medio |
+| 8.5.10 | **Push de alertas de prensa**: cierre/aviso detectado por noticias también notifica — antes que el parte oficial. Mismo formato + "· según prensa"; dedup 7 días por playa+evento (no un push por titular), sin push si el estado oficial ya lo cubre o la noticia es vieja (recasada) | ✅ Hecho | 🟡 Medio |
 
 ## Hito 8.6 — Reconstrucción de episodios y UX de fichas ✅
 
@@ -259,7 +260,7 @@ no convierte en enlace. Objetivo: que al compartir una playa llegue una
 
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
-| 10.1 | Borrar noticia fake La Viuda (`news_items.id=347`, test.local) + script `seed_fake_news` para re-inyectarla al grabar el vídeo | Pendiente — requiere acceso SSH a la VM | 🟢 Trivial |
+| 10.1 | Borrar noticia fake La Viuda (`news_items.id=347` + `beach_statuses.id=250`) + script `seed_fake_news` para re-inyectarla al grabar el vídeo | ✅ Hecho — SSH `ubuntu@vm` con `ssh-key-2026-09-20.key`; script en la VM y dentro del contenedor | 🟢 Trivial |
 | 10.2 | App Links con APK local: añadir fingerprint SHA-256 del debug keystore a `assetlinks.json` (o recuperar keystore EAS para firmar local) | Pendiente | 🟢 Trivial |
 | 10.3 | Verificar en dispositivo la APK local: banner prensa arriba en cerradas, nombre emisario seleccionado, zoom 15, 3 niveles satélite | Pendiente | 🟢 Trivial |
 | 10.4 | Build local Windows documentado: `expo prebuild` + `gradlew assembleRelease` (firma debug → desinstalar app EAS antes de instalar) | ✅ Hecho (2026-09-23) | 🟡 Medio |
