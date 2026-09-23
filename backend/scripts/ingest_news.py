@@ -21,7 +21,7 @@ from app.db import SessionLocal
 from app.models import Beach, NewsItem
 from app.news_llm import EventExtraction, GeminiExtractor, extract_event
 from app.news_matching import match_beaches
-from app.news_sources import EXCLUDED_SOURCES, fetch_news
+from app.news_sources import fetch_news, source_excluded
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
@@ -90,7 +90,7 @@ def run() -> tuple[int, int, int]:
             for a in articles
             if a.url
             and a.url not in seen
-            and (a.source or "").strip().lower() not in EXCLUDED_SOURCES
+            and not source_excluded(a.source)
         ]
         fresh.sort(key=lambda a: a.published_at or _EPOCH, reverse=True)
         beaches = db.query(Beach).all()

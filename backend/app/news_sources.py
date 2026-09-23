@@ -39,10 +39,17 @@ QUERIES = [
     'seguridad OR derrumbe OR socavón OR colapso)',
 ]
 
-# Medios descartados a priori (ruido conocido, no aportan eventos)
+# Medios descartados a priori (ruido conocido, no aportan eventos).
+# Substrings en minúsculas: el <source> de Google News llega en
+# variantes ("Teneriffa News", "teneriffa-news.com")
 EXCLUDED_SOURCES = {
-    "teneriffa news",  # SEO-farm: ficha templada diaria por playa
+    "teneriffa",  # SEO-farm: ficha templada diaria por playa
 }
+
+
+def source_excluded(source: str | None) -> bool:
+    s = (source or "").strip().lower()
+    return any(x in s for x in EXCLUDED_SOURCES)
 
 
 @dataclass
