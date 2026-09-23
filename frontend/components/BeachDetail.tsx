@@ -496,7 +496,8 @@ export default function BeachDetail({
       {nearby !== null && nearby.length > 0 && (
         <View style={styles.nearbyTop}>
           <Text style={styles.historyTitle}>
-            Emisarios cercanos ({nearby.length})
+            Emisarios cercanos ({nearby.length}){' '}
+            <Text style={styles.historySub}>· en un radio de 1 km</Text>
           </Text>
           {nearby.map((o) => {
             const accent =
@@ -532,10 +533,6 @@ export default function BeachDetail({
               </Pressable>
             );
           })}
-          <Text style={styles.chartFoot}>
-            En un radio de 1 km · aleja el zoom de la foto para
-            verlos
-          </Text>
         </View>
       )}
 
@@ -913,6 +910,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     color: colors.text,
     marginBottom: 4,
+  },
+  historySub: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
   },
   historyList: {
     maxHeight: 140,
