@@ -167,7 +167,7 @@ Tres niveles, en orden de impacto/esfuerzo:
 | 8.4 | **CI básico**: GitHub Actions con `pytest` + `tsc --noEmit` en push | ✅ Hecho — `.github/workflows/ci.yml` (PostGIS service + alembic + fixture sintético `seed_data` en conftest; backend ya no depende de la BD dev) | 🟢 Trivial |
 | 8.5 | Tests frontend mínimos (jest-expo): lógica agrupación PM→playa, orden por estado | ✅ Hecho — 22 tests en `__tests__/` (lógica pura extraída a `lib/beachGroups.ts`, `lib/press.ts`, `lib/format.ts`) | 🟡 Medio |
 | 8.6 | Actualizar a Node LTS (Expo pide ≥20.19.4, hoy 20.12.2) | ✅ Hecho — Node 24.21.0 LTS vía nvm (`nvm use 24.21.0`) | 🟢 Trivial |
-| 8.7 | Revocar token de Expo expuesto en sesión anterior *(usuario, en expo.dev)* | Pendiente | 🟢 Trivial |
+| 8.7 | Revocar token de Expo expuesto en sesión anterior *(usuario, en expo.dev)* | ✅ Hecho (2026-09-23) | 🟢 Trivial |
 
 ## Hito 8.5 — Contexto de prensa (LLM) ✅
 
@@ -252,11 +252,22 @@ no convierte en enlace. Objetivo: que al compartir una playa llegue una
 | 9.5 | Subir repo a GitHub (sin remote aún — activa CI + da URL pública) | Pendiente | 🟢 Trivial |
 | 9.6 | Vídeo demo breve (~45 s): grabación de pantalla + texto superpuesto, sin voz — hook "Náyade dice QUÉ, esto dice POR QUÉ" | Pendiente | 🟡 Medio |
 | 9.7 | Post LinkedIn: problema en 1 frase + vídeo/GIF + 3 bullets técnicos + link repo (requiere 9.5) | Pendiente | 🟢 Trivial |
+| 9.8 | **Homepage de producto** en `checkcoast.duckdns.org/` (hoy 404): hero + stats vivos + playas de ejemplo enlazadas + capturas app + descarga APK | Pendiente | 🟡 Medio |
+| 9.9 | Ficha Google Play ($25 una vez, internal testing primero) — instalable real > APK suelto | Opcional | 🟡 Medio |
+
+## Hito 10 — Ops y datos (pendientes menores)
+
+| # | Tarea | Estado | Esfuerzo |
+|---|-------|--------|----------|
+| 10.1 | Borrar noticia fake La Viuda (`news_items.id=347`, test.local) + script `seed_fake_news` para re-inyectarla al grabar el vídeo | Pendiente — requiere acceso SSH a la VM | 🟢 Trivial |
+| 10.2 | App Links con APK local: añadir fingerprint SHA-256 del debug keystore a `assetlinks.json` (o recuperar keystore EAS para firmar local) | Pendiente | 🟢 Trivial |
+| 10.3 | Verificar en dispositivo la APK local: banner prensa arriba en cerradas, nombre emisario seleccionado, zoom 15, 3 niveles satélite | Pendiente | 🟢 Trivial |
+| 10.4 | Build local Windows documentado: `expo prebuild` + `gradlew assembleRelease` (firma debug → desinstalar app EAS antes de instalar) | ✅ Hecho (2026-09-23) | 🟡 Medio |
 
 ---
 
 ### Estado actual
-**Hito activo:** 8.8 — Share con tarjeta rica (falta dominio+HTTPS y
-verificación en WhatsApp; luego 9: capturas/vídeo del APK, repo público
-en GitHub y post LinkedIn; 8.7-token sigue pendiente del usuario)
-**Última actualización:** 2026-09-21
+**Hito activo:** 9 — Portfolio (homepage de producto en `/`, capturas/
+vídeo del APK local, repo público en GitHub y post LinkedIn; 8.8 queda
+verificación end-to-end de App Links con build firmada por EAS)
+**Última actualización:** 2026-09-23
