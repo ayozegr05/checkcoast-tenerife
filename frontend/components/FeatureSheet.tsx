@@ -413,6 +413,7 @@ export default function FeatureSheet({
               centerIcon={require('../assets/icons/icon-faucet-sil.png')}
               markers={shotMarkers}
               onPress={handleViewOnMap}
+              startLevel={1}
             />
             <View
               style={[

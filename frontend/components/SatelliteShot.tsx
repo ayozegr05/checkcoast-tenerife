@@ -52,24 +52,28 @@ export default function SatelliteShot({
   centerIcon,
   markers,
   onPress,
+  startLevel = START_LEVEL,
 }: {
   center: [number, number];
   centerColor: string;
   centerIcon?: ImageSourcePropType;
   markers: ShotMarker[];
   onPress?: () => void;
+  // Nivel inicial: 0 máximo (playas), 1 medio (emisarios — el punto
+  // solo no dice nada, interesa el entorno)
+  startLevel?: number;
 }) {
   const [lon, lat] = center;
-  const [level, setLevel] = useState(START_LEVEL);
+  const [level, setLevel] = useState(startLevel);
   // Uri ya cargada: el skeleton solo tapa la foto si la actual aún no
   // llegó (los demás niveles se prefetchan → zoom instantáneo)
   const [loadedUri, setLoadedUri] = useState<string | null>(null);
   const uri = shotUrl(lon, lat, LEVELS[level]);
 
   useEffect(() => {
-    setLevel(START_LEVEL);
+    setLevel(startLevel);
     setLoadedUri(null);
-  }, [lon, lat]);
+  }, [lon, lat, startLevel]);
 
   const dLon = BASE_DLON * LEVELS[level];
   const dLat = BASE_DLAT * LEVELS[level];
