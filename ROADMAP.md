@@ -253,7 +253,7 @@ no convierte en enlace. Objetivo: que al compartir una playa llegue una
 | 9.5 | Subir repo a GitHub (sin remote aún — activa CI + da URL pública) | Pendiente | 🟢 Trivial |
 | 9.6 | Vídeo demo breve (~45 s): grabación de pantalla + texto superpuesto, sin voz — hook "Náyade dice QUÉ, esto dice POR QUÉ" | Pendiente | 🟡 Medio |
 | 9.7 | Post LinkedIn: problema en 1 frase + vídeo/GIF + 3 bullets técnicos + link repo (requiere 9.5) | Pendiente | 🟢 Trivial |
-| 9.8 | **Homepage de producto** en `checkcoast.duckdns.org/` (hoy 404): hero + stats vivos + playas de ejemplo enlazadas + capturas app + descarga APK | Pendiente | 🟡 Medio |
+| 9.8 | **Homepage de producto** en `checkcoast.duckdns.org/`: hero + mapa vivo de la isla (puntos por estado) + stats + alertas enlazables + grid de playas ejemplo + cómo funciona | ✅ Hecho (`a5fd60c`) | 🟡 Medio |
 | 9.9 | Ficha Google Play ($25 una vez, internal testing primero) — instalable real > APK suelto | Opcional | 🟡 Medio |
 
 ## Hito 10 — Ops y datos (pendientes menores)
