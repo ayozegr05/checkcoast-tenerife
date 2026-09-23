@@ -497,7 +497,9 @@ export default function BeachDetail({
         <View style={styles.nearbyTop}>
           <Text style={styles.historyTitle}>
             Emisarios cercanos ({nearby.length}){' '}
-            <Text style={styles.historySub}>· en un radio de 1 km</Text>
+            <Text style={styles.historySub}>
+              · en un radio de 1 km · aleja el zoom para verlos
+            </Text>
           </Text>
           {nearby.map((o) => {
             const accent =
