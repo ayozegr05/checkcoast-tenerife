@@ -27,7 +27,9 @@ export type ShotMarker = {
 const BASE_DLON = 0.006;
 const BASE_DLAT = 0.0033;
 const LEVELS = [0.25, 1, 2.5];
-const START_LEVEL = 1;
+// Arranca en el más cerca: el detalle de la playa es lo que vende;
+// los marcadores se prefetchean y aparecen al alejar
+const START_LEVEL = 0;
 const MAX_MARKERS = 14;
 
 const shotUrl = (lon: number, lat: number, scale: number) => {

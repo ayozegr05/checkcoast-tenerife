@@ -532,7 +532,10 @@ export default function BeachDetail({
               </Pressable>
             );
           })}
-          <Text style={styles.chartFoot}>En un radio de 1 km</Text>
+          <Text style={styles.chartFoot}>
+            En un radio de 1 km · aleja el zoom de la foto para
+            verlos
+          </Text>
         </View>
       )}
 
