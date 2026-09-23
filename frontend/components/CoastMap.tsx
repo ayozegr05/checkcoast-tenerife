@@ -663,6 +663,28 @@ export default function CoastMap({
                 'icon-ignore-placement': true,
               }}
             />
+            {/* Nombre del vertido seleccionado bajo el pin — mismo
+                estilo que las etiquetas de playa; solo una feature
+                (sel) así que no compite por espacio */}
+            <Layer
+              id="outfall-label-selected"
+              type="symbol"
+              filter={['==', ['get', 'sel'], true]}
+              layout={{
+                'text-field': ['get', 'name'],
+                'text-size': 13,
+                'text-font': ['Noto Sans Bold'],
+                'text-offset': [0, 1.0],
+                'text-anchor': 'top',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
+              }}
+              paint={{
+                'text-color': colors.text,
+                'text-halo-color': '#ffffff',
+                'text-halo-width': 2.2,
+              }}
+            />
           </GeoJSONSource>
         )}
 

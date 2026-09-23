@@ -767,8 +767,9 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     .sleg div {{ display:flex; align-items:center; gap:9px;
             margin:5px 0; }}
     .sleg img {{ width:20px; height:20px; }}
-    /* Mockup de la app: marco de teléfono CSS con la misma foto
-       satélite y su pin — vende la descarga sin assets nuevos */
+    /* Mockup de la app real (no la foto de la card): marco de
+       teléfono con la UI recreada — barra superior, mapa con pines
+       y la ficha con su chip de estado */
     .sphone {{ margin-top:18px; width:152px; border-radius:24px;
             border:6px solid #0d3a52; overflow:hidden;
             position:relative; background:#0d3a52;
@@ -776,12 +777,42 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     .sphone::before {{ content:''; position:absolute; top:5px;
             left:50%; transform:translateX(-50%); width:46px;
             height:5px; border-radius:3px; background:#0d3a52;
-            z-index:2; }}
-    .sphone .spshot {{ display:block; width:100%; height:190px;
+            z-index:3; }}
+    .spmap {{ position:relative; height:190px; }}
+    .spshot {{ display:block; width:100%; height:100%;
             object-fit:cover; }}
-    .sphone .sppin {{ position:absolute; left:50%; top:46%;
-            width:28px; transform:translate(-50%,-92%);
-            filter:drop-shadow(0 2px 4px rgba(0,0,0,.5)); }}
+    .spbar {{ position:absolute; top:8px; left:6px; right:6px;
+            display:flex; gap:4px; z-index:2; }}
+    .spbar span {{ flex:1; background:rgba(255,255,255,.94);
+            border-radius:7px; font-size:6.5px; font-weight:700;
+            color:#0d3a52; text-align:center; padding:4px 0;
+            box-shadow:0 1px 2px rgba(0,0,0,.3); }}
+    .sppin {{ position:absolute; left:50%; top:44%;
+            width:26px; transform:translate(-50%,-92%);
+            filter:drop-shadow(0 2px 4px rgba(0,0,0,.5)); z-index:2; }}
+    .spod {{ position:absolute; width:15px; z-index:2;
+            transform:translate(-50%,-92%);
+            filter:drop-shadow(0 1px 2px rgba(0,0,0,.5)); }}
+    .spsheet {{ position:absolute; left:5px; right:5px; bottom:5px;
+            background:#fff; border-radius:9px; padding:6px 8px;
+            z-index:2; box-shadow:0 2px 8px rgba(0,0,0,.3); }}
+    .spsheet b {{ display:block; font-size:7.5px; color:#0d3a52;
+            white-space:nowrap; overflow:hidden;
+            text-overflow:ellipsis; }}
+    .spsheet i {{ display:inline-block; margin-top:3px;
+            font-style:normal; font-size:6.5px; font-weight:700;
+            color:#fff; border-radius:5px; padding:2px 6px; }}
+    .steps {{ margin-top:18px; background:rgba(255,255,255,.88);
+            border:1px solid rgba(255,255,255,.25); border-radius:12px;
+            padding:12px 14px; }}
+    .step {{ display:flex; gap:10px; margin:9px 0; font-size:12px;
+            line-height:1.45; color:#33566b; }}
+    .step b {{ display:block; font-size:12px; color:#0d3a52; }}
+    .stepn {{ flex:none; width:20px; height:20px; border-radius:50%;
+            background:linear-gradient(135deg,#075276,#17b8ce);
+            color:#fff; font-size:11px; font-weight:700;
+            display:flex; align-items:center; justify-content:center;
+            margin-top:1px; }}
     .spcap {{ margin-top:7px; font-size:11px; color:#a8c4d2; }}
     .sfoot {{ margin-top:14px; font-size:11px; color:#a8c4d2; }}
   }}
@@ -933,10 +964,33 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
       <div><img src="/icons/pin-outfall-illegal.png" alt=""> Emisario
         no autorizado</div>
     </div>
+    <div class="steps">
+      <div class="step"><span class="stepn">1</span><div>
+        <b>Náyade / Sanidad</b>El estado oficial de cada playa:
+        cierres, avisos y analíticas de calidad del agua.</div></div>
+      <div class="step"><span class="stepn">2</span><div>
+        <b>Prensa local</b>Cuando el parte oficial no dice el porqué,
+        la prensa lo explica — siempre etiquetada "según prensa".
+        </div></div>
+      <div class="step"><span class="stepn">3</span><div>
+        <b>Emisarios</b>Los 180 puntos de vertido del censo
+        tierra-mar junto a cada playa, con su situación legal.
+        </div></div>
+    </div>
     <div class="sphone">
-      <img class="spshot" src="{imgs[start]}" alt="">
-      <img class="sppin" src="/icons/{_PIN.get(state, _PIN['unknown'])}.png"
-        alt="">
+      <div class="spmap">
+        <img class="spshot" src="{imgs[start]}" alt="">
+        <div class="spbar"><span>Playas</span><span>Emisarios</span>
+          <span>Guía</span></div>
+        <img class="sppin" src="/icons/{_PIN.get(state, _PIN['unknown'])}.png"
+          alt="">
+        <img class="spod" src="/icons/pin-outfall-illegal.png" alt=""
+          style="left:24%; top:62%;">
+        <img class="spod" src="/icons/pin-outfall-legal.png" alt=""
+          style="left:76%; top:55%;">
+        <div class="spsheet"><b>{name}</b>
+          <i style="background:{color}">{label}</i></div>
+      </div>
     </div>
     <p class="spcap">Así se ve en la app</p>
     <p class="sfoot">App gratuita para Android · Datos: Náyade /
