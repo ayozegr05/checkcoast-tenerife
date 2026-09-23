@@ -437,37 +437,43 @@ export default function FeatureSheet({
                   (b) => b.id === nearest.beach_id,
                 );
                 return (
-                  <Pressable
-                    style={[
-                      styles.nearestBox,
+                  <>
+                    <Pressable
+                      style={[
+                        styles.nearestBox,
                       {
-                        borderLeftColor:
-                          STATUS_COLORS[statusKey] ?? colors.status.unknown,
-                      },
-                    ]}
-                    onPress={
-                      beachTarget && onSelectBeach
-                        ? () => onSelectBeach(beachTarget)
-                        : undefined
-                    }
-                    disabled={!beachTarget || !onSelectBeach}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${displayBeachName(nearest.beach_name)}, ver en el mapa`}
-                  >
-                    <Text style={[styles.nearestText, { flex: 1 }]}>
-                      Playa más cercana:{' '}
-                      <Text style={styles.nearestName}>
-                        {displayBeachName(nearest.beach_name)}
+                          borderLeftColor:
+                            STATUS_COLORS[statusKey] ??
+                            colors.status.unknown,
+                        },
+                      ]}
+                      onPress={
+                        beachTarget && onSelectBeach
+                          ? () => onSelectBeach(beachTarget)
+                          : undefined
+                      }
+                      disabled={!beachTarget || !onSelectBeach}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${displayBeachName(nearest.beach_name)}, ver en el mapa`}
+                    >
+                      <Text style={[styles.nearestText, { flex: 1 }]}>
+                        Playa más cercana:{' '}
+                        <Text style={styles.nearestName}>
+                          {displayBeachName(nearest.beach_name)}
+                        </Text>
+                        {' · '}a {fmtDistance(nearest.distance_m)}
                       </Text>
-                      {' · '}a {fmtDistance(nearest.distance_m)}
-                    </Text>
-                    {beachTarget && onSelectBeach && (
-                      <Text style={styles.nearestChevron}>›</Text>
-                    )}
-                  </Pressable>
-                );
-              })()
-            ) : null}
+                      {beachTarget && onSelectBeach && (
+                        <Text style={styles.nearestChevron}>›</Text>
+                      )}
+                    </Pressable>
+                  <Text style={styles.nearestFoot}>
+                    Aleja el zoom de la foto para verla
+                  </Text>
+                </>
+              );
+            })()
+          ) : null}
             <Text style={styles.row}>
               Fuente: Censo de Vertidos 2025 (Gob. Canarias)
             </Text>
@@ -611,6 +617,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.regular,
     color: colors.textMuted,
+  },
+  nearestFoot: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    marginTop: 3,
   },
   nearestName: {
     fontFamily: fonts.bold,
