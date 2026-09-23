@@ -590,6 +590,11 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 
     # Banner "según prensa" como en la app: evento dominante + causa +
     # desde + nº medios; debajo el último titular enlazable
+    press_cls = (
+        "press n-closed" if state == "closed"
+        else "press n-warning" if state == "warning"
+        else "press"
+    )
     press = ""
     if news_items:
         counts_ev: dict[str, int] = {}
@@ -633,7 +638,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
             news.published_at.strftime("%d/%m/%Y") if news.published_at else ""
         )
         press = (
-            f'<div class="press"><div class="psum">{line}</div>'
+            f'<div class="{press_cls}"><div class="psum">{line}</div>'
             f'<div class="ptag">según prensa · {outlets} '
             f'medio{"s" if outlets != 1 else ""}</div>'
             f'<a class="ptitle" href="{html.escape(news.url)}">'
@@ -664,7 +669,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
                     f"{active_inc.opened_at.strftime('%d/%m/%Y')}"
                 )
                 notice = (
-                    f'<div class="press"><div class="psum">{nline}</div>'
+                    f'<div class="{press_cls}"><div class="psum">{nline}</div>'
                     f'<div class="ptag">estado oficial · Náyade / '
                     f"Sanidad</div></div>"
                 )
@@ -767,41 +772,6 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     .sleg div {{ display:flex; align-items:center; gap:9px;
             margin:5px 0; }}
     .sleg img {{ width:20px; height:20px; }}
-    /* Mockup de la app real (no la foto de la card): marco de
-       teléfono con la UI recreada — barra superior, mapa con pines
-       y la ficha con su chip de estado */
-    .sphone {{ margin-top:18px; width:152px; border-radius:24px;
-            border:6px solid #0d3a52; overflow:hidden;
-            position:relative; background:#0d3a52;
-            box-shadow:0 10px 30px rgba(7,43,62,.35); }}
-    .sphone::before {{ content:''; position:absolute; top:5px;
-            left:50%; transform:translateX(-50%); width:46px;
-            height:5px; border-radius:3px; background:#0d3a52;
-            z-index:3; }}
-    .spmap {{ position:relative; height:190px; }}
-    .spshot {{ display:block; width:100%; height:100%;
-            object-fit:cover; }}
-    .spbar {{ position:absolute; top:8px; left:6px; right:6px;
-            display:flex; gap:4px; z-index:2; }}
-    .spbar span {{ flex:1; background:rgba(255,255,255,.94);
-            border-radius:7px; font-size:6.5px; font-weight:700;
-            color:#0d3a52; text-align:center; padding:4px 0;
-            box-shadow:0 1px 2px rgba(0,0,0,.3); }}
-    .sppin {{ position:absolute; left:50%; top:44%;
-            width:26px; transform:translate(-50%,-92%);
-            filter:drop-shadow(0 2px 4px rgba(0,0,0,.5)); z-index:2; }}
-    .spod {{ position:absolute; width:15px; z-index:2;
-            transform:translate(-50%,-92%);
-            filter:drop-shadow(0 1px 2px rgba(0,0,0,.5)); }}
-    .spsheet {{ position:absolute; left:5px; right:5px; bottom:5px;
-            background:#fff; border-radius:9px; padding:6px 8px;
-            z-index:2; box-shadow:0 2px 8px rgba(0,0,0,.3); }}
-    .spsheet b {{ display:block; font-size:7.5px; color:#0d3a52;
-            white-space:nowrap; overflow:hidden;
-            text-overflow:ellipsis; }}
-    .spsheet i {{ display:inline-block; margin-top:3px;
-            font-style:normal; font-size:6.5px; font-weight:700;
-            color:#fff; border-radius:5px; padding:2px 6px; }}
     .steps {{ margin-top:18px; background:rgba(255,255,255,.88);
             border:1px solid rgba(255,255,255,.25); border-radius:12px;
             padding:12px 14px; }}
@@ -813,7 +783,6 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
             color:#fff; font-size:11px; font-weight:700;
             display:flex; align-items:center; justify-content:center;
             margin-top:1px; }}
-    .spcap {{ margin-top:7px; font-size:11px; color:#a8c4d2; }}
     .sfoot {{ margin-top:14px; font-size:11px; color:#a8c4d2; }}
   }}
   .head {{ background:{head_bg};
@@ -858,8 +827,13 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
   .ofname {{ font-size:13px; font-weight:600; color:#0d3a52; }}
   .ofmeta {{ font-size:11px; color:#7a919c; margin-top:1px; }}
   .radius {{ font-size:11px; color:#7a919c; margin-top:6px; }}
-  .press {{ margin-top:16px; background:#fff7e8; border:1px solid #f0d9a8;
+  .press {{ margin:16px 0 6px; background:#fff7e8;
+          border:1px solid #f0d9a8;
           border-radius:10px; padding:10px 12px; }}
+  /* El banner de aviso (arriba) se tiñe por estado; el de contexto
+     (abajo, en playas abiertas) queda ámbar neutro */
+  .press.n-closed {{ background:#fdecea; border-color:#f0b4ac; }}
+  .press.n-warning {{ background:#fff3e2; border-color:#f0cf9e; }}
   .yrow {{ display:flex; gap:1px; padding:3px 6px 0; }}
   .yrcell {{ flex:1; font-size:9px; font-weight:600; color:#8fa3ad;
           white-space:nowrap; overflow:visible; }}
@@ -977,22 +951,6 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         tierra-mar junto a cada playa, con su situación legal.
         </div></div>
     </div>
-    <div class="sphone">
-      <div class="spmap">
-        <img class="spshot" src="{imgs[start]}" alt="">
-        <div class="spbar"><span>Playas</span><span>Emisarios</span>
-          <span>Guía</span></div>
-        <img class="sppin" src="/icons/{_PIN.get(state, _PIN['unknown'])}.png"
-          alt="">
-        <img class="spod" src="/icons/pin-outfall-illegal.png" alt=""
-          style="left:24%; top:62%;">
-        <img class="spod" src="/icons/pin-outfall-legal.png" alt=""
-          style="left:76%; top:55%;">
-        <div class="spsheet"><b>{name}</b>
-          <i style="background:{color}">{label}</i></div>
-      </div>
-    </div>
-    <p class="spcap">Así se ve en la app</p>
     <p class="sfoot">App gratuita para Android · Datos: Náyade /
       Min. Sanidad · MITECO · OpenStreetMap · © Esri</p>
   </aside>

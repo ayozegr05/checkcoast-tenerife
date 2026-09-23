@@ -538,7 +538,9 @@ export default function CoastMap({
       const rep = g?.rep ?? feature;
       cameraRef.current?.flyTo({
         center: [lon, lat],
-        zoom: type === 'beach' ? 13 : 13.5,
+        // Emisario: zoom alto — el nombre del seleccionado necesita
+        // aire respecto a las etiquetas de playas cercanas
+        zoom: type === 'beach' ? 13 : 15,
         padding: type === 'outfall' ? CARD_PAD_OUTFALL : CARD_PAD,
         duration: 900,
       });
