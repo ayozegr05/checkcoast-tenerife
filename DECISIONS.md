@@ -107,8 +107,10 @@ entrega, y el proyecto ya vive en EAS.
 
 ### Deploy: Oracle Cloud Free Tier (VM) y no Render/Supabase/Railway
 
-El backend se autoaloja en una VM **Ampere A1 ARM** de Oracle (4 OCPU,
-24 GB, capa *Always Free* → $0 permanente) con el mismo
+El backend se autoaloja en una VM **Ampere A1 ARM** de Oracle
+(**1 OCPU** Neoverse-N1, **6 GB** RAM, 45 GB disco, Ubuntu 22.04 —
+capa *Always Free* → $0 permanente; el tier permite hasta 4 OCPU/24 GB
+pero con esta va sobrada: load ≈ 0.01) con el mismo
 `docker-compose.yml` de desarrollo: BD + API juntas, siempre
 despiertas, scheduler de Náyade corriendo 24/7.
 
