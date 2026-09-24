@@ -1071,9 +1071,6 @@ export default function CoastMap({
                       {f.properties.alert_cause ? (
                         <Text style={styles.alertCause} numberOfLines={1}>
                           {f.properties.alert_cause}
-                          {f.properties.cause_via === 'press'
-                            ? ' · prensa'
-                            : ''}
                         </Text>
                       ) : null}
                     </View>
@@ -1389,7 +1386,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontFamily: fonts.bold,
   },
-  // Causa bajo "Cerrada": "Contaminación · prensa", "Desprendimientos"
+  // Causa bajo "Cerrada": "Contaminación", "Desprendimientos"...
   alertCause: {
     fontSize: 10,
     lineHeight: 13,
