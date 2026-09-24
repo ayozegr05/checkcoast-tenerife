@@ -274,29 +274,36 @@ def _derive_state(pm: PmData) -> BeachState:
 
 
 def _superseded_by_reopening(beach: Beach, pm: PmData) -> bool:
-    """El estado no-open procede de una muestra tomada ANTES de la última
-    reapertura anunciada en prensa: es el mismo episodio que Náyade
-    publica tarde (la muestra que causó el cierre), no una clausura
-    nueva — no se cambia el estado ni se notifica.
+    """El estado no-open procede de evidencia oficial ANTERIOR a la
+    reapertura de prensa: mismo episodio que Náyade publica tarde,
+    no una clausura nueva — no se cambia el estado ni se notifica.
 
-    Una incidencia formal ABIERTA sí manda: es un acto oficial vigente,
-    no un dato rezagado."""
-    if any(i.closed is None for i in pm.incidents):
+    La evidencia de cierre son las incidencias abiertas (opened_at) y
+    la última medición si su evaluación es negativa (sampled_at). Si
+    TODA la evidencia es anterior a la reapertura, el evento ya estaba
+    resuelto según prensa; si ALGO es posterior, es un evento nuevo.
+    """
+    changes = [
+        n
+        for n in beach.news_items
+        if n.relevant
+        and n.event_type in ("closure", "reopening")
+        and n.published_at is not None
+    ]
+    if not changes:
         return False
-    last_reopen = max(
-        (
-            n.published_at
-            for n in beach.news_items
-            if n.relevant
-            and n.event_type == "reopening"
-            and n.published_at is not None
-        ),
-        default=None,
-    )
-    if last_reopen is None or not pm.measurements:
+    latest_change = max(changes, key=lambda n: n.published_at)
+    if latest_change.event_type != "reopening":
         return False
-    latest_meas = max(pm.measurements, key=lambda m: m.sampled)
-    return latest_meas.sampled < last_reopen.date()
+    reopen_d = latest_change.published_at.date()
+
+    evidence = [i.opened for i in pm.incidents if i.closed is None]
+    if pm.measurements:
+        m = max(pm.measurements, key=lambda x: x.sampled)
+        ev = _normalize(m.evaluation or "")
+        if any(t in ev for t in ("PROHIBID", "SIN CALIFICAR", "RECOMEND")):
+            evidence.append(m.sampled)
+    return bool(evidence) and all(d <= reopen_d for d in evidence)
 
 
 def _latest_status_map(db: Session) -> dict[int, BeachState]:

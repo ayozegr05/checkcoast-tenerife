@@ -116,26 +116,29 @@ def list_alerts(db: Session = Depends(get_db)) -> list[AlertOut]:
             last_reopen[beach_id] = ro.published_at
 
     def _official_stale(beach_id: int) -> bool:
-        """Estado oficial cerrado/aviso derivado de una muestra
-        rezagada: tomada antes de la última reapertura de prensa.
-        Una incidencia formal abierta siempre manda (acto vigente)."""
+        """Estado oficial cerrado/aviso derivado de evidencia anterior
+        a la última reapertura de prensa: mismo episodio que Náyade
+        publica tarde. Incidencia abierta o muestra POSTERIOR a la
+        reapertura = evento nuevo, sí alerta."""
         reopen = last_reopen.get(beach_id)
         if reopen is None:
             return False
-        open_inc = (
+        rd = reopen.date()
+        open_incs = (
             db.query(BeachIncident)
             .filter(
                 BeachIncident.beach_id == beach_id,
                 BeachIncident.closed_at.is_(None),
             )
-            .count()
+            .all()
         )
-        if open_inc:
-            return False
+        evidence = [i.opened_at for i in open_incs]
         last_meas = db.query(func.max(BeachMeasurement.sampled_at)).filter(
             BeachMeasurement.beach_id == beach_id
         ).scalar()
-        return last_meas is not None and last_meas < reopen.date()
+        if last_meas is not None:
+            evidence.append(last_meas)
+        return bool(evidence) and all(d <= rd for d in evidence)
 
     alerts: list[AlertOut] = []
     alerted: set[int] = set()
@@ -176,8 +179,9 @@ def list_alerts(db: Session = Depends(get_db)) -> list[AlertOut]:
             continue
         if official.get(beach_id) == BeachState.open.value:
             # Sanidad dice abierta: gana salvo ventana de gracia, y
-            # siempre que no haya cerrado un incidente tras la noticia
-            # (cierre formal = reapertura probada)
+            # siempre que haya prueba oficial de reapertura posterior a
+            # la noticia: incidencia cerrada o muestra tomada después
+            # (si fuera mala, el estado sería closed y no llegaría aquí)
             resolved = (
                 db.query(func.max(BeachIncident.closed_at))
                 .filter(
@@ -186,6 +190,13 @@ def list_alerts(db: Session = Depends(get_db)) -> list[AlertOut]:
                 )
                 .scalar()
             )
+            last_meas = db.query(func.max(BeachMeasurement.sampled_at)).filter(
+                BeachMeasurement.beach_id == beach_id
+            ).scalar()
+            if last_meas is not None and (
+                resolved is None or last_meas > resolved
+            ):
+                resolved = last_meas
             when = press_when.get(beach_id)
             if resolved is not None and (
                 when is None or resolved >= when.date()

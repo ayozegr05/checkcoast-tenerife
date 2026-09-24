@@ -279,9 +279,10 @@ def test_superseded_by_reopening_fresh_sample_closes():
     assert _superseded_by_reopening(beach, pm) is False
 
 
-def test_superseded_open_incident_always_wins():
-    """Una incidencia formal abierta es acto oficial vigente: manda
-    aunque la muestra sea anterior a la reapertura de prensa."""
+def test_superseded_open_incident_same_episode_is_stale():
+    """Incidencia abierta ANTES de la reapertura de prensa: es el
+    registro tardío del mismo episodio -> se suprime igual que una
+    muestra rezagada."""
     from types import SimpleNamespace
     from scripts.ingest_beach_status import _superseded_by_reopening
     from datetime import datetime, timezone
@@ -295,12 +296,32 @@ def test_superseded_open_incident_always_wins():
             )
         ]
     )
-    meas = MEAS_ROW.format(
-        fecha="15/09/2026", ecoli="900", entero="500", obs="prohibido",
-    )
     inc = ROW.format(apertura="15/09/2026", cierre="--", obs="prohibido")
     pm = _parse_pms(
-        PM_TMPL.format(name="PLAYA TEST PM1", rows=inc, meas_rows=meas)
+        PM_TMPL.format(name="PLAYA TEST PM1", rows=inc, meas_rows="")
+    )["PLAYA TEST PM1"]
+    assert _superseded_by_reopening(beach, pm) is True
+
+
+def test_open_incident_after_reopening_is_new_event():
+    """Incidencia abierta DESPUÉS de la reapertura de prensa: evento
+    nuevo, sí cambia el estado."""
+    from types import SimpleNamespace
+    from scripts.ingest_beach_status import _superseded_by_reopening
+    from datetime import datetime, timezone
+
+    beach = SimpleNamespace(
+        news_items=[
+            SimpleNamespace(
+                relevant=True,
+                event_type="reopening",
+                published_at=datetime(2026, 9, 20, tzinfo=timezone.utc),
+            )
+        ]
+    )
+    inc = ROW.format(apertura="25/09/2026", cierre="--", obs="prohibido")
+    pm = _parse_pms(
+        PM_TMPL.format(name="PLAYA TEST PM1", rows=inc, meas_rows="")
     )["PLAYA TEST PM1"]
     assert _superseded_by_reopening(beach, pm) is False
 
