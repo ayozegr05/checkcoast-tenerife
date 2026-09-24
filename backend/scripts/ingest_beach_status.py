@@ -273,6 +273,32 @@ def _derive_state(pm: PmData) -> BeachState:
     return state
 
 
+def _superseded_by_reopening(beach: Beach, pm: PmData) -> bool:
+    """El estado no-open procede de una muestra tomada ANTES de la última
+    reapertura anunciada en prensa: es el mismo episodio que Náyade
+    publica tarde (la muestra que causó el cierre), no una clausura
+    nueva — no se cambia el estado ni se notifica.
+
+    Una incidencia formal ABIERTA sí manda: es un acto oficial vigente,
+    no un dato rezagado."""
+    if any(i.closed is None for i in pm.incidents):
+        return False
+    last_reopen = max(
+        (
+            n.published_at
+            for n in beach.news_items
+            if n.relevant
+            and n.event_type == "reopening"
+            and n.published_at is not None
+        ),
+        default=None,
+    )
+    if last_reopen is None or not pm.measurements:
+        return False
+    latest_meas = max(pm.measurements, key=lambda m: m.sampled)
+    return latest_meas.sampled < last_reopen.date()
+
+
 def _latest_status_map(db: Session) -> dict[int, BeachState]:
     """{beach_id: último BeachState conocido}."""
     result: dict[int, BeachState] = {}
@@ -358,6 +384,12 @@ def _persist(
             )
 
     state = _derive_state(pm)
+    # Muestra rezagada anterior a una reapertura de prensa: mismo
+    # evento, no reabrir el cierre (la medición sí se ha grabado arriba)
+    if state is not BeachState.open and _superseded_by_reopening(
+        beach, pm
+    ):
+        return False
     if latest.get(beach.id) != state:
         db.add(
             BeachStatus(

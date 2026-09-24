@@ -5,7 +5,13 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Beach, BeachIncident, BeachState, NewsItem
+from app.models import (
+    Beach,
+    BeachIncident,
+    BeachMeasurement,
+    BeachState,
+    NewsItem,
+)
 from app.queries import beaches_with_latest_status
 from app.schemas import AlertOut
 
@@ -98,6 +104,39 @@ def list_alerts(db: Session = Depends(get_db)) -> list[AlertOut]:
                 if i.event_type in counts and counts[i.event_type] == best
             )
 
+    # Última reapertura de prensa por playa: una muestra oficial mala
+    # tomada ANTES de ella es el mismo episodio que Náyade publica
+    # tarde (el agua que causó el cierre), no una clausura nueva
+    last_reopen: dict[int, datetime] = {}
+    for beach_id, its in by_beach.items():
+        ro = next(
+            (i for i in its if i.event_type == "reopening"), None
+        )
+        if ro is not None and ro.published_at is not None:
+            last_reopen[beach_id] = ro.published_at
+
+    def _official_stale(beach_id: int) -> bool:
+        """Estado oficial cerrado/aviso derivado de una muestra
+        rezagada: tomada antes de la última reapertura de prensa.
+        Una incidencia formal abierta siempre manda (acto vigente)."""
+        reopen = last_reopen.get(beach_id)
+        if reopen is None:
+            return False
+        open_inc = (
+            db.query(BeachIncident)
+            .filter(
+                BeachIncident.beach_id == beach_id,
+                BeachIncident.closed_at.is_(None),
+            )
+            .count()
+        )
+        if open_inc:
+            return False
+        last_meas = db.query(func.max(BeachMeasurement.sampled_at)).filter(
+            BeachMeasurement.beach_id == beach_id
+        ).scalar()
+        return last_meas is not None and last_meas < reopen.date()
+
     alerts: list[AlertOut] = []
     alerted: set[int] = set()
     official: dict[int, str] = {}
@@ -108,6 +147,8 @@ def list_alerts(db: Session = Depends(get_db)) -> list[AlertOut]:
             BeachState.closed,
             BeachState.warning,
         ):
+            continue
+        if _official_stale(beach.id):
             continue
         alerted.add(beach.id)
         alerts.append(
