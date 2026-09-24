@@ -57,14 +57,21 @@ suelen ser anteriores a su publicación. Comparar timestamps de
 ingesta producía falsas "nuevas clausuras" cuando una muestra rezagada
 llegaba después de una reapertura de prensa.
 
-Regla (`effective_states`/`stale_official_ids` en `queries.py`): toda
-la evidencia oficial anterior a la reapertura de prensa es el **mismo
-episodio publicado tarde** → estado efectivo `open`, sin push. La
-evidencia oficial **posterior** a la reapertura es un evento nuevo →
+Regla (`effective_states`/`stale_official_ids` en `queries.py`): una
+medición con `sampled_at` anterior a la reapertura de prensa es el
+**mismo episodio publicado tarde** → estado efectivo `open`, sin push.
+La evidencia oficial **posterior** a la reapertura es un evento nuevo →
 `closed` + push. Y al revés: incidencia cerrada o muestra tomada
 después de un cierre de prensa prueba reapertura oficial y la alerta
 cae sin que la prensa diga nada. No hay ventanas de días a adivinar:
 la propia fecha del evento decide.
+
+Excepción aprendida con un caso real (Gaviotas): una **incidencia
+formalmente abierta nunca es rezago** — es un acto vigente de Sanidad
+y una noticia no puede tumbarla. El LLM había clasificado "Costas
+autoriza obras PARA reabrir el acceso" como reapertura y la playa
+apareció abierta con una prohibición oficial activa. Por eso el prompt
+también distingue "reabierta" (hecho) de "obras para reabrir" (other).
 
 ### Una sola matriz de estado efectivo
 

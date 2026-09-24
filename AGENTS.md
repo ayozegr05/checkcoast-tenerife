@@ -22,8 +22,9 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     oficial+prensa con precedencia por fecha de evento: alimenta
     `/alerts`, `/beaches` y `/beaches/{id}/status`; `status_via` =
     official|press) + `stale_official_ids()` (oficial rezagado del
-    mismo episodio: reapertura de prensa posterior a TODA la
-    evidencia — `sampled_at`/`opened_at` — → efectivo `open`)
+    mismo episodio: reapertura de prensa posterior al `sampled_at`
+    de la última medición → efectivo `open`; una incidencia ABIERTA
+    nunca es rezago — acto vigente de Sanidad)
   - `app/main.py` — lifespan con APScheduler (`_sync_beach_statuses` cada
     `NAYADE_SYNC_SECONDS`, 1 h; `_sync_news` cada `NEWS_SYNC_SECONDS`,
     6 h; ambos envueltos en try/except)
@@ -148,9 +149,11 @@ npx tsc --noEmit                                        # typecheck
   ficha) sale de `effective_states()` — combina oficial y prensa por
   fecha de evento real. El `BeachStatus`/`BeachMeasurement` crudo nunca
   se muta y sigue en el historial de la ficha. Regla de rezago:
-  evidencia oficial (`sampled_at`, `opened_at`) anterior a una
-  reapertura de prensa = mismo episodio publicado tarde → efectivo
-  `open`; evidencia posterior = evento nuevo → `closed`+push
+  última medición con `sampled_at` anterior a una reapertura de prensa
+  = mismo episodio publicado tarde → efectivo `open`; medición
+  posterior = evento nuevo → `closed`+push. Una incidencia ABIERTA
+  nunca es rezago (acto vigente; caso Gaviotas: "obras PARA reabrir"
+  mal clasificadas como reapertura no pueden abrir la playa)
 - **Umbrales calidad** (RD 1341/2007, costeras): E. coli ≤250/≤500/>500,
   enterococo ≤100/≤200/>200 → Excelente/Buena/Insuficiente
 - **Manual**: `POST /beaches/{id}/status` {"status": open|closed|warning}
