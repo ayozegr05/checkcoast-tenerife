@@ -208,6 +208,134 @@ def test_press_closure_enters_alerts(seed_data):
         db.close()
 
 
+def test_effective_status_suppresses_stale_official(seed_data):
+    """Estado efectivo: un oficial 'closed' derivado de evidencia
+    anterior a una reapertura de prensa (mismo episodio que Náyade
+    publica tarde) se muestra como 'open' en mapa y ficha, y no
+    alerta. El BeachStatus crudo se conserva."""
+    from datetime import date, datetime, timedelta, timezone
+
+    from app.db import SessionLocal
+    from app.models import (
+        BeachMeasurement,
+        BeachState,
+        BeachStatus,
+        NewsItem,
+    )
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    now = datetime.now(timezone.utc)
+    status = BeachStatus(
+        beach_id=beach_id,
+        status=BeachState.closed,
+        reported_at=now,
+    )
+    meas = BeachMeasurement(
+        beach_id=beach_id,
+        sampled_at=date.today() - timedelta(days=4),
+        evaluation="Zona No Apta para el baño",
+    )
+    reopen = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-reopen",
+        title="Reabren la playa",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="reopening",
+        published_at=now - timedelta(days=2),
+    )
+    db.add_all([status, meas, reopen])
+    db.commit()
+    try:
+        # Mapa: pin efectivo 'open' aunque el último status es 'closed'
+        features = client.get("/beaches").json()["features"]
+        feat = next(
+            f for f in features if f["id"] == beach_id
+        )
+        assert feat["properties"]["status"] == "open"
+        # Ficha: mismo estado efectivo
+        body = client.get(f"/beaches/{beach_id}/status").json()
+        assert body["status"] == "open"
+        # Alertas: sin alerta oficial para esta playa
+        alerts = client.get("/alerts").json()
+        hit = next(
+            (a for a in alerts
+             if a["beach_id"] == beach_id and a["via"] == "official"),
+            None,
+        )
+        assert hit is None
+        # El dato crudo sigue en la BD
+        raw = db.get(BeachStatus, status.id)
+        assert raw.status == BeachState.closed
+    finally:
+        db.delete(status)
+        db.delete(meas)
+        db.delete(reopen)
+        db.commit()
+        db.close()
+
+
+def test_effective_status_keeps_new_official_closure(seed_data):
+    """Si la evidencia oficial (medición) es POSTERIOR a la reapertura
+    de prensa, es un evento nuevo: el estado efectivo sigue 'closed'
+    y la playa alerta via='official'."""
+    from datetime import date, datetime, timedelta, timezone
+
+    from app.db import SessionLocal
+    from app.models import (
+        BeachMeasurement,
+        BeachState,
+        BeachStatus,
+        NewsItem,
+    )
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    now = datetime.now(timezone.utc)
+    status = BeachStatus(
+        beach_id=beach_id,
+        status=BeachState.closed,
+        reported_at=now,
+    )
+    meas = BeachMeasurement(
+        beach_id=beach_id,
+        sampled_at=date.today(),  # posterior a la reapertura
+        evaluation="Zona No Apta para el baño",
+    )
+    reopen = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-reopen-new",
+        title="Reabren la playa",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="reopening",
+        published_at=now - timedelta(days=2),
+    )
+    db.add_all([status, meas, reopen])
+    db.commit()
+    try:
+        features = client.get("/beaches").json()["features"]
+        feat = next(f for f in features if f["id"] == beach_id)
+        assert feat["properties"]["status"] == "closed"
+        body = client.get(f"/beaches/{beach_id}/status").json()
+        assert body["status"] == "closed"
+        alerts = client.get("/alerts").json()
+        hit = next(
+            (a for a in alerts
+             if a["beach_id"] == beach_id and a["via"] == "official"),
+            None,
+        )
+        assert hit is not None
+        assert hit["status"] == "closed"
+    finally:
+        db.delete(status)
+        db.delete(meas)
+        db.delete(reopen)
+        db.commit()
+        db.close()
+
+
 def test_set_beach_status_flow(seed_data):
     from sqlalchemy import func
 

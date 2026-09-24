@@ -23,7 +23,7 @@ from app.models import (
     NewsItem,
     Outfall,
 )
-from app.queries import beaches_with_latest_status
+from app.queries import beaches_with_latest_status, effective_states
 from app.schemas import (
     BeachIncidentOut,
     BeachMeasurementOut,
@@ -54,6 +54,11 @@ def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
         .order_by(Beach.name)
         .all()
     )
+    # Estado efectivo (misma matriz que /alerts): un cierre de prensa
+    # fresco pone el pin rojo y un oficial rezagado superado por una
+    # reapertura de prensa muestra 'open'. 'status_via' conserva la
+    # procedencia ('press' cuando la prensa decide lo mostrado)
+    eff = effective_states(db)
     return FeatureCollection(
         features=[
             Feature(
@@ -64,7 +69,11 @@ def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
                     "municipality": beach.municipality,
                     "monitored": beach.monitored,
                     "source_url": beach.source_url,
-                    "status": status.status.value if status else "unknown",
+                    "status": eff.get(beach.id, {}).get(
+                        "status",
+                        status.status.value if status else "unknown",
+                    ),
+                    "status_via": eff.get(beach.id, {}).get("via"),
                     "reported_at": (
                         status.reported_at.isoformat() if status else None
                     ),
@@ -556,10 +565,18 @@ def beach_status(beach_id: int, db: Session = Depends(get_db)) -> BeachStatusOut
         raise HTTPException(status_code=404, detail="Beach not found")
 
     beach, status = row
+    eff = effective_states(db).get(beach.id, {})
     return BeachStatusOut(
         beach_id=beach.id,
         beach_name=beach.name,
-        status=status.status.value if status else "unknown",
-        reported_at=status.reported_at if status else None,
-        source_url=status.source_url if status else beach.source_url,
+        status=eff.get(
+            "status", status.status.value if status else "unknown"
+        ),
+        reported_at=eff.get(
+            "reported_at", status.reported_at if status else None
+        ),
+        source_url=eff.get(
+            "source_url",
+            status.source_url if status else beach.source_url,
+        ),
     )
