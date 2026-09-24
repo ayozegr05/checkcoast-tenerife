@@ -279,10 +279,11 @@ def test_superseded_by_reopening_fresh_sample_closes():
     assert _superseded_by_reopening(beach, pm) is False
 
 
-def test_superseded_open_incident_same_episode_is_stale():
-    """Incidencia abierta ANTES de la reapertura de prensa: es el
-    registro tardío del mismo episodio -> se suprime igual que una
-    muestra rezagada."""
+def test_open_incident_is_never_stale():
+    """Incidencia formal ABIERTA aunque sea anterior a la reapertura
+    de prensa: es un acto vigente de Sanidad, no un dato rezagado —
+    la prensa no la suprime (Gaviotas: 'obras PARA reabrir' mal
+    clasificada como reapertura no abre la playa)."""
     from types import SimpleNamespace
     from scripts.ingest_beach_status import _superseded_by_reopening
     from datetime import datetime, timezone
@@ -300,7 +301,7 @@ def test_superseded_open_incident_same_episode_is_stale():
     pm = _parse_pms(
         PM_TMPL.format(name="PLAYA TEST PM1", rows=inc, meas_rows="")
     )["PLAYA TEST PM1"]
-    assert _superseded_by_reopening(beach, pm) is True
+    assert _superseded_by_reopening(beach, pm) is False
 
 
 def test_open_incident_after_reopening_is_new_event():

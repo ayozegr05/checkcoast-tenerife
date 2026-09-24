@@ -50,9 +50,15 @@ _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 def stale_official_ids(db: Session) -> set[int]:
     """Playas cuyo último estado oficial (closed/warning) está superado
-    por una reapertura de prensa: TODA la evidencia oficial (incidencias
-    abiertas + última medición) es anterior a la reapertura — mismo
-    episodio que Náyade publica tarde, no una clausura nueva.
+    por una reapertura de prensa: la última medición es anterior a la
+    reapertura — mismo episodio que Náyade publica tarde, no una
+    clausura nueva.
+
+    Una incidencia formal ABIERTA nunca es rezago: es un acto vigente
+    de Sanidad (aunque su opened_at sea anterior a la reapertura, la
+    noticia puede ser falsa o referirse a otra cosa — caso Gaviotas:
+    "obras PARA reabrir" mal clasificada). Solo la fecha de toma de la
+    última medición compite con la prensa.
 
     Sirve para el estado efectivo (mapa, alertas, ficha): el dato oficial
     crudo no se toca y sigue visible en el historial de la playa."""
@@ -83,14 +89,15 @@ def stale_official_ids(db: Session) -> set[int]:
         .group_by(NewsItem.beach_id)
         .all()
     )
-    open_incs = (
-        db.query(BeachIncident.beach_id, BeachIncident.opened_at)
+    open_inc_ids = {
+        r[0]
+        for r in db.query(BeachIncident.beach_id)
         .filter(
             BeachIncident.beach_id.in_(ids),
             BeachIncident.closed_at.is_(None),
         )
         .all()
-    )
+    }
     last_meas = dict(
         db.query(
             BeachMeasurement.beach_id,
@@ -100,18 +107,15 @@ def stale_official_ids(db: Session) -> set[int]:
         .group_by(BeachMeasurement.beach_id)
         .all()
     )
-    inc_map: dict[int, list] = {}
-    for bid, opened in open_incs:
-        inc_map.setdefault(bid, []).append(opened)
     stale = set()
     for bid, reopen in reopens:
+        if bid in open_inc_ids:
+            continue
         closure = last_closures.get(bid)
         if closure is not None and closure > reopen:
             continue
-        evidence = list(inc_map.get(bid, []))
-        if last_meas.get(bid):
-            evidence.append(last_meas[bid])
-        if evidence and all(d <= reopen.date() for d in evidence):
+        meas = last_meas.get(bid)
+        if meas is not None and meas <= reopen.date():
             stale.add(bid)
     return stale
 

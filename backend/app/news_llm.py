@@ -69,6 +69,11 @@ Si relevant=true extrae:
   nunca lo deduzcas por la playa (hay playas homónimas en varios
   municipios: "El Cabezo" existe en Güímar, Granadilla y Adeje)
 - event_type: "closure" | "reopening" | "warning" | "pollution" | "other"
+  · "reopening" SOLO si la playa YA está abierta de nuevo al baño.
+    Obras autorizadas, anunciadas o en curso "para reabrir" no son
+    reapertura → "other" (p.ej. "Costas autoriza obras para reabrir el
+    acceso" = other, no reopening)
+  · igual para "closure": anuncios de futuros cierres u obras son "other"
 - cause: frase corta con la causa ("vertido de aguas residuales",
   "bacterias fecales", "gasoil") o null si no se indica
 - confidence: 0-1, confianza en que el titular describe ese evento en esa playa
