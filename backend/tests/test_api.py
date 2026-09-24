@@ -336,6 +336,72 @@ def test_effective_status_keeps_new_official_closure(seed_data):
         db.close()
 
 
+def test_open_incident_needs_corroborated_reopening(seed_data):
+    """Incidencia formal ABIERTA + reapertura de prensa de UNA sola
+    fuente: no basta para abrirla (caso Gaviotas). Con >=2 medios
+    distintos la reapertura está corroborada y el efectivo es 'open'."""
+    from datetime import date, datetime, timedelta, timezone
+
+    from app.db import SessionLocal
+    from app.models import (
+        BeachIncident,
+        BeachState,
+        BeachStatus,
+        NewsItem,
+    )
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    now = datetime.now(timezone.utc)
+    status = BeachStatus(
+        beach_id=beach_id,
+        status=BeachState.closed,
+        reported_at=now,
+    )
+    inc = BeachIncident(
+        beach_id=beach_id,
+        opened_at=date.today() - timedelta(days=10),
+        closed_at=None,
+    )
+    reopen1 = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-reopen-a",
+        title="Reabren la playa",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="reopening",
+        published_at=now - timedelta(days=2),
+    )
+    db.add_all([status, inc, reopen1])
+    db.commit()
+    try:
+        # Una sola fuente no tumba una incidencia abierta
+        body = client.get(f"/beaches/{beach_id}/status").json()
+        assert body["status"] == "closed"
+        # Con un segundo medio distinto, la reapertura está corroborada
+        reopen2 = NewsItem(
+            url="https://news.google.com/rss/articles/pytest-reopen-b",
+            title="La playa vuelve a abrir",
+            source="Otro Medio",
+            relevant=True,
+            beach_id=beach_id,
+            event_type="reopening",
+            published_at=now - timedelta(days=1),
+        )
+        db.add(reopen2)
+        db.commit()
+        body = client.get(f"/beaches/{beach_id}/status").json()
+        assert body["status"] == "open"
+        db.delete(reopen2)
+        db.commit()
+    finally:
+        db.delete(status)
+        db.delete(inc)
+        db.delete(reopen1)
+        db.commit()
+        db.close()
+
+
 def test_set_beach_status_flow(seed_data):
     from sqlalchemy import func
 

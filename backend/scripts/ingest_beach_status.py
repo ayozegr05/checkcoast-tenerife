@@ -278,15 +278,15 @@ def _superseded_by_reopening(beach: Beach, pm: PmData) -> bool:
     reapertura de prensa: mismo episodio que Náyade publica tarde,
     no una clausura nueva — no se cambia el estado ni se notifica.
 
-    La única evidencia suprimible es la última medición si su
-    evaluación es negativa (sampled_at): si es anterior a la
-    reapertura, el evento ya estaba resuelto según prensa; si es
-    posterior, es un evento nuevo.
+    La evidencia de cierre son las incidencias abiertas (opened_at) y
+    la última medición si su evaluación es negativa (sampled_at). Si
+    TODA la evidencia es anterior a la reapertura, el evento ya estaba
+    resuelto según prensa; si ALGO es posterior, es un evento nuevo.
 
-    Una incidencia formal ABIERTA nunca es rezago: es un acto vigente
-    de Sanidad y la prensa no la suprime — la noticia puede ser falsa
-    o referirse a otra cosa (Gaviotas: "obras PARA reabrir" mal
-    clasificada como reapertura).
+    Una incidencia formal ABIERTA exige además corroboración: la
+    reapertura debe estar reportada por >=2 medios distintos. Un solo
+    titular mal clasificado no puede abrir una prohibición vigente
+    (Gaviotas: "obras PARA reabrir" interpretado como reapertura).
     """
     changes = [
         n
@@ -302,14 +302,24 @@ def _superseded_by_reopening(beach: Beach, pm: PmData) -> bool:
         return False
     reopen_d = latest_change.published_at.date()
 
-    if any(i.closed is None for i in pm.incidents):
-        return False
+    evidence = [i.opened for i in pm.incidents if i.closed is None]
     if pm.measurements:
         m = max(pm.measurements, key=lambda x: x.sampled)
         ev = _normalize(m.evaluation or "")
         if any(t in ev for t in ("PROHIBID", "SIN CALIFICAR", "RECOMEND")):
-            return m.sampled <= reopen_d
-    return False
+            evidence.append(m.sampled)
+    if not evidence or not all(d <= reopen_d for d in evidence):
+        return False
+    if any(i.closed is None for i in pm.incidents):
+        sources = {
+            getattr(n, "source", None)
+            for n in beach.news_items
+            if n.relevant
+            and n.event_type == "reopening"
+            and getattr(n, "source", None)
+        }
+        return len(sources) >= 2
+    return True
 
 
 def _latest_status_map(db: Session) -> dict[int, BeachState]:

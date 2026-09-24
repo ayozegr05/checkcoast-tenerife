@@ -50,32 +50,39 @@ _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 def stale_official_ids(db: Session) -> set[int]:
     """Playas cuyo último estado oficial (closed/warning) está superado
-    por una reapertura de prensa: la última medición es anterior a la
-    reapertura — mismo episodio que Náyade publica tarde, no una
-    clausura nueva.
+    por una reapertura de prensa: TODA la evidencia oficial (incidencias
+    abiertas + última medición) es anterior a la reapertura — mismo
+    episodio que Náyade publica tarde, no una clausura nueva.
 
-    Una incidencia formal ABIERTA nunca es rezago: es un acto vigente
-    de Sanidad (aunque su opened_at sea anterior a la reapertura, la
-    noticia puede ser falsa o referirse a otra cosa — caso Gaviotas:
-    "obras PARA reabrir" mal clasificada). Solo la fecha de toma de la
-    última medición compite con la prensa.
+    Una incidencia formal ABIERTA exige corroboración (>=2 medios
+    distintos reportando la reapertura): es un acto vigente de Sanidad
+    y un solo titular mal clasificado no puede abrirla (caso Gaviotas:
+    "obras PARA reabrir" interpretado como reapertura).
 
     Sirve para el estado efectivo (mapa, alertas, ficha): el dato oficial
     crudo no se toca y sigue visible en el historial de la playa."""
-    reopens = (
-        db.query(NewsItem.beach_id, func.max(NewsItem.published_at))
+    rows = (
+        db.query(
+            NewsItem.beach_id, NewsItem.published_at, NewsItem.source
+        )
         .filter(
             NewsItem.relevant.is_(True),
             NewsItem.beach_id.isnot(None),
             NewsItem.event_type == "reopening",
             NewsItem.published_at.isnot(None),
         )
-        .group_by(NewsItem.beach_id)
         .all()
     )
-    if not reopens:
+    if not rows:
         return set()
-    ids = [b for b, _ in reopens]
+    reopens: dict[int, datetime] = {}
+    sources: dict[int, set] = {}
+    for bid, pub, src in rows:
+        if bid not in reopens or pub > reopens[bid]:
+            reopens[bid] = pub
+        if src:
+            sources.setdefault(bid, set()).add(src)
+    ids = list(reopens)
     # Si hay un cierre de prensa posterior a la reapertura, la
     # reapertura ya no es el último evento: no suprime nada
     last_closures = dict(
@@ -89,15 +96,14 @@ def stale_official_ids(db: Session) -> set[int]:
         .group_by(NewsItem.beach_id)
         .all()
     )
-    open_inc_ids = {
-        r[0]
-        for r in db.query(BeachIncident.beach_id)
-        .filter(
-            BeachIncident.beach_id.in_(ids),
-            BeachIncident.closed_at.is_(None),
-        )
-        .all()
-    }
+    open_incs: dict[int, list] = {}
+    for bid, opened in db.query(
+        BeachIncident.beach_id, BeachIncident.opened_at
+    ).filter(
+        BeachIncident.beach_id.in_(ids),
+        BeachIncident.closed_at.is_(None),
+    ).all():
+        open_incs.setdefault(bid, []).append(opened)
     last_meas = dict(
         db.query(
             BeachMeasurement.beach_id,
@@ -108,15 +114,20 @@ def stale_official_ids(db: Session) -> set[int]:
         .all()
     )
     stale = set()
-    for bid, reopen in reopens:
-        if bid in open_inc_ids:
-            continue
+    for bid, reopen in reopens.items():
         closure = last_closures.get(bid)
         if closure is not None and closure > reopen:
             continue
-        meas = last_meas.get(bid)
-        if meas is not None and meas <= reopen.date():
-            stale.add(bid)
+        evidence = list(open_incs.get(bid, []))
+        if last_meas.get(bid):
+            evidence.append(last_meas[bid])
+        if not evidence or not all(d <= reopen.date() for d in evidence):
+            continue
+        # Incidencia abierta = acto vigente: solo la suprime una
+        # reapertura corroborada por al menos 2 medios distintos
+        if open_incs.get(bid) and len(sources.get(bid, set())) < 2:
+            continue
+        stale.add(bid)
     return stale
 
 

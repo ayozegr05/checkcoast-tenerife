@@ -279,11 +279,10 @@ def test_superseded_by_reopening_fresh_sample_closes():
     assert _superseded_by_reopening(beach, pm) is False
 
 
-def test_open_incident_is_never_stale():
-    """Incidencia formal ABIERTA aunque sea anterior a la reapertura
-    de prensa: es un acto vigente de Sanidad, no un dato rezagado —
-    la prensa no la suprime (Gaviotas: 'obras PARA reabrir' mal
-    clasificada como reapertura no abre la playa)."""
+def test_open_incident_single_source_not_stale():
+    """Incidencia ABIERTA anterior a la reapertura + UNA sola fuente:
+    un titular no puede abrir una prohibición vigente (Gaviotas:
+    'obras PARA reabrir' mal clasificada)."""
     from types import SimpleNamespace
     from scripts.ingest_beach_status import _superseded_by_reopening
     from datetime import datetime, timezone
@@ -293,6 +292,7 @@ def test_open_incident_is_never_stale():
             SimpleNamespace(
                 relevant=True,
                 event_type="reopening",
+                source="El Día",
                 published_at=datetime(2026, 9, 20, tzinfo=timezone.utc),
             )
         ]
@@ -302,6 +302,37 @@ def test_open_incident_is_never_stale():
         PM_TMPL.format(name="PLAYA TEST PM1", rows=inc, meas_rows="")
     )["PLAYA TEST PM1"]
     assert _superseded_by_reopening(beach, pm) is False
+
+
+def test_open_incident_corroborated_reopening_is_stale():
+    """Incidencia ABIERTA anterior a la reapertura + >=2 medios
+    distintos reportándola: reapertura corroborada, la incidencia es
+    papeleo rezagado del mismo episodio -> se suprime."""
+    from types import SimpleNamespace
+    from scripts.ingest_beach_status import _superseded_by_reopening
+    from datetime import datetime, timezone
+
+    beach = SimpleNamespace(
+        news_items=[
+            SimpleNamespace(
+                relevant=True,
+                event_type="reopening",
+                source="El Día",
+                published_at=datetime(2026, 9, 20, tzinfo=timezone.utc),
+            ),
+            SimpleNamespace(
+                relevant=True,
+                event_type="reopening",
+                source="Diario de Avisos",
+                published_at=datetime(2026, 9, 19, tzinfo=timezone.utc),
+            ),
+        ]
+    )
+    inc = ROW.format(apertura="15/09/2026", cierre="--", obs="prohibido")
+    pm = _parse_pms(
+        PM_TMPL.format(name="PLAYA TEST PM1", rows=inc, meas_rows="")
+    )["PLAYA TEST PM1"]
+    assert _superseded_by_reopening(beach, pm) is True
 
 
 def test_open_incident_after_reopening_is_new_event():
