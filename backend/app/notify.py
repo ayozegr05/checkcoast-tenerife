@@ -30,6 +30,7 @@ def _display_name(name: str) -> str:
 _PRESS_LABEL = {
     "closure": "Cierre de baño",
     "warning": "Aviso en la playa",
+    "reopening": "Reapertura",
 }
 
 

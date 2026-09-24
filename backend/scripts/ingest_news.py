@@ -28,10 +28,13 @@ _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 # Solo estos eventos de prensa despiertan el móvil; el resto queda como
 # contexto en la ficha
-_PRESS_PUSH_EVENTS = {"closure", "warning"}
+_PRESS_PUSH_EVENTS = {"closure", "warning", "reopening"}
 # Ventana de dedup: noticias del mismo evento suelen salir en días
 # consecutivos — un push por evento, no por titular
 _PRESS_PUSH_DAYS = 7
+# Una reapertura solo notifica si cerraba un episodio: alerta de
+# prensa reciente (misma ventana que /alerts) o estado oficial no-open
+_REOPEN_CLOSURE_DAYS = 21
 
 
 def _press_push_candidate(
@@ -63,6 +66,25 @@ def _press_push_candidate(
         .order_by(BeachStatus.reported_at.desc())
         .first()
     )
+    if event_type == "reopening":
+        # Una reapertura sin cierre previo (ni prensa ni oficial) no
+        # cambia nada visible — sería ruido
+        had_press_closure = (
+            db.query(NewsItem.id)
+            .filter(
+                NewsItem.beach_id == beach.id,
+                NewsItem.event_type == "closure",
+                NewsItem.published_at
+                >= now - timedelta(days=_REOPEN_CLOSURE_DAYS),
+            )
+            .first()
+            is not None
+        )
+        officially_closed = latest is not None and latest.status in (
+            BeachState.closed,
+            BeachState.warning,
+        )
+        return had_press_closure or officially_closed
     if latest and (
         latest.status == BeachState.closed
         or (event_type == "warning" and latest.status == BeachState.warning)
