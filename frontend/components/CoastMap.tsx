@@ -1059,14 +1059,24 @@ export default function CoastMap({
                         {f.properties.municipality ?? ''}
                       </Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.alertState,
-                        { color: colors.status[s] },
-                      ]}
-                    >
-                      {s === 'closed' ? 'Cerrada' : 'Aviso'}
-                    </Text>
+                    <View style={styles.alertStateCol}>
+                      <Text
+                        style={[
+                          styles.alertState,
+                          { color: colors.status[s] },
+                        ]}
+                      >
+                        {s === 'closed' ? 'Cerrada' : 'Aviso'}
+                      </Text>
+                      {f.properties.alert_cause ? (
+                        <Text style={styles.alertCause} numberOfLines={1}>
+                          {f.properties.alert_cause}
+                          {f.properties.cause_via === 'press'
+                            ? ' · prensa'
+                            : ''}
+                        </Text>
+                      ) : null}
+                    </View>
                   </Pressable>
                 );
               })}
@@ -1370,10 +1380,22 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 1,
   },
+  alertStateCol: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
   alertState: {
     fontSize: 12,
     lineHeight: 16,
     fontFamily: fonts.bold,
+  },
+  // Causa bajo "Cerrada": "Contaminación · prensa", "Desprendimientos"
+  alertCause: {
+    fontSize: 10,
+    lineHeight: 13,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+    marginTop: 1,
   },
   searchWrap: {
     alignSelf: 'stretch',

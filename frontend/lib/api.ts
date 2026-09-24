@@ -10,6 +10,11 @@ export type GeoFeature = {
     monitored?: boolean;
     kind?: string | null;
     status?: string | null;
+    status_via?: 'official' | 'press' | null;
+    // Causa corta de la alerta viva ("Contaminación", "Desprendimientos")
+    // y su procedencia — solo presentes con alerta activa
+    alert_cause?: string | null;
+    cause_via?: 'official' | 'press' | null;
     source_url?: string | null;
     fetched_at?: string | null;
     reported_at?: string | null;

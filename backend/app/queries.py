@@ -1,3 +1,4 @@
+import unicodedata
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
@@ -46,6 +47,62 @@ PRESS_ALERT_MAX_AGE = timedelta(days=21)
 # pasada la ventana sin seguimiento, gana Sanidad
 PRESS_OPEN_GRACE = timedelta(days=14)
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+# Causas de titulares/observaciones → etiqueta corta para la UI.
+# El LLM y Náyade escriben texto libre ("exceso de enterococos",
+# "contaminación fecal", "riesgo de desprendimientos en la ladera"...);
+# la lista de alertas solo quiere distinguir el tipo de problema.
+_CAUSE_RULES = [
+    (
+        (
+            "coli", "enterococo", "contamin", "fecal", "bacteria",
+            "vertido", "residual", "gasoil", "calidad del agua",
+            "alga", "medusa",
+        ),
+        "Contaminación",
+    ),
+    (
+        ("desprend", "talud", "ladera", "derrumbe", "corrimiento"),
+        "Desprendimientos",
+    ),
+    (("obra",), "Obras"),
+    (("acceso", "vallad", "seguridad"), "Acceso"),
+    (
+        ("corriente", "oleaje", "temporal", "mar de fondo", "resaca"),
+        "Mar agitado",
+    ),
+]
+
+
+def _short_cause(text: str | None) -> str | None:
+    """Texto libre de causa → categoría corta o None si no aporta."""
+    if not text:
+        return None
+    t = "".join(
+        c
+        for c in unicodedata.normalize("NFD", text.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+    for keys, label in _CAUSE_RULES:
+        if any(k in t for k in keys):
+            return label
+    return None
+
+
+def _press_cause(its: list[NewsItem]) -> str | None:
+    """Causa dominante (categoría) entre los titulares que cambian
+    estado; en empate gana el más reciente (items ordenados desc)."""
+    counts: dict[str, int] = {}
+    for i in its:
+        if i.event_type not in ("closure", "warning", "pollution"):
+            continue
+        c = _short_cause(i.cause)
+        if c:
+            counts[c] = counts.get(c, 0) + 1
+    if not counts:
+        return None
+    best = max(counts.values())
+    return next(c for c in counts if counts[c] == best)
 
 
 def stale_official_ids(db: Session) -> set[int]:
@@ -190,11 +247,13 @@ def effective_states(db: Session) -> dict[int, dict]:
     cutoff = datetime.now(timezone.utc) - PRESS_ALERT_MAX_AGE
     press_state: dict[int, str] = {}
     press_when: dict[int, datetime | None] = {}
+    press_cause: dict[int, str | None] = {}
     press_dominant: dict[int, str] = {}
     for beach_id, its in by_beach.items():
         newest = its[0].published_at
         if newest is None or newest < cutoff:
             continue
+        press_cause[beach_id] = _press_cause(its)
         ev = _press_event(its)
         if ev is not None:
             press_state[beach_id] = (
@@ -230,6 +289,8 @@ def effective_states(db: Session) -> dict[int, dict]:
                 "alerted": False,
                 "reported_at": None,
                 "source_url": beach.source_url,
+                "cause": None,
+                "cause_via": None,
             }
             continue
         if status.status in (BeachState.closed, BeachState.warning):
@@ -242,6 +303,8 @@ def effective_states(db: Session) -> dict[int, dict]:
                     "alerted": False,
                     "reported_at": status.reported_at,
                     "source_url": status.source_url,
+                    "cause": None,
+                    "cause_via": None,
                 }
                 continue
             result[beach.id] = {
@@ -254,6 +317,8 @@ def effective_states(db: Session) -> dict[int, dict]:
                 "alerted": True,
                 "reported_at": status.reported_at,
                 "source_url": status.source_url,
+                "cause": None,  # se rellena abajo
+                "cause_via": None,
             }
             continue
         result[beach.id] = {
@@ -262,6 +327,8 @@ def effective_states(db: Session) -> dict[int, dict]:
             "alerted": False,
             "reported_at": status.reported_at,
             "source_url": status.source_url,
+            "cause": None,
+            "cause_via": None,
         }
 
     # Prensa en playas sin alerta oficial vigente
@@ -302,5 +369,48 @@ def effective_states(db: Session) -> dict[int, dict]:
             "alerted": True,
             "reported_at": by_beach[beach_id][0].published_at,
             "source_url": None,
+            "cause": press_cause.get(beach_id),
+            "cause_via": "press" if press_cause.get(beach_id) else None,
         }
+
+    # Causa de alertas oficiales: observaciones de la incidencia abierta
+    # o evaluación de la última medición; si no aportan ("Sin
+    # Calificar"), cae a la causa dominante de la prensa (etiquetada)
+    off_ids = [
+        b
+        for b, e in result.items()
+        if e["via"] == "official" and e["alerted"]
+    ]
+    if off_ids:
+        inc_obs: dict[int, str | None] = {}
+        for bid, obs in (
+            db.query(BeachIncident.beach_id, BeachIncident.observations)
+            .filter(
+                BeachIncident.beach_id.in_(off_ids),
+                BeachIncident.closed_at.is_(None),
+            )
+            .order_by(BeachIncident.opened_at.desc())
+            .all()
+        ):
+            inc_obs.setdefault(bid, obs)
+        meas_ev: dict[int, str | None] = {}
+        for bid, ev_txt in (
+            db.query(
+                BeachMeasurement.beach_id, BeachMeasurement.evaluation
+            )
+            .filter(BeachMeasurement.beach_id.in_(off_ids))
+            .order_by(BeachMeasurement.sampled_at.desc())
+            .all()
+        ):
+            meas_ev.setdefault(bid, ev_txt)
+        for bid in off_ids:
+            cause = _short_cause(inc_obs.get(bid)) or _short_cause(
+                meas_ev.get(bid)
+            )
+            if cause:
+                result[bid]["cause"] = cause
+                result[bid]["cause_via"] = "official"
+            elif press_cause.get(bid):
+                result[bid]["cause"] = press_cause[bid]
+                result[bid]["cause_via"] = "press"
     return result

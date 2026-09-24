@@ -74,6 +74,16 @@ def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
                         status.status.value if status else "unknown",
                     ),
                     "status_via": eff.get(beach.id, {}).get("via"),
+                    "alert_cause": (
+                        eff[beach.id].get("cause")
+                        if eff.get(beach.id, {}).get("alerted")
+                        else None
+                    ),
+                    "cause_via": (
+                        eff[beach.id].get("cause_via")
+                        if eff.get(beach.id, {}).get("alerted")
+                        else None
+                    ),
                     "reported_at": (
                         status.reported_at.isoformat() if status else None
                     ),

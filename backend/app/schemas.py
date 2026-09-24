@@ -146,6 +146,10 @@ class AlertOut(BaseModel):
     # municipal sin registro sanitario). Metadato de procedencia; la UI
     # no lo distingue hoy.
     via: str = "official"
+    # Por qué está en alerta: categoría corta ("Contaminación",
+    # "Desprendimientos"...) de la incidencia oficial o de la prensa
+    cause: str | None = None
+    cause_via: str | None = None
     reported_at: datetime | None
     source_url: str | None
     longitude: float
