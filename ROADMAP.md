@@ -213,6 +213,36 @@ locales → LLM extrae playa/evento/causa → se muestra etiquetado como
 - [x] **Fix Android**: `lineHeight` explícito en textos pequeños del mapa
   (leyenda cortaba «Autorizado», «En trámite»…); ayuda actualizada
 
+## Hito 8.7 — Precedencia de eventos y estado efectivo ✅
+
+La app compara **cuándo pasó** cada cosa, no cuándo se publicó: Náyade
+llega tarde (la muestra lleva `sampled_at`, la incidencia
+`opened_at`/`closed_at`) y la prensa da la fecha real del evento.
+
+- [x] **Matching de prensa afinado**: match exacto gana a contenciones
+  del mismo municipio («El Médano» → PM3, no se diluye entre Chica y
+  Leocadio Machado; «Leocadio Machado» sigue yendo a la suya);
+  titulares multi-playa casan con cada nombre literal («El Médano y El
+  Socorro cierran» → ambas); alias «Granadilla» → «Granadilla de
+  Abona» (`d494207`)
+- [x] **Rezago de Náyade**: muestra mala tomada *antes* de una
+  reapertura de prensa = mismo episodio publicado tarde → la medición
+  se graba pero no cambia estado ni notifica (`2794b58`)
+- [x] **Matriz de precedencia completa**: incidencias abiertas con
+  `opened_at` anterior a la reapertura también son rezago; muestra
+  oficial tomada *después* de un cierre de prensa prueba reapertura;
+  cualquier evidencia oficial posterior a la reapertura = evento nuevo
+  → cerrada + push (`5f7e646`)
+- [x] **Push de reaperturas**: «Reapertura · municipio · según prensa»
+  solo si había algo que reabrir (alerta de prensa ≤21 d o estado
+  oficial no-open) — una reapertura suelta no despierta el móvil
+  (`7e9170d`)
+- [x] **Estado efectivo unificado**: `effective_states()` en
+  `queries.py` alimenta `/alerts` + `/beaches` (pins) +
+  `/beaches/{id}/status` — mapa, banner y ficha dicen lo mismo;
+  `status_via` conserva la procedencia y el `BeachStatus` crudo sigue
+  en el historial (`ebb0042`)
+
 ## Hito 8.8 — Compartir con tarjeta rica 🚧
 
 El share de 6.6 mandaba texto plano con un `checkcoast://` que WhatsApp
@@ -268,7 +298,8 @@ no convierte en enlace. Objetivo: que al compartir una playa llegue una
 ---
 
 ### Estado actual
-**Hito activo:** 9 — Portfolio (homepage de producto en `/`, capturas/
-vídeo del APK local, repo público en GitHub y post LinkedIn; 8.8 queda
-verificación end-to-end de App Links con build firmada por EAS)
-**Última actualización:** 2026-09-23
+**Hito activo:** 9 — Portfolio (quedan capturas/vídeo del APK, repo
+público en GitHub y post LinkedIn; 8.8 queda verificación end-to-end
+de App Links con build firmada por EAS)
+**Última actualización:** 2026-09-24 — hito 8.7 cerrado (precedencia
+de eventos + estado efectivo alineado en mapa/ficha/alertas)

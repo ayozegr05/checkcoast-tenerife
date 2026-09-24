@@ -13,9 +13,17 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     `devices.py` (`POST /devices` registra Expo push tokens)
   - `app/notify.py` — push vía Expo Push Service al cambiar estado de
     playa (scraper + POST manual) y al entrar una alerta de prensa
-    (`notify_press_event`, etiqueta "· según prensa"); purga tokens
-    DeviceNotRegistered
-  - `app/queries.py` — `beaches_with_latest_status` (join último estado)
+    (`notify_press_event`, etiqueta "· según prensa"; cubre closure,
+    warning y reopening — la reapertura solo notifica si había algo
+    que reabrir: alerta de prensa ≤21 d o estado oficial no-open);
+    purga tokens DeviceNotRegistered
+  - `app/queries.py` — `beaches_with_latest_status` (join último
+    estado crudo) + `effective_states()` (matriz de estado efectivo
+    oficial+prensa con precedencia por fecha de evento: alimenta
+    `/alerts`, `/beaches` y `/beaches/{id}/status`; `status_via` =
+    official|press) + `stale_official_ids()` (oficial rezagado del
+    mismo episodio: reapertura de prensa posterior a TODA la
+    evidencia — `sampled_at`/`opened_at` — → efectivo `open`)
   - `app/main.py` — lifespan con APScheduler (`_sync_beach_statuses` cada
     `NAYADE_SYNC_SECONDS`, 1 h; `_sync_news` cada `NEWS_SYNC_SECONDS`,
     6 h; ambos envueltos en try/except)
@@ -25,7 +33,10 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     `NewsExtractor`; `GeminiExtractor` (REST, JSON por esquema,
     thinking off, retries)
   - `app/news_matching.py` — `match_beaches()` conservador + clave
-    `_press_key` (inversión MITECO "(El)", sin "PLAYA DE…")
+    `_press_key` (inversión MITECO "(El)", sin "PLAYA DE…"); match
+    exacto gana a contenciones del mismo municipio ("El Médano"→PM3,
+    no a Chica/Leocadio); titulares multi-playa casan cada nombre
+    literal; ambiguo entre municipios → no se muestra
   - `scripts/` — `ingest_outfalls.py`, `ingest_beaches.py` (censo MITECO
     + solver ALTCHA), `ingest_beach_status.py` (scraper Náyade),
     `ingest_osm_beaches.py` (Overpass), `ingest_news.py` (prensa → LLM
@@ -130,8 +141,16 @@ npx tsc --noEmit                                        # typecheck
   Ojo: hay playas homónimas entre municipios (dos "El Cabezo", dos
   "La Arena") y multi-PM por playa → la noticia se replica por PM
 - **Matching prensa**: municipio extraído exige coincidencia con alias
-  ("La Laguna"→"San Cristóbal de La Laguna"); sin municipio solo casa
-  clave exacta y única en toda la isla
+  ("La Laguna"→"San Cristóbal de La Laguna", "Granadilla"→"Granadilla
+  de Abona"); sin municipio solo casa clave exacta y única en toda la
+  isla
+- **Estado efectivo vs oficial**: lo que ve el usuario (mapa, alertas,
+  ficha) sale de `effective_states()` — combina oficial y prensa por
+  fecha de evento real. El `BeachStatus`/`BeachMeasurement` crudo nunca
+  se muta y sigue en el historial de la ficha. Regla de rezago:
+  evidencia oficial (`sampled_at`, `opened_at`) anterior a una
+  reapertura de prensa = mismo episodio publicado tarde → efectivo
+  `open`; evidencia posterior = evento nuevo → `closed`+push
 - **Umbrales calidad** (RD 1341/2007, costeras): E. coli ≤250/≤500/>500,
   enterococo ≤100/≤200/>200 → Excelente/Buena/Insuficiente
 - **Manual**: `POST /beaches/{id}/status` {"status": open|closed|warning}
@@ -142,8 +161,8 @@ npx tsc --noEmit                                        # typecheck
 ## Datos actuales (sept 2026)
 
 - 167 playas: 61 oficiales + 106 OSM (gris = sin monitorizar)
-- ~3200 mediciones, 13 incidentes, alertas vivas: Las Gaviotas (warning,
-  muestra "Sin Calificar" pendiente desde jun). Una muestra
+- ~3200 mediciones, 13 incidentes. Alertas vivas (24-sep): El Médano
+  PM3, El Socorro PM1 y Benijo cerradas `via="press"`. Una muestra
   "prohibido" YA es la prohibición oficial aunque no haya fila en
   `beach_incidents` — la incidencia es trámite aparte (El Cabezo PM1
   tuvo incidente real 9→14 sep 2026 tras su enterococo 410)
@@ -175,8 +194,10 @@ npx tsc --noEmit                                        # typecheck
 
 ## Pendiente inmediato
 
-- Push implementado (Hito 5b completo) — requiere `eas build --profile
-  development` + reinstalar para que el token se registre en el
-  dispositivo; FCM lo gestiona EAS credentials
-- Hito 6: README, CI, dockerizar API, deploy backend
-- Hito 7: screenshots, diagrama arquitectura
+- Hito 9 (portfolio): capturas/vídeo del APK, repo público en GitHub
+  (activa CI), post LinkedIn; opcional ficha Google Play
+- Verificación E2E de App Links con build firmada por EAS (8.8)
+- Deploy a la VM: `ssh -i ~/Downloads/ssh-key-2026-09-20.key
+  ubuntu@130.110.233.198` (no hay repo git en la VM: scp de archivos +
+  `sudo docker cp` a `checkcoast-api:/app/app/...` + restart; la web
+  vive en `checkcoast.duckdns.org` detrás de `checkcoast-caddy`)

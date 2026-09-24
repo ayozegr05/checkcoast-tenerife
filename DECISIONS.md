@@ -49,6 +49,32 @@ etiqueta "según prensa" y la prensa **nunca** muta el estado oficial —
 solo informa. Una playa OSM puede aparecer "cerrada según prensa"
 (Benijo) sin que Náyade diga nada.
 
+### Precedencia por fecha de evento, no de publicación
+
+Náyade publica con días de retraso: la muestra lleva `sampled_at`
+(cuándo sacaron el agua) y la incidencia `opened_at`/`closed_at`, que
+suelen ser anteriores a su publicación. Comparar timestamps de
+ingesta producía falsas "nuevas clausuras" cuando una muestra rezagada
+llegaba después de una reapertura de prensa.
+
+Regla (`effective_states`/`stale_official_ids` en `queries.py`): toda
+la evidencia oficial anterior a la reapertura de prensa es el **mismo
+episodio publicado tarde** → estado efectivo `open`, sin push. La
+evidencia oficial **posterior** a la reapertura es un evento nuevo →
+`closed` + push. Y al revés: incidencia cerrada o muestra tomada
+después de un cierre de prensa prueba reapertura oficial y la alerta
+cae sin que la prensa diga nada. No hay ventanas de días a adivinar:
+la propia fecha del evento decide.
+
+### Una sola matriz de estado efectivo
+
+Mapa, banner de alertas y ficha mostraban fuentes distintas (el pin
+el `BeachStatus` crudo, las alertas la lógica mixta) → podía haber
+"0 cerradas" en el banner con el pin rojo. `effective_states()` es la
+única función que decide lo que ve el usuario en los tres sitios; el
+dato oficial crudo sigue intacto en BD y en el historial de la ficha,
+y `status_via` conserva la procedencia por si la UI quiere marcarla.
+
 ### Google News RSS y no GDELT
 
 Spike inicial con GDELT: 429 persistentes. Google News RSS con
