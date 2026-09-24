@@ -13,13 +13,21 @@ LAS PALMERAS"). La playa aporta una clave por su nombre del censo y una
 por cada `press_alias` — nombres populares que usa la prensa ("Los
 Guanches" para Candelaria).
 
-- Con municipio extraído: casa solo si TODOS los candidatos de ese
-  municipio comparten la misma clave — varios PMs de una misma playa
-  ("CABEZO (EL)-PASEO DE LAS PALMERAS PM1/PM4") cuentan como una y la
-  noticia se sirve en cada ficha.
-- Sin municipio: casa solo si TODOS los candidatos de la isla comparten
-  clave y municipio — la contención sin municipio y los nombres
-  repetidos entre zonas (hay dos "El Cabezo") se rechazan.
+- Un match exacto de clave gana a las contenciones del mismo
+  municipio: "El Médano" es playa censal propia aunque existan
+  "El Médano-Chica"/"-Leocadio Machado" (la prensa nombra las
+  sub-playas cuando las quiere). Si la hermana está en OTRO
+  municipio ("El Cabezo", "La Arena"), la ambigüedad se mantiene.
+- Con municipio extraído: casa si todas las candidatas de ese
+  municipio comparten clave — varios PMs de una misma playa
+  ("CABEZO (EL)-PASEO DE LAS PALMERAS PM1/PM4") cuentan como una y
+  la noticia se sirve en cada ficha.
+- Titulares multi-playa ("El Médano y El Socorro cierran"): cada
+  clave candidata casa si aparece literal en el titular y no es
+  homónima entre municipios.
+- Sin municipio: casa solo si el grupo final comparte clave y
+  municipio — la contención sin municipio y los nombres repetidos
+  entre zonas se rechazan.
 
 Ante la duda devuelve []: una noticia sin casar no se muestra.
 """
@@ -33,6 +41,7 @@ from scripts.ingest_osm_beaches import _normalize
 # Grafías que usa la prensa → municipio oficial (límites OSM en BD)
 MUNICIPALITY_ALIASES = {
     "LA LAGUNA": "SAN CRISTOBAL DE LA LAGUNA",
+    "GRANADILLA": "GRANADILLA DE ABONA",
 }
 
 _MIN_NAME_LEN = 5
@@ -59,6 +68,34 @@ def _norm_muni(name: str | None) -> str | None:
         return None
     n = _normalize(name)
     return MUNICIPALITY_ALIASES.get(n, n)
+
+
+def _name_in_title(key: str, title_norm: str) -> bool:
+    """La clave aparece como nombre literal en el titular (límites de
+    palabra: "LA ARENA" no casa dentro de "ARENITA")."""
+    return bool(
+        re.search(
+            rf"(?<![A-Z0-9]){re.escape(key)}(?![A-Z0-9])", title_norm
+        )
+    )
+
+
+def _multi_beach_hits(
+    cands: list[tuple[Beach, str]], title_norm: str
+) -> list[Beach]:
+    """Titulares con varias playas ("El Médano y El Socorro cierran"):
+    cada clave distinta casa si aparece literal en el titular y sus
+    candidatas están en un solo municipio."""
+    keys = {k for _, k in cands}
+    if len(keys) <= 1:
+        return []
+    ok = []
+    for k in keys:
+        members = [(b, kk) for b, kk in cands if kk == k]
+        munis = {_norm_muni(b.municipality) for b, _ in members}
+        if len(munis) == 1 and _name_in_title(k, title_norm):
+            ok.extend(b for b, _ in members)
+    return ok
 
 
 def match_beaches(
@@ -97,13 +134,23 @@ def match_beaches(
             candidates.append((b, hit))
 
     if muni is None:
-        # Sin municipio: un solo grupo (misma clave + municipio)
-        keys = {k for _, k in candidates}
+        # Un match exacto gana a las contenciones solo si no hay
+        # ambigüedad entre municipios: "El Médano" es playa propia
+        # aunque existan "El Médano-Chica"/"-Leocadio Machado" en el
+        # mismo municipio; "El Cabezo"/"La Arena" siguen ambiguos
+        # porque la hermana vive en otro municipio
         munis = {_norm_muni(b.municipality) for b, _ in candidates}
-        if len(candidates) >= 1 and len(keys) == 1 and len(munis) == 1:
+        pool = candidates
+        if len(munis) == 1:
+            exact = [(b, k) for b, k in candidates if k == target]
+            if exact:
+                pool = exact
+        keys = {k for _, k in pool}
+        munis = {_norm_muni(b.municipality) for b, _ in pool}
+        if len(pool) >= 1 and len(keys) == 1 and len(munis) == 1:
             if any(k == target for k in keys):
-                return [b for b, _ in candidates]
-        return []
+                return [b for b, _ in pool]
+        return _multi_beach_hits(pool, _normalize(title))
 
     hits = [
         (b, k) for b, k in candidates if _norm_muni(b.municipality) == muni
@@ -126,7 +173,10 @@ def match_beaches(
         )
         if not muni_in_title:
             return []
-    keys = {k for _, k in hits}
-    if len(hits) >= 1 and len(keys) == 1:
-        return [b for b, _ in hits]
-    return []
+    # Dentro del municipio el exacto también gana a las contenciones
+    exact = [(b, k) for b, k in hits if k == target]
+    pool = exact or hits
+    keys = {k for _, k in pool}
+    if len(pool) >= 1 and len(keys) == 1:
+        return [b for b, _ in pool]
+    return _multi_beach_hits(pool, _normalize(title))

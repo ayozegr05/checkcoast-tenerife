@@ -34,6 +34,25 @@ BEACHES = [
         name="PLAYA CABEZO (EL)-PASEO DE LAS PALMERAS PM4",
         municipality="Güímar",
     ),
+    # El Médano: playa base + dos sub-playas del mismo municipio
+    # (caso real: la prensa dice "la playa de El Médano" y el cierre
+    # municipal cubre la principal)
+    SimpleNamespace(
+        id=30, name="PLAYA MEDANO (EL) PM3",
+        municipality="Granadilla de Abona",
+    ),
+    SimpleNamespace(
+        id=31, name="PLAYA MEDANO (EL)-CHICA PM1",
+        municipality="Granadilla de Abona",
+    ),
+    SimpleNamespace(
+        id=32, name="PLAYA MEDANO (EL)-LEOCADIO MACHADO PM1",
+        municipality="Granadilla de Abona",
+    ),
+    SimpleNamespace(
+        id=40, name="PLAYA SOCORRO (EL) PM1",
+        municipality="Los Realejos",
+    ),
 ]
 
 
@@ -116,6 +135,34 @@ def test_inverted_mitec_name_matches():
         ext("El Cabezo", "Granadilla de Abona"),
         title="Granadilla cierra la playa de El Cabezo, en El Médano",
     ) == [6]
+
+
+def test_exact_key_beats_same_municipality_siblings():
+    # "El Médano" casa con la playa base aunque existan sub-playas
+    # con prefijo en el mismo municipio (sin él, 3 claves → ambiguo)
+    assert ids(ext("El Médano")) == [30]
+    assert ids(ext("El Médano", "Granadilla")) == [30]
+    # La sub-playa nombrada explícita casa sola (julio: "Leocadio
+    # Machado" en los titulares)
+    assert ids(ext("Leocadio Machado", "Granadilla de Abona")) == [32]
+
+
+def test_exact_key_loses_to_cross_municipality_ambiguity():
+    # "El Cabezo" tiene match exacto en Granadilla pero la hermana
+    # contenida está en Güímar → sigue ambiguo sin municipio
+    assert ids(ext("El Cabezo")) == []
+
+
+def test_multi_beach_headline_matches_each():
+    # "El Médano y El Socorro cierran": el LLM extrae un solo nombre
+    # conjunto; cada playa casa porque su clave sale literal en el
+    # titular
+    assert ids(
+        ext("El Médano y El Socorro"),
+        title="El Médano y El Socorro cierran temporalmente al baño",
+    ) == [30, 40]
+    # Sin el nombre literal en el titular no hay match
+    assert ids(ext("El Médano y El Socorro"), title="") == []
 
 
 def test_no_beach_name_returns_none():
