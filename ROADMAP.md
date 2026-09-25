@@ -295,8 +295,8 @@ no convierte en enlace. Objetivo: que al compartir una playa llegue una
 | 10.3 | Verificar en dispositivo la APK local: banner prensa arriba en cerradas, nombre emisario seleccionado, zoom 15, 3 niveles satélite, push oficial + "según prensa" | ✅ Hecho (2026-09-23) — push E2E verificado | 🟢 Trivial |
 | 10.4 | Build local Windows documentado: `expo prebuild` + `gradlew assembleRelease` (firma debug → desinstalar app EAS antes de instalar) | ✅ Hecho (2026-09-23) | 🟡 Medio |
 | 10.5 | **Alertas con causa**: `effective_states` devuelve `cause` (categoría corta: Contaminación / Desprendimientos / Obras / Acceso / Mar agitado, normalizada de texto libre LLM/observaciones) + `cause_via`; `/beaches` expone `alert_cause`/`cause_via`; la fila del desplegable muestra la causa bajo "Cerrada" | ✅ Hecho (`c8ef3a4`, `f9e7bff`) | 🟡 Medio |
-| 10.6 | **google-services.json commiteado**: API key Firebase visible en repo — no es secreto real (va en cada APK) pero al abrir a público conviene `git rm --cached` + `.gitignore`. **Decidir antes de 9.5** | ⬜ Pendiente | 🟢 Trivial |
-| 10.7 | **Revisión pre-publicación del repo** (antes de 9.5): spikes `spike_gdelt.py`/`spike_llm.py` (¿dejar como documentación o borrar?), `deploy/` (solo `__pycache__`, ¿borrar?), `.gitignore` general, `Caddyfile`/`docker-compose.yml` sin datos sensibles hardcodeados | ⬜ Pendiente | 🟢 Trivial |
+| 10.6 | **google-services.json commiteado**: API key Firebase visible en repo | ✅ Decidido — se queda (config pública por diseño, va en cada APK; mantiene clone→build). Endurecimiento real = restringir la key en GCP por app+SHA-1 (debug `5E:8F:16:…:F6:25` + EAS `DF:26:45:…:C9:5D`) | 🟢 Trivial |
+| 10.7 | **Revisión pre-publicación del repo** (antes de 9.5) | ✅ Hecho — spikes nunca commiteados (.pyc limpiados), `deploy/` solo tenía `__pycache__`, `.gitignore` cubre .env/keystores/credentials/android/, Caddyfile+compose sin secretos, `frontend/.claude/` fuera del tracking. Verificado: puerto 5433 de la VM cerrado desde internet | 🟢 Trivial |
 
 ---
 

@@ -35,3 +35,4 @@ credentials/
 Thumbs.db
 .idea/
 .vscode/
+.claude/
