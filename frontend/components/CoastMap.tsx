@@ -1672,15 +1672,15 @@ const styles = StyleSheet.create({
   legendIcon: {
     width: 18,
     height: 18,
-    marginLeft: -6,
-    marginRight: 26,
+    marginLeft: -4,
+    marginRight: 20,
   },
   // Swatches informativos en línea (no interactivos — las capas se
   // controlan desde el panel del botón flotante)
   legendSub: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
-    gap: 20,
+    gap: 16,
   },
   swatchRow: {
     flexDirection: 'row',
@@ -1693,7 +1693,7 @@ const styles = StyleSheet.create({
   },
   swatchText: {
     fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 19,
     fontFamily: fonts.regular,
     color: colors.textMuted,
   },
@@ -1791,10 +1791,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dot: {
-    width: 11,
-    height: 11,
-    borderRadius: 6,
-    marginRight: 8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 6,
     borderWidth: 1,
     borderColor: '#fff',
   },
