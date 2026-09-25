@@ -49,7 +49,8 @@ SCHEMA = {
 
 PROMPT = """\
 Eres un extractor de eventos para una app que monitoriza el estado de las
-playas de Tenerife. Te paso un titular de prensa y su medio.
+playas de Tenerife. Te paso un titular de prensa, su medio y, cuando lo
+hay, un extracto del cuerpo de la noticia.
 
 Decide si informa de un evento concreto que afecta a una playa concreta
 de Tenerife: cierre, reapertura, contaminación, aviso de calidad del
@@ -74,8 +75,16 @@ Si relevant=true extrae:
     reapertura → "other" (p.ej. "Costas autoriza obras para reabrir el
     acceso" = other, no reopening)
   · igual para "closure": anuncios de futuros cierres u obras son "other"
-- cause: frase corta con la causa ("vertido de aguas residuales",
-  "bacterias fecales", "gasoil") o null si no se indica
+- cause: la RAZÓN de fondo del cierre/aviso — lo que provocó el problema
+  ("vertido de aguas residuales", "bacterias fecales", "gasoil",
+  "riesgo de desprendimientos", "temporal de mar", "obras EN la playa").
+  NO son causa:
+  · el propio cierre y su mecanismo ("acceso prohibido", "cierre de
+    acceso", "vallado", "multas", "desalojo") — eso ES el cierre → null
+  · la gestión posterior ("obras de emergencia", "rehabilitación",
+    "proceso de emergencia") — es la respuesta al problema → null,
+    salvo que el texto nombre la razón real (úsala)
+  Si el texto no indica la razón → null.
 - confidence: 0-1, confianza en que el titular describe ese evento en esa playa
 """
 
@@ -92,6 +101,8 @@ class GeminiExtractor:
         text = PROMPT + (
             f'\nTitular: "{article.title}"\nMedio: "{article.source or ""}"'
         )
+        if article.body:
+            text += f'\nTexto de la noticia (extracto):\n"{article.body[:3000]}"'
         resp = None
         for attempt in range(4):
             try:

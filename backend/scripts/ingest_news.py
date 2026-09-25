@@ -15,6 +15,7 @@ Uso: python -m scripts.ingest_news
 
 import re
 import time
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
 from app.config import settings
@@ -22,7 +23,9 @@ from app.db import SessionLocal
 from app.models import Beach, BeachState, BeachStatus, NewsItem
 from app.news_llm import EventExtraction, GeminiExtractor, extract_event
 from app.news_matching import match_beaches
-from app.news_sources import fetch_news, source_excluded
+from app.news_resolve import resolve_and_fetch
+from app.news_sources import RawArticle, fetch_news, source_excluded
+from app.queries import _short_cause
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
@@ -91,6 +94,35 @@ def _press_push_candidate(
     ):
         return False
     return True
+
+
+def _enrich_with_body(
+    art: RawArticle,
+    ext: EventExtraction,
+    hits: list[Beach],
+    beaches: list[Beach],
+    extractor,
+) -> tuple[EventExtraction, list[Beach], bool]:
+    """Segunda pasada híbrida: titular → cuerpo del artículo.
+
+    Se dispara cuando el titular no basta: noticia relevante que no casó
+    con ninguna playa (el cuerpo puede nombrar el municipio) o cuya causa
+    no está clara (ausente o puramente mecanismo, p.ej. "acceso
+    prohibido"). Devuelve (ext, hits, consumió_descarga)."""
+    if not ext.relevant:
+        return ext, hits, False
+    if hits and _short_cause(ext.cause) is not None:
+        return ext, hits, False
+    body = resolve_and_fetch(art.url)
+    if not body:
+        return ext, hits, True
+    ext2 = extract_event(replace(art, body=body), extractor)
+    time.sleep(2)  # segunda llamada LLM: respirar igual que la primera
+    if ext2 is None or not ext2.relevant:
+        # el titular parecía relevante: no degradar por un cuerpo quizá
+        # truncado o de paywall
+        return ext, hits, True
+    return ext2, match_beaches(ext2, beaches, title=art.title), True
 
 
 def _push_key(beach: Beach, event_type: str) -> tuple[str, str, str]:
@@ -176,6 +208,7 @@ def run() -> tuple[int, int, int]:
         ]
         fresh.sort(key=lambda a: a.published_at or _EPOCH, reverse=True)
         beaches = db.query(Beach).all()
+        body_left = settings.news_max_body_fetches
 
         for art in fresh[: settings.news_max_llm_calls]:
             processed += 1
@@ -186,6 +219,11 @@ def run() -> tuple[int, int, int]:
                 match_beaches(ext, beaches, title=art.title)
                 if ext.relevant else []
             )
+            if body_left > 0:
+                ext, hits, used = _enrich_with_body(
+                    art, ext, hits, beaches, extractor
+                )
+                body_left -= used
             for beach in hits or [None]:  # una fila por PM de la playa
                 if beach and _press_push_candidate(
                     db, beach, ext.event_type, art.published_at

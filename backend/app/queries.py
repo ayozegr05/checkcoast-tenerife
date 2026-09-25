@@ -66,12 +66,13 @@ _CAUSE_RULES = [
         "Desprendimientos",
     ),
     (("obra",), "Obras"),
-    (("acceso", "vallad", "seguridad"), "Acceso"),
     (
         ("corriente", "oleaje", "temporal", "mar de fondo", "resaca"),
         "Mar agitado",
     ),
 ]
+# Sin categoría "Acceso": "acceso prohibido"/"cierre de acceso"/"vallado"
+# describen el mecanismo del cierre, no su razón → no computan como causa.
 
 
 def _short_cause(text: str | None) -> str | None:

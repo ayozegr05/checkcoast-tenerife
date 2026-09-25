@@ -58,6 +58,9 @@ class RawArticle:
     url: str
     source: str | None
     published_at: datetime | None
+    # Cuerpo del artículo, solo en la segunda pasada híbrida
+    # (resolve_url + fetch_article_body de news_resolve)
+    body: str | None = None
 
 
 def _clean_title(title: str) -> str:

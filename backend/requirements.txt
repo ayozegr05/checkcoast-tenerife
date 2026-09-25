@@ -14,3 +14,7 @@ apscheduler>=3.10,<4.0
 pytest>=8.0,<9.0
 httpx>=0.27,<1.0
 pillow>=10.0,<13.0
+# Segunda pasada de prensa: decode de URLs Google News + fetch del
+# cuerpo — necesitan fingerprint de navegador (consent wall por IP)
+curl-cffi>=0.10,<1.0
+trafilatura>=2.0,<3.0
