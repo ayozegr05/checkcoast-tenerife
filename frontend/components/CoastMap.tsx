@@ -196,6 +196,8 @@ export default function CoastMap({
   const [searchOpen, setSearchOpen] = useState(false);
   // Lista desplegable de playas en aviso (banner de alertas)
   const [alertsOpen, setAlertsOpen] = useState(false);
+  // Panel de capas por estado (botón flotante junto a la brújula)
+  const [layersOpen, setLayersOpen] = useState(false);
   const [query, setQuery] = useState('');
   // Cada estado de la leyenda es una sub-capa marcable: marcado =
   // visible, desmarcado = oculto. Empiezan todas marcadas; el set
@@ -576,78 +578,88 @@ export default function CoastMap({
     setQuery('');
     Keyboard.dismiss();
   };
-  // Lo mismo para el desplegable de avisos del banner
+  // Lo mismo para el desplegable de avisos del banner y el panel de
+  // capas — tocar el mapa u otro botón cierra lo que esté abierto
   const closeOverlays = () => {
     closeSearch();
     setAlertsOpen(false);
+    setLayersOpen(false);
   };
 
-  // Fila de la leyenda: icono de la capa + chip "Todos" + un chip
-  // pulsable por estado. Marcado = visible en el mapa
-  const legendChipRow = (
-    icon: number, // require() devuelve el id numérico del asset
+  // Fila del panel de capas: checkbox cuadrado + dot de color + label.
+  // Marcado = visible en el mapa
+  const checkRow = (
+    rowKey: string,
+    color: string,
+    label: string,
+    on: boolean,
+    onPress: () => void,
+    isAll = false,
+  ) => (
+    <Pressable
+      key={rowKey}
+      style={({ pressed }) => [
+        styles.layerItem,
+        pressed && styles.layerItemPressed,
+      ]}
+      onPress={onPress}
+      accessibilityRole="togglebutton"
+      accessibilityLabel={label}
+      accessibilityState={{ checked: on }}
+    >
+      <View
+        style={[
+          styles.check,
+          { borderColor: color },
+          on && { backgroundColor: color },
+        ]}
+      >
+        {on && <Text style={styles.checkMark}>✓</Text>}
+      </View>
+      {!isAll && (
+        <View style={[styles.dot, { backgroundColor: color }]} />
+      )}
+      <Text
+        style={[
+          styles.layerItemText,
+          isAll && styles.layerItemTextAll,
+          !on && styles.layerItemTextOff,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+
+  // Sección del panel (Emisarios / Playas): cabecera + fila Todas +
+  // una fila por estado
+  const layerSection = (
+    title: string,
     allLabel: string,
-    allA11y: string,
     states: [string, string, string][],
     sel: Set<string>,
     setSel: React.Dispatch<React.SetStateAction<Set<string>>>,
   ) => {
     const allOn = sel.size === states.length;
     return (
-      <View style={styles.layerRow}>
-        <Image source={icon} style={styles.legendIcon} />
-        <Pressable
-          style={({ pressed }) => [
-            styles.chip,
-            styles.chipAll,
-            allOn
-              ? styles.chipAllOn
-              : styles.chipDimmed,
-            pressed && styles.chipPressed,
-          ]}
-          onPress={() => {
+      <View style={styles.layerSection}>
+        <Text style={styles.layerHead}>{title}</Text>
+        {checkRow(
+          `${title}-all`,
+          colors.primary,
+          allLabel,
+          allOn,
+          () =>
             setSel(
               allOn ? new Set() : new Set(states.map(([, , k]) => k)),
-            );
-            closeOverlays();
-          }}
-          accessibilityRole="togglebutton"
-          accessibilityLabel={allA11y}
-          accessibilityState={{ checked: allOn }}
-        >
-          <Text
-            style={[styles.chipAllText, allOn && styles.chipAllTextOn]}
-          >
-            {allLabel}
-          </Text>
-        </Pressable>
-        {states.map(([color, label, key]) => {
-          const on = sel.has(key);
-          return (
-            <Pressable
-              key={key}
-              style={({ pressed }) => [
-                styles.chip,
-                on && {
-                  borderColor: color,
-                  backgroundColor: color + '26',
-                },
-                !on && styles.chipDimmed,
-                pressed && styles.chipPressed,
-              ]}
-              onPress={() => {
-                setSel((s) => toggleInSet(s, key));
-                closeOverlays();
-              }}
-              accessibilityRole="togglebutton"
-              accessibilityLabel={label}
-              accessibilityState={{ checked: on }}
-            >
-              <View style={[styles.dot, { backgroundColor: color }]} />
-              <Text style={styles.chipText}>{label}</Text>
-            </Pressable>
-          );
-        })}
+            ),
+          true,
+        )}
+        {states.map(([color, label, key]) =>
+          checkRow(key, color, label, sel.has(key), () =>
+            setSel((s) => toggleInSet(s, key)),
+          ),
+        )}
       </View>
     );
   };
@@ -728,7 +740,7 @@ export default function CoastMap({
         mapStyle={satellite ? SATELLITE_STYLE : SEA_STYLE}
         attributionPosition={{ bottom: 8, right: 8 }}
         onPress={() => {
-          if (searchOpen || alertsOpen) closeOverlays();
+          if (searchOpen || alertsOpen || layersOpen) closeOverlays();
         }}
         onRegionDidChange={(e) => {
           const vs = e.nativeEvent as unknown as {
@@ -1284,7 +1296,7 @@ export default function CoastMap({
         accessibilityState={{ checked: satellite }}
       >
         <Image
-          source={require('../assets/icons/icon-layers.png')}
+          source={require('../assets/icons/icon-satellite.png')}
           style={styles.satIcon}
         />
       </Pressable>
@@ -1308,27 +1320,92 @@ export default function CoastMap({
         />
       </Pressable>
 
-      <View style={styles.legend} pointerEvents="box-none">
-        {/* Leyenda siempre visible: dos filas (Emisarios / Playas)
-            pegadas abajo — sin botón Capas */}
-        <View style={styles.legendCard}>
-          {legendChipRow(
-            require('../assets/icons/icon-faucet.png'),
+      {/* Capas: abre el panel de checkboxes por estado */}
+      <Pressable
+        style={styles.layersBtn}
+        onPress={() => {
+          const next = !layersOpen;
+          closeSearch();
+          setAlertsOpen(false);
+          setLayersOpen(next);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir panel de capas"
+        accessibilityState={{ expanded: layersOpen }}
+      >
+        <Image
+          source={require('../assets/icons/icon-layers.png')}
+          style={styles.satIcon}
+        />
+      </Pressable>
+
+      {layersOpen && (
+        <View style={styles.layersPanel}>
+          {layerSection(
+            'Emisarios',
             'Todos',
-            'Mostrar u ocultar todos los emisarios',
             OUTFALL_STATES,
             outfallSel,
             setOutfallSel,
           )}
-          <View style={{ marginTop: 6 }}>
-            {legendChipRow(
-              require('../assets/icons/beach.png'),
-              'Todas',
-              'Mostrar u ocultar todas las playas',
-              BEACH_STATES,
-              beachSel,
-              setBeachSel,
-            )}
+          <View style={styles.layerDivider} />
+          {layerSection(
+            'Playas',
+            'Todas',
+            BEACH_STATES,
+            beachSel,
+            setBeachSel,
+          )}
+        </View>
+      )}
+
+      <View style={styles.legend} pointerEvents="box-none">
+        {/* Leyenda siempre visible: dos filas (Emisarios / Playas)
+            pegadas abajo — sin botón Capas */}
+        <View style={styles.legendCard}>
+          <View style={styles.layerRow}>
+            <Image
+              source={require('../assets/icons/icon-faucet.png')}
+              style={styles.legendIcon}
+            />
+            <View style={styles.legendSub}>
+              {OUTFALL_STATES.map(([color, label, key]) => (
+                <View
+                  key={label}
+                  style={[
+                    styles.swatchRow,
+                    !outfallSel.has(key) && styles.swatchDimmed,
+                  ]}
+                >
+                  <View
+                    style={[styles.dot, { backgroundColor: color }]}
+                  />
+                  <Text style={styles.swatchText}>{label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+          <View style={[styles.layerRow, { marginTop: 6 }]}>
+            <Image
+              source={require('../assets/icons/beach.png')}
+              style={styles.legendIcon}
+            />
+            <View style={styles.legendSub}>
+              {BEACH_STATES.map(([color, label, key]) => (
+                <View
+                  key={label}
+                  style={[
+                    styles.swatchRow,
+                    !beachSel.has(key) && styles.swatchDimmed,
+                  ]}
+                >
+                  <View
+                    style={[styles.dot, { backgroundColor: color }]}
+                  />
+                  <Text style={styles.swatchText}>{label}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         </View>
       </View>
@@ -1585,54 +1662,127 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'nowrap',
-    gap: 4,
   },
   legendIcon: {
     width: 15,
     height: 15,
-    marginRight: 2,
+    marginRight: 6,
   },
-  // Chip de estado de la leyenda: pill pulsable — borde del color del
-  // estado + fondo teñido cuando está activa (marcado = visible)
-  chip: {
+  // Swatches informativos en línea (no interactivos — las capas se
+  // controlan desde el panel del botón flotante)
+  legendSub: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    justifyContent: 'space-evenly',
+  },
+  swatchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
   },
-  chipDimmed: {
-    opacity: 0.45,
+  // La leyenda refleja el filtro: estado desmarcado en el panel =
+  // swatch atenuado ("esto es lo que estás viendo ahora")
+  swatchDimmed: {
+    opacity: 0.35,
   },
-  chipPressed: {
-    opacity: 0.6,
-  },
-  chipText: {
+  swatchText: {
     fontSize: 10,
     lineHeight: 14,
     fontFamily: fonts.regular,
+    color: colors.textMuted,
+  },
+  // Botón flotante de capas: bajo la brújula, misma cápsula que los
+  // demás botones de mapa
+  layersBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? 192 : 176,
+    right: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    zIndex: 5,
+  },
+  // Panel de capas: tarjeta desplegable bajo el botón, alineada a la
+  // derecha; tap al mapa la cierra
+  layersPanel: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? 232 : 216,
+    right: 18,
+    width: 210,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    zIndex: 6,
+  },
+  layerSection: {
+    paddingHorizontal: 6,
+  },
+  layerDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 7,
+    marginHorizontal: 2,
+  },
+  layerHead: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: fonts.extrabold,
+    color: colors.text,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  layerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+  },
+  layerItemPressed: {
+    backgroundColor: 'rgba(0,0,0,0.06)',
+  },
+  layerItemText: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontFamily: fonts.regular,
     color: colors.text,
   },
-  // Chip "Todos/Todas": marca/desmarca la fila entera — relleno azul
-  // solo cuando TODA la capa está visible; si falta algún estado se
-  // muestra neutro (borde gris), como los chips desmarcados
-  chipAll: {
-    marginRight: 2,
-  },
-  chipAllOn: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipAllText: {
-    fontSize: 10,
-    lineHeight: 14,
+  layerItemTextAll: {
     fontFamily: fonts.semibold,
-    color: colors.text,
   },
-  chipAllTextOn: {
+  layerItemTextOff: {
+    color: colors.textFaint,
+  },
+  check: {
+    width: 15,
+    height: 15,
+    borderRadius: 4,
+    borderWidth: 2,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkMark: {
     color: '#fff',
+    fontSize: 10,
+    lineHeight: 11,
+    fontFamily: fonts.extrabold,
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   dot: {
     width: 9,

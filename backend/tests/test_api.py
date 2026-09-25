@@ -208,6 +208,57 @@ def test_press_closure_enters_alerts(seed_data):
         db.close()
 
 
+def test_press_closure_persists_for_unmonitored(seed_data):
+    """Un cierre de prensa en playa SIN monitorizar no caduca con la
+    ventana de frescura: la prensa es la única fuente y el cierre
+    persiste hasta que una reapertura lo deshaga (cierre crónico).
+    En monitorizadas la ventana sí aplica (Sanidad contrasta)."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.db import SessionLocal
+    from app.models import NewsItem
+
+    osm_id = seed_data["osm_beach_id"]  # sin estado oficial
+    mon_id = seed_data["beach_id"]      # monitorizada con oficial 'open'
+    db = SessionLocal()
+    old = datetime.now(timezone.utc) - timedelta(days=30)
+    item_osm = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-old-closure-osm",
+        title="La playa sigue cerrada por desprendimientos",
+        source="Test Press",
+        relevant=True,
+        beach_id=osm_id,
+        event_type="closure",
+        cause="desprendimientos",
+        published_at=old,
+    )
+    item_mon = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-old-closure-mon",
+        title="Cierran la playa por vertido",
+        source="Test Press",
+        relevant=True,
+        beach_id=mon_id,
+        event_type="closure",
+        cause="vertido",
+        published_at=old,
+    )
+    db.add_all([item_osm, item_mon])
+    db.commit()
+    try:
+        alerts = client.get("/alerts").json()
+        hit = next((a for a in alerts if a["beach_id"] == osm_id), None)
+        assert hit is not None
+        assert hit["status"] == "closed"
+        assert hit["via"] == "press"
+        # La monitorizada con cobertura >21d caduca: no alerta
+        assert all(a["beach_id"] != mon_id for a in alerts)
+    finally:
+        db.delete(item_osm)
+        db.delete(item_mon)
+        db.commit()
+        db.close()
+
+
 def test_effective_status_suppresses_stale_official(seed_data):
     """Estado efectivo: un oficial 'closed' derivado de evidencia
     anterior a una reapertura de prensa (mismo episodio que Náyade

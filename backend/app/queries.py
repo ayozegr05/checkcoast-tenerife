@@ -39,8 +39,13 @@ def beaches_with_latest_status(db: Session):
     )
 
 
-# Si la prensa lleva >3 semanas sin mencionar la playa, no afirmamos
-# que siga cerrada (Los Cristianos: gasoil puntual de agosto)
+# Si la prensa lleva >3 semanas sin mencionar una playa MONITORIZADA,
+# no afirmamos que siga cerrada (Los Cristianos: gasoil puntual de
+# agosto) — Sanidad puede contradecirla. En playas sin vigilancia la
+# prensa es la única fuente y el cierre persiste hasta reapertura:
+# caducar por silencio escondería cierres crónicos reales (Benijo:
+# ~2 años cerrada por desprendimientos, solo prensa administrativa
+# esporádica)
 PRESS_ALERT_MAX_AGE = timedelta(days=21)
 # Ventana de gracia: un cierre de prensa fresco gana a un 'open' de
 # Náyade porque los cierres municipales tardan en llegar a Sanidad;
@@ -227,8 +232,9 @@ def effective_states(db: Session) -> dict[int, dict]:
       en llegar a Náyade. Si Sanidad cerró formalmente un incidente o
       tomó una muestra después de la noticia, es reapertura probada y
       no hay alerta.
-    - Sin dato oficial (OSM): la prensa decide; cobertura >21 días sin
-      seguimiento no prueba el estado actual.
+    - Sin dato oficial (OSM): la prensa decide y persiste — la ventana
+      de frescura no aplica porque no hay autoridad que contradiga un
+      cierre viejo; solo una reapertura lo deshace.
 
     Devuelve {beach_id: {status, via, alerted, reported_at,
     source_url}} para TODAS las playas (alerted=False = sin alerta
@@ -244,15 +250,21 @@ def effective_states(db: Session) -> dict[int, dict]:
     for it in items:
         by_beach.setdefault(it.beach_id, []).append(it)
 
-    # Estado según prensa solo con cobertura fresca
+    # Estado según prensa solo con cobertura fresca — pero la ventana
+    # solo aplica a playas monitorizadas (Sanidad es la autoridad de
+    # contraste). Sin dato oficial, el último evento de prensa persiste
+    # hasta que una reapertura lo deshaga
     cutoff = datetime.now(timezone.utc) - PRESS_ALERT_MAX_AGE
+    monitored_ids = {
+        r[0] for r in db.query(Beach.id).filter(Beach.monitored.is_(True))
+    }
     press_state: dict[int, str] = {}
     press_when: dict[int, datetime | None] = {}
     press_cause: dict[int, str | None] = {}
     press_dominant: dict[int, str] = {}
     for beach_id, its in by_beach.items():
         newest = its[0].published_at
-        if newest is None or newest < cutoff:
+        if newest is None or (beach_id in monitored_ids and newest < cutoff):
             continue
         press_cause[beach_id] = _press_cause(its)
         ev = _press_event(its)
