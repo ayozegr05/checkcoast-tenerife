@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # 2.5-flash: deprecado (nuevos usuarios). 3.6-flash: free tier casi
     # sin cuota hoy. 3.5-flash: estable y con cuota (verificado 2026-09)
     gemini_model: str = "gemini-3.5-flash"
+    # Cuota free tier diaria por MODELO (~20 req/día en 3.5-flash):
+    # al agotarse la principal, el extractor salta al fallback
+    gemini_fallback_model: str | None = "gemini-3.5-flash-lite"
     news_sync_seconds: int = 21600  # 6 h
     news_max_llm_calls: int = 50  # tope de titulares nuevos por pasada
     # Segunda pasada híbrida: artículos por pasada a los que se les

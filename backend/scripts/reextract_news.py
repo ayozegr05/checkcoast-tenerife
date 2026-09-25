@@ -39,7 +39,9 @@ def main() -> None:
     if not settings.gemini_api_key:
         sys.exit("GEMINI_API_KEY no configurada")
     extractor = GeminiExtractor(
-        api_key=settings.gemini_api_key, model=settings.gemini_model
+        api_key=settings.gemini_api_key,
+        model=settings.gemini_model,
+        fallback_model=settings.gemini_fallback_model,
     )
 
     db = SessionLocal()

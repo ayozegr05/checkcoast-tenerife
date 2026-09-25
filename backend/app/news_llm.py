@@ -90,19 +90,32 @@ Si relevant=true extrae:
 
 
 class GeminiExtractor:
-    def __init__(self, api_key: str, model: str) -> None:
-        self.url = (
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        fallback_model: str | None = None,
+    ) -> None:
+        base = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{model}:generateContent"
+            "{}:generateContent"
+        )
+        self.url = base.format(model)
+        self.fallback_url = (
+            base.format(fallback_model) if fallback_model else None
         )
         self.api_key = api_key
 
-    def extract(self, article: RawArticle) -> EventExtraction | None:
-        text = PROMPT + (
-            f'\nTitular: "{article.title}"\nMedio: "{article.source or ""}"'
-        )
-        if article.body:
-            text += f'\nTexto de la noticia (extracto):\n"{article.body[:3000]}"'
+    def _post(self, text: str):
+        """POST con retries ante 429/5xx. La cuota DIARIA agotada no se
+        arregla esperando: se corta el retry en el primer 429 PerDay."""
+        # los modelos -lite no aceptan thinkingConfig
+        gen_cfg = {
+            "responseMimeType": "application/json",
+            "responseSchema": SCHEMA,
+        }
+        if "-lite" not in self.url:
+            gen_cfg["thinkingConfig"] = {"thinkingBudget": 0}
         resp = None
         for attempt in range(4):
             try:
@@ -114,11 +127,7 @@ class GeminiExtractor:
                     },
                     json={
                         "contents": [{"parts": [{"text": text}]}],
-                        "generationConfig": {
-                            "responseMimeType": "application/json",
-                            "responseSchema": SCHEMA,
-                            "thinkingConfig": {"thinkingBudget": 0},
-                        },
+                        "generationConfig": gen_cfg,
                     },
                     timeout=60,
                 )
@@ -128,7 +137,29 @@ class GeminiExtractor:
                 continue
             if resp.status_code not in (429, 500, 503):
                 break
+            if resp.status_code == 429 and "PerDay" in resp.text:
+                break
             time.sleep(10 * (attempt + 1))
+        return resp
+
+    def extract(self, article: RawArticle) -> EventExtraction | None:
+        text = PROMPT + (
+            f'\nTitular: "{article.title}"\nMedio: "{article.source or ""}"'
+        )
+        if article.body:
+            text += f'\nTexto de la noticia (extracto):\n"{article.body[:3000]}"'
+        resp = self._post(text)
+        # Cuota diaria del modelo principal agotada → el resto de la
+        # pasada va directo al fallback (cuota aparte por modelo)
+        if (
+            resp is not None
+            and resp.status_code == 429
+            and "PerDay" in resp.text
+            and self.fallback_url
+            and self.url != self.fallback_url
+        ):
+            self.url = self.fallback_url
+            resp = self._post(text)
         if resp is None or not resp.ok:
             return None
         try:
@@ -164,6 +195,8 @@ def extract_event(
     falla (el artículo se reintenta en la siguiente pasada)."""
     if extractor is None:
         extractor = GeminiExtractor(
-            api_key=settings.gemini_api_key or "", model=settings.gemini_model
+            api_key=settings.gemini_api_key or "",
+            model=settings.gemini_model,
+            fallback_model=settings.gemini_fallback_model,
         )
     return extractor.extract(article)

@@ -191,7 +191,9 @@ def run() -> tuple[int, int, int]:
 
     articles = fetch_news()
     extractor = GeminiExtractor(
-        api_key=settings.gemini_api_key, model=settings.gemini_model
+        api_key=settings.gemini_api_key,
+        model=settings.gemini_model,
+        fallback_model=settings.gemini_fallback_model,
     )
 
     db = SessionLocal()
