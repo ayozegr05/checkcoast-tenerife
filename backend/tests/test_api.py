@@ -208,11 +208,16 @@ def test_press_closure_enters_alerts(seed_data):
         db.close()
 
 
-def test_press_closure_persists_for_unmonitored(seed_data):
-    """Un cierre de prensa en playa SIN monitorizar no caduca con la
-    ventana de frescura: la prensa es la única fuente y el cierre
-    persiste hasta que una reapertura lo deshaga (cierre crónico).
-    En monitorizadas la ventana sí aplica (Sanidad contrasta)."""
+def test_press_closure_persistence_by_cause(seed_data):
+    """La caducidad de un cierre de prensa depende de la CAUSA, no de
+    si la playa está monitorizada (Sanidad no contradice causas
+    estructurales como desprendimientos/obras, solo calidad de agua):
+    - cierre por causa estructural (desprendimientos) -> persiste,
+      monitorizada o no (Benijo, Gaviotas)
+    - cierre por causa transitoria (bacterias/vertido) -> caduca a los
+      21 días aunque sea un cierre confirmado (caso Puertito: bacterias
+      fecales de 2025 sin seguimiento en 15 meses)
+    """
     from datetime import datetime, timedelta, timezone
 
     from app.db import SessionLocal
@@ -222,8 +227,8 @@ def test_press_closure_persists_for_unmonitored(seed_data):
     mon_id = seed_data["beach_id"]      # monitorizada con oficial 'open'
     db = SessionLocal()
     old = datetime.now(timezone.utc) - timedelta(days=30)
-    item_osm = NewsItem(
-        url="https://news.google.com/rss/articles/pytest-old-closure-osm",
+    item_structural = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-old-structural",
         title="La playa sigue cerrada por desprendimientos",
         source="Test Press",
         relevant=True,
@@ -232,29 +237,47 @@ def test_press_closure_persists_for_unmonitored(seed_data):
         cause="desprendimientos",
         published_at=old,
     )
-    item_mon = NewsItem(
-        url="https://news.google.com/rss/articles/pytest-old-closure-mon",
-        title="Cierran la playa por vertido",
+    item_structural_mon = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-old-structural-mon",
+        title="Obras bloquean la reapertura de la playa",
         source="Test Press",
         relevant=True,
         beach_id=mon_id,
         event_type="closure",
-        cause="vertido",
+        cause="obras",
         published_at=old,
     )
-    db.add_all([item_osm, item_mon])
+    item_transient = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-old-transient",
+        title="Cierran la playa por bacterias fecales",
+        source="Test Press",
+        relevant=True,
+        beach_id=osm_id,
+        event_type="closure",
+        cause="bacterias fecales",
+        published_at=old - timedelta(days=1),  # más vieja: no manda
+    )
+    db.add_all([item_structural, item_structural_mon])
     db.commit()
     try:
         alerts = client.get("/alerts").json()
         hit = next((a for a in alerts if a["beach_id"] == osm_id), None)
-        assert hit is not None
-        assert hit["status"] == "closed"
-        assert hit["via"] == "press"
-        # La monitorizada con cobertura >21d caduca: no alerta
-        assert all(a["beach_id"] != mon_id for a in alerts)
+        assert hit is not None and hit["status"] == "closed"
+        hit_mon = next((a for a in alerts if a["beach_id"] == mon_id), None)
+        assert hit_mon is not None and hit_mon["status"] == "closed"
     finally:
-        db.delete(item_osm)
-        db.delete(item_mon)
+        db.delete(item_structural)
+        db.delete(item_structural_mon)
+        db.commit()
+
+    # Ahora solo la causa transitoria, vieja: debe caducar (sin alerta)
+    db.add(item_transient)
+    db.commit()
+    try:
+        alerts = client.get("/alerts").json()
+        assert all(a["beach_id"] != osm_id for a in alerts)
+    finally:
+        db.delete(item_transient)
         db.commit()
         db.close()
 

@@ -63,6 +63,11 @@ Marca relevant=false cuando:
 - la playa no se nombra de forma identificable
 - es un estado rutinario sin evento ("calidad del agua hoy en tu playa")
 - la norma citada es general (prohibido fumar, horarios) sin incidencia del agua
+- el titular NIEGA o DESCARTA el problema ("descartan un vertido",
+  "desmienten la contaminación", "no hay evidencia de", "confirman que
+  es un fenómeno natural") — presta especial atención a estas
+  negaciones: el titular puede contener la palabra del problema
+  ("vertido", "contaminación") pero decir justo lo contrario
 
 Si relevant=true extrae:
 - beach_name: nombre de la playa tal como aparece en el titular

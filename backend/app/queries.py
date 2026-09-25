@@ -39,13 +39,12 @@ def beaches_with_latest_status(db: Session):
     )
 
 
-# Si la prensa lleva >3 semanas sin mencionar una playa MONITORIZADA,
-# no afirmamos que siga cerrada (Los Cristianos: gasoil puntual de
-# agosto) — Sanidad puede contradecirla. En playas sin vigilancia la
-# prensa es la única fuente y el cierre persiste hasta reapertura:
-# caducar por silencio escondería cierres crónicos reales (Benijo:
-# ~2 años cerrada por desprendimientos, solo prensa administrativa
-# esporádica)
+# Si la prensa lleva >3 semanas sin mencionar la playa, no afirmamos
+# que siga en ese estado (Los Cristianos: gasoil puntual de agosto;
+# Puertito: bacterias fecales de 2025 sin seguimiento en 15 meses) —
+# salvo un cierre por causa estructural (ver _STRUCTURAL_CAUSES), que
+# persiste hasta reapertura explícita (Benijo: ~2 años cerrada por
+# desprendimientos, solo prensa administrativa esporádica)
 PRESS_ALERT_MAX_AGE = timedelta(days=21)
 # Ventana de gracia: un cierre de prensa fresco gana a un 'open' de
 # Náyade porque los cierres municipales tardan en llegar a Sanidad;
@@ -78,6 +77,15 @@ _CAUSE_RULES = [
 ]
 # Sin categoría "Acceso": "acceso prohibido"/"cierre de acceso"/"vallado"
 # describen el mecanismo del cierre, no su razón → no computan como causa.
+
+# Causas estructurales: no se resuelven solas (hace falta obra civil o
+# el fin de una obra en marcha) → un cierre de prensa por esta causa
+# sigue vigente aunque no se vuelva a hablar de la playa (Benijo:
+# desprendimientos, ~2 años sin reapertura cubierta). El resto
+# (contaminación, mar agitado, sin causa) es transitorio: se resuelve
+# con el tiempo y el silencio de prensa sí es indicio de que ya pasó
+# (Puertito: bacterias fecales de 2025, sin seguimiento en 15 meses).
+_STRUCTURAL_CAUSES = {"Desprendimientos", "Obras"}
 
 
 def _short_cause(text: str | None) -> str | None:
@@ -232,9 +240,11 @@ def effective_states(db: Session) -> dict[int, dict]:
       en llegar a Náyade. Si Sanidad cerró formalmente un incidente o
       tomó una muestra después de la noticia, es reapertura probada y
       no hay alerta.
-    - Sin dato oficial (OSM): la prensa decide y persiste — la ventana
-      de frescura no aplica porque no hay autoridad que contradiga un
-      cierre viejo; solo una reapertura lo deshace.
+    - Sin dato oficial (OSM): decide la prensa. Un cierre por causa
+      estructural (desprendimientos, obras) persiste sin caducar —
+      nadie repite la misma noticia cada mes mientras dura; el resto
+      (contaminación, mar agitado, avisos sin cierre confirmado) sí
+      caduca a los 21 días sin seguimiento, sea o no monitorizada.
 
     Devuelve {beach_id: {status, via, alerted, reported_at,
     source_url}} para TODAS las playas (alerted=False = sin alerta
@@ -250,24 +260,29 @@ def effective_states(db: Session) -> dict[int, dict]:
     for it in items:
         by_beach.setdefault(it.beach_id, []).append(it)
 
-    # Estado según prensa solo con cobertura fresca — pero la ventana
-    # solo aplica a playas monitorizadas (Sanidad es la autoridad de
-    # contraste). Sin dato oficial, el último evento de prensa persiste
-    # hasta que una reapertura lo deshaga
+    # Estado según prensa solo con cobertura fresca — salvo un cierre
+    # (no aviso) por causa estructural, que persiste sin caducar: ni
+    # Sanidad ni la prensa repiten la misma noticia cada mes mientras
+    # dura una obra o un desprendimiento
     cutoff = datetime.now(timezone.utc) - PRESS_ALERT_MAX_AGE
-    monitored_ids = {
-        r[0] for r in db.query(Beach.id).filter(Beach.monitored.is_(True))
-    }
     press_state: dict[int, str] = {}
     press_when: dict[int, datetime | None] = {}
     press_cause: dict[int, str | None] = {}
     press_dominant: dict[int, str] = {}
     for beach_id, its in by_beach.items():
         newest = its[0].published_at
-        if newest is None or (beach_id in monitored_ids and newest < cutoff):
+        if newest is None:
             continue
-        press_cause[beach_id] = _press_cause(its)
+        cause = _press_cause(its)
         ev = _press_event(its)
+        persists = (
+            ev is not None
+            and ev.event_type == "closure"
+            and cause in _STRUCTURAL_CAUSES
+        )
+        if not persists and newest < cutoff:
+            continue
+        press_cause[beach_id] = cause
         if ev is not None:
             press_state[beach_id] = (
                 "closed" if ev.event_type == "closure" else "warning"
@@ -349,7 +364,11 @@ def effective_states(db: Session) -> dict[int, dict]:
     for beach_id, state in press_state.items():
         if beach_id in result and result[beach_id]["alerted"]:
             continue
-        if official.get(beach_id) == BeachState.open.value:
+        # Sanidad solo mide calidad de agua: un 'open' oficial no
+        # contradice un cierre por causa estructural (no es su ámbito,
+        # p.ej. desprendimientos) — la excepción de abajo no aplica
+        structural = press_cause.get(beach_id) in _STRUCTURAL_CAUSES
+        if official.get(beach_id) == BeachState.open.value and not structural:
             # Sanidad dice abierta: gana salvo ventana de gracia, y
             # siempre que haya prueba oficial de reapertura posterior a
             # la noticia: incidencia cerrada o muestra tomada después
