@@ -7,9 +7,10 @@ URL (la misma noticia replicada por PM se extrae una sola vez). Al
 final re-casa los pendientes con los campos nuevos — sin push, las
 ventanas temporales ya filtran noticias viejas.
 
-Uso: python -m scripts.reextract_news [--max N] [--all]
-  --max N   tope de URLs distintas a procesar (defecto 40)
-  --all     incluir también las marcadas no relevantes (pueden volver)
+Uso: python -m scripts.reextract_news [--max N] [--all] [--beach TXT]
+  --max N      tope de URLs distintas a procesar (defecto 40)
+  --all        incluir también las marcadas no relevantes (pueden volver)
+  --beach TXT  solo ítems de playas cuyo nombre contiene TXT
 """
 
 import argparse
@@ -31,6 +32,8 @@ def main() -> None:
                     help="tope de URLs distintas a procesar")
     ap.add_argument("--all", action="store_true",
                     help="incluir también las no relevantes")
+    ap.add_argument("--beach", default=None,
+                    help="solo ítems de playas cuyo nombre contiene TXT")
     args = ap.parse_args()
 
     if not settings.gemini_api_key:
@@ -47,6 +50,10 @@ def main() -> None:
         )
         if not args.all:
             q = q.filter(NewsItem.relevant.is_(True))
+        if args.beach:
+            q = q.join(Beach, NewsItem.beach_id == Beach.id).filter(
+                Beach.name.ilike(f"%{args.beach}%")
+            )
         by_url: dict[str, list[NewsItem]] = {}
         for it in q.all():
             by_url.setdefault(it.url, []).append(it)
