@@ -329,6 +329,10 @@ emergencia") como si fueran la causa, y la moda amplificaba el ruido
 - [x] **Ayuda sincronizada**: Guía › El mapa explica el panel Capas y
   el botón satélite (antes decía "interruptores" y confundía capas con
   satélite); IntroCard vuelve a 4 hints sin redundancia
+- [x] **Fix leyenda Android**: Nunito a 12 px con `lineHeight` justo
+  cortaba acentos/descendentes y la fila de Playas desbordaba la card;
+  `lineHeight` 19 + spacing ajustado (`34c4dfd`). Ojo: `app-release.apk`
+  se sobreescribe en cada build — verificar la fecha antes de instalar
 
 ## Hito 9 — Portfolio ⬜
 
@@ -367,5 +371,6 @@ Capas + leyenda viva en el mapa, matriz de caducidad de prensa por
 causa (estructural persiste / transitoria caduca 21 d) y prompt
 anti-negación. Alertas vivas: Médano PM3 y Socorro PM1 (contaminación,
 hoy), Gaviotas/Benijo/Garachico (desprendimientos, estructural).
-Pendiente: build EAS nuevo → 9.2 capturas → 9.5 GitHub → 9.6 vídeo →
-9.7 LinkedIn
+APK release local regenerada con toda la UI final (leyenda corregida).
+Pendiente: 9.2 capturas del APK → 9.5 GitHub → 9.6 vídeo → 9.7 LinkedIn;
+8.8 verificación App Links E2E (requiere build firmada por EAS)

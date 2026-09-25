@@ -216,6 +216,13 @@ npx tsc --noEmit                                        # typecheck
 - Token de Expo expuesto en una sesión anterior → el usuario debe
   revocarlo en expo.dev (ya avisado)
 - `nayade_muestreos.html` de debug: no commitear artefactos así
+- **APK local**: `android/app/build/outputs/apk/release/app-release.apk`
+  se sobreescribe en cada `gradlew assembleRelease` — si el móvil
+  muestra una UI vieja tras instalar, lo primero es comprobar la fecha
+  del archivo instalado, no el código. La leyenda usa Nunito con
+  `lineHeight` holgado (19 a 12 px): Android corta acentos si es justo
+- **eas-cli** no está instalado global: usar `npx eas-cli` (npx cachea)
+  o el build local documentado (10.4)
 - **GDELT** descartado como fuente de prensa: 429 persistente desde esta
   IP y su índice busca traducciones al inglés, no el texto español
 - **Gemini**: `gemini-2.5-flash` está deprecado para usuarios nuevos;
