@@ -131,6 +131,42 @@ const pmMembersOf = (members?: GeoFeature[]) => {
   return labeled.length > 1 ? labeled : undefined;
 };
 
+// Categoría visual del pin — la misma lógica que elige el icono:
+// OSM sin monitorizar y playas de estado desconocido comparten pin
+// gris, así que el filtro "Sin monitorizar" las cubre a ambas
+const beachCategory = (f: GeoFeature): string =>
+  f.properties.monitored === false && f.properties.alert !== true
+    ? 'unmonitored'
+    : f.properties.status && f.properties.status !== 'unknown'
+      ? (f.properties.status as string)
+      : 'unmonitored';
+
+// Emisarios: todo lo que no es legal/illegal lleva el pin "en trámite"
+const outfallCategory = (f: GeoFeature): string =>
+  f.properties.status === 'legal' || f.properties.status === 'illegal'
+    ? (f.properties.status as string)
+    : 'unknown';
+
+const BEACH_STATES: [string, string, string][] = [
+  [colors.status.open, 'Apta', 'open'],
+  [colors.status.warning, 'Aviso', 'warning'],
+  [colors.status.closed, 'Cerrada', 'closed'],
+  [colors.status.unmonitored, 'Sin monitorizar', 'unmonitored'],
+];
+const OUTFALL_STATES: [string, string, string][] = [
+  [colors.outfall.legal, 'Autorizado', 'legal'],
+  [colors.outfall.illegal, 'No autorizado', 'illegal'],
+  [colors.outfall.unknown, 'En trámite', 'unknown'],
+];
+
+// Toggle inmutable de un estado en su set de la leyenda
+const toggleInSet = (set: Set<string>, key: string) => {
+  const next = new Set(set);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  return next;
+};
+
 type SearchItem = {
   key: string;
   kind: 'beach' | 'outfall' | 'municipality';
@@ -161,8 +197,15 @@ export default function CoastMap({
   // Lista desplegable de playas en aviso (banner de alertas)
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [showOutfalls, setShowOutfalls] = useState(true);
-  const [showBeaches, setShowBeaches] = useState(true);
+  // Cada estado de la leyenda es una sub-capa marcable: marcado =
+  // visible, desmarcado = oculto. Empiezan todas marcadas; el set
+  // vacío equivale a la capa apagada (no hay switch aparte)
+  const [beachSel, setBeachSel] = useState<Set<string>>(
+    () => new Set(['open', 'warning', 'closed', 'unmonitored']),
+  );
+  const [outfallSel, setOutfallSel] = useState<Set<string>>(
+    () => new Set(['legal', 'illegal', 'unknown']),
+  );
   const [pulse, setPulse] = useState(0);
   const cameraRef = useRef<CameraRef>(null);
   const { height: winH } = useWindowDimensions();
@@ -352,6 +395,41 @@ export default function CoastMap({
     [groupedBeaches],
   );
 
+  // Marcas de la leyenda: se aplican sobre la FC entera del source —
+  // pins, etiquetas, seleccionada y pulso quedan filtrados de una vez
+  const visibleBeaches = useMemo<FeatureCollection>(
+    () => ({
+      type: 'FeatureCollection',
+      features: groupedBeaches.features.filter((f) =>
+        beachSel.has(beachCategory(f)),
+      ),
+    }),
+    [groupedBeaches, beachSel],
+  );
+
+  const visibleOutfalls = useMemo<FeatureCollection>(
+    () => ({
+      ...outfallsMarked,
+      features: outfallsMarked.features.filter((f) =>
+        outfallSel.has(outfallCategory(f)),
+      ),
+    }),
+    [outfallsMarked, outfallSel],
+  );
+
+  // El pulso respeta el filtro; la lista del banner no (es global)
+  const visibleAlertBeaches = useMemo<FeatureCollection>(
+    () => ({
+      type: 'FeatureCollection',
+      features: visibleBeaches.features.filter(
+        (f) =>
+          f.properties.status === 'closed' ||
+          f.properties.status === 'warning',
+      ),
+    }),
+    [visibleBeaches],
+  );
+
   // Halo que crece y se desvance ~1 ciclo/seg solo si hay alertas
   useEffect(() => {
     if (!hasAlerts) return;
@@ -504,6 +582,76 @@ export default function CoastMap({
     setAlertsOpen(false);
   };
 
+  // Fila de la leyenda: icono de la capa + chip "Todos" + un chip
+  // pulsable por estado. Marcado = visible en el mapa
+  const legendChipRow = (
+    icon: number, // require() devuelve el id numérico del asset
+    allLabel: string,
+    allA11y: string,
+    states: [string, string, string][],
+    sel: Set<string>,
+    setSel: React.Dispatch<React.SetStateAction<Set<string>>>,
+  ) => {
+    const allOn = sel.size === states.length;
+    return (
+      <View style={styles.layerRow}>
+        <Image source={icon} style={styles.legendIcon} />
+        <Pressable
+          style={({ pressed }) => [
+            styles.chip,
+            styles.chipAll,
+            allOn
+              ? styles.chipAllOn
+              : styles.chipDimmed,
+            pressed && styles.chipPressed,
+          ]}
+          onPress={() => {
+            setSel(
+              allOn ? new Set() : new Set(states.map(([, , k]) => k)),
+            );
+            closeOverlays();
+          }}
+          accessibilityRole="togglebutton"
+          accessibilityLabel={allA11y}
+          accessibilityState={{ checked: allOn }}
+        >
+          <Text
+            style={[styles.chipAllText, allOn && styles.chipAllTextOn]}
+          >
+            {allLabel}
+          </Text>
+        </Pressable>
+        {states.map(([color, label, key]) => {
+          const on = sel.has(key);
+          return (
+            <Pressable
+              key={key}
+              style={({ pressed }) => [
+                styles.chip,
+                on && {
+                  borderColor: color,
+                  backgroundColor: color + '26',
+                },
+                !on && styles.chipDimmed,
+                pressed && styles.chipPressed,
+              ]}
+              onPress={() => {
+                setSel((s) => toggleInSet(s, key));
+                closeOverlays();
+              }}
+              accessibilityRole="togglebutton"
+              accessibilityLabel={label}
+              accessibilityState={{ checked: on }}
+            >
+              <View style={[styles.dot, { backgroundColor: color }]} />
+              <Text style={styles.chipText}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  };
+
   const handlePress =
     (type: 'outfall' | 'beach') =>
     (e: NativeSyntheticEvent<PressEventWithFeatures>) => {
@@ -606,10 +754,10 @@ export default function CoastMap({
           }}
         />
 
-        {showOutfalls && (
+        {outfallSel.size > 0 && (
           <GeoJSONSource
             id="outfalls"
-            data={outfallsMarked}
+            data={visibleOutfalls}
             onPress={handlePress('outfall')}
           >
             <Layer
@@ -690,8 +838,8 @@ export default function CoastMap({
           </GeoJSONSource>
         )}
 
-        {showBeaches && hasAlerts && (
-          <GeoJSONSource id="beach-alerts" data={alertBeaches}>
+        {beachSel.size > 0 && hasAlerts && (
+          <GeoJSONSource id="beach-alerts" data={visibleAlertBeaches}>
             <Layer
               id="beach-pulse"
               type="circle"
@@ -710,10 +858,10 @@ export default function CoastMap({
           </GeoJSONSource>
         )}
 
-        {showBeaches && (
+        {beachSel.size > 0 && (
           <GeoJSONSource
             id="beaches"
-            data={groupedBeaches}
+            data={visibleBeaches}
             onPress={handlePress('beach')}
           >
             <Layer
@@ -1164,88 +1312,23 @@ export default function CoastMap({
         {/* Leyenda siempre visible: dos filas (Emisarios / Playas)
             pegadas abajo — sin botón Capas */}
         <View style={styles.legendCard}>
-          <View style={styles.layerRow}>
-            <Pressable
-              style={[
-                styles.legendRow,
-                !showOutfalls && styles.legendOff,
-              ]}
-              onPress={() => setShowOutfalls((v) => !v)}
-              accessibilityRole="switch"
-              accessibilityLabel="Capa de emisarios"
-              accessibilityState={{ checked: showOutfalls }}
-            >
-              <Image
-                source={require('../assets/icons/icon-faucet.png')}
-                style={styles.legendIcon}
-              />
-              <View
-                style={[
-                  styles.legendSwitch,
-                  showOutfalls ? styles.switchOn : styles.switchOff,
-                ]}
-              >
-                <Text style={styles.switchText}>
-                  {showOutfalls ? 'ON' : 'OFF'}
-                </Text>
-              </View>
-            </Pressable>
-            <View style={styles.legendSub}>
-              {[
-                [OUTFALL_COLORS.legal, 'Autorizado'],
-                [OUTFALL_COLORS.illegal, 'No autorizado'],
-                [OUTFALL_COLORS.unknown, 'En trámite'],
-              ].map(([color, label]) => (
-                <View key={label} style={styles.swatchRow}>
-                  <View
-                    style={[styles.dot, { backgroundColor: color }]}
-                  />
-                  <Text style={styles.swatchText}>{label}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-          <View style={[styles.layerRow, { marginTop: 6 }]}>
-            <Pressable
-              style={[
-                styles.legendRow,
-                !showBeaches && styles.legendOff,
-              ]}
-              onPress={() => setShowBeaches((v) => !v)}
-              accessibilityRole="switch"
-              accessibilityLabel="Capa de playas"
-              accessibilityState={{ checked: showBeaches }}
-            >
-              <Image
-                source={require('../assets/icons/beach.png')}
-                style={styles.legendIcon}
-              />
-              <View
-                style={[
-                  styles.legendSwitch,
-                  showBeaches ? styles.switchOn : styles.switchOff,
-                ]}
-              >
-                <Text style={styles.switchText}>
-                  {showBeaches ? 'ON' : 'OFF'}
-                </Text>
-              </View>
-            </Pressable>
-            <View style={styles.legendSub}>
-              {[
-                [BEACH_COLORS.open, 'Apta'],
-                [BEACH_COLORS.warning, 'Aviso'],
-                [BEACH_COLORS.closed, 'Cerrada'],
-                [BEACH_COLORS.unmonitored, 'Sin monitorizar'],
-              ].map(([color, label]) => (
-                <View key={label} style={styles.swatchRow}>
-                  <View
-                    style={[styles.dot, { backgroundColor: color }]}
-                  />
-                  <Text style={styles.swatchText}>{label}</Text>
-                </View>
-              ))}
-            </View>
+          {legendChipRow(
+            require('../assets/icons/icon-faucet.png'),
+            'Todos',
+            'Mostrar u ocultar todos los emisarios',
+            OUTFALL_STATES,
+            outfallSel,
+            setOutfallSel,
+          )}
+          <View style={{ marginTop: 6 }}>
+            {legendChipRow(
+              require('../assets/icons/beach.png'),
+              'Todas',
+              'Mostrar u ocultar todas las playas',
+              BEACH_STATES,
+              beachSel,
+              setBeachSel,
+            )}
           </View>
         </View>
       </View>
@@ -1494,86 +1577,69 @@ const styles = StyleSheet.create({
     width: '96%', // ancho fijo: tapa las etiquetas de mar a los lados
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
     elevation: 4,
   },
   layerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minWidth: 76, // icono + switch, sin etiqueta
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 5,
-    paddingHorizontal: 7,
-    elevation: 1,
-  },
-  legendSwitch: {
-    marginLeft: 'auto',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  switchOn: {
-    backgroundColor: colors.primary,
-  },
-  switchOff: {
-    backgroundColor: colors.off,
-  },
-  switchText: {
-    color: '#fff',
-    fontSize: 10,
-    lineHeight: 14,
-    fontFamily: fonts.extrabold,
-    minWidth: 26, // sin esto Android recorta "ON" a "O"
-    textAlign: 'center',
-  },
-  legendOff: {
-    opacity: 0.35,
-  },
-  legendTitle: {
-    fontSize: 13,
-    fontFamily: fonts.bold,
-    color: colors.text,
+    flexWrap: 'nowrap',
+    gap: 4,
   },
   legendIcon: {
-    width: 16,
-    height: 16,
-    marginRight: 6,
+    width: 15,
+    height: 15,
+    marginRight: 2,
   },
-  // Swatches en línea a la derecha del switch; envuelven si no caben
-  legendSub: {
-    flex: 1, // ocupa el resto de la tarjeta: el contenido respira
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-evenly',
-    marginLeft: 10,
-    gap: 8,
-  },
-  swatchRow: {
+  // Chip de estado de la leyenda: pill pulsable — borde del color del
+  // estado + fondo teñido cuando está activa (marcado = visible)
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  chipDimmed: {
+    opacity: 0.45,
+  },
+  chipPressed: {
+    opacity: 0.6,
+  },
+  chipText: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontFamily: fonts.regular,
+    color: colors.text,
+  },
+  // Chip "Todos/Todas": marca/desmarca la fila entera — relleno azul
+  // solo cuando TODA la capa está visible; si falta algún estado se
+  // muestra neutro (borde gris), como los chips desmarcados
+  chipAll: {
+    marginRight: 2,
+  },
+  chipAllOn: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipAllText: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+  },
+  chipAllTextOn: {
+    color: '#fff',
   },
   dot: {
-    width: 10,
-    height: 10,
+    width: 9,
+    height: 9,
     borderRadius: 5,
-    marginRight: 6,
+    marginRight: 4,
     borderWidth: 1,
     borderColor: '#fff',
-  },
-  swatchText: {
-    fontSize: 11,
-    lineHeight: 16, // sin esto Android recorta ascendentes/descendentes
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
   },
 });
