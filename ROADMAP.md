@@ -295,7 +295,7 @@ no convierte en enlace. Objetivo: que al compartir una playa llegue una
 | 10.3 | Verificar en dispositivo la APK local: banner prensa arriba en cerradas, nombre emisario seleccionado, zoom 15, 3 niveles satélite, push oficial + "según prensa" | ✅ Hecho (2026-09-23) — push E2E verificado | 🟢 Trivial |
 | 10.4 | Build local Windows documentado: `expo prebuild` + `gradlew assembleRelease` (firma debug → desinstalar app EAS antes de instalar) | ✅ Hecho (2026-09-23) | 🟡 Medio |
 | 10.5 | **Alertas con causa**: `effective_states` devuelve `cause` (categoría corta: Contaminación / Desprendimientos / Obras / Acceso / Mar agitado, normalizada de texto libre LLM/observaciones) + `cause_via`; `/beaches` expone `alert_cause`/`cause_via`; la fila del desplegable muestra la causa bajo "Cerrada" | ✅ Hecho (`c8ef3a4`, `f9e7bff`) | 🟡 Medio |
-| 10.6 | **google-services.json commiteado**: API key Firebase visible en repo | ✅ Decidido — se queda (config pública por diseño, va en cada APK; mantiene clone→build). Endurecimiento real = restringir la key en GCP por app+SHA-1 (debug `5E:8F:16:…:F6:25` + EAS `DF:26:45:…:C9:5D`) | 🟢 Trivial |
+| 10.6 | **google-services.json commiteado**: API key Firebase visible en repo | ✅ Decidido — se queda (config pública por diseño, va en cada APK; mantiene clone→build). Key restringida en GCP por app `com.checkcoast.tenerife` + SHA-1 (debug + EAS) | 🟢 Trivial |
 | 10.7 | **Revisión pre-publicación del repo** (antes de 9.5) | ✅ Hecho — spikes nunca commiteados (.pyc limpiados), `deploy/` solo tenía `__pycache__`, `.gitignore` cubre .env/keystores/credentials/android/, Caddyfile+compose sin secretos, `frontend/.claude/` fuera del tracking. Verificado: puerto 5433 de la VM cerrado desde internet | 🟢 Trivial |
 
 ---
@@ -304,8 +304,7 @@ no convierte en enlace. Objetivo: que al compartir una playa llegue una
 **Hito activo:** 9 — Portfolio (quedan capturas/vídeo del APK, repo
 público en GitHub y post LinkedIn; 8.8 queda verificación end-to-end
 de App Links con build firmada por EAS)
-**Última actualización:** 2026-09-24 — hito 8.7 cerrado (precedencia
-de eventos + estado efectivo alineado en mapa/ficha/alertas), causa
-corta en lista de alertas, APK local rebuild (10.4) con los cambios
-nuevos. Pendiente para mañana: 10.6 + 10.7 (revisión repo antes de
-publicar) → 9.2 capturas → 9.5 GitHub → 9.6 vídeo → 9.7 LinkedIn
+**Última actualización:** 2026-09-25 — revisión pre-publicación cerrada
+(10.6 + 10.7): repo limpio, API key Firebase restringida por app+SHA-1,
+puerto 5433 de la VM verificado cerrado. Pendiente hoy: 9.2 capturas del
+APK → 9.5 GitHub → 9.6 vídeo → 9.7 LinkedIn
