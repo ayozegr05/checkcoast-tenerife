@@ -32,7 +32,16 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     News RSS como fuente; feeds por cabecera como respaldo)
   - `app/news_llm.py` — `extract_event(article)` detrás de interfaz
     `NewsExtractor`; `GeminiExtractor` (REST, JSON por esquema,
-    thinking off, retries)
+    thinking off, retries); `cause` = razón de fondo, nunca mecanismo
+    ("acceso prohibido") ni respuesta ("obras de emergencia"); 429
+    PerDay → salta a `gemini_fallback_model` (cuota aparte por modelo;
+    los -lite no aceptan thinkingConfig); acepta `article.body`
+  - `app/news_resolve.py` — decode de URLs Google News → URL editorial
+    (página /rss/articles con `ucbcb=1` + firma/timestamp → RPC
+    batchexecute; `curl_cffi` impersonate Chrome — requests plano se
+    come el consent wall según IP) + cuerpo vía `trafilatura`
+    (fallback meta/og:description). RPC no documentado: si Google lo
+    rompe, devuelve None y la ingesta sigue solo con titulares
   - `app/news_matching.py` — `match_beaches()` conservador + clave
     `_press_key` (inversión MITECO "(El)", sin "PLAYA DE…"); match
     exacto gana a contenciones del mismo municipio ("El Médano"→PM3,
@@ -41,7 +50,9 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
   - `scripts/` — `ingest_outfalls.py`, `ingest_beaches.py` (censo MITECO
     + solver ALTCHA), `ingest_beach_status.py` (scraper Náyade),
     `ingest_osm_beaches.py` (Overpass), `ingest_news.py` (prensa → LLM
-    → `news_items`)
+    → `news_items`, con segunda pasada cuerpo si el titular no aclara),
+    `reextract_news.py` (refresca extracciones guardadas: `--beach`,
+    `--max`, `--all`)
   - `alembic/` — migraciones (`alembic upgrade head`)
   - `tests/` — pytest: `test_api.py`, `test_nayade_parser.py`,
     `test_osm_ingest.py`, `test_news_matching.py`, `test_news_llm.py`.
@@ -123,7 +134,9 @@ npx tsc --noEmit                                        # typecheck
 - **Cierre sin fecha de cierre**: Náyade escribe `--` en fecha de cierre
 - **Incidentes**: solo temporada activa (desde ~feb 2026). Mediciones:
   desde ene 2023 → para histórico multi-año usar `bad_samples`
-  (evaluación "prohibido") de `/beaches/stats`
+  (evaluación "prohibido") de `/beaches/stats`. Causa prensa de Benijo
+  corregida (25-sep): "acceso"/"obras" eran mecanismo y respuesta — la
+  razón de fondo es `Desprendimientos`
 - **Playas OSM**: `natural=beach` con nombre, `monitored=False`,
   dedup vs censo por nombre normalizado o <400 m. Si una OSM casa con un
   PM de Náyade se promueve a `monitored=True`. Una playa solo casa con
@@ -135,7 +148,10 @@ npx tsc --noEmit                                        # typecheck
   `match_beaches` conservador → `news_items`. Se guardan también los no
   relevantes/no casados (dedup + re-match en cada pasada). La API solo
   sirve los casados; la UI los etiqueta "según prensa" — NUNCA alimentan
-  el estado oficial
+  el estado oficial. Extracción en dos pasadas (Hito 8.9): si el
+  titular no casa playa o no dice el porqué, `news_resolve` decodifica
+  la URL de Google News y se re-extrae con el cuerpo; `cause` = razón
+  de fondo, las causas-mecanismo ("acceso", "obras") no votan
 - **Nombres MITECO invertidos**: el censo usa "PLAYA CABEZO (EL)" por
   "El Cabezo" — el matching de prensa lo resuelve con `_press_key`
   (artículo `(El|La|Los|Las)` delante, sin prefijo "PLAYA DE…").
@@ -190,11 +206,13 @@ npx tsc --noEmit                                        # typecheck
   IP y su índice busca traducciones al inglés, no el texto español
 - **Gemini**: `gemini-2.5-flash` está deprecado para usuarios nuevos;
   `gemini-3.6-flash` tiene cuota free tier casi nula → por defecto
-  `gemini-3.5-flash` (verificado 2026-09). 503 intermitentes: reintentar
+  `gemini-3.5-flash` (verificado 2026-09). 503 intermitentes: reintentar.
+  Free tier = ~20 req/día **por modelo** — 429 PerDay → fallback a
+  `GEMINI_FALLBACK_MODEL` (`gemini-3.5-flash-lite`, cuota aparte)
 - **Google News RSS**: los `<link>` son redirects de Google News (se
-  abren bien; el medio va en `<source>`); solo da titular+medio+fecha,
-  el LLM extrae del titular; `Teneriffa News` (SEO-farm diario) está en
-  blocklist `EXCLUDED_SOURCES`
+  abren bien; el medio va en `<source>`); la URL editorial se decodifica
+  con `news_resolve` (ver Hito 8.9); `Teneriffa News` (SEO-farm diario)
+  está en blocklist `EXCLUDED_SOURCES`
 
 ## Pendiente inmediato
 

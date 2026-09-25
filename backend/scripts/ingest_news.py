@@ -5,7 +5,11 @@ Por pasada:
 1. fetch_news() → titulares recientes (queries temáticas, dedup por URL)
 2. descartar URLs ya vistas (unique), fuentes bloqueadas y sin fecha
 3. extract_event() (Gemini) sobre cada titular nuevo, con tope
-   `news_max_llm_calls` para acotar el gasto del free tier
+   `news_max_llm_calls` para acotar el gasto del free tier;
+   cuota diaria agotada → salto a `gemini_fallback_model`
+3b. segunda pasada híbrida (`_enrich_with_body`): titular sin match o
+   sin causa clara → cuerpo del artículo (news_resolve) → re-extraer;
+   tope `news_max_body_fetches`
 4. match_beach() conservador → beach_id o None
 5. insertar NewsItem: se guardan también los no relevantes y los no
    casados (dedup por url + auditoría); la API solo sirve los casados

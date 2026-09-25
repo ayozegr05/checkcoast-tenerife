@@ -272,6 +272,36 @@ no convierte en enlace. Objetivo: que al compartir una playa llegue una
 - [ ] **Verificación end-to-end**: compartir desde la app → tarjeta con
   foto en WhatsApp/Telegram + link abre la app instalada
 
+## Hito 8.9 — Extracción híbrida de prensa ✅
+
+Caso disparador: Benijo mostraba causa "Acceso" cuando la razón real del
+cierre es el peligro de desprendimientos. Dos fallos encadenados: el
+LLM extraía mecanismos ("acceso prohibido") y respuestas ("obras de
+emergencia") como si fueran la causa, y la moda amplificaba el ruido
+(5 acceso / 4 obras / 1 desprendimientos).
+
+- [x] **Prompt redefinido** (`news_llm.py`): `cause` = razón de fondo
+  (vertido, bacterias, desprendimientos, temporal); nunca mecanismo
+  (vallado, multas, acceso prohibido) ni respuesta administrativa;
+  reapertura solo si la playa YA está abierta — "obras PARA reabrir"
+  no es reopening
+- [x] **Segunda pasada con cuerpo del artículo** (`news_resolve.py`):
+  si el titular no casa playa o no revela la causa → decode de la URL
+  de Google News (firma+timestamp → RPC batchexecute; `curl_cffi`
+  impersonate Chrome, `ucbcb=1` — requests plano se come el consent
+  wall por IP) → cuerpo con `trafilatura` → re-extracción. Tope
+  `news_max_body_fetches` por pasada
+- [x] **Defensa en `_short_cause`** (`queries.py`): frases puras de
+  mecanismo/respuesta no votan → la categoría "Acceso" desaparece
+  (nunca fue una causa real); tests en `test_cause_rules.py`
+- [x] **Fallback de modelo Gemini**: cuota free tier ~20 req/día **por
+  modelo** — 429 PerDay → salto inmediato a `gemini-3.5-flash-lite`
+  (cuota aparte, sin thinkingConfig) en ingesta y re-extracción
+- [x] **`scripts/reextract_news.py`**: refresca extracciones guardadas
+  (`--beach`, `--max`, `--all`); Benijo re-extraído en prod →
+  `/alerts` muestra **Desprendimientos** (`7dfb681`, `febdb01`,
+  `00c8696`)
+
 ## Hito 9 — Portfolio ⬜
 
 | # | Tarea | Estado | Esfuerzo |
@@ -304,7 +334,8 @@ no convierte en enlace. Objetivo: que al compartir una playa llegue una
 **Hito activo:** 9 — Portfolio (quedan capturas/vídeo del APK, repo
 público en GitHub y post LinkedIn; 8.8 queda verificación end-to-end
 de App Links con build firmada por EAS)
-**Última actualización:** 2026-09-25 — revisión pre-publicación cerrada
-(10.6 + 10.7): repo limpio, API key Firebase restringida por app+SHA-1,
-puerto 5433 de la VM verificado cerrado. Pendiente hoy: 9.2 capturas del
-APK → 9.5 GitHub → 9.6 vídeo → 9.7 LinkedIn
+**Última actualización:** 2026-09-25 — Hito 8.9 (extracción híbrida de
+prensa) desplegado: causa=razón de fondo + segunda pasada con cuerpo +
+fallback de modelo; Benijo ya muestra "Desprendimientos". Re-extracción
+histórica completa en marcha en la VM (tope cuota diaria Gemini).
+Pendiente: 9.2 capturas del APK → 9.5 GitHub → 9.6 vídeo → 9.7 LinkedIn
