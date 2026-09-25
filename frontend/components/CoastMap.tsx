@@ -1385,7 +1385,7 @@ export default function CoastMap({
               ))}
             </View>
           </View>
-          <View style={[styles.layerRow, { marginTop: 6 }]}>
+          <View style={[styles.layerRow, { marginTop: 13 }]}>
             <Image
               source={require('../assets/icons/beach.png')}
               style={styles.legendIcon}
@@ -1610,7 +1610,7 @@ const styles = StyleSheet.create({
   // Wrapper posicional a todo lo ancho: centra la tarjeta de capas
   legend: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 48 : 18,
+    bottom: Platform.OS === 'android' ? 40 : 10,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -1651,30 +1651,36 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   legendCard: {
-    width: '96%', // ancho fijo: tapa las etiquetas de mar a los lados
+    width: '97%', // ancho fijo: tapa las etiquetas de mar a los lados
     backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 8,
-    paddingVertical: 7,
-    paddingHorizontal: 8,
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     elevation: 4,
+    // Desplazada a la izquierda: tapa el logo de MapLibre (fijo
+    // abajo-izquierda, independiente de attributionPosition)
+    transform: [{ translateX: -0.5 }],
   },
+  // Icono + swatches como un solo bloque centrado en la card (sin
+  // flex:1 en legendSub, si no el icono queda pinchado a la izquierda)
   layerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'nowrap',
+    justifyContent: 'center',
   },
   legendIcon: {
-    width: 15,
-    height: 15,
-    marginRight: 6,
+    width: 18,
+    height: 18,
+    marginLeft: -6,
+    marginRight: 26,
   },
   // Swatches informativos en línea (no interactivos — las capas se
   // controlan desde el panel del botón flotante)
   legendSub: {
-    flex: 1,
     flexDirection: 'row',
     flexWrap: 'nowrap',
-    justifyContent: 'space-evenly',
+    gap: 20,
   },
   swatchRow: {
     flexDirection: 'row',
@@ -1686,8 +1692,8 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   swatchText: {
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 16,
     fontFamily: fonts.regular,
     color: colors.textMuted,
   },
@@ -1785,10 +1791,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    marginRight: 4,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    marginRight: 8,
     borderWidth: 1,
     borderColor: '#fff',
   },

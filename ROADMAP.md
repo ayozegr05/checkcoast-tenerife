@@ -302,6 +302,34 @@ emergencia") como si fueran la causa, y la moda amplificaba el ruido
   `/alerts` muestra **Desprendimientos** (`7dfb681`, `febdb01`,
   `00c8696`)
 
+## Hito 8.10 — Filtros de capa y caducidad por causa ✅
+
+- [x] **Panel «Capas» con checkboxes** (`CoastMap.tsx`): botón flotante
+  bajo la brújula abre un panel por sección (Emisarios/Playas) con un
+  checkbox por estado + "Todos/Todas" — varios estados visibles a la
+  vez. Sustituye a los switches ON/OFF de la leyenda, que quedaba
+  ambigua (¿ON = todos los estados o los marcados?) (`d85c780`)
+- [x] **Leyenda viva**: la leyenda fija explica los colores y atenúa
+  los estados desmarcados en el panel — pasa de decoración a
+  indicador de "qué estás viendo ahora"
+- [x] **Matriz de caducidad de la prensa** (`queries.py`): un cierre
+  por causa **estructural** (`_STRUCTURAL_CAUSES` = Desprendimientos,
+  Obras) persiste sin límite hasta reapertura explícita — nadie repite
+  la misma noticia cada mes mientras dura (Benijo ~2 años cerrada solo
+  con prensa administrativa; Garachico: muro caído). El resto —
+  Contaminación, Mar agitado, avisos sin cierre confirmado, sin causa —
+  es **transitorio** y caduca a los 21 d sin seguimiento, sea o no
+  monitorizada (Puertito: bacterias fecales de 2025 reaparecieron al
+  quitar la ventana; la regla de causa lo corrige). Además un `open`
+  oficial no contradice un cierre estructural (Gaviotas: Sanidad mide
+  agua, no taludes) (`d349c85`)
+- [x] **Prompt anti-negación** (`news_llm.py`): titulares que
+  desmienten el suceso («descartan un vertido», caso Roque de las
+  Bodegas) → `relevant=false`, no cuentan como aviso
+- [x] **Ayuda sincronizada**: Guía › El mapa explica el panel Capas y
+  el botón satélite (antes decía "interruptores" y confundía capas con
+  satélite); IntroCard vuelve a 4 hints sin redundancia
+
 ## Hito 9 — Portfolio ⬜
 
 | # | Tarea | Estado | Esfuerzo |
@@ -334,8 +362,10 @@ emergencia") como si fueran la causa, y la moda amplificaba el ruido
 **Hito activo:** 9 — Portfolio (quedan capturas/vídeo del APK, repo
 público en GitHub y post LinkedIn; 8.8 queda verificación end-to-end
 de App Links con build firmada por EAS)
-**Última actualización:** 2026-09-25 — Hito 8.9 (extracción híbrida de
-prensa) desplegado: causa=razón de fondo + segunda pasada con cuerpo +
-fallback de modelo; Benijo ya muestra "Desprendimientos". Re-extracción
-histórica completa en marcha en la VM (tope cuota diaria Gemini).
-Pendiente: 9.2 capturas del APK → 9.5 GitHub → 9.6 vídeo → 9.7 LinkedIn
+**Última actualización:** 2026-09-25 — Hito 8.10 desplegado: panel
+Capas + leyenda viva en el mapa, matriz de caducidad de prensa por
+causa (estructural persiste / transitoria caduca 21 d) y prompt
+anti-negación. Alertas vivas: Médano PM3 y Socorro PM1 (contaminación,
+hoy), Gaviotas/Benijo/Garachico (desprendimientos, estructural).
+Pendiente: build EAS nuevo → 9.2 capturas → 9.5 GitHub → 9.6 vídeo →
+9.7 LinkedIn

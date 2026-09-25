@@ -27,12 +27,12 @@ const TOPICS: Topic[] = [
     subtitle: 'Qué ves y cómo cambiarlo',
     rows: [
       [
-        require('../assets/icons/icon-map.png'),
-        'Abajo tienes dos interruptores para mostrar u ocultar playas y vertidos',
+        require('../assets/icons/icon-layers.png'),
+        'El botón de capas abre un panel para filtrar los estados: solo las cerradas, solo los vertidos sin permiso…',
       ],
       [
-        require('../assets/icons/icon-layers.png'),
-        '¿Quieres ver la foto real? El botón de arriba cambia a vista satélite',
+        require('../assets/icons/icon-satellite.png'),
+        '¿Quieres ver la foto real? El botón de satélite cambia a vista aérea',
       ],
       [
         require('../assets/icons/icon-search.png'),

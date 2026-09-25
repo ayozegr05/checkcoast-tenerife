@@ -28,10 +28,6 @@ const HINTS: [ImageSourcePropType, string][] = [
     require('../assets/icons/icon-townhall.png'),
     'Municipios: ranking de afectación por municipio',
   ],
-  [
-    require('../assets/icons/icon-layers.png'),
-    'Capas: botón arriba a la derecha para alternar mapa y satélite',
-  ],
 ];
 
 export default function IntroCard({

@@ -24,7 +24,8 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     official|press) + `stale_official_ids()` (oficial rezagado del
     mismo episodio: reapertura de prensa posterior a TODA la
     evidencia — `sampled_at`/`opened_at` — → efectivo `open`; una
-    incidencia ABIERTA exige reapertura corroborada por ≥2 medios)
+    incidencia ABIERTA exige reapertura corroborada por ≥2 medios) +
+    matriz de caducidad de prensa por causa (ver reglas de negocio)
   - `app/main.py` — lifespan con APScheduler (`_sync_beach_statuses` cada
     `NAYADE_SYNC_SECONDS`, 1 h; `_sync_news` cada `NEWS_SYNC_SECONDS`,
     6 h; ambos envueltos en try/except)
@@ -35,7 +36,9 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     thinking off, retries); `cause` = razón de fondo, nunca mecanismo
     ("acceso prohibido") ni respuesta ("obras de emergencia"); 429
     PerDay → salta a `gemini_fallback_model` (cuota aparte por modelo;
-    los -lite no aceptan thinkingConfig); acepta `article.body`
+    los -lite no aceptan thinkingConfig); acepta `article.body`;
+    titulares que niegan el suceso ("descartan un vertido") →
+    `relevant=false`
   - `app/news_resolve.py` — decode de URLs Google News → URL editorial
     (página /rss/articles con `ucbcb=1` + firma/timestamp → RPC
     batchexecute; `curl_cffi` impersonate Chrome — requests plano se
@@ -63,7 +66,9 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
   - `App.tsx` — fetch inicial (outfalls/beaches/alerts), polling
     `/alerts` cada 5 min, tarjeta de bienvenida, BeachList modal
   - `components/CoastMap.tsx` — mapa OSM/satélite (Esri híbrido),
-    capas GeoJSON, leyenda con switches ON/OFF, controles arriba-derecha
+    capas GeoJSON, leyenda fija informativa (atenua los estados
+    ocultos), botón «Capas» con panel de checkboxes por estado,
+    controles arriba-derecha
   - `components/BeachList.tsx` — buscador, chips municipio, sort
     estado/cierres/calidad; agrupa PMs por nombre base+municipio (filas
     expandibles con datos inline por PM); modal con `visible` (estado
@@ -170,7 +175,16 @@ npx tsc --noEmit                                        # typecheck
   posterior = evento nuevo → `closed`+push. Una incidencia ABIERTA
   solo la suprime una reapertura corroborada por ≥2 medios distintos
   (caso Gaviotas: un titular "obras PARA reabrir" mal clasificado no
-  puede abrir una prohibición vigente)
+  puede abrir una prohibición vigente). **Caducidad de la prensa por
+  naturaleza de la causa**: un `closure` por causa estructural
+  (`_STRUCTURAL_CAUSES`: Desprendimientos, Obras) persiste sin límite
+  hasta reapertura explícita — nadie repite la misma noticia cada mes
+  mientras dura (Benijo ~2 años cerrada solo con prensa administrativa)
+  — y un `open` oficial tampoco lo contradice (Sanidad solo mide agua,
+  no taludes); el resto (Contaminación, Mar agitado, avisos sin cierre
+  confirmado, sin causa) caduca a los 21 d sin seguimiento, sea o no
+  monitorizada (Puertito: bacterias fecales de 2025 sin reapertura
+  cubierta)
 - **Umbrales calidad** (RD 1341/2007, costeras): E. coli ≤250/≤500/>500,
   enterococo ≤100/≤200/>200 → Excelente/Buena/Insuficiente
 - **Manual**: `POST /beaches/{id}/status` {"status": open|closed|warning}
