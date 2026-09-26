@@ -28,7 +28,14 @@ from app.models import Beach, BeachState, BeachStatus, NewsItem
 from app.news_llm import EventExtraction, GeminiExtractor, extract_event
 from app.news_matching import match_beaches
 from app.news_resolve import resolve_and_fetch
-from app.news_sources import RawArticle, fetch_news, source_excluded
+from app.news_sources import (
+    GUIA_SOURCE,
+    RawArticle,
+    fetch_guia_page,
+    fetch_guia_sitemap,
+    fetch_news,
+    source_excluded,
+)
 from app.queries import _short_cause
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
@@ -169,6 +176,7 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
                     beach_id=b.id,
                     event_type=item.event_type,
                     cause=item.cause,
+                    closed_since=item.closed_since,
                     extracted_beach=item.extracted_beach,
                     extracted_municipality=item.extracted_municipality,
                     confidence=item.confidence,
@@ -176,6 +184,10 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
             )
         rematched += 1
         for b in hits:
+            # Las guías evergreen no despiertan push: una ficha
+            # actualizada no es una noticia de última hora
+            if item.source == GUIA_SOURCE:
+                continue
             if _press_push_candidate(
                 db, b, item.event_type, item.published_at, exclude_id=item.id
             ):
@@ -186,6 +198,122 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
     if rematched:
         db.commit()
     return rematched
+
+
+def _sync_guia(db, beaches: list[Beach], extractor) -> int:
+    """Guías evergreen de Guía Islas Canarias (Benijo y el resto).
+
+    No son noticias sino fichas mantenidas que afirman el estado real
+    ("acceso cerrado desde julio de 2024") — no despiertan push. El
+    sitemap trae `lastmod` por URL: solo se re-descarga/extrae una
+    guía cuando su ficha cambió desde la última vez que la guardamos.
+    """
+    try:
+        pages = fetch_guia_sitemap()
+    except Exception:
+        return 0
+    synced = 0
+    for url, lastmod in pages:
+        if lastmod is None:
+            continue
+        if synced >= settings.news_max_guia_fetches:
+            break  # free tier: el resto de fichas, en la próxima pasada
+        rows = (
+            db.query(NewsItem)
+            .filter(NewsItem.url == url, NewsItem.source == GUIA_SOURCE)
+            .all()
+        )
+        if rows and all(
+            r.published_at is not None and r.published_at >= lastmod
+            for r in rows
+        ):
+            continue  # la ficha no cambió desde la última pasada
+        fetched = fetch_guia_page(url)
+        if fetched is None:
+            continue
+        title, body = fetched
+        art = RawArticle(
+            title=title,
+            url=url,
+            source=GUIA_SOURCE,
+            published_at=lastmod,
+            body=body,
+        )
+        ext = extract_event(art, extractor)
+        if ext is None:
+            continue  # fallo del proveedor: reintento la próxima pasada
+        hits = (
+            match_beaches(ext, beaches, title=title)
+            if ext.relevant
+            else []
+        )
+        if rows:
+            # Ficha ya vista: actualizamos la extracción en las filas
+            # que existan (la misma URL replicada por PM)
+            for row in rows:
+                row.relevant = ext.relevant
+                row.event_type = ext.event_type
+                row.cause = ext.cause
+                row.closed_since = ext.closed_since
+                row.extracted_beach = ext.beach_name
+                row.extracted_municipality = ext.municipality
+                row.confidence = ext.confidence
+                row.title = title
+                row.published_at = lastmod
+            # Si antes no casó y ahora sí (o casan más PMs), se rellena
+            # primero la fila sin playa (si existe) y se crean las que
+            # falten — así _rematch_pending no duplica en la próxima
+            # pasada
+            have = {r.beach_id for r in rows}
+            for b in hits:
+                if b.id in have:
+                    continue
+                free = next(
+                    (r for r in rows if r.beach_id is None), None
+                )
+                if free is not None:
+                    free.beach_id = b.id
+                else:
+                    db.add(
+                        NewsItem(
+                            url=url,
+                            title=title,
+                            source=GUIA_SOURCE,
+                            published_at=lastmod,
+                            relevant=ext.relevant,
+                            beach_id=b.id,
+                            event_type=ext.event_type,
+                            cause=ext.cause,
+                            closed_since=ext.closed_since,
+                            extracted_beach=ext.beach_name,
+                            extracted_municipality=ext.municipality,
+                            confidence=ext.confidence,
+                        )
+                    )
+                have.add(b.id)
+            db.commit()
+        else:
+            for beach in hits or [None]:
+                db.add(
+                    NewsItem(
+                        url=url,
+                        title=title,
+                        source=GUIA_SOURCE,
+                        published_at=lastmod,
+                        relevant=ext.relevant,
+                        beach_id=beach.id if beach else None,
+                        event_type=ext.event_type,
+                        cause=ext.cause,
+                        closed_since=ext.closed_since,
+                        extracted_beach=ext.beach_name,
+                        extracted_municipality=ext.municipality,
+                        confidence=ext.confidence,
+                    )
+                )
+            db.commit()
+        synced += 1
+        time.sleep(2)
+    return synced
 
 
 def run() -> tuple[int, int, int]:
@@ -243,6 +371,7 @@ def run() -> tuple[int, int, int]:
                     beach_id=beach.id if beach else None,
                     event_type=ext.event_type,
                     cause=ext.cause,
+                    closed_since=ext.closed_since,
                     extracted_beach=ext.beach_name,
                     extracted_municipality=ext.municipality,
                     confidence=ext.confidence,
@@ -263,6 +392,9 @@ def run() -> tuple[int, int, int]:
             inserted += ext.relevant
             time.sleep(2)  # free tier de Gemini: respirar entre llamadas
         rematched = _rematch_pending(db, beaches, to_notify)
+        guia = _sync_guia(db, beaches, extractor)
+        if guia:
+            print(f"[guia] {guia} fichas de Guía Islas Canarias sincronizadas")
         # Push de alertas de prensa: tras confirmar todos los inserts
         from app.notify import notify_press_event
 

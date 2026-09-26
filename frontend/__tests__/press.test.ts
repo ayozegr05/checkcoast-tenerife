@@ -95,4 +95,60 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     );
     expect(r.main).toBe('Cerrada');
   });
+
+  it('closed_since parcial gana a la fecha de cobertura (Benijo)', () => {
+    // El texto afirma "cerrada desde julio de 2024" aunque los
+    // titulares sean de 2026: el banner muestra el inicio real
+    const r = pressSummary(
+      summary({
+        since: '2026-07-31T10:00:00Z',
+        closed_since: '2024-07',
+      }),
+      { stillClosed: true, reopenedAt: null },
+    );
+    expect(r.main).toBe(
+      'Cerrada por riesgo de desprendimientos · desde jul-2024',
+    );
+  });
+
+  it('closed_since de solo año: "desde 2024"', () => {
+    const r = pressSummary(
+      summary({ since: '2026-05-21T10:00:00Z', closed_since: '2024' }),
+      { stillClosed: true, reopenedAt: null },
+    );
+    expect(r.main).toBe(
+      'Cerrada por riesgo de desprendimientos · desde 2024',
+    );
+  });
+
+  it('closed_since con fecha completa: formato dd/mm/aaaa', () => {
+    const r = pressSummary(
+      summary({
+        since: '2026-05-21T10:00:00Z',
+        closed_since: '2024-07-15',
+      }),
+      { stillClosed: true, reopenedAt: null },
+    );
+    expect(r.main).toBe(
+      'Cerrada por riesgo de desprendimientos · desde el 15/07/2024',
+    );
+  });
+
+  it('reabierta: "estuvo cerrada desde jul-2024" con closed_since', () => {
+    const r = pressSummary(
+      summary({
+        since: '2026-05-21T10:00:00Z',
+        closed_since: '2024-07',
+      }),
+      {
+        stillClosed: false,
+        reopenedAt: '2026-09-25',
+        now: new Date('2026-09-26T12:00:00Z'),
+      },
+    );
+    expect(r.tone).toBe('reopened');
+    expect(r.sub).toBe(
+      'según prensa · 9 medios · estuvo cerrada desde jul-2024',
+    );
+  });
 });

@@ -59,6 +59,23 @@ export const fmtDate = (iso: string) => {
   return `${d}/${m}/${y}`;
 };
 
+// ISO parcial (closed_since): "2024" -> "2024", "2024-07" ->
+// "jul-2024", "2024-07-15" -> "15/07/2024". La fuente solo afirma la
+// precisión que dice; no inventamos día ni mes
+const MONTHS_SHORT = [
+  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+];
+export const fmtPartialDate = (iso: string) => {
+  const parts = iso.split('-');
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) {
+    const m = Number(parts[1]);
+    return `${MONTHS_SHORT[m - 1] ?? parts[1]}-${parts[0]}`;
+  }
+  return fmtDate(iso);
+};
+
 const ARTICLE_PAREN = /\s*\((EL|LA|LOS|LAS)\)/i;
 const DE_FORMS: Record<string, string> = {
   el: 'del',

@@ -105,7 +105,10 @@ export type BeachNewsSummary = {
   cause: string | null; // causa dominante según prensa
   items_count: number;
   outlets_count: number;
-  since: string | null; // primer titular del evento dominante (ISO)
+  since: string | null; // inicio del episodio de prensa (ISO)
+  // inicio real afirmado por el texto ("cerrada desde julio de 2024"
+  // → "2024-07"), ISO parcial — puede ser YYYY, YYYY-MM o YYYY-MM-DD
+  closed_since?: string | null;
 };
 
 export type BeachNewsResponse = {

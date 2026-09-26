@@ -9,6 +9,7 @@ con el mismo método `extract`.
 """
 
 import json
+import re
 import time
 from dataclasses import dataclass
 from typing import Protocol
@@ -28,6 +29,9 @@ class EventExtraction:
     # closure | reopening | warning | pollution | other
     event_type: str | None = None
     cause: str | None = None
+    # Inicio real del evento según el texto ("cerrada desde julio de
+    # 2024" → "2024-07"), no la fecha de publicación. ISO parcial
+    closed_since: str | None = None
 
 
 class NewsExtractor(Protocol):
@@ -42,10 +46,14 @@ SCHEMA = {
         "municipality": {"type": "STRING", "nullable": True},
         "event_type": {"type": "STRING", "nullable": True},
         "cause": {"type": "STRING", "nullable": True},
+        "closed_since": {"type": "STRING", "nullable": True},
         "confidence": {"type": "NUMBER"},
     },
     "required": ["relevant", "confidence"],
 }
+
+# ISO parcial: "2024", "2024-07" o "2024-07-15" — nada más se acepta
+_CLOSED_SINCE_RE = re.compile(r"^\d{4}(-\d{2})?(-\d{2})?$")
 
 PROMPT = """\
 Eres un extractor de eventos para una app que monitoriza el estado de las
@@ -90,6 +98,17 @@ Si relevant=true extrae:
     "proceso de emergencia") — es la respuesta al problema → null,
     salvo que el texto nombre la razón real (úsala)
   Si el texto no indica la razón → null.
+- closed_since: SOLO para closure/warning/pollution VIGENTES, cuando
+  el texto dice desde cuándo está realmente cerrada o afectada la
+  playa — distinto de cuándo se publica la noticia. Ejemplos:
+  "cerrada desde julio de 2024" → "2024-07"; "clausurada en 2024" →
+  "2024"; "lleva cerrada desde el lunes 15" → "YYYY-MM-DD" si la
+  fecha es deducible. ISO parcial: YYYY, YYYY-MM o YYYY-MM-DD según
+  la precisión que afirme el texto. Si el cierre ya quedó en el
+  pasado ("estuvo cerrada en 2024 pero reabrió") no uses
+  closed_since: marca event_type según el estado actual del texto
+  (reopening si ya está abierta, other si es mera historia). Si no se
+  indica → null
 - confidence: 0-1, confianza en que el titular describe ese evento en esa playa
 """
 
@@ -177,10 +196,16 @@ class GeminiExtractor:
                 ("beach_name", 255),
                 ("municipality", 120),
                 ("event_type", 20),
+                ("closed_since", 10),
             ):
                 v = data.get(key)
                 if isinstance(v, str) and len(v) > limit:
                     return None
+            closed_since = data.get("closed_since")
+            if closed_since is not None and not _CLOSED_SINCE_RE.match(
+                str(closed_since)
+            ):
+                closed_since = None
             return EventExtraction(
                 relevant=bool(data["relevant"]),
                 confidence=float(data.get("confidence") or 0.0),
@@ -188,6 +213,7 @@ class GeminiExtractor:
                 municipality=data.get("municipality"),
                 event_type=data.get("event_type"),
                 cause=data.get("cause"),
+                closed_since=closed_since,
             )
         except (json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError):
             return None

@@ -124,6 +124,9 @@ class NewsSummaryOut(BaseModel):
     outlets_count: int
     # primer titular del evento dominante ("desde el…")
     since: datetime | None
+    # inicio real afirmado por el texto ("cerrada desde julio de
+    # 2024" → "2024-07"), ISO parcial — si existe adelanta a `since`
+    closed_since: str | None = None
 
 
 class BeachNewsOut(BaseModel):

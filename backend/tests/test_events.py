@@ -27,7 +27,13 @@ def inc(opened: date, closed: date | None = None):
     return SimpleNamespace(opened_at=opened, closed_at=closed)
 
 
-def news(day: date, event_type: str, source: str = "eldia"):
+def news(
+    day: date,
+    event_type: str,
+    source: str = "eldia",
+    cause: str | None = None,
+    closed_since: str | None = None,
+):
     return SimpleNamespace(
         published_at=datetime(
             day.year, day.month, day.day, tzinfo=timezone.utc
@@ -35,6 +41,8 @@ def news(day: date, event_type: str, source: str = "eldia"):
         event_type=event_type,
         relevant=True,
         source=source,
+        cause=cause,
+        closed_since=closed_since,
     )
 
 
@@ -272,6 +280,59 @@ def test_lone_old_cluster_still_closed_by_late_reopening():
     (ev,) = synthesize_events(b, today=TODAY)
     assert ev.closed_at == date(2026, 9, 1)
     assert not ev.end_estimated
+
+
+def test_stale_structural_closure_never_estimates_end():
+    """Benijo real: cierres de prensa por desprendimientos en mayo y
+    julio, ya sin cobertura fresca. La causa estructural no caduca por
+    silencio — el episodio sigue abierto igual que en /alerts."""
+    b = beach(
+        items=[
+            news(
+                date(2026, 5, 21),
+                "closure",
+                cause="riesgo de desprendimientos en el talud",
+            ),
+            news(
+                date(2026, 7, 31),
+                "closure",
+                source="diario",
+                cause="desprendimientos",
+            ),
+        ]
+    )
+    (ev,) = synthesize_events(b, today=date(2026, 9, 26))
+    assert ev.closed_at is None
+    assert not ev.end_estimated
+    assert ev.opened_at == date(2026, 5, 21)
+
+
+def test_closed_since_backdates_episode_start():
+    """La guía de Benijo afirma "cerrada desde julio de 2024" aunque
+    la ficha se actualizó en 2026: el inicio real manda sobre la fecha
+    de publicación."""
+    b = beach(
+        items=[
+            news(
+                date(2026, 7, 31),
+                "closure",
+                cause="peligro de desprendimientos",
+                closed_since="2024",
+            ),
+            news(
+                date(2026, 9, 17),
+                "closure",
+                source="guia",
+                cause="riesgo de desprendimientos",
+                closed_since="2024-07",
+            ),
+        ]
+    )
+    (ev,) = synthesize_events(b, today=TODAY)
+    # A igual año gana la fecha más precisa: jul-2024, no ene-2024
+    assert ev.opened_at == date(2024, 7, 1)
+    assert ev.closed_since == "2024-07"
+    assert ev.closed_at is None
 
 
 def ep(beach_id, base, start, end=None, via="official", kind="closure"):

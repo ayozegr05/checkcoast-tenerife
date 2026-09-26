@@ -10,6 +10,7 @@ from app.events import (
     PRESS_CLUSTER_GAP,
     Episode,
     SynthEvent,
+    _min_closed_since,
     base_name,
     cluster_episodes,
     merged_episode,
@@ -24,7 +25,12 @@ from app.models import (
     NewsItem,
     Outfall,
 )
-from app.queries import beaches_with_latest_status, effective_states
+from app.queries import (
+    _press_cause,
+    _short_cause,
+    beaches_with_latest_status,
+    effective_states,
+)
 from app.schemas import (
     BeachIncidentOut,
     BeachMeasurementOut,
@@ -458,6 +464,21 @@ def _news_mode(items: list[NewsItem], attr: str) -> str | None:
     )
 
 
+def _news_cause(items: list[NewsItem]) -> str | None:
+    """Causa dominante para mostrar: votan solo categorías reales
+    (_press_cause filtra mecanismos como "acceso prohibido" o la
+    gestión posterior, "obras de emergencia"); el texto visible es el
+    de la noticia más reciente de la categoría ganadora ("riesgo de
+    desprendimientos" y no "Desprendimientos" a secas)."""
+    cat = _press_cause(items)
+    if cat is None:
+        return None
+    for it in items:
+        if _short_cause(it.cause) == cat:
+            return it.cause
+    return cat
+
+
 @router.get(
     "/beaches/{beach_id}/news",
     response_model=BeachNewsOut,
@@ -496,13 +517,42 @@ def beach_news(
         if since is None or d - prev > PRESS_CLUSTER_GAP:
             since = d
         prev = d
+    # closed_since: el propio texto puede afirmar un inicio real muy
+    # anterior a la cobertura (Benijo: "cerrada desde julio de 2024"
+    # aunque el titular sea de 2026). Si el episodio sigue abierto la
+    # cadena de clústeres es una sola → miramos todos los cierres; si
+    # ya se resolvió, solo el último clúster (el episodio del banner)
+    closed_since = None
+    if dominant == "closure":
+        beach = db.get(Beach, beach_id)
+        evs = synthesize_events(beach) if beach else []
+        still_open = any(
+            e.via == "press" and e.closed_at is None for e in evs
+        )
+        pool = [
+            r
+            for r in rows
+            if r.event_type == "closure"
+            and (
+                still_open
+                or (
+                    since is not None
+                    and r.published_at
+                    and r.published_at >= since
+                )
+            )
+        ]
+        closed_since = _min_closed_since(
+            r.closed_since for r in pool
+        )
     return BeachNewsOut(
         summary=NewsSummaryOut(
             event_type=dominant,
-            cause=_news_mode(rows, "cause"),
+            cause=_news_cause(rows),
             items_count=len(rows),
             outlets_count=len({r.source for r in rows if r.source}),
             since=since,
+            closed_since=closed_since,
         ),
         items=[
             NewsItemOut(

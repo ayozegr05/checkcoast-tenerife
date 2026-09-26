@@ -37,15 +37,20 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     `NAYADE_SYNC_SECONDS`, 1 h; `_sync_news` cada `NEWS_SYNC_SECONDS`,
     6 h; ambos envueltos en try/except)
   - `app/news_sources.py` — fetchers de prensa → `RawArticle` (Google
-    News RSS como fuente; feeds por cabecera como respaldo)
+    News RSS como fuente; feeds por cabecera como respaldo) +
+    `fetch_guia_sitemap`/`fetch_guia_page`: fichas evergreen de Guía
+    Islas Canarias (sitio Astro, sin RSS → sitemap-0.xml con
+    `lastmod`; ~50 fichas de playa de Tenerife)
   - `app/news_llm.py` — `extract_event(article)` detrás de interfaz
     `NewsExtractor`; `GeminiExtractor` (REST, JSON por esquema,
     thinking off, retries); `cause` = razón de fondo, nunca mecanismo
-    ("acceso prohibido") ni respuesta ("obras de emergencia"); 429
-    PerDay → salta a `gemini_fallback_model` (cuota aparte por modelo;
-    los -lite no aceptan thinkingConfig); acepta `article.body`;
-    titulares que niegan el suceso ("descartan un vertido") →
-    `relevant=false`
+    ("acceso prohibido") ni respuesta ("obras de emergencia");
+    `closed_since` = inicio real afirmado por el texto ("cerrada desde
+    julio de 2024" → "2024-07", ISO parcial YYYY[-MM[-DD]], solo si el
+    cierre sigue vigente); 429 PerDay → salta a
+    `gemini_fallback_model` (cuota aparte por modelo; los -lite no
+    aceptan thinkingConfig); acepta `article.body`; titulares que
+    niegan el suceso ("descartan un vertido") → `relevant=false`
   - `app/news_resolve.py` — decode de URLs Google News → URL editorial
     (página /rss/articles con `ucbcb=1` + firma/timestamp → RPC
     batchexecute; `curl_cffi` impersonate Chrome — requests plano se
@@ -60,9 +65,12 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
   - `scripts/` — `ingest_outfalls.py`, `ingest_beaches.py` (censo MITECO
     + solver ALTCHA), `ingest_beach_status.py` (scraper Náyade),
     `ingest_osm_beaches.py` (Overpass), `ingest_news.py` (prensa → LLM
-    → `news_items`, con segunda pasada cuerpo si el titular no aclara),
+    → `news_items`, con segunda pasada cuerpo si el titular no aclara;
+    `_sync_guia` re-extrae fichas de la Guía solo cuando cambia su
+    `lastmod`, tope `news_max_guia_fetches`=10/pasada, nunca push),
     `reextract_news.py` (refresca extracciones guardadas: `--beach`,
-    `--max`, `--all`)
+    `--max`, `--all`; NO toca filas de la Guía — solo-titular las
+    degradaría)
   - `alembic/` — migraciones (`alembic upgrade head`)
   - `tests/` — pytest: `test_api.py`, `test_nayade_parser.py`,
     `test_osm_ingest.py`, `test_news_matching.py`, `test_news_llm.py`.
@@ -180,14 +188,30 @@ npx tsc --noEmit                                        # typecheck
   de Abona"); sin municipio solo casa clave exacta y única en toda la
   isla
 - **Episodios de prensa** (`events.py`): clústeres de cierres separados
-  por >45 d (`PRESS_CLUSTER_GAP`) son episodios distintos; una "ola" de
-  reaperturas (varios titulares del mismo suceso) cierra UN solo
-  clúster — el más reciente a ≤GAP de la reapertura, o el único abierto
-  (un cierre estructural puede durar años). Con varios abiertos, la
-  reapertura lejana no resucita episodios caducados (Médano: la
-  reapertura del 25/09 resuelve el cierre del 23/09, no el de julio).
+  por >45 d (`PRESS_CLUSTER_GAP`) son episodios distintos — la
+  pertenencia se mide por cobertura (`last_closure`), porque
+  `closed_since` puede retroceder el inicio años atrás (Benijo: la
+  guía afirma "cerrada desde julio de 2024" → el episodio abre en
+  jul-2024 aunque la noticia sea de 2026); el `closed_since` ganador
+  es el del año más antiguo y, a igual año, el más preciso ("2024-07"
+  > "2024"). Una "ola" de reaperturas cierra UN solo clúster — el más
+  reciente a ≤GAP de la reapertura, o el único abierto (un cierre
+  estructural puede durar años). Con varios abiertos, la reapertura
+  lejana no resucita episodios caducados (Médano: la reapertura del
+  25/09 resuelve el cierre del 23/09, no el de julio). Misma regla de
+  causa que /alerts: un episodio estructural abierto NUNCA caduca por
+  silencio (sin `end_estimated` — sigue `closed_at=None` hasta
+  reapertura); los transitorios sí (`fin aprox = última mención`).
   `/beaches/{id}/news` ancla `summary.since` al inicio del último
-  clúster, no al titular más viejo de la lista
+  clúster de cobertura, no al titular más viejo de la lista, y expone
+  `summary.closed_since` (el frontend lo prefiere: "desde jul-2024")
+- **Guía Islas Canarias** (`_sync_guia` en ingest): fichas evergreen por
+  playa del sitemap (sin RSS); `lastmod` evita re-descargas de fichas
+  sin cambios; cada ficha se descarga entera (trafilatura) y se extrae
+  con cuerpo — la fecha real del cierre vive en el texto, no en el
+  titular. Una ficha actualizada NO es breaking news → nunca push.
+  `reextract_news` las ignora: sin cuerpo el LLM las marca "no
+  relevante" y las clobbera
 - **Estado efectivo vs oficial**: lo que ve el usuario (mapa, alertas,
   ficha) sale de `effective_states()` — combina oficial y prensa por
   fecha de evento real. El `BeachStatus`/`BeachMeasurement` crudo nunca

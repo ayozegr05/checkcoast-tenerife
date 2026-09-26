@@ -336,16 +336,19 @@ export default function BeachDetail({
     const lim = new Date(`${since}T00:00:00Z`);
     lim.setUTCDate(lim.getUTCDate() + 15);
     const limStr = lim.toISOString().slice(0, 10);
+    // El episodio que empezó en `since` puede durar meses o años
+    // (closed_since retrocede el inicio): la reapertura es el cierre
+    // de un incidente que empezó junto a `since` y terminó después
     const later = (incidents ?? [])
       .filter(
         (i) =>
           i.closed_at !== null &&
           i.closed_at >= since &&
-          i.closed_at <= limStr,
+          i.opened_at <= limStr,
       )
       .map((i) => i.closed_at as string)
       .sort();
-    return later[0] ?? null;
+    return later[later.length - 1] ?? null;
   }, [incidents, news, pressStillClosed]);
 
   const beachKey =

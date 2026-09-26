@@ -35,7 +35,6 @@ import {
   fmtDate,
 } from '../lib/format';
 import {
-  activeEpisodes,
   closuresThisYear,
   episodeDays,
   recentlyResolved,
@@ -438,19 +437,21 @@ export default function CoastMap({
     [outfallsMarked, outfallSel],
   );
 
-  // Episodios insulares: cabecera del banner ("N cierres en 2026") +
-  // sección verde "Resueltas recientemente" (puente del push de
-  // reapertura — el usuario la recibe y la confirmación vive aquí)
+  // Episodios insulares: cabecera del banner + sección verde
+  // "Reabiertas recientemente" (puente del push de reapertura — el
+  // usuario la recibe y la confirmación vive aquí). Los "activos" son
+  // las alertas VIVAS (closedCount+warningCount), no los episodios
+  // abiertos: un cierre estructural sin prensa fresca sigue cerrado
+  // aunque su episodio lleve fin estimado (Benijo)
   const yearLine = useMemo(() => {
-    const year = new Date().getFullYear();
-    const n = closuresThisYear(episodes, year).length;
-    const active = activeEpisodes(episodes).length;
+    const n = closuresThisYear(episodes).length;
+    const live = closedCount + warningCount;
     return n > 0
-      ? `${year} · ${n} ${n === 1 ? 'cierre' : 'cierres'}${
-          active ? ` · ${active} ${active === 1 ? 'activo' : 'activos'} ahora` : ''
+      ? `Este año · ${n} ${n === 1 ? 'cierre' : 'cierres'}${
+          live ? ` · ${live} ${live === 1 ? 'activa' : 'activas'} ahora` : ''
         }`
       : null;
-  }, [episodes]);
+  }, [episodes, closedCount, warningCount]);
   const resueltas = useMemo(() => recentlyResolved(episodes, 30), [episodes]);
   // Una playa resuelta abre su ficha igual que una alerta: episodio →
   // PM representativo → feature del mapa
@@ -1282,7 +1283,7 @@ export default function CoastMap({
               })}
             {resueltas.length > 0 && (
               <Text style={styles.alertSection}>
-                Resueltas recientemente
+                Reabiertas recientemente
               </Text>
             )}
             {resueltas.map((ep) => (
@@ -1679,14 +1680,17 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   alertMore: {
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    marginHorizontal: 12,
+    marginVertical: 6,
+    paddingVertical: 9,
+    borderRadius: 8,
+    backgroundColor: 'rgba(8,107,150,0.10)',
+    alignItems: 'center',
   },
   alertMoreText: {
     fontSize: 12,
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.bold,
     color: colors.primary,
-    textAlign: 'center',
   },
   searchWrap: {
     alignSelf: 'stretch',

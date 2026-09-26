@@ -379,6 +379,45 @@ de julio. Cuatro arreglos:
   `seasonEpisodes`, `closuresThisYear`, `activeEpisodes`,
   `recentlyResolved`, `episodeDays`
 
+## Hito 8.12 — Fecha real del cierre + fuente Guía Islas Canarias ✅
+
+Detectado por el usuario (26-sep): Benijo mostraba "cerrada desde
+2026" (fecha del último titular) cuando el acceso lleva cerrado desde
+**julio de 2024** por desprendimientos — la fecha real vive en el
+cuerpo de las noticias, no en su fecha de publicación.
+
+- [x] **`NewsItem.closed_since`** (migración `e9f0a1b2c3d4`,
+  `String(10)`, ISO parcial `YYYY[-MM[-DD]]`): el LLM extrae el inicio
+  real del cierre cuando el texto lo afirma y sigue vigente
+  ("cerrada desde julio de 2024" → `"2024-07"`, `"cerrada en 2024"` →
+  `"2024"`)
+- [x] **Fuente Guía Islas Canarias** (`news_sources.py` +
+  `_sync_guia`): sitio Astro sin RSS → sitemap-0.xml con `lastmod`;
+  ~50 fichas evergreen de playas de Tenerife. Cada ficha se descarga
+  entera (trafilatura + curl_cffi) y se extrae con cuerpo; solo se
+  re-procesa cuando cambia `lastmod`; tope `news_max_guia_fetches`
+  (10/pasada) por la cuota del free tier; las fichas NUNCA despiertan
+  push (una guía actualizada no es breaking news)
+- [x] **Episodio estructural no caduca por silencio** (`events.py`
+  paso 6): mismo criterio que `/alerts` — un `closure` de causa
+  estructural sigue `closed_at=None` hasta reapertura explícita; el
+  historial y el mapa ya no discrepan (Benijo: episodio abierto
+  2024-07→hoy). `opened_at` deriva del `closed_since` ganador (año más
+  antiguo, a igual año el más preciso)
+- [x] **`summary.closed_since` en `/beaches/{id}/news`**: `since` sigue
+  anclado al último clúster de cobertura; `closed_since` es el inicio
+  real afirmado por el texto (episodio abierto → mira toda la cadena;
+  resuelto → solo el último clúster). La `cause` del resumen vota por
+  categoría real (`_press_cause`) — "acceso prohibido"/"obras de
+  emergencia" ya no ganan por mayoría
+- [x] **Frontend**: `fmtPartialDate` ("jul-2024", "2024",
+  "15/07/2024"), banner usa `closed_since` con su precisión ("desde
+  jul-2024", sin "el"); el banner verde de reapertura puede decir
+  "estuvo cerrada desde jul-2024"
+- [x] **`reextract_news` no toca filas de la Guía**: la extracción
+  solo-titular las degradaba a `relevant=false` (el título de ficha
+  parece SEO); las re-extrae `_sync_guia` con cuerpo
+
 ## Hito 9 — Portfolio ⬜
 
 | # | Tarea | Estado | Esfuerzo |
@@ -411,11 +450,16 @@ de julio. Cuatro arreglos:
 **Hito activo:** 9 — Portfolio (quedan capturas/vídeo del APK, repo
 público en GitHub y post LinkedIn; 8.8 queda verificación end-to-end
 de App Links con build firmada por EAS)
-**Última actualización:** 2026-09-26 — Hito 8.11 desplegado: push con
-reintento persistido, banner verde de reapertura (≤7 d), `since` al
-último clúster, ola de reaperturas cierra un solo episodio, endpoint
-`/episodes`, "Resueltas recientemente" en el banner de alertas y vista
-Temporada en el ranking municipal. Alertas resueltas 25-sep:
+**Última actualización:** 2026-09-26 — Hito 8.12 implementado:
+`news_items.closed_since` (inicio real del cierre según el texto),
+fuente Guía Islas Canarias vía sitemap (~50 fichas, `lastmod`, sin
+push), episodios estructurales sin caducidad por silencio en el
+historial. Benijo verificado en local: "riesgo de desprendimientos ·
+desde jul-2024". Antes, Hito 8.11 desplegado: push con reintento
+persistido, banner verde de reapertura (≤7 d), `since` al último
+clúster, ola de reaperturas cierra un solo episodio, endpoint
+`/episodes`, "Reabiertas recientemente" en el banner de alertas y
+vista Temporada en el ranking municipal. Alertas resueltas 25-sep:
 Médano PM3 y Socorro PM1 (2 días cerradas, según prensa); siguen
 cerradas Gaviotas/Benijo/Garachico (desprendimientos, estructural).
 APK release local regenerada con toda la UI final (leyenda corregida).

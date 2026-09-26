@@ -22,7 +22,7 @@ from app.db import SessionLocal
 from app.models import Beach, NewsItem
 from app.news_llm import GeminiExtractor, extract_event
 from app.news_matching import match_beaches
-from app.news_sources import RawArticle
+from app.news_sources import GUIA_SOURCE, RawArticle
 from scripts.ingest_news import _enrich_with_body, _rematch_pending
 
 
@@ -50,6 +50,10 @@ def main() -> None:
         q = db.query(NewsItem).order_by(
             NewsItem.published_at.desc().nulls_last()
         )
+        # Las fichas de la Guía se extraen siempre con cuerpo en
+        # _sync_guia (cuando cambia lastmod); re-extraerlas solo con
+        # el titular las degradaría a "no relevante"
+        q = q.filter(NewsItem.source != GUIA_SOURCE)
         if not args.all:
             q = q.filter(NewsItem.relevant.is_(True))
         if args.beach:
@@ -81,6 +85,7 @@ def main() -> None:
                 row.relevant = ext.relevant
                 row.event_type = ext.event_type
                 row.cause = ext.cause
+                row.closed_since = ext.closed_since
                 row.extracted_beach = ext.beach_name
                 row.extracted_municipality = ext.municipality
                 row.confidence = ext.confidence
@@ -88,7 +93,7 @@ def main() -> None:
             updated += 1
             print(
                 f"  [{updated}] {rows[0].title[:70]} "
-                f"→ {ext.event_type} / {ext.cause}"
+                f"-> {ext.event_type} / {ext.cause} / cs={ext.closed_since}"
             )
             time.sleep(2)
 

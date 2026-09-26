@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # Segunda pasada híbrida: artículos por pasada a los que se les
     # descarga el cuerpo cuando el titular no basta
     news_max_body_fetches: int = 8
+    # Fichas evergreen de Guía Islas Canarias por pasada (descarga +
+    # llamada LLM por cada una que cambió; el sitemap trae lastmod)
+    news_max_guia_fetches: int = 10
     # SHA-256 del keystore EAS que firma el APK (Android App Links:
     # https://checkcoast.duckdns.org/b/{id} abre la app si instalada)
     android_cert_sha256: str | None = None

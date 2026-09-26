@@ -202,6 +202,10 @@ class NewsItem(Base):
     )
     event_type: Mapped[str | None] = mapped_column(String(20))
     cause: Mapped[str | None] = mapped_column(Text)
+    # Inicio REAL del evento según el propio texto ("cerrada desde
+    # julio de 2024"), no la fecha de publicación. ISO parcial:
+    # "YYYY-MM-DD", "YYYY-MM" o "YYYY" según lo que afirme la fuente
+    closed_since: Mapped[str | None] = mapped_column(String(10))
     extracted_beach: Mapped[str | None] = mapped_column(String(255))
     extracted_municipality: Mapped[str | None] = mapped_column(String(120))
     confidence: Mapped[float | None] = mapped_column(Float)

@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from app.models import Beach
+from app.queries import _STRUCTURAL_CAUSES, _short_cause
 
 # La prensa puede adelantarse a Náyade (cierre municipal no publicado)
 # o contar la reapertura semanas después — ventana amplia a ambos lados
@@ -62,10 +63,53 @@ class SynthEvent:
     press_reopening: date | None = None  # última reapertura en ventana
     reopenings_in_window: list[date] = field(default_factory=list)
     end_from_press: bool = False
+    # Inicio real según el texto de la noticia ("cerrada desde julio
+    # de 2024" → "2024-07"), cuando adelanta a la fecha de publicación
+    closed_since: str | None = None
+    # Causas crudas de los titulares del clúster — la dominante decide
+    # si el episodio es estructural (no caduca por silencio de prensa)
+    causes: list[str] = field(default_factory=list)
+    # Primera fecha de cobertura del clúster (primer titular) — opened_at
+    # puede retroceder más allá por closed_since; necesario para recalcular
+    # el inicio cuando gana un closed_since más preciso del mismo año
+    first_pub: date | None = None
 
 
 def _bad(m) -> bool:
     return bool(m.evaluation and "prohib" in m.evaluation.lower())
+
+
+def _closed_since_date(raw: str | None) -> date | None:
+    """ISO parcial ("2024", "2024-07", "2024-07-15") → la fecha más
+    temprana compatible. None si falta o está mal formada."""
+    if not raw:
+        return None
+    try:
+        parts = [int(p) for p in raw.split("-")]
+        if len(parts) == 1:
+            return date(parts[0], 1, 1)
+        if len(parts) == 2:
+            return date(parts[0], parts[1], 1)
+        return date(parts[0], parts[1], parts[2])
+    except (TypeError, ValueError):
+        return None
+
+
+def _min_closed_since(vals) -> str | None:
+    """El inicio real más antiguo afirmado por las fuentes; a igual año
+    gana el más preciso ("2024-07" informa más que "2024")."""
+    vals = [v for v in vals if v]
+    return min(vals, key=lambda v: (v[:4], -len(v)), default=None)
+
+
+def _is_structural(ev: "SynthEvent") -> bool:
+    """El episodio es por causa estructural (desprendimientos, obras):
+    no se resuelve solo — sin reapertura explícita sigue vigente aunque
+    la prensa calle (misma regla que /alerts: Benijo ~2 años)."""
+    for c in ev.causes:
+        if _short_cause(c) in _STRUCTURAL_CAUSES:
+            return True
+    return False
 
 
 def _overlaps(
@@ -151,7 +195,10 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
             continue
         loose.append(n)
 
-    # 4. Clústeres de cierres sueltos → un evento cada uno
+    # 4. Clústeres de cierres sueltos → un evento cada uno. La
+    # pertenencia se mide por la cobertura (última mención ≤45 días),
+    # no por opened_at: `closed_since` puede retroceder el inicio del
+    # episodio años atrás sin romper la agrupación
     for n in loose:
         pub = n.published_at.date()
         cluster = next(
@@ -159,7 +206,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                 ev
                 for ev in events
                 if ev.via == "press"
-                and pub - PRESS_CLUSTER_GAP <= ev.opened_at <= pub
+                and pub - PRESS_CLUSTER_GAP <= (ev.last_closure or pub)
             ),
             None,
         )
@@ -171,13 +218,24 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                     closed_at=None,
                     via="press",
                     press_confirmed=True,
+                    first_pub=pub,
                 )
             )
             cluster = events[-1]
-        else:
-            cluster.opened_at = min(cluster.opened_at, pub)
+        cluster.closed_since = _min_closed_since(
+            [cluster.closed_since, n.closed_since]
+        )
+        # El inicio real es el del closed_since ganador (el más
+        # preciso del año más antiguo: "2024-07" manda sobre "2024");
+        # sin él, la primera fecha de cobertura
+        cluster.opened_at = min(
+            cluster.first_pub or pub,
+            _closed_since_date(cluster.closed_since) or date.max,
+        )
         cluster.press_count += 1
         cluster.last_closure = max(cluster.last_closure or pub, pub)
+        if n.cause:
+            cluster.causes.append(n.cause)
         if n.source and n.source not in cluster.sources:
             cluster.sources.append(n.source)
 
@@ -276,11 +334,12 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
             ev.closed_at = max(candidates)
             ev.end_from_press = True
 
-    # 6. Si la cobertura sigue fresca y el último cambio es un cierre,
-    # la playa sigue cerrada según prensa (misma regla que /alerts):
-    # todos los clústeres son UN solo episodio continuo — se fusionan
-    # con la fecha más antigua (Benijo: cierre de 2024 con picos de
-    # noticias en mayo y julio)
+    # 6. Si el último cambio es un cierre y la cobertura sigue fresca
+    # —o el episodio abierto es de causa estructural, que no caduca
+    # por silencio (misma regla que /alerts)— la playa sigue cerrada
+    # según prensa: los clústeres abiertos son UN solo episodio
+    # continuo — se fusionan con la fecha más antigua (Benijo: cierre
+    # de jul-2024 con picos de noticias en mayo y julio de 2026)
     fresh = bool(items) and (
         items[-1].published_at.date() >= today - PRESS_STALE
     )
@@ -292,28 +351,44 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
         ),
         None,
     )
-    still_closed = (
-        fresh
-        and latest_change is not None
-        and latest_change.event_type == "closure"
-    )
     press_evs = [ev for ev in events if ev.via == "press"]
-    if still_closed and press_evs:
+    open_press = [ev for ev in press_evs if ev.closed_at is None]
+    structural = any(_is_structural(ev) for ev in open_press)
+    still_closed = (
+        latest_change is not None
+        and latest_change.event_type == "closure"
+        and bool(open_press)
+        and (fresh or structural)
+    )
+    if still_closed:
+        # También los ya "cerrados" por una reapertura: si la playa
+        # sigue cerrada, esas reaperturas eran espurias ("agilizan las
+        # obras" mal clasificadas) y el episodio nunca se interrumpió
         merged = SynthEvent(
             kind="closure",
-            opened_at=min(e.opened_at for e in press_evs),
+            opened_at=date.max,  # se fija abajo desde closed_since
             closed_at=None,
             via="press",
             press_confirmed=True,
             press_count=sum(e.press_count for e in press_evs),
             sources=sorted({s for e in press_evs for s in e.sources}),
+            closed_since=_min_closed_since(
+                e.closed_since for e in press_evs
+            ),
+            causes=[c for e in press_evs for c in e.causes],
+            first_pub=min(e.first_pub or e.opened_at for e in press_evs),
+        )
+        merged.opened_at = min(
+            merged.first_pub or date.max,
+            _closed_since_date(merged.closed_since) or date.max,
         )
         events = [e for e in events if e.via != "press"] + [merged]
     else:
         # Cierre de prensa frío sin reapertura: el fin es incierto —
-        # usamos la última mención como cota y lo declaramos
-        for ev in press_evs:
-            if ev.closed_at is not None:
+        # usamos la última mención como cota y lo declaramos, salvo
+        # causa estructural (sigue abierta aunque nadie lo repita)
+        for ev in open_press:
+            if _is_structural(ev):
                 continue
             last = ev.last_closure or ev.opened_at
             if today - last > PRESS_STALE:

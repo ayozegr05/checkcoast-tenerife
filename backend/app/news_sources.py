@@ -14,6 +14,7 @@ Feeds por cabecera verificados como respaldo (mismo formato RawArticle):
 Diario de Avisos `/feed/`, Canarias7 `/rss/2.0/?section=/canarias/tenerife`.
 """
 
+import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
@@ -50,6 +51,64 @@ EXCLUDED_SOURCES = {
 def source_excluded(source: str | None) -> bool:
     s = (source or "").strip().lower()
     return any(x in s for x in EXCLUDED_SOURCES)
+
+
+# Guía Islas Canarias: fichas evergreen por playa (sitio Astro, sin
+# RSS). No son noticias de última hora — son páginas mantenidas que
+# afirman el estado real ("acceso cerrado desde julio de 2024"). El
+# sitemap expone `lastmod` por URL: solo se re-extrae una guía cuando
+# su ficha cambió, y nunca despiertan push (contexto, no noticia)
+GUIA_SITEMAP_URL = "https://guiaislascanarias.com/sitemap-0.xml"
+GUIA_SOURCE = "Guía Islas Canarias"
+_GUIA_PLAYA_RE = re.compile(r"/tenerife/playa")
+_TITLE_RE = re.compile(r"<title[^>]*>([^<]+)</title>", re.IGNORECASE)
+
+
+def fetch_guia_sitemap() -> list[tuple[str, datetime | None]]:
+    """(url, lastmod) de las guías de playa de Tenerife del sitemap."""
+    resp = requests.get(
+        GUIA_SITEMAP_URL, headers={"User-Agent": USER_AGENT}, timeout=30
+    )
+    resp.raise_for_status()
+    root = ET.fromstring(resp.content)
+    ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+    out: list[tuple[str, datetime | None]] = []
+    for u in root.findall("sm:url", ns):
+        loc = u.findtext("sm:loc", namespaces=ns)
+        if not loc or not _GUIA_PLAYA_RE.search(loc):
+            continue
+        raw = u.findtext("sm:lastmod", namespaces=ns)
+        try:
+            mod = (
+                datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                if raw
+                else None
+            )
+        except ValueError:
+            mod = None
+        out.append((loc, mod))
+    return out
+
+
+def fetch_guia_page(url: str) -> tuple[str, str] | None:
+    """(título, cuerpo) de una ficha de guía. El título es parte de la
+    información ("Playa de Benijo (Tenerife): Acceso Cerrado")."""
+    from curl_cffi import requests as creq
+
+    try:
+        r = creq.get(url, impersonate="chrome", timeout=15)
+        if not r.ok:
+            return None
+    except Exception:
+        return None
+    import trafilatura
+
+    body = trafilatura.extract(r.text)
+    if not body:
+        return None
+    m = _TITLE_RE.search(r.text)
+    title = m.group(1).split("|")[0].strip() if m else url
+    return title, body.strip()
 
 
 @dataclass

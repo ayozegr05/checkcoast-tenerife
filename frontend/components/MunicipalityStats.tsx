@@ -19,7 +19,6 @@ import {
   fetchMunicipalityIncidents,
 } from '../lib/api';
 import {
-  activeEpisodes,
   closuresThisYear,
   episodeDays,
   seasonEpisodes,
@@ -121,17 +120,23 @@ export default function MunicipalityStats({
     [episodes, season],
   );
   const yearLine = useMemo(() => {
-    const y = new Date().getFullYear();
-    const n = closuresThisYear(episodes, y).length;
-    const active = activeEpisodes(episodes).length;
+    const n = closuresThisYear(episodes).length;
+    // "Activas" = alertas VIVAS (estado efectivo), no episodios sin
+    // cerrar: un cierre estructural sin prensa fresca sigue vivo aunque
+    // su episodio tenga fin estimado (Benijo, Gaviotas, Garachico)
+    const live = beaches.filter(
+      (f) =>
+        f.properties.status === 'closed' ||
+        f.properties.status === 'warning',
+    ).length;
     return n > 0
-      ? `${y} · ${n} ${n === 1 ? 'cierre' : 'cierres'}${
-          active
-            ? ` · ${active} ${active === 1 ? 'activo' : 'activos'} ahora`
+      ? `Este año · ${n} ${n === 1 ? 'cierre' : 'cierres'}${
+          live
+            ? ` · ${live} ${live === 1 ? 'activa' : 'activas'} ahora`
             : ''
         }`
       : null;
-  }, [episodes]);
+  }, [episodes, beaches]);
 
   useEffect(() => {
     fetchBeachStats()
