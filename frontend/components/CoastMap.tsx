@@ -1265,6 +1265,9 @@ export default function CoastMap({
                   : ''}
               </Text>
             )}
+            <Text style={styles.alertSection}>
+              Activas ahora · {alertBeaches.features.length}
+            </Text>
             {[...alertBeaches.features]
               .sort((a) => (a.properties.status === 'closed' ? -1 : 1))
               .map((f) => {
@@ -1319,7 +1322,7 @@ export default function CoastMap({
               })}
             {resueltas.length > 0 && (
               <Text style={styles.alertSection}>
-                Reabiertas recientemente
+                Reabiertas recientemente · {resueltas.length}
               </Text>
             )}
             {resueltas.map((ep) => (
@@ -1695,15 +1698,21 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 1,
   },
-  // "2026 · 7 cierres · 2 activos ahora" — contexto anual arriba de
-  // la lista de alertas del banner
+  // "Este año · 17 cierres (…causas) · 3 activas ahora" — es EL dato
+  // resumen del panel: tarjeta tintada, grande y oscura, no una nota
   alertYearLine: {
-    fontSize: 11,
-    fontFamily: fonts.semibold,
-    color: colors.textMuted,
-    paddingHorizontal: 14,
-    paddingTop: 8,
-    paddingBottom: 2,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: fonts.bold,
+    color: colors.text,
+    backgroundColor: 'rgba(8,107,150,0.10)',
+    marginHorizontal: 10,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   // Causas tocables dentro del paréntesis anual: subrayadas como
   // enlace — abren la vista "Este año" filtrada a esa causa
@@ -1711,28 +1720,36 @@ const styles = StyleSheet.create({
     color: colors.primary,
     textDecorationLine: 'underline',
   },
+  // Separador de sección: banda rellena a todo lo ancho — se distingue
+  // a primera vista de los hairlines de cada fila
   alertSection: {
-    fontSize: 10,
+    fontSize: 11,
+    lineHeight: 15,
     fontFamily: fonts.extrabold,
-    color: colors.textFaint,
+    color: colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
     paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 2,
+    paddingTop: 12,
+    paddingBottom: 8,
+    marginTop: 4,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   alertMore: {
     marginHorizontal: 12,
-    marginVertical: 6,
-    paddingVertical: 9,
-    borderRadius: 8,
-    backgroundColor: 'rgba(8,107,150,0.10)',
+    marginVertical: 10,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
     alignItems: 'center',
+    elevation: 2,
   },
   alertMoreText: {
-    fontSize: 12,
-    fontFamily: fonts.bold,
-    color: colors.primary,
+    fontSize: 13,
+    fontFamily: fonts.extrabold,
+    color: '#fff',
   },
   searchWrap: {
     alignSelf: 'stretch',
