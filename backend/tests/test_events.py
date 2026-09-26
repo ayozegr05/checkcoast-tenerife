@@ -229,6 +229,51 @@ def test_still_closed_press_merges_all_clusters():
     assert ev.press_count == 5
 
 
+def test_reopening_wave_closes_only_its_episode():
+    """El Médano real: cierres de julio (caducaron sin cobertura) +
+    cierres del 23-sep + 8 titulares de reapertura del 25-sep. La ola
+    de reaperturas resuelve SOLO el episodio de septiembre; el de
+    julio queda con fin estimado, no "cerrado el 25/09"."""
+    b = beach(
+        items=[
+            news(date(2026, 7, 7), "closure"),
+            news(date(2026, 7, 8), "closure", source="diario"),
+            news(date(2026, 9, 23), "closure"),
+            news(date(2026, 9, 23), "closure", source="cope"),
+            # La ola: varios medios cuentan la misma reapertura
+            news(date(2026, 9, 25), "reopening"),
+            news(date(2026, 9, 25), "reopening", source="cope"),
+            news(date(2026, 9, 25), "reopening", source="diario"),
+        ]
+    )
+    evs = synthesize_events(b, today=date(2026, 9, 26))
+    assert len(evs) == 2
+    sept = next(e for e in evs if e.opened_at == date(2026, 9, 23))
+    july = next(e for e in evs if e.opened_at == date(2026, 7, 7))
+    assert sept.closed_at == date(2026, 9, 25)
+    assert not sept.end_estimated
+    # Julio nunca tuvo reapertura cubierta: fin aproximado en su
+    # última mención, no en la reapertura de septiembre
+    assert july.closed_at == date(2026, 7, 8)
+    assert july.end_estimated
+
+
+def test_lone_old_cluster_still_closed_by_late_reopening():
+    """Benijo: UN solo clúster abierto muy viejo + reapertura lejana —
+    la reapertura sí lo cierra (un cierre estructural puede durar
+    años y nadie repite la noticia)."""
+    b = beach(
+        items=[
+            news(date(2024, 6, 10), "closure"),
+            news(date(2024, 6, 12), "closure", source="cope"),
+            news(date(2026, 9, 1), "reopening"),
+        ]
+    )
+    (ev,) = synthesize_events(b, today=TODAY)
+    assert ev.closed_at == date(2026, 9, 1)
+    assert not ev.end_estimated
+
+
 def ep(beach_id, base, start, end=None, via="official", kind="closure"):
     return Episode(
         beach_id=beach_id,

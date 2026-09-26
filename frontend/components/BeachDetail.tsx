@@ -383,23 +383,32 @@ export default function BeachDetail({
   // Con cierre activo el "por qué" es lo primero que importa:
   // el banner de prensa sube bajo el chip, como en la landing /b/{id}
   const alertActive = beachKey === 'closed';
-  const pressBanner = news !== null && news.items.length > 0 && (
-    <View style={styles.pressBanner}>
-      <Text style={styles.pressBannerText}>
-        {
-          pressSummary(news.summary, {
-            stillClosed: pressStillClosed,
-            reopenedAt: pressReopenedAt,
-          }).main
-        }
+  const press = news !== null && news.items.length > 0
+    ? pressSummary(news.summary, {
+        stillClosed: pressStillClosed,
+        reopenedAt: pressReopenedAt,
+      })
+    : null;
+  const pressReopened = press?.tone === 'reopened';
+  const pressBanner = press !== null && (
+    <View
+      style={[styles.pressBanner, pressReopened && styles.pressBannerReopened]}
+    >
+      <Text
+        style={[
+          styles.pressBannerText,
+          pressReopened && styles.pressBannerTextReopened,
+        ]}
+      >
+        {press.main}
       </Text>
-      <Text style={styles.pressBannerSub}>
-        {
-          pressSummary(news.summary, {
-            stillClosed: pressStillClosed,
-            reopenedAt: pressReopenedAt,
-          }).sub
-        }
+      <Text
+        style={[
+          styles.pressBannerSub,
+          pressReopened && styles.pressBannerSubReopened,
+        ]}
+      >
+        {press.sub}
       </Text>
       <Pressable
         onPress={() => setNewsOpen((v) => !v)}
@@ -408,13 +417,13 @@ export default function BeachDetail({
         accessibilityLabel={
           newsOpen
             ? 'Ocultar titulares de prensa'
-            : `Ver ${news.summary.items_count} titulares de prensa`
+            : `Ver ${news!.summary.items_count} titulares de prensa`
         }
       >
         <Text style={styles.newsToggle}>
           {newsOpen
             ? 'Ocultar titulares ▴'
-            : `Ver titulares (${news.summary.items_count}) ▾`}
+            : `Ver titulares (${news!.summary.items_count}) ▾`}
         </Text>
       </Pressable>
       {newsOpen && (
@@ -1144,16 +1153,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
+  pressBannerReopened: {
+    borderLeftColor: colors.status.open,
+    backgroundColor: '#e6f4f1',
+  },
   pressBannerText: {
     fontSize: 13,
     fontFamily: fonts.semibold,
     color: colors.status.warning,
+  },
+  pressBannerTextReopened: {
+    color: colors.status.open,
   },
   pressBannerSub: {
     fontSize: 11,
     fontFamily: fonts.regular,
     color: colors.status.warning,
     marginTop: 1,
+  },
+  pressBannerSubReopened: {
+    color: colors.status.open,
   },
   newsToggle: {
     fontSize: 12,

@@ -179,9 +179,10 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
             if _press_push_candidate(
                 db, b, item.event_type, item.published_at, exclude_id=item.id
             ):
-                to_notify.setdefault(
-                    _push_key(b, item.event_type), (b, item.event_type)
-                )
+                item.push_pending = True
+                key = _push_key(b, item.event_type)
+                to_notify.setdefault(key, (b, item.event_type, []))
+                to_notify[key][2].append(item)
     if rematched:
         db.commit()
     return rematched
@@ -202,7 +203,9 @@ def run() -> tuple[int, int, int]:
 
     db = SessionLocal()
     inserted = processed = 0
-    to_notify: dict[tuple[str, str, str], tuple[Beach, str]] = {}
+    to_notify: dict[
+        tuple[str, str, str], tuple[Beach, str, list[NewsItem]]
+    ] = {}
     try:
         seen = {url for (url,) in db.query(NewsItem.url).all()}
         fresh = [
@@ -231,28 +234,27 @@ def run() -> tuple[int, int, int]:
                 )
                 body_left -= used
             for beach in hits or [None]:  # una fila por PM de la playa
+                item = NewsItem(
+                    url=art.url,
+                    title=art.title,
+                    source=art.source,
+                    published_at=art.published_at,
+                    relevant=ext.relevant,
+                    beach_id=beach.id if beach else None,
+                    event_type=ext.event_type,
+                    cause=ext.cause,
+                    extracted_beach=ext.beach_name,
+                    extracted_municipality=ext.municipality,
+                    confidence=ext.confidence,
+                )
                 if beach and _press_push_candidate(
                     db, beach, ext.event_type, art.published_at
                 ):
-                    to_notify.setdefault(
-                        _push_key(beach, ext.event_type),
-                        (beach, ext.event_type),
-                    )
-                db.add(
-                    NewsItem(
-                        url=art.url,
-                        title=art.title,
-                        source=art.source,
-                        published_at=art.published_at,
-                        relevant=ext.relevant,
-                        beach_id=beach.id if beach else None,
-                        event_type=ext.event_type,
-                        cause=ext.cause,
-                        extracted_beach=ext.beach_name,
-                        extracted_municipality=ext.municipality,
-                        confidence=ext.confidence,
-                    )
-                )
+                    item.push_pending = True
+                    key = _push_key(beach, ext.event_type)
+                    to_notify.setdefault(key, (beach, ext.event_type, []))
+                    to_notify[key][2].append(item)
+                db.add(item)
             try:
                 db.commit()  # por artículo: no perder dedup si revienta
             except Exception:
@@ -264,8 +266,43 @@ def run() -> tuple[int, int, int]:
         # Push de alertas de prensa: tras confirmar todos los inserts
         from app.notify import notify_press_event
 
-        for beach, ev in to_notify.values():
-            notify_press_event(db, beach, ev)
+        # Reintento: lo que una pasada anterior quiso notificar y no
+        # salió (red caída, Expo 5xx, proceso muerto) se vuelve a
+        # encolar aquí mientras siga dentro de la ventana de dedup
+        queued = {it.id for v in to_notify.values() for it in v[2]}
+        stale = (
+            db.query(NewsItem)
+            .filter(
+                NewsItem.push_pending.is_(True),
+                NewsItem.pushed_at.is_(None),
+                NewsItem.published_at
+                >= datetime.now(timezone.utc)
+                - timedelta(days=_PRESS_PUSH_DAYS),
+            )
+            .all()
+        )
+        for it in stale:
+            if it.id in queued:
+                continue
+            b = it.beach
+            if b is None:
+                it.pushed_at = datetime.now(timezone.utc)  # nunca saldrá
+                continue
+            key = _push_key(b, it.event_type)
+            to_notify.setdefault(key, (b, it.event_type, []))
+            to_notify[key][2].append(it)
+
+        now = datetime.now(timezone.utc)
+        for beach, ev, items in to_notify.values():
+            try:
+                sent = notify_press_event(db, beach, ev)
+            except Exception as e:
+                print(f"[push] fallo en {beach.name} ({ev}): {e}")
+                sent = 0
+            if sent:
+                for it in items:
+                    it.pushed_at = now
+                db.commit()
         return inserted, processed, rematched
     except Exception:
         db.rollback()

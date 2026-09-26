@@ -208,6 +208,12 @@ class NewsItem(Base):
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    # Push: el envío es fire-and-forget en la ingesta — estas marcas
+    # permiten reintentar en la siguiente pasada lo que no salió
+    push_pending: Mapped[bool] = mapped_column(default=False)
+    pushed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
 
     beach: Mapped[Beach] = relationship(
         back_populates="news_items", passive_deletes=True

@@ -54,6 +54,32 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     expect(r.sub).toBe('según prensa · 9 medios');
   });
 
+  it('reapertura reciente (≤7d): banner verde con ambas fechas', () => {
+    const r = pressSummary(
+      summary({ cause: 'contaminación', since: '2026-09-23T08:00:00Z' }),
+      {
+        stillClosed: false,
+        reopenedAt: '2026-09-25',
+        now: new Date('2026-09-26T12:00:00Z'),
+      },
+    );
+    expect(r.tone).toBe('reopened');
+    expect(r.main).toBe('Reabierta el 25/09/2026');
+    expect(r.sub).toBe(
+      'según prensa · 9 medios · estuvo cerrada desde el 23/09/2026',
+    );
+  });
+
+  it('reapertura de hace >7d: vuelve al modo pasado normal', () => {
+    const r = pressSummary(summary({}), {
+      stillClosed: false,
+      reopenedAt: '2026-06-10',
+      now: new Date('2026-09-26T12:00:00Z'),
+    });
+    expect(r.tone).toBe('default');
+    expect(r.main).toContain('Estuvo cerrada');
+  });
+
   it('reapertura como evento dominante', () => {
     const r = pressSummary(
       summary({ event_type: 'reopening', cause: 'obras autorizadas' }),

@@ -334,6 +334,51 @@ emergencia") como si fueran la causa, y la moda amplificaba el ruido
   `lineHeight` 19 + spacing ajustado (`34c4dfd`). Ojo: `app-release.apk`
   se sobreescribe en cada build — verificar la fecha antes de instalar
 
+## Hito 8.11 — Reaperturas verificadas en producción ✅
+
+Detectado en vivo (25-sep): Socorro reabrió con push correcto pero
+Médano no notificó, y su ficha anclaba el episodio a un cierre viejo
+de julio. Cuatro arreglos:
+
+- [x] **Push con reintento persistido**: `news_items.push_pending` /
+  `pushed_at` (migración `d7e8f9a0b1c2`). La ingesta marca candidatos;
+  `_send()` tolera red caída y respuestas no-JSON de Expo (devuelve 0
+  sin propagar); el loop por playa va en try/except — un fallo no mata
+  al resto. Al inicio de cada pasada, un sweep reintenta lo pendiente
+  no enviado dentro de la ventana de dedup (7 d): un push ya no se
+  pierde por un fallo transitorio
+- [x] **`since` = último clúster de cierres** (`/beaches/{id}/news`):
+  un hueco >`PRESS_CLUSTER_GAP` (45 d) separa episodios — el banner ya
+  no ancla al titular más viejo de la lista (Médano decía 07/07 con
+  el episodio real del 23/09)
+- [x] **Ola de reaperturas cierra UN episodio** (`events.py` paso 5):
+  antes cada titular de reapertura consumía un clúster abierto — las 8
+  noticias del 25/09 "cerraron" también el episodio de julio (mostraba
+  07/07→25/09). Ahora la ola resuelve el clúster cercano (≤GAP a su
+  última mención) o el único abierto (Benijo plurianual); el resto de
+  titulares corrobora sin cerrar. El episodio viejo queda con
+  "fin aproximado (última mención)"
+- [x] **Banner verde de reapertura** (`press.ts`/`BeachDetail.tsx`):
+  `tone='reopened'` si la reapertura tiene ≤7 d — "Reabierta el 25/09
+  · según prensa · estuvo cerrada desde el 23/09". Puente entre el
+  push y el dato; luego degrada al modo pasado ámbar
+- [x] **`GET /episodes`** — todos los episodios de la isla (oficiales
+  + reconstruidos) agregados por playa base + municipio, con
+  `selectinload` para no barrer 167 playas con N+1
+- [x] **Banner de alertas ampliado** (`CoastMap.tsx`): cabecera
+  "2026 · N cierres · M activos ahora", sección verde "Resueltas
+  recientemente" (≤30 d, "reabierta el X · estuvo Y días") y enlace
+  "Todos los episodios del verano ›" que abre Municipios en Temporada
+- [x] **Vista Temporada** (`MunicipalityStats.tsx`): toggle
+  "Por municipio | Temporada"; lista cronológica de episodios jun-sep
+  de la temporada vigente (fuera de temporada muestra la última
+  cerrada), badge verde "Resuelta"/rojo "Sigue cerrada", duración y
+  etiqueta "según prensa" para episodios solo-prensa. Misma cabecera
+  anual que el banner de alertas
+- [x] Helper compartido `frontend/lib/episodes.ts`: `seasonYear`,
+  `seasonEpisodes`, `closuresThisYear`, `activeEpisodes`,
+  `recentlyResolved`, `episodeDays`
+
 ## Hito 9 — Portfolio ⬜
 
 | # | Tarea | Estado | Esfuerzo |
@@ -366,11 +411,13 @@ emergencia") como si fueran la causa, y la moda amplificaba el ruido
 **Hito activo:** 9 — Portfolio (quedan capturas/vídeo del APK, repo
 público en GitHub y post LinkedIn; 8.8 queda verificación end-to-end
 de App Links con build firmada por EAS)
-**Última actualización:** 2026-09-25 — Hito 8.10 desplegado: panel
-Capas + leyenda viva en el mapa, matriz de caducidad de prensa por
-causa (estructural persiste / transitoria caduca 21 d) y prompt
-anti-negación. Alertas vivas: Médano PM3 y Socorro PM1 (contaminación,
-hoy), Gaviotas/Benijo/Garachico (desprendimientos, estructural).
+**Última actualización:** 2026-09-26 — Hito 8.11 desplegado: push con
+reintento persistido, banner verde de reapertura (≤7 d), `since` al
+último clúster, ola de reaperturas cierra un solo episodio, endpoint
+`/episodes`, "Resueltas recientemente" en el banner de alertas y vista
+Temporada en el ranking municipal. Alertas resueltas 25-sep:
+Médano PM3 y Socorro PM1 (2 días cerradas, según prensa); siguen
+cerradas Gaviotas/Benijo/Garachico (desprendimientos, estructural).
 APK release local regenerada con toda la UI final (leyenda corregida).
 Pendiente: 9.2 capturas del APK → 9.5 GitHub → 9.6 vídeo → 9.7 LinkedIn;
 8.8 verificación App Links E2E (requiere build firmada por EAS)

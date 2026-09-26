@@ -31,8 +31,10 @@ import {
   Alert,
   FeatureCollection,
   GeoFeature,
+  MunicipalityIncident,
   fetchAlerts,
   fetchBeaches,
+  fetchEpisodes,
   fetchOutfalls,
 } from './lib/api';
 import { beachPointLabel } from './lib/format';
@@ -68,11 +70,17 @@ export default function App() {
   const [outfalls, setOutfalls] = useState<FeatureCollection>(EMPTY_FC);
   const [beaches, setBeaches] = useState<FeatureCollection>(EMPTY_FC);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [episodes, setEpisodes] = useState<MunicipalityIncident[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const [muniOpen, setMuniOpen] = useState(false);
+  // Vista inicial del panel de municipios: el enlace del banner de
+  // alertas lo abre directamente en "Temporada"
+  const [muniView, setMuniView] = useState<'ranking' | 'temporada'>(
+    'ranking',
+  );
   const [outfallListOpen, setOutfallListOpen] = useState(false);
   const [listMunicipality, setListMunicipality] = useState<
     string | null | undefined
@@ -94,11 +102,17 @@ export default function App() {
   const loadData = () => {
     setError(null);
     setLoading(true);
-    Promise.all([fetchOutfalls(), fetchBeaches(), fetchAlerts()])
-      .then(([o, b, a]) => {
+    Promise.all([
+      fetchOutfalls(),
+      fetchBeaches(),
+      fetchAlerts(),
+      fetchEpisodes(),
+    ])
+      .then(([o, b, a, ep]) => {
         setOutfalls(o);
         setBeaches(b);
         setAlerts(a);
+        setEpisodes(ep);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
@@ -115,6 +129,9 @@ export default function App() {
         .catch(() => {});
       fetchBeaches()
         .then(setBeaches)
+        .catch(() => {});
+      fetchEpisodes()
+        .then(setEpisodes)
         .catch(() => {});
     }, 5 * 60 * 1000);
     return () => clearInterval(timer);
@@ -378,7 +395,15 @@ export default function App() {
           setReturnToOutfalls(false);
         }}
         onOpenList={() => setListOpen(true)}
-        onOpenMunicipalities={() => setMuniOpen(true)}
+        onOpenMunicipalities={() => {
+          setMuniView('ranking');
+          setMuniOpen(true);
+        }}
+        onOpenTemporada={() => {
+          setMuniView('temporada');
+          setMuniOpen(true);
+        }}
+        episodes={episodes}
         onOpenOutfalls={() => setOutfallListOpen(true)}
         onOpenHelp={() => setHelpOpen(true)}
       />
@@ -459,6 +484,8 @@ export default function App() {
       <MunicipalityStats
         visible={muniOpen}
         beaches={beachesFC.features}
+        episodes={episodes}
+        initialView={muniView}
         onSelect={handleMunicipalitySelect}
         onSelectBeach={openBeachFromMuni}
         onClose={() => setMuniOpen(false)}

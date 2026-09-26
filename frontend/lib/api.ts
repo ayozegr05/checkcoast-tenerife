@@ -157,6 +157,11 @@ export const fetchMunicipalityIncidents = (municipality: string) =>
   getJson<MunicipalityIncident[]>(
     `/incidents?municipality=${encodeURIComponent(municipality)}`,
   );
+// Episodios de toda la isla (oficiales + reconstruidos), una fila por
+// episodio agrupado por playa base + municipio — alimenta el resumen
+// anual, "Resueltas recientemente" y la vista Temporada
+export const fetchEpisodes = () =>
+  getJson<MunicipalityIncident[]>('/episodes');
 
 // URL pública compartible de una playa (mini-página OG del backend);
 // WhatsApp/Telegram la convierten en tarjeta con foto satélite.

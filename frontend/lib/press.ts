@@ -19,7 +19,7 @@ const NEWS_EVENT_LINE: Record<string, [string, string, string]> = {
 
 export const pressSummary = (
   s: BeachNewsSummary,
-  opts: { stillClosed: boolean; reopenedAt: string | null },
+  opts: { stillClosed: boolean; reopenedAt: string | null; now?: Date },
 ) => {
   const [noun, prep, dmark] = NEWS_EVENT_LINE[s.event_type ?? 'other'] ?? [
     'Noticias',
@@ -29,6 +29,25 @@ export const pressSummary = (
   const medios =
     s.outlets_count === 1 ? '1 medio' : `${s.outlets_count} medios`;
   const isClosure = s.event_type === 'closure';
+  // Reapertura reciente (≤7 días): el protagonista es la reapertura,
+  // no el cierre — el usuario acaba de recibir el push de reapertura
+  const reopenedDays =
+    !opts.stillClosed && opts.reopenedAt
+      ? ((opts.now?.getTime() ?? Date.now()) -
+          new Date(`${opts.reopenedAt}T00:00:00Z`).getTime()) /
+        86_400_000
+      : null;
+  if (isClosure && reopenedDays !== null && reopenedDays <= 7) {
+    return {
+      main: `Reabierta el ${fmtDate(opts.reopenedAt!.slice(0, 10))}`,
+      sub:
+        `según prensa · ${medios}` +
+        (s.since
+          ? ` · estuvo cerrada desde el ${fmtDate(s.since.slice(0, 10))}`
+          : ''),
+      tone: 'reopened' as const,
+    };
+  }
   const shownNoun = isClosure && !opts.stillClosed ? 'Estuvo cerrada' : noun;
   let date = '';
   if (isClosure && !opts.stillClosed) {
@@ -44,5 +63,6 @@ export const pressSummary = (
   return {
     main: `${shownNoun}${s.cause ? ` ${prep} ${s.cause}` : ''}${date}`,
     sub: `según prensa · ${medios}${reopen}`,
+    tone: 'default' as const,
   };
 };

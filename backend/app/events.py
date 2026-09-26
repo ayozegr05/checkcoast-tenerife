@@ -182,7 +182,13 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
             cluster.sources.append(n.source)
 
     # 5. Reaperturas: corroboran la ventana en la que caen, o cierran
-    # el clúster de prensa más reciente que las precede
+    # el clúster de prensa más reciente que las precede. Una "ola" de
+    # reaperturas (varios titulares del mismo suceso, hueco <=GAP)
+    # cierra UN solo episodio — El Médano: 8 reaperturas del 25/09
+    # resuelven el cierre del 23/09, no también el de julio, que
+    # caducó sin cobertura y queda con fin estimado (paso 6)
+    last_close_pub: date | None = None
+    closed_ev: SynthEvent | None = None
     for n in reopenings:
         pub = n.published_at.date()
         for ev in events:
@@ -203,12 +209,46 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                 and ev.closed_at is None
                 and (ev.last_closure or ev.opened_at) <= pub
             ]
+            newer_ep = any(
+                (ev.last_closure or ev.opened_at) > last_close_pub
+                for ev in open_press
+            ) if last_close_pub else False
+            same_wave = (
+                last_close_pub is not None
+                and pub - last_close_pub <= PRESS_CLUSTER_GAP
+                and not newer_ep
+            )
+            if same_wave:
+                # Mismo suceso de reapertura: apoya al episodio ya
+                # cerrado, no cierra uno más antiguo
+                if closed_ev is not None:
+                    closed_ev.press_count += 1
+                    if n.source and n.source not in closed_ev.sources:
+                        closed_ev.sources.append(n.source)
+                continue
             if open_press:
-                ev = max(open_press, key=lambda e: e.opened_at)
-                ev.closed_at = pub
-                ev.press_count += 1
-                if n.source and n.source not in ev.sources:
-                    ev.sources.append(n.source)
+                # Preferir el clúster cuya última mención de cierre
+                # esté a <=GAP; sin cercanos, solo cerrar si es el
+                # único abierto (un cierre estructural puede durar
+                # años: Benijo). Con varios abiertos y reapertura
+                # lejana, el viejo caducó en silencio
+                near = [
+                    ev
+                    for ev in open_press
+                    if pub - (ev.last_closure or ev.opened_at)
+                    <= PRESS_CLUSTER_GAP
+                ]
+                pool = near or (
+                    open_press if len(open_press) == 1 else []
+                )
+                if pool:
+                    ev = max(pool, key=lambda e: e.opened_at)
+                    ev.closed_at = pub
+                    ev.press_count += 1
+                    if n.source and n.source not in ev.sources:
+                        ev.sources.append(n.source)
+                    last_close_pub = pub
+                    closed_ev = ev
 
     # 5b. La última reapertura de prensa posterior a la última muestra
     # mala es el cierre real de la ventana (El Pris: reabierta 13-abr,

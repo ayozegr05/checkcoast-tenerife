@@ -23,12 +23,23 @@ import {
   type StyleSpecification,
 } from '@maplibre/maplibre-react-native';
 
-import type { FeatureCollection, GeoFeature } from '../lib/api';
+import type {
+  FeatureCollection,
+  GeoFeature,
+  MunicipalityIncident,
+} from '../lib/api';
 import {
   beachBaseName,
   beachPointLabel,
   displayBeachName,
+  fmtDate,
 } from '../lib/format';
+import {
+  activeEpisodes,
+  closuresThisYear,
+  episodeDays,
+  recentlyResolved,
+} from '../lib/episodes';
 import { groupKeyOf } from '../lib/beachGroups';
 import { colors, fonts } from '../lib/theme';
 import seaStyle from '../assets/mapstyle-sea.json';
@@ -115,6 +126,12 @@ type CoastMapProps = {
   onOpenMunicipalities?: () => void;
   onOpenOutfalls?: () => void;
   onOpenHelp?: () => void;
+  // Episodios insulares (oficiales + reconstruidos): alimentan la
+  // cabecera del banner y la sección "Resueltas recientemente"
+  episodes?: MunicipalityIncident[];
+  // Abre el panel de municipios en la vista Temporada (enlace del
+  // banner de alertas)
+  onOpenTemporada?: () => void;
 };
 
 const OUTFALL_COLORS = colors.outfall;
@@ -191,6 +208,8 @@ export default function CoastMap({
   onOpenMunicipalities,
   onOpenOutfalls,
   onOpenHelp,
+  episodes = [],
+  onOpenTemporada,
 }: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -418,6 +437,27 @@ export default function CoastMap({
     }),
     [outfallsMarked, outfallSel],
   );
+
+  // Episodios insulares: cabecera del banner ("N cierres en 2026") +
+  // sección verde "Resueltas recientemente" (puente del push de
+  // reapertura — el usuario la recibe y la confirmación vive aquí)
+  const yearLine = useMemo(() => {
+    const year = new Date().getFullYear();
+    const n = closuresThisYear(episodes, year).length;
+    const active = activeEpisodes(episodes).length;
+    return n > 0
+      ? `${year} · ${n} ${n === 1 ? 'cierre' : 'cierres'}${
+          active ? ` · ${active} ${active === 1 ? 'activo' : 'activos'} ahora` : ''
+        }`
+      : null;
+  }, [episodes]);
+  const resueltas = useMemo(() => recentlyResolved(episodes, 30), [episodes]);
+  // Una playa resuelta abre su ficha igual que una alerta: episodio →
+  // PM representativo → feature del mapa
+  const openEpisodeBeach = (beachId: number) => {
+    const f = beaches.features.find((x) => x.id === beachId);
+    if (f) openAlertBeach(f);
+  };
 
   // El pulso respeta el filtro; la lista del banner no (es global)
   const visibleAlertBeaches = useMemo<FeatureCollection>(
@@ -1185,6 +1225,9 @@ export default function CoastMap({
         </Pressable>
         {alertsOpen && hasAlerts && (
           <View style={styles.alertList}>
+            {yearLine && (
+              <Text style={styles.alertYearLine}>{yearLine}</Text>
+            )}
             {[...alertBeaches.features]
               .sort((a) => (a.properties.status === 'closed' ? -1 : 1))
               .map((f) => {
@@ -1237,6 +1280,67 @@ export default function CoastMap({
                   </Pressable>
                 );
               })}
+            {resueltas.length > 0 && (
+              <Text style={styles.alertSection}>
+                Resueltas recientemente
+              </Text>
+            )}
+            {resueltas.map((ep) => (
+              <Pressable
+                key={`res-${ep.id}-${ep.beach_id}`}
+                style={styles.alertRow}
+                onPress={() => openEpisodeBeach(ep.beach_id)}
+                accessibilityRole="button"
+                accessibilityLabel={`${displayBeachName(
+                  ep.beach_name,
+                )}, reabierta`}
+              >
+                <View
+                  style={[
+                    styles.alertDot,
+                    { backgroundColor: colors.status.open },
+                  ]}
+                />
+                <View style={styles.alertText}>
+                  <Text style={styles.alertName} numberOfLines={1}>
+                    {displayBeachName(ep.beach_name)}
+                  </Text>
+                  <Text style={styles.alertSub} numberOfLines={1}>
+                    {ep.municipality ?? ''}
+                  </Text>
+                </View>
+                <View style={styles.alertStateCol}>
+                  <Text
+                    style={[
+                      styles.alertState,
+                      { color: colors.status.open },
+                    ]}
+                  >
+                    Reabierta
+                  </Text>
+                  <Text style={styles.alertCause} numberOfLines={1}>
+                    {ep.closed_at ? fmtDate(ep.closed_at) : ''} ·{' '}
+                    {episodeDays(ep)}{' '}
+                    {episodeDays(ep) === 1 ? 'día' : 'días'} cerrada
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+            {onOpenTemporada && (
+              <Pressable
+                style={styles.alertMore}
+                onPress={() => {
+                  setAlertsOpen(false);
+                  onOpenTemporada();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Ver todos los episodios del verano"
+              >
+                <Text style={styles.alertMoreText}>
+                  Todos los episodios del verano ›
+                </Text>
+              </Pressable>
+            )}
           </View>
         )}
         {searchOpen && (
@@ -1553,6 +1657,36 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     color: colors.textMuted,
     marginTop: 1,
+  },
+  // "2026 · 7 cierres · 2 activos ahora" — contexto anual arriba de
+  // la lista de alertas del banner
+  alertYearLine: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 2,
+  },
+  alertSection: {
+    fontSize: 10,
+    fontFamily: fonts.extrabold,
+    color: colors.textFaint,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 2,
+  },
+  alertMore: {
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  alertMoreText: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    color: colors.primary,
+    textAlign: 'center',
   },
   searchWrap: {
     alignSelf: 'stretch',

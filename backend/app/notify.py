@@ -41,12 +41,15 @@ def _send(db: Session, tokens: list[str], messages: list[dict]) -> int:
     try:
         resp = requests.post(EXPO_PUSH_URL, json=messages, timeout=15)
         resp.raise_for_status()
-    except requests.RequestException as e:
+        tickets = resp.json().get("data", [])
+    except Exception as e:
+        # Red caída, 502 con HTML (json() revienta)... el push se
+        # reintenta en la próxima pasada vía push_pending — aquí solo
+        # se loguea y se sigue con el resto de playas
         print(f"[push] error enviando: {e}")
         return 0
 
     # Poda de tokens que Expo reporta como dados de baja
-    tickets = resp.json().get("data", [])
     dead = [
         token
         for token, ticket in zip(tokens, tickets)

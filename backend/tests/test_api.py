@@ -550,3 +550,129 @@ def test_register_device_idempotent():
 def test_register_device_invalid_token():
     r = client.post("/devices", json={"token": "not-an-expo-token"})
     assert r.status_code == 400
+
+
+def test_beach_news_since_anchors_latest_cluster(seed_data):
+    """`summary.since` es el inicio del ÚLTIMO episodio de cierres, no
+    el titular más viejo — un hueco >45 días separa episodios (caso El
+    Médano: cierres de julio + septiembre; el banner debe decir 23/09,
+    no 07/07)."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.db import SessionLocal
+    from app.models import NewsItem
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    now = datetime.now(timezone.utc)
+    old_ep = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-cluster-old",
+        title="Cierran la playa por vertido",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        published_at=now - timedelta(days=80),
+    )
+    new_ep1 = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-cluster-new1",
+        title="Cierran la playa por vertido",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        published_at=now - timedelta(days=2),
+    )
+    new_ep2 = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-cluster-new2",
+        title="Sigue cerrada la playa",
+        source="Otro Medio",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        published_at=now - timedelta(days=1),
+    )
+    db.add_all([old_ep, new_ep1, new_ep2])
+    db.commit()
+    try:
+        body = client.get(f"/beaches/{beach_id}/news").json()
+        since = body["summary"]["since"]
+        assert since is not None
+        # Ancla al cluster reciente, no al titular de hace 80 días
+        assert since[:10] == (now - timedelta(days=2)).date().isoformat()
+    finally:
+        for it in (old_ep, new_ep1, new_ep2):
+            db.delete(it)
+        db.commit()
+        db.close()
+
+
+def test_send_push_tolerates_bad_expo_response(monkeypatch):
+    """Un 502 con HTML de Expo (json() revienta) no debe propagarse:
+    devuelve 0 y la ingesta sigue con el resto de playas."""
+    import requests
+
+    from app import notify
+
+    class BadResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            raise ValueError("No JSON object could be decoded")
+
+    monkeypatch.setattr(requests, "post", lambda *a, **k: BadResp())
+    from app.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        assert notify._send(db, ["ExponentPushToken[x]"], [{}]) == 0
+    finally:
+        db.close()
+
+
+def test_island_episodes(seed_data):
+    """`/episodes` agrega episodios de toda la isla: incidencias
+    oficiales + reconstruidos (prensa), una fila por episodio."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.db import SessionLocal
+    from app.models import NewsItem
+
+    osm_id = seed_data["osm_beach_id"]
+    db = SessionLocal()
+    now = datetime.now(timezone.utc)
+    # Episodio solo-prensa resuelto hace 3 días tras 2 cerrada
+    item_c = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-ep-c",
+        title="Cierran la playa por vertido",
+        source="Test Press",
+        relevant=True,
+        beach_id=osm_id,
+        event_type="closure",
+        published_at=now - timedelta(days=5),
+    )
+    item_r = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-ep-r",
+        title="Reabren la playa",
+        source="Test Press",
+        relevant=True,
+        beach_id=osm_id,
+        event_type="reopening",
+        published_at=now - timedelta(days=3),
+    )
+    db.add_all([item_c, item_r])
+    db.commit()
+    try:
+        r = client.get("/episodes")
+        assert r.status_code == 200
+        rows = r.json()
+        ep = next((x for x in rows if x["beach_id"] == osm_id), None)
+        assert ep is not None
+        assert ep["via"] == "press"
+        assert ep["closed_at"] == (now - timedelta(days=3)).date().isoformat()
+    finally:
+        db.delete(item_c)
+        db.delete(item_r)
+        db.commit()
+        db.close()

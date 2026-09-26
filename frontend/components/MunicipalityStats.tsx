@@ -18,6 +18,13 @@ import {
   fetchBeachStats,
   fetchMunicipalityIncidents,
 } from '../lib/api';
+import {
+  activeEpisodes,
+  closuresThisYear,
+  episodeDays,
+  seasonEpisodes,
+  seasonYear,
+} from '../lib/episodes';
 import { displayBeachName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 import Skeleton from './Skeleton';
@@ -74,12 +81,19 @@ const durationDays = (inc: MunicipalityIncident) => {
 export default function MunicipalityStats({
   visible,
   beaches,
+  episodes = [],
+  initialView = 'ranking',
   onSelect,
   onSelectBeach,
   onClose,
 }: {
   visible: boolean;
   beaches: GeoFeature[];
+  // Episodios insulares (/episodes): cabecera anual + vista Temporada
+  episodes?: MunicipalityIncident[];
+  // "temporada" abre el panel directo en la vista cronológica (desde
+  // el enlace del banner de alertas)
+  initialView?: 'ranking' | 'temporada';
   onSelect: (municipality: string | null) => void;
   // Tocar un incidente de la línea temporal abre la ficha de su playa
   onSelectBeach?: (beachId: number) => void;
@@ -87,9 +101,37 @@ export default function MunicipalityStats({
 }) {
   const [stats, setStats] = useState<Map<number, BeachStats>>(new Map());
   const [detail, setDetail] = useState<MuniStats | null>(null);
+  const [view, setView] = useState<'ranking' | 'temporada'>(initialView);
   const [incidents, setIncidents] = useState<MunicipalityIncident[] | null>(
     null,
   );
+
+  // El modal vive montado (conserva scroll/estado): al abrirlo manda
+  // la vista pedida, no la última visitada
+  useEffect(() => {
+    if (visible) setView(initialView);
+  }, [visible, initialView]);
+
+  const season = seasonYear();
+  const seasonRows = useMemo(
+    () =>
+      seasonEpisodes(episodes, season).sort((a, b) =>
+        b.opened_at.localeCompare(a.opened_at),
+      ),
+    [episodes, season],
+  );
+  const yearLine = useMemo(() => {
+    const y = new Date().getFullYear();
+    const n = closuresThisYear(episodes, y).length;
+    const active = activeEpisodes(episodes).length;
+    return n > 0
+      ? `${y} · ${n} ${n === 1 ? 'cierre' : 'cierres'}${
+          active
+            ? ` · ${active} ${active === 1 ? 'activo' : 'activos'} ahora`
+            : ''
+        }`
+      : null;
+  }, [episodes]);
 
   useEffect(() => {
     fetchBeachStats()
@@ -386,11 +428,97 @@ export default function MunicipalityStats({
             </Pressable>
           </View>
           <Text style={styles.subtitle}>
-            Ranking por afectación actual e histórica · toca un municipio
-            para ver su línea temporal
+            {view === 'ranking'
+              ? 'Ranking por afectación actual e histórica · toca un municipio para ver su línea temporal'
+              : `Temporada de baño ${season} · junio a septiembre`}
           </Text>
+          {yearLine && <Text style={styles.yearLine}>{yearLine}</Text>}
+          <View style={styles.viewToggle}>
+            {(['ranking', 'temporada'] as const).map((v) => (
+              <Pressable
+                key={v}
+                style={[
+                  styles.viewTab,
+                  view === v && styles.viewTabOn,
+                ]}
+                onPress={() => setView(v)}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  v === 'ranking' ? 'Ver por municipio' : 'Ver temporada'
+                }
+              >
+                <Text
+                  style={[
+                    styles.viewTabText,
+                    view === v && styles.viewTabTextOn,
+                  ]}
+                >
+                  {v === 'ranking' ? 'Por municipio' : 'Temporada'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </ImageBackground>
 
+        {view === 'temporada' ? (
+          <FlatList
+            data={seasonRows}
+            keyExtractor={(ep) => `s${ep.id}-${ep.beach_id}`}
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            renderItem={({ item: ep }) => {
+              const open = ep.closed_at === null;
+              return (
+                <Pressable
+                  style={styles.row}
+                  onPress={() => onSelectBeach?.(ep.beach_id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver ficha de ${displayBeachName(
+                    ep.beach_name,
+                  )}`}
+                >
+                  <View style={styles.rowHeader}>
+                    <Text style={styles.rowName} numberOfLines={1}>
+                      {displayBeachName(ep.beach_name)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.badge,
+                        open
+                          ? ep.kind === 'closure'
+                            ? styles.badgeClosed
+                            : styles.badgeWarning
+                          : styles.badgeOpen,
+                      ]}
+                    >
+                      {open
+                        ? ep.kind === 'closure'
+                          ? 'Sigue cerrada'
+                          : 'Aviso activo'
+                        : 'Resuelta'}
+                    </Text>
+                  </View>
+                  <Text style={styles.rowSub}>
+                    {ep.municipality ?? 'Sin municipio'} ·{' '}
+                    {open
+                      ? `desde el ${fmtDate(ep.opened_at)}`
+                      : `${fmtDate(ep.opened_at)} → ${fmtDate(
+                          ep.closed_at as string,
+                        )} · ${episodeDays(ep)} ${
+                          episodeDays(ep) === 1 ? 'día' : 'días'
+                        }`}
+                    {ep.via === 'press' ? ' · según prensa' : ''}
+                  </Text>
+                </Pressable>
+              );
+            }}
+            ListEmptyComponent={
+              <Text style={styles.empty}>
+                Sin episodios esta temporada
+              </Text>
+            }
+          />
+        ) : (
         <FlatList
           data={rows}
           keyExtractor={(m) => m.name}
@@ -464,6 +592,7 @@ export default function MunicipalityStats({
             <Text style={styles.empty}>Sin datos de municipios</Text>
           }
         />
+        )}
           </>
         )}
       </View>
@@ -586,6 +715,42 @@ const styles = StyleSheet.create({
   },
   badgeWarning: {
     backgroundColor: colors.status.warning,
+  },
+  // Episodio resuelto en la vista Temporada: verde mar
+  badgeOpen: {
+    backgroundColor: colors.status.open,
+  },
+  yearLine: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    color: '#fff',
+    paddingHorizontal: 16,
+    marginTop: 6,
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 10,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 8,
+    padding: 2,
+  },
+  viewTab: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  viewTabOn: {
+    backgroundColor: '#fff',
+  },
+  viewTabText: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  viewTabTextOn: {
+    color: colors.primaryDark,
   },
   // Incidente histórico (ya cerrado): outline apagado — el sólido se
   // reserva a los activos para que no se lean como vigentes

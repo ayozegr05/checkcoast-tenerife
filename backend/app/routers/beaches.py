@@ -3,10 +3,11 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2 import Geography
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
 from app.events import (
+    PRESS_CLUSTER_GAP,
     Episode,
     SynthEvent,
     base_name,
@@ -234,47 +235,50 @@ def municipality_incidents(
     beaches = (
         db.query(Beach).filter(Beach.municipality == municipality).all()
     )
-    by_id = {b.id: b for b in beaches}
-    incidents = (
-        db.query(BeachIncident)
-        .filter(BeachIncident.beach_id.in_(by_id))
-        .all()
-    )
-    today = date.today()
+    out = _merged_episode_rows(_collect_episodes(beaches, date.today()))
+    out.sort(key=lambda r: r.opened_at, reverse=True)
+    return out
+
+
+def _collect_episodes(
+    beaches: list[Beach], today: date
+) -> list[Episode]:
+    """Episodios crudos de un conjunto de playas: incidencias
+    oficiales + eventos reconstruidos (analítica/prensa)."""
     episodes: list[Episode] = []
-    for inc in incidents:
-        beach = by_id[inc.beach_id]
-        end = inc.closed_at or today
-        # Noticias dentro de la ventana oficial (±7 días): la incidencia
-        # puede anotar que la prensa también lo recogió
-        press_n = sum(
-            1
-            for n in beach.news_items
-            if n.relevant
-            and n.published_at
-            and inc.opened_at - timedelta(days=7)
-            <= n.published_at.date()
-            <= end + timedelta(days=7)
-        )
-        episodes.append(
-            Episode(
-                beach_id=inc.beach_id,
-                base=base_name(beach.name),
-                municipality=municipality,
-                kind=(
-                    "closure"
-                    if inc.observations
-                    and "prohib" in inc.observations.lower()
-                    else "warning"
-                ),
-                start=inc.opened_at,
-                end=inc.closed_at,
-                via="official",
-                ref_id=inc.id,
-                obs=inc.observations,
-                press_count=press_n,
+    for beach in beaches:
+        for inc in beach.incidents:
+            end = inc.closed_at or today
+            # Noticias dentro de la ventana oficial (±7 días): la
+            # incidencia puede anotar que la prensa también lo recogió
+            press_n = sum(
+                1
+                for n in beach.news_items
+                if n.relevant
+                and n.published_at
+                and inc.opened_at - timedelta(days=7)
+                <= n.published_at.date()
+                <= end + timedelta(days=7)
             )
-        )
+            episodes.append(
+                Episode(
+                    beach_id=inc.beach_id,
+                    base=base_name(beach.name),
+                    municipality=beach.municipality,
+                    kind=(
+                        "closure"
+                        if inc.observations
+                        and "prohib" in inc.observations.lower()
+                        else "warning"
+                    ),
+                    start=inc.opened_at,
+                    end=inc.closed_at,
+                    via="official",
+                    ref_id=inc.id,
+                    obs=inc.observations,
+                    press_count=press_n,
+                )
+            )
     synth_id = -1
     for beach in beaches:
         for ev in synthesize_events(beach):
@@ -282,7 +286,7 @@ def municipality_incidents(
                 Episode(
                     beach_id=beach.id,
                     base=base_name(beach.name),
-                    municipality=municipality,
+                    municipality=beach.municipality,
                     kind=ev.kind,
                     start=ev.opened_at,
                     end=ev.closed_at,
@@ -296,12 +300,20 @@ def municipality_incidents(
                 )
             )
             synth_id -= 1
-    out = [
+    return episodes
+
+
+def _merged_episode_rows(
+    episodes: list[Episode],
+) -> list[MunicipalityIncidentOut]:
+    """Agrupa los episodios por playa base + municipio y los convierte
+    en filas de salida (una por episodio real, no por PM)."""
+    return [
         MunicipalityIncidentOut(
             id=m.ref_id,
             beach_id=m.beach_id,
             beach_name=m.base,
-            municipality=municipality,
+            municipality=m.municipality,
             kind=m.kind,
             opened_at=m.start,
             closed_at=m.end,
@@ -310,6 +322,28 @@ def municipality_incidents(
         )
         for m in (merged_episode(g) for g in cluster_episodes(episodes))
     ]
+
+
+@router.get("/episodes", response_model=list[MunicipalityIncidentOut])
+def island_episodes(
+    db: Session = Depends(get_db),
+) -> list[MunicipalityIncidentOut]:
+    """Todos los episodios de la isla (oficiales + reconstruidos),
+    agrupados por playa base + municipio y más reciente primero.
+
+    Alimenta el resumen anual ("N cierres en 2026"), la sección
+    "Resueltas recientemente" del panel de alertas y la vista
+    Temporada del ranking municipal."""
+    beaches = (
+        db.query(Beach)
+        .options(
+            selectinload(Beach.incidents),
+            selectinload(Beach.measurements),
+            selectinload(Beach.news_items),
+        )
+        .all()
+    )
+    out = _merged_episode_rows(_collect_episodes(beaches, date.today()))
     out.sort(key=lambda r: r.opened_at, reverse=True)
     return out
 
@@ -449,11 +483,19 @@ def beach_news(
         .all()
     )
     dominant = _event_mode(rows)
-    since = min(
-        (r.published_at for r in rows
-         if r.event_type == dominant and r.published_at),
-        default=None,
+    # "Desde cuándo": inicio del episodio ACTUAL, no del titular más
+    # viejo — un hueco >PRESS_CLUSTER_GAP entre cierres separa
+    # episodios (El Médano: cierres de julio + cierres de septiembre;
+    # el banner debe anclar a septiembre, no a julio)
+    dates = sorted(
+        r.published_at for r in rows
+        if r.event_type == dominant and r.published_at
     )
+    since = None
+    for d in dates:
+        if since is None or d - prev > PRESS_CLUSTER_GAP:
+            since = d
+        prev = d
     return BeachNewsOut(
         summary=NewsSummaryOut(
             event_type=dominant,

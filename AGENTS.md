@@ -10,13 +10,20 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
   - `app/models.py` — `Outfall`, `Beach` (+`monitored`), `BeachStatus`,
     `BeachIncident`, `BeachMeasurement`, `DeviceToken`, `NewsItem`
   - `app/routers/` — `outfalls.py`, `beaches.py`, `alerts.py`,
-    `devices.py` (`POST /devices` registra Expo push tokens)
+    `devices.py` (`POST /devices` registra Expo push tokens);
+    `GET /episodes` = episodios insulares agregados (oficiales +
+    reconstruidos, agrupados por playa base + municipio)
   - `app/notify.py` — push vía Expo Push Service al cambiar estado de
     playa (scraper + POST manual) y al entrar una alerta de prensa
     (`notify_press_event`, etiqueta "· según prensa"; cubre closure,
     warning y reopening — la reapertura solo notifica si había algo
     que reabrir: alerta de prensa ≤21 d o estado oficial no-open);
-    purga tokens DeviceNotRegistered
+    purga tokens DeviceNotRegistered; `_send` nunca propaga errores
+    (red o respuesta no-JSON de Expo → devuelve 0 y se loguea)
+  - `news_items.push_pending`/`pushed_at`: la ingesta marca los
+    candidatos a push y un sweep al inicio de cada pasada reintenta lo
+    pendiente no enviado dentro de la ventana de dedup (7 d) — un push
+    ya no se pierde por un fallo transitorio o un restart del contenedor
   - `app/queries.py` — `beaches_with_latest_status` (join último
     estado crudo) + `effective_states()` (matriz de estado efectivo
     oficial+prensa con precedencia por fecha de evento: alimenta
@@ -77,7 +84,13 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     permite abrirla pre-filtrada
   - `components/BeachDetail.tsx` — contenido de ficha de playa compartido
     (FeatureSheet sobre mapa + detalle dentro de BeachList); caja
-    "En la prensa" (`/beaches/{id}/news`, etiqueta "según prensa")
+    "En la prensa" (`/beaches/{id}/news`, etiqueta "según prensa");
+    banner verde `tone='reopened'` si la reapertura tiene ≤7 d
+    ("Reabierta el X · estuvo cerrada desde el Y")
+  - `components/MunicipalityStats.tsx` — ranking municipal + vista
+    Temporada (episodios jun-sep cronológicos) via `/episodes`
+  - `lib/episodes.ts` — agregados puros sobre `/episodes` (temporada,
+    resueltas ≤30 d, cierres del año)
   - `components/MunicipalityStats.tsx` — ranking por municipio (cerradas/
     avisos activos, incidentes, muestras no aptas) con barra de severidad;
     agrega `/beaches/stats` en cliente; al tocar un municipio abre
@@ -166,6 +179,15 @@ npx tsc --noEmit                                        # typecheck
   ("La Laguna"→"San Cristóbal de La Laguna", "Granadilla"→"Granadilla
   de Abona"); sin municipio solo casa clave exacta y única en toda la
   isla
+- **Episodios de prensa** (`events.py`): clústeres de cierres separados
+  por >45 d (`PRESS_CLUSTER_GAP`) son episodios distintos; una "ola" de
+  reaperturas (varios titulares del mismo suceso) cierra UN solo
+  clúster — el más reciente a ≤GAP de la reapertura, o el único abierto
+  (un cierre estructural puede durar años). Con varios abiertos, la
+  reapertura lejana no resucita episodios caducados (Médano: la
+  reapertura del 25/09 resuelve el cierre del 23/09, no el de julio).
+  `/beaches/{id}/news` ancla `summary.since` al inicio del último
+  clúster, no al titular más viejo de la lista
 - **Estado efectivo vs oficial**: lo que ve el usuario (mapa, alertas,
   ficha) sale de `effective_states()` — combina oficial y prensa por
   fecha de evento real. El `BeachStatus`/`BeachMeasurement` crudo nunca
