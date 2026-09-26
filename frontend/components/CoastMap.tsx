@@ -1235,9 +1235,12 @@ export default function CoastMap({
           <View style={styles.alertList}>
             {yearLine && (
               <Text style={styles.alertYearLine}>
-                {`Este año · ${yearLine.n} ${
-                  yearLine.n === 1 ? 'cierre' : 'cierres'
-                }`}
+                <Text style={styles.alertYearLabel}>Este año</Text>
+                <Text style={styles.alertYearCount}>
+                  {` · ${yearLine.n} ${
+                    yearLine.n === 1 ? 'cierre' : 'cierres'
+                  }`}
+                </Text>
                 {yearLine.causes.length > 0 && ' ('}
                 {yearLine.causes.map(([cause, n], i) => (
                   <Text key={cause}>
@@ -1258,11 +1261,13 @@ export default function CoastMap({
                   </Text>
                 ))}
                 {yearLine.causes.length > 0 && ')'}
-                {yearLine.live
-                  ? ` · ${yearLine.live} ${
+                {yearLine.live ? (
+                  <Text style={styles.alertYearLive}>
+                    {` · ${yearLine.live} ${
                       yearLine.live === 1 ? 'activa' : 'activas'
-                    } ahora`
-                  : ''}
+                    } ahora`}
+                  </Text>
+                ) : null}
               </Text>
             )}
             <Text
@@ -1702,21 +1707,32 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 1,
   },
-  // "Este año · 17 cierres (…causas) · 3 activas ahora" — es EL dato
-  // resumen del panel: tarjeta tintada, grande y oscura, no una nota
+  // "Este año · 17 cierres (…causas) · 3 activas ahora" — sin tarjeta:
+  // jerarquía solo por peso/color (etiqueta muted, dato extrabold)
   alertYearLine: {
     fontSize: 14,
     lineHeight: 20,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  alertYearLabel: {
+    fontFamily: fonts.extrabold,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    fontSize: 11,
+  },
+  alertYearCount: {
+    fontFamily: fonts.extrabold,
     color: colors.text,
-    backgroundColor: colors.sand,
-    marginHorizontal: 10,
-    marginTop: 8,
-    marginBottom: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 8,
-    overflow: 'hidden',
+    fontSize: 15,
+  },
+  alertYearLive: {
+    fontFamily: fonts.bold,
+    color: colors.status.closed,
   },
   // Causas tocables dentro del paréntesis anual: subrayadas como
   // enlace — abren la vista "Este año" filtrada a esa causa
