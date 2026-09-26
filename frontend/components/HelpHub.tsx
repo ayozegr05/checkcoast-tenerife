@@ -297,6 +297,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
+    // Android corta el acento de la Í sin aire suficiente — gotcha
+    // Nunito conocido (mismo que la leyenda)
+    lineHeight: 26,
     fontFamily: fonts.extrabold,
     color: '#fff',
   },
@@ -305,7 +308,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: 'rgba(255,255,255,0.9)',
     marginTop: 4,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   body: {
     paddingHorizontal: 20,

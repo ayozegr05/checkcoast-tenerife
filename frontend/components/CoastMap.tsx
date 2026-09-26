@@ -1901,11 +1901,15 @@ const styles = StyleSheet.create({
     marginRight: 20,
   },
   // Swatches informativos en línea (no interactivos — las capas se
-  // controlan desde el panel del botón flotante)
+  // controlan desde el panel del botón flotante). wrap obligatorio:
+  // con nowrap la fila desborda la card y el texto se corta por el
+  // borde (pantallas estrechas / fuente grande de accesibilidad)
   legendSub: {
     flexDirection: 'row',
-    flexWrap: 'nowrap',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 16,
+    rowGap: 4,
   },
   swatchRow: {
     flexDirection: 'row',
