@@ -1775,7 +1775,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   alertMoreText: {
-    fontSize: 13,
+    fontSize: 15,
     fontFamily: fonts.extrabold,
     color: '#fff',
   },
