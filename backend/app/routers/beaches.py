@@ -31,6 +31,7 @@ from app.queries import (
     _short_cause,
     beaches_with_latest_status,
     effective_states,
+    is_ungraded_note,
 )
 from app.schemas import (
     BeachIncidentOut,
@@ -117,6 +118,8 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
     episodes: list[Episode] = []
     for beach in beaches:
         for inc in beach.incidents:
+            if is_ungraded_note(inc.observations):
+                continue  # nota administrativa sin alerta real
             press_items = _press_in_window(
                 beach, inc.opened_at, inc.closed_at or date.today()
             )
@@ -287,6 +290,8 @@ def _collect_episodes(
     episodes: list[Episode] = []
     for beach in beaches:
         for inc in beach.incidents:
+            if is_ungraded_note(inc.observations):
+                continue  # nota administrativa sin alerta real
             end = inc.closed_at or today
             # Noticias dentro de la ventana oficial (±7 días): la
             # incidencia puede anotar que la prensa también lo recogió

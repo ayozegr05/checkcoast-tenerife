@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from app.models import Beach
-from app.queries import _STRUCTURAL_CAUSES, _short_cause
+from app.queries import _STRUCTURAL_CAUSES, _short_cause, is_ungraded_note
 
 # La prensa puede adelantarse a Náyade (cierre municipal no publicado)
 # o contar la reapertura semanas después — ventana amplia a ambos lados
@@ -153,8 +153,16 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
     if run_start is not None:
         windows.append((run_start, None))  # prohibición viva
 
-    # 2. Descartar ventanas ya cubiertas por incidencia oficial
-    official = [(i.opened_at, i.closed_at) for i in beach.incidents]
+    # 2. Descartar ventanas ya cubiertas por incidencia oficial. Las
+    # notas "Sin Calificar" no son incidencias reales (registro de
+    # muestra sin evaluar) — no cubren ventanas ni tragan prensa:
+    # Gaviotas se cerró por el municipio el 3-jun y Náyade solo anotó
+    # "sin calificar" el 8-jun → el episodio es el cierre de prensa
+    official = [
+        (i.opened_at, i.closed_at)
+        for i in beach.incidents
+        if not is_ungraded_note(i.observations)
+    ]
     events = [
         SynthEvent(
             kind="closure", opened_at=s, closed_at=e, via="measurement"

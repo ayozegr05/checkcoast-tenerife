@@ -113,6 +113,22 @@ def _short_cause(text: str | None) -> str | None:
     return None
 
 
+def is_ungraded_note(obs: str | None) -> bool:
+    """Incidencia administrativa sin alerta real: "Sin Calificar" solo
+    registra que Sanidad no pudo evaluar una muestra — no dice que el
+    agua esté mal ni prohíbe nada. No genera aviso ni episodio (San
+    Marcos: una muestra sin calificar dejaba "aviso de 57 días ·
+    contaminación" sin que hubiera ningún incidente real)."""
+    if not obs:
+        return False
+    t = "".join(
+        c
+        for c in unicodedata.normalize("NFD", obs.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+    return "sin calificar" in t and "prohib" not in t
+
+
 def _press_cause(its: list[NewsItem]) -> str | None:
     """Causa dominante (categoría) entre los titulares que cambian
     estado; en empate gana el más reciente (items ordenados desc)."""

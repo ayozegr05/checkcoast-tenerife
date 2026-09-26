@@ -93,9 +93,13 @@ Si relevant=true extrae:
     los cierres", "un año del cierre de...") no es un cierre nuevo →
     "other"; solo vale "closure" si el texto afirma explícitamente que
     la playa SIGUE cerrada hoy
-- cause: la RAZÓN de fondo del cierre/aviso — lo que provocó el problema
-  ("vertido de aguas residuales", "bacterias fecales", "gasoil",
-  "riesgo de desprendimientos", "temporal de mar", "obras EN la playa").
+- cause: la RAZÓN del cierre/aviso para el bañista — el evento que
+  afectó al agua o al acceso ("vertido de aguas residuales",
+  "bacterias fecales", "gasoil", "riesgo de desprendimientos",
+  "temporal de mar", "obras EN la playa").
+  La causa es el evento, no el origen upstream de la avería que lo
+  provocó: "obstrucción de la red de saneamiento que causó un vertido"
+  → "vertido"; "rotura de tubería que vertió al mar" → "vertido".
   NO son causa:
   · el propio cierre y su mecanismo ("acceso prohibido", "cierre de
     acceso", "vallado", "multas", "desalojo") — eso ES el cierre → null

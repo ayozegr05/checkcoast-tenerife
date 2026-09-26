@@ -169,12 +169,25 @@ def test_apta_measurement_is_open():
     assert _states(html)["PLAYA TEST PM1"] == BeachState.open
 
 
-def test_ungraded_latest_measurement_is_warning():
+def test_ungraded_latest_measurement_is_not_an_alert():
+    """'Sin Calificar' = no pudieron evaluar la muestra — registro
+    administrativo, no aviso (San Marcos: 57 días de 'aviso' sin que
+    el agua estuviera mal)."""
     meas = MEAS_ROW.format(
         fecha="09/09/2026", ecoli="--", entero="--", obs="Sin Calificar"
     )
     html = PM_TMPL.format(name="PLAYA TEST PM1", rows="", meas_rows=meas)
-    assert _states(html)["PLAYA TEST PM1"] == BeachState.warning
+    assert _states(html)["PLAYA TEST PM1"] == BeachState.open
+
+
+def test_ungraded_open_incident_is_not_an_alert():
+    """Una incidencia abierta con solo 'Sin Calificar' tampoco alerta:
+    es la traza administrativa de una muestra sin evaluar (o de una
+    playa cerrada por el municipio — Gaviotas), no un aviso de agua."""
+    html = _html(
+        [("PLAYA TEST PM1", [("11/08/2026", "", "Sin Calificar")])]
+    )
+    assert _states(html)["PLAYA TEST PM1"] == BeachState.open
 
 
 def test_incident_closed_after_measurement_wins():

@@ -255,6 +255,10 @@ def _derive_state(pm: PmData) -> BeachState:
         obs = _normalize(inc.observations)
         if "PROHIBIDO" in obs or "PROHIBICION" in obs:
             return BeachState.closed
+        if "SIN CALIFICAR" in obs:
+            # Registro administrativo ("no pudimos evaluar la muestra"),
+            # no una alerta: no genera aviso ni en vivo ni en historial
+            continue
         state = BeachState.warning
     if state is BeachState.open and pm.measurements:
         latest_meas = max(pm.measurements, key=lambda m: m.sampled)
@@ -268,7 +272,9 @@ def _derive_state(pm: PmData) -> BeachState:
         eval_norm = _normalize(latest_meas.evaluation)
         if "PROHIBID" in eval_norm:
             return BeachState.closed
-        if "SIN CALIFICAR" in eval_norm or "RECOMEND" in eval_norm:
+        # "Sin Calificar" = muestra sin evaluar → no informa; una
+        # recomendación de no baño sí es un aviso real
+        if "RECOMEND" in eval_norm:
             state = BeachState.warning
     return state
 

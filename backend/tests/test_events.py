@@ -23,8 +23,10 @@ def meas(day: date, evaluation: str):
     return SimpleNamespace(sampled_at=day, evaluation=evaluation)
 
 
-def inc(opened: date, closed: date | None = None):
-    return SimpleNamespace(opened_at=opened, closed_at=closed)
+def inc(opened: date, closed: date | None = None, obs: str | None = None):
+    return SimpleNamespace(
+        opened_at=opened, closed_at=closed, observations=obs
+    )
 
 
 def news(
@@ -198,6 +200,35 @@ def test_press_overlapping_official_incident_is_skipped():
         items=[news(date(2026, 8, 5), "closure")],
     )
     assert synthesize_events(b, today=TODAY) == []
+
+
+def test_ungraded_incident_neither_covers_nor_swallows_press():
+    """Gaviotas real: 'Sin Calificar' es solo el registro de una
+    muestra sin evaluar — no cubre ventanas de analítica ni absorbe
+    las noticias de cierre, que forman su propio episodio de prensa."""
+    b = beach(
+        measurements=[
+            meas(date(2026, 6, 10), BAD),
+            meas(date(2026, 6, 19), APT),
+        ],
+        incidents=[inc(date(2026, 6, 8), obs="Sin Calificar")],
+        items=[
+            # Fuera de la ventana ±14d de la analítica: cierre propio
+            news(
+                date(2026, 5, 20),
+                "closure",
+                cause="riesgo de desprendimientos",
+            )
+        ],
+    )
+    evs = synthesize_events(b, today=date(2026, 9, 26))
+    # La ventana de analítica sobrevive (no la cubre la nota admin) y
+    # el cierre de prensa genera su evento estructural propio
+    assert len(evs) == 2
+    press = next(e for e in evs if e.via == "press")
+    meas_ev = next(e for e in evs if e.via == "measurement")
+    assert press.closed_at is None  # estructural: no caduca
+    assert meas_ev.closed_at == date(2026, 6, 19)
 
 
 def test_separate_press_clusters_make_separate_events():
