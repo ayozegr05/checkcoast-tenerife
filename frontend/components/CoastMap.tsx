@@ -1265,7 +1265,9 @@ export default function CoastMap({
                   : ''}
               </Text>
             )}
-            <Text style={styles.alertSection}>
+            <Text
+              style={[styles.alertSection, styles.alertSectionActive]}
+            >
               Activas ahora · {alertBeaches.features.length}
             </Text>
             {[...alertBeaches.features]
@@ -1321,7 +1323,9 @@ export default function CoastMap({
                 );
               })}
             {resueltas.length > 0 && (
-              <Text style={styles.alertSection}>
+              <Text
+                style={[styles.alertSection, styles.alertSectionResolved]}
+              >
                 Reabiertas recientemente · {resueltas.length}
               </Text>
             )}
@@ -1705,7 +1709,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontFamily: fonts.bold,
     color: colors.text,
-    backgroundColor: 'rgba(8,107,150,0.10)',
+    backgroundColor: colors.sand,
     marginHorizontal: 10,
     marginTop: 8,
     marginBottom: 4,
@@ -1733,16 +1737,24 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
     marginTop: 4,
-    backgroundColor: colors.background,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+  },
+  // Activa = peligro suave; resuelta = alivio
+  alertSectionActive: {
+    backgroundColor: 'rgba(198,40,40,0.10)',
+    color: colors.status.closed,
+  },
+  alertSectionResolved: {
+    backgroundColor: 'rgba(13,148,136,0.10)',
+    color: colors.status.open,
   },
   alertMore: {
     marginHorizontal: 12,
     marginVertical: 10,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.status.closed,
     alignItems: 'center',
     elevation: 2,
   },
