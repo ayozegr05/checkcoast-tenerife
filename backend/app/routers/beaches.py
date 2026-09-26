@@ -117,17 +117,15 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
     episodes: list[Episode] = []
     for beach in beaches:
         for inc in beach.incidents:
+            press_items = _press_in_window(
+                beach, inc.opened_at, inc.closed_at or date.today()
+            )
             episodes.append(
                 Episode(
                     beach_id=beach.id,
                     base=base_name(beach.name),
                     municipality=beach.municipality,
-                    kind=(
-                        "closure"
-                        if inc.observations
-                        and "prohib" in inc.observations.lower()
-                        else "warning"
-                    ),
+                    kind=_incident_kind(inc, press_items),
                     start=inc.opened_at,
                     end=inc.closed_at,
                     via="official",
@@ -203,6 +201,32 @@ def _dominant_cause(texts: list[str]) -> str | None:
     return Counter(cats).most_common(1)[0][0]
 
 
+def _press_in_window(beach: Beach, start: date, end: date) -> list:
+    """Noticias relevantes dentro de la ventana oficial (±7 días)."""
+    return [
+        n
+        for n in beach.news_items
+        if n.relevant
+        and n.published_at
+        and start - timedelta(days=7)
+        <= n.published_at.date()
+        <= end + timedelta(days=7)
+    ]
+
+
+def _incident_kind(inc, press_items) -> str:
+    """'prohibido' en la observación → cierre. Además, si la prensa de
+    la ventana habla de cierre el episodio es un cierre aunque Náyade
+    anotara otra cosa: un "Sin Calificar" sobre una playa cerrada por
+    el municipio (Gaviotas, talud) es traza administrativa — Sanidad no
+    muestrea una playa vallada —, no un aviso de agua."""
+    if inc.observations and "prohib" in inc.observations.lower():
+        return "closure"
+    if any(n.event_type == "closure" for n in press_items):
+        return "closure"
+    return "warning"
+
+
 def _synth_observations(ev: SynthEvent) -> str:
     if ev.via == "measurement":
         obs = "Prohibido por analítica del agua — sin incidente oficial en Náyade"
@@ -266,26 +290,13 @@ def _collect_episodes(
             end = inc.closed_at or today
             # Noticias dentro de la ventana oficial (±7 días): la
             # incidencia puede anotar que la prensa también lo recogió
-            press_items = [
-                n
-                for n in beach.news_items
-                if n.relevant
-                and n.published_at
-                and inc.opened_at - timedelta(days=7)
-                <= n.published_at.date()
-                <= end + timedelta(days=7)
-            ]
+            press_items = _press_in_window(beach, inc.opened_at, end)
             episodes.append(
                 Episode(
                     beach_id=inc.beach_id,
                     base=base_name(beach.name),
                     municipality=beach.municipality,
-                    kind=(
-                        "closure"
-                        if inc.observations
-                        and "prohib" in inc.observations.lower()
-                        else "warning"
-                    ),
+                    kind=_incident_kind(inc, press_items),
                     start=inc.opened_at,
                     end=inc.closed_at,
                     via="official",

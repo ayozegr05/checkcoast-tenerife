@@ -307,6 +307,68 @@ def test_stale_structural_closure_never_estimates_end():
     assert ev.opened_at == date(2026, 5, 21)
 
 
+def test_minority_structural_cause_does_not_persist():
+    """Candelaria real: 4 titulares dicen "vertido" y 1 habla de
+    "obstrucción por materiales de obra" — la causa dominante decide
+    (Contaminación), así que el episodio caduca con fin estimado y no
+    se queda abierto para siempre por un titular minoritario."""
+    b = beach(
+        items=[
+            news(date(2025, 11, 6), "closure", cause="vertido"),
+            news(
+                date(2025, 11, 6),
+                "closure",
+                source="canal4",
+                cause="obstrucción por materiales de obra en la red",
+            ),
+            news(
+                date(2025, 11, 6),
+                "closure",
+                source="c7",
+                cause="vertido de origen desconocido",
+            ),
+            news(
+                date(2025, 11, 7),
+                "closure",
+                source="ayto",
+                cause="vertido de aguas residuales",
+            ),
+        ]
+    )
+    (ev,) = synthesize_events(b, today=date(2026, 9, 26))
+    assert ev.closed_at == date(2025, 11, 7)
+    assert ev.end_estimated
+
+
+def test_dominant_structural_cause_still_persists():
+    """La votación no rompe Benijo: si la mayoría dice desprendimientos
+    el episodio sigue abierto aunque haya un titular de "vertido"."""
+    b = beach(
+        items=[
+            news(
+                date(2026, 5, 21),
+                "closure",
+                cause="riesgo de desprendimientos",
+            ),
+            news(
+                date(2026, 7, 31),
+                "closure",
+                source="diario",
+                cause="desprendimientos en la ladera",
+            ),
+            news(
+                date(2026, 8, 2),
+                "closure",
+                source="c7",
+                cause="vertido",
+            ),
+        ]
+    )
+    (ev,) = synthesize_events(b, today=date(2026, 9, 26))
+    assert ev.closed_at is None
+    assert not ev.end_estimated
+
+
 def test_closed_since_backdates_episode_start():
     """La guía de Benijo afirma "cerrada desde julio de 2024" aunque
     la ficha se actualizó en 2026: el inicio real manda sobre la fecha

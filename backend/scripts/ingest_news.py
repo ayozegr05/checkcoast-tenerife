@@ -117,12 +117,17 @@ def _enrich_with_body(
     """Segunda pasada híbrida: titular → cuerpo del artículo.
 
     Se dispara cuando el titular no basta: noticia relevante que no casó
-    con ninguna playa (el cuerpo puede nombrar el municipio) o cuya causa
+    con ninguna playa (el cuerpo puede nombrar el municipio), cuya causa
     no está clara (ausente o puramente mecanismo, p.ej. "acceso
-    prohibido"). Devuelve (ext, hits, consumió_descarga)."""
+    prohibido") o cuya causa es "Obras" — la categoría más tramposa: un
+    titular que habla de "materiales de obra"/"obras de emergencia" suele
+    describir el mecanismo y el cuerpo revela el vertido o el
+    desprendimiento real (Candelaria: "obstrucción por materiales de
+    obra" era un vertido). Devuelve (ext, hits, consumió_descarga)."""
     if not ext.relevant:
         return ext, hits, False
-    if hits and _short_cause(ext.cause) is not None:
+    cause = _short_cause(ext.cause)
+    if hits and cause is not None and cause != "Obras":
         return ext, hits, False
     body = resolve_and_fetch(art.url)
     if not body:

@@ -106,11 +106,16 @@ def _min_closed_since(vals) -> str | None:
 def _is_structural(ev: "SynthEvent") -> bool:
     """El episodio es por causa estructural (desprendimientos, obras):
     no se resuelve solo — sin reapertura explícita sigue vigente aunque
-    la prensa calle (misma regla que /alerts: Benijo ~2 años)."""
-    for c in ev.causes:
-        if _short_cause(c) in _STRUCTURAL_CAUSES:
-            return True
-    return False
+    la prensa calle (misma regla que /alerts: Benijo ~2 años).
+
+    La decide la causa DOMINANTE del clúster — la misma votación que la
+    causa mostrada y que _press_cause en /alerts — no "cualquiera": un
+    titular minoritario que mencione obras de pasada (Candelaria:
+    "materiales de obra" en un vertido) no vuelve eterno el episodio."""
+    cats = [c for c in (_short_cause(x) for x in ev.causes) if c]
+    if not cats:
+        return False
+    return Counter(cats).most_common(1)[0][0] in _STRUCTURAL_CAUSES
 
 
 def _overlaps(
