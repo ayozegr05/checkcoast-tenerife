@@ -96,15 +96,19 @@ const TOPICS: Topic[] = [
     rows: [
       [
         require('../assets/icons/icon-townhall.png'),
-        'Un ranking de quién acumula más cierres, avisos e incidencias',
+        'Tres vistas: el ranking por municipio, lo de este verano y lo de este año',
       ],
       [
         require('../assets/icons/icon-alert.png'),
         'La barra de color te dice cómo está cada uno: roja si hay cierres ahora, naranja avisos, azul solo pasado; cuanto más larga, peor estado',
       ],
       [
+        require('../assets/icons/icon-layers.png'),
+        'Los chips de arriba filtran por año y por causa: solo contaminación, solo desprendimientos… también dentro del ranking',
+      ],
+      [
         require('../assets/icons/beach.png'),
-        'Toca un municipio y verás su historial completo de incidencias: qué playa, cuándo y por qué',
+        'Toca un municipio y verás su historial de incidencias: qué playa, cuándo y por qué — con el filtro que tengas activo',
       ],
     ],
   },
