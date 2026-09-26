@@ -85,15 +85,16 @@ export const causeBreakdown = (
     )
     .join(' · ');
 
-// Cierres (no avisos) abiertos en el año en curso — para "N cierres
-// en 2026" de las cabeceras
+// Cierres (no avisos) que TOCARON el año en curso — misma semántica
+// de solape que la vista "Este año": un cierre abierto antes que sigue
+// (o siguió durante) el año cuenta igual (Benijo cerró todo 2026
+// aunque abriera en 2024). Si esta cuenta difiere del desglose que
+// ve el usuario al entrar, la cifra miente
 export const closuresThisYear = (
   eps: MunicipalityIncident[],
   year: number = new Date().getFullYear(),
 ): MunicipalityIncident[] =>
-  eps.filter(
-    (e) => e.kind === 'closure' && e.opened_at.startsWith(`${year}-`),
-  );
+  yearEpisodes(eps, year).filter((e) => e.kind === 'closure');
 
 // Episodios sin fecha de cierre: siguen vivos
 export const activeEpisodes = (

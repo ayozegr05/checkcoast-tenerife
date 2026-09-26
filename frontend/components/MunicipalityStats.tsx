@@ -196,7 +196,24 @@ export default function MunicipalityStats({
         ),
     [yearAll, yearCause],
   );
-  // Años con datos para el selector (temporada y año lo comparten)
+  // Municipios con cierres de la causa activa en el año seleccionado:
+  // en "Por municipio" las chips también filtran el ranking — solo
+  // quedan los municipios que sufrieron ese tipo de episodio
+  const muniCauseCount = useMemo(() => {
+    const m = new Map<string | null, number>();
+    if (yearCause === 'all') return m;
+    for (const e of yearAll) {
+      if (e.kind !== 'closure') continue;
+      const hit =
+        yearCause === 'sin causa' ? !e.cause : e.cause === yearCause;
+      if (!hit) continue;
+      m.set(e.municipality, (m.get(e.municipality) ?? 0) + 1);
+    }
+    return m;
+  }, [yearAll, yearCause]);
+
+  // Años con datos para el selector (compartido por las tres vistas:
+  // en ranking decide a qué año se aplica el filtro de causa)
   const years = useMemo(() => episodeYears(episodes), [episodes]);
   const yearLine = useMemo(() => {
     const n = closuresThisYear(episodes).length;
@@ -269,10 +286,17 @@ export default function MunicipalityStats({
         observations: 'Según prensa — sin incidente oficial en Náyade',
         via: 'press',
       }));
-    return [...official, ...pressRows].sort((a, b) =>
-      b.opened_at.localeCompare(a.opened_at),
-    );
-  }, [detail, incidents, beaches]);
+    return [...official, ...pressRows]
+      .sort((a, b) => b.opened_at.localeCompare(a.opened_at))
+      // Con una causa activa el detalle muestra solo esos episodios
+      .filter((inc) =>
+        yearCause === 'all'
+          ? true
+          : yearCause === 'sin causa'
+            ? !inc.cause
+            : inc.cause === yearCause,
+      );
+  }, [detail, incidents, beaches, yearCause]);
 
   // Estado vivo por playa: un incidente abierto cuyo observations no
   // dice "prohibido" se clasifica como aviso, pero si la playa está
@@ -331,10 +355,15 @@ export default function MunicipalityStats({
         ...m,
         beaches: beachNames.size,
       }))
+      // Con una causa activa solo quedan los municipios que sufrieron
+      // cierres de ese tipo en el año seleccionado
+      .filter(
+        (m) => yearCause === 'all' || muniCauseCount.has(m.municipality),
+      )
       .sort(
         (a, b) => scoreOf(b) - scoreOf(a) || a.name.localeCompare(b.name),
       );
-  }, [beaches, stats]);
+  }, [beaches, stats, yearCause, muniCauseCount]);
 
   const maxScore = Math.max(1, ...rows.map(scoreOf));
 
@@ -528,7 +557,7 @@ export default function MunicipalityStats({
           {view === 'ranking' && yearLine && (
             <Text style={styles.yearLine}>{yearLine}</Text>
           )}
-          {view !== 'ranking' && years.length > 1 && (
+          {years.length > 1 && (
             <View style={styles.seasonChips}>
               {years.map((y) => (
                 <Pressable
@@ -598,7 +627,7 @@ export default function MunicipalityStats({
               )}
             </View>
           )}
-          {view === 'year' && yearCauses.length > 0 && (
+          {view !== 'temporada' && yearCauses.length > 0 && (
             <View style={styles.seasonChips}>
               <Pressable
                 style={[
@@ -801,6 +830,14 @@ export default function MunicipalityStats({
                     {item.warningNow}{' '}
                     {item.warningNow === 1 ? 'aviso' : 'avisos'} activo
                     {item.warningNow === 1 ? '' : 's'}
+                  </Text>
+                )}
+                {yearCause !== 'all' && (
+                  <Text style={[styles.badge, styles.badgeEnded]}>
+                    {muniCauseCount.get(item.municipality) ?? 0}{' '}
+                    {yearCause === 'sin causa'
+                      ? 'sin causa'
+                      : yearCause.toLowerCase()}
                   </Text>
                 )}
               </View>

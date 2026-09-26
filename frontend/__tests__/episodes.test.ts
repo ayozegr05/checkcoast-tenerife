@@ -3,6 +3,7 @@ import { describe, expect, it } from '@jest/globals';
 import type { MunicipalityIncident } from '../lib/api';
 import {
   causeBreakdown,
+  closuresThisYear,
   episodeYears,
   seasonEpisodes,
   yearEpisodes,
@@ -83,6 +84,27 @@ describe('yearEpisodes — solape con el año natural', () => {
         [ep({ opened_at: '2025-11-01', closed_at: '2025-12-20' })],
         2026,
       ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('closuresThisYear — cabecera del banner', () => {
+  it('cuenta por solape igual que la vista Este año', () => {
+    expect(
+      closuresThisYear(
+        [
+          ep({ opened_at: '2026-07-01', closed_at: '2026-07-03' }),
+          ep({ opened_at: '2024-07-01', closed_at: null }), // Benijo
+          ep({ opened_at: '2025-09-15', closed_at: '2026-04-13' }), // Pris
+        ],
+        2026,
+      ),
+    ).toHaveLength(3);
+  });
+
+  it('los avisos no cuentan como cierres', () => {
+    expect(
+      closuresThisYear([ep({ kind: 'warning' })], 2026),
     ).toHaveLength(0);
   });
 });
