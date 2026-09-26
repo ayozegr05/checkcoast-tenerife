@@ -78,9 +78,12 @@ export default function App() {
   const [muniOpen, setMuniOpen] = useState(false);
   // Vista inicial del panel de municipios: el enlace del banner de
   // alertas lo abre directamente en "Temporada"
-  const [muniView, setMuniView] = useState<'ranking' | 'temporada'>(
-    'ranking',
-  );
+  const [muniView, setMuniView] = useState<
+    'ranking' | 'temporada' | 'year'
+  >('ranking');
+  // Causa preseleccionada al abrir la vista "Este año" (drill-down
+  // del paréntesis del banner de alertas)
+  const [muniCause, setMuniCause] = useState<string | null>(null);
   const [outfallListOpen, setOutfallListOpen] = useState(false);
   const [listMunicipality, setListMunicipality] = useState<
     string | null | undefined
@@ -397,10 +400,17 @@ export default function App() {
         onOpenList={() => setListOpen(true)}
         onOpenMunicipalities={() => {
           setMuniView('ranking');
+          setMuniCause(null);
           setMuniOpen(true);
         }}
         onOpenTemporada={() => {
           setMuniView('temporada');
+          setMuniCause(null);
+          setMuniOpen(true);
+        }}
+        onOpenCause={(cause) => {
+          setMuniView('year');
+          setMuniCause(cause);
           setMuniOpen(true);
         }}
         episodes={episodes}
@@ -486,6 +496,7 @@ export default function App() {
         beaches={beachesFC.features}
         episodes={episodes}
         initialView={muniView}
+        initialCause={muniCause}
         onSelect={handleMunicipalitySelect}
         onSelectBeach={openBeachFromMuni}
         onClose={() => setMuniOpen(false)}

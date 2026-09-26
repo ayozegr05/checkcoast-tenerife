@@ -1,7 +1,12 @@
 import { describe, expect, it } from '@jest/globals';
 
 import type { MunicipalityIncident } from '../lib/api';
-import { causeBreakdown, seasonEpisodes } from '../lib/episodes';
+import {
+  causeBreakdown,
+  episodeYears,
+  seasonEpisodes,
+  yearEpisodes,
+} from '../lib/episodes';
 
 const ep = (
   e: Partial<MunicipalityIncident>,
@@ -58,6 +63,36 @@ describe('seasonEpisodes — filtro por solape con el verano', () => {
         2026,
       ),
     ).toHaveLength(1);
+  });
+});
+
+describe('yearEpisodes — solape con el año natural', () => {
+  it('episodio del año cuenta', () => {
+    expect(yearEpisodes([ep({})], 2026)).toHaveLength(1);
+  });
+
+  it('episodio abierto de un año anterior sigue contando', () => {
+    expect(
+      yearEpisodes([ep({ opened_at: '2024-07-01', closed_at: null })], 2026),
+    ).toHaveLength(1);
+  });
+
+  it('episodio cerrado el año anterior no cuenta', () => {
+    expect(
+      yearEpisodes(
+        [ep({ opened_at: '2025-11-01', closed_at: '2025-12-20' })],
+        2026,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
+describe('episodeYears — años con datos para el selector', () => {
+  it('del año actual al más viejo con episodios', () => {
+    const cur = new Date().getFullYear();
+    expect(
+      episodeYears([ep({ opened_at: '2024-07-01', closed_at: null })]),
+    ).toEqual(cur === 2026 ? [2026, 2025, 2024] : expect.anything());
   });
 });
 

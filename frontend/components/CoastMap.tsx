@@ -35,7 +35,7 @@ import {
   fmtDate,
 } from '../lib/format';
 import {
-  causeBreakdown,
+  causeCounts,
   closuresThisYear,
   episodeDays,
   recentlyResolved,
@@ -132,6 +132,9 @@ type CoastMapProps = {
   // Abre el panel de municipios en la vista Temporada (enlace del
   // banner de alertas)
   onOpenTemporada?: () => void;
+  // Drill-down del desglose por causa del banner: "7 mar agitado" →
+  // abre la vista "Este año" filtrada a esa causa
+  onOpenCause?: (cause: string) => void;
 };
 
 const OUTFALL_COLORS = colors.outfall;
@@ -210,6 +213,7 @@ export default function CoastMap({
   onOpenHelp,
   episodes = [],
   onOpenTemporada,
+  onOpenCause,
 }: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -450,15 +454,10 @@ export default function CoastMap({
     const live = closedCount + warningCount;
     // Desglose por causa entre paréntesis: 14 cierres no es lo mismo
     // si 11 son por vertidos (gestión del agua) que por taludes
-    // puntuales — el banner lo resume, aquí se explica
-    const causes = causeBreakdown(yearClosures);
-    return n > 0
-      ? `Este año · ${n} ${n === 1 ? 'cierre' : 'cierres'}${
-          causes ? ` (${causes})` : ''
-        }${
-          live ? ` · ${live} ${live === 1 ? 'activa' : 'activas'} ahora` : ''
-        }`
-      : null;
+    // puntuales — el banner lo resume, aquí se explica y cada causa
+    // es tocable para ver sus episodios
+    const causes = causeCounts(yearClosures);
+    return n > 0 ? { n, live, causes } : null;
   }, [episodes, closedCount, warningCount]);
   const resueltas = useMemo(() => recentlyResolved(episodes, 30), [episodes]);
   // Una playa resuelta abre su ficha igual que una alerta: episodio →
@@ -1235,7 +1234,36 @@ export default function CoastMap({
         {alertsOpen && hasAlerts && (
           <View style={styles.alertList}>
             {yearLine && (
-              <Text style={styles.alertYearLine}>{yearLine}</Text>
+              <Text style={styles.alertYearLine}>
+                {`Este año · ${yearLine.n} ${
+                  yearLine.n === 1 ? 'cierre' : 'cierres'
+                }`}
+                {yearLine.causes.length > 0 && ' ('}
+                {yearLine.causes.map(([cause, n], i) => (
+                  <Text key={cause}>
+                    {i > 0 ? ' · ' : ''}
+                    <Text
+                      style={onOpenCause && styles.alertYearCause}
+                      onPress={
+                        onOpenCause
+                          ? () => {
+                              setAlertsOpen(false);
+                              onOpenCause(cause);
+                            }
+                          : undefined
+                      }
+                    >
+                      {`${n} ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`}
+                    </Text>
+                  </Text>
+                ))}
+                {yearLine.causes.length > 0 && ')'}
+                {yearLine.live
+                  ? ` · ${yearLine.live} ${
+                      yearLine.live === 1 ? 'activa' : 'activas'
+                    } ahora`
+                  : ''}
+              </Text>
             )}
             {[...alertBeaches.features]
               .sort((a) => (a.properties.status === 'closed' ? -1 : 1))
@@ -1676,6 +1704,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 8,
     paddingBottom: 2,
+  },
+  // Causas tocables dentro del paréntesis anual: subrayadas como
+  // enlace — abren la vista "Este año" filtrada a esa causa
+  alertYearCause: {
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
   alertSection: {
     fontSize: 10,

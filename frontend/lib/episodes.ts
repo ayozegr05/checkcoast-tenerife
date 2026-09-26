@@ -11,40 +11,79 @@ export const seasonYear = (today: Date = new Date()): number =>
     ? today.getFullYear()
     : today.getFullYear() - 1;
 
-// Episodios que TOCARON la temporada de baño del año dado: los que
-// empezaron en jun-sep Y los que venían abiertos de antes y seguían
-// (o cerraron) durante el verano — Benijo lleva cerrada desde 2024 y
-// fue un cierre de este verano igualmente
+// Episodios que SE SOLAPAN con la ventana [start, end] (ISO): los que
+// empezaron dentro Y los que venían abiertos de antes y seguían (o
+// cerraron) durante ella — Benijo lleva cerrada desde 2024 y fue un
+// cierre de este verano igualmente
+const overlapping = (
+  eps: MunicipalityIncident[],
+  start: string,
+  end: string,
+): MunicipalityIncident[] =>
+  eps.filter(
+    (e) =>
+      e.opened_at <= end &&
+      (e.closed_at === null || e.closed_at >= start),
+  );
+
+// Episodios que tocaron la temporada de baño (jun-sep) del año dado
 export const seasonEpisodes = (
   eps: MunicipalityIncident[],
   year: number = seasonYear(),
-): MunicipalityIncident[] => {
-  const seasonStart = `${year}-06-01`;
-  const seasonEnd = `${year}-09-30`;
-  return eps.filter(
-    (e) =>
-      e.opened_at <= seasonEnd &&
-      (e.closed_at === null || e.closed_at >= seasonStart),
+): MunicipalityIncident[] =>
+  overlapping(eps, `${year}-06-01`, `${year}-09-30`);
+
+// Episodios que tocaron el año natural (ene-dic) — la vista "Este año"
+export const yearEpisodes = (
+  eps: MunicipalityIncident[],
+  year: number = new Date().getFullYear(),
+): MunicipalityIncident[] =>
+  overlapping(eps, `${year}-01-01`, `${year}-12-31`);
+
+// Años con algún episodio (selector de temporada/año): del más viejo
+// al actual — Benijo abrió en 2024 y sigue abierta, así que 2025 y
+// 2026 también cuentan como años que la "tocaron"
+export const episodeYears = (eps: MunicipalityIncident[]): number[] => {
+  const cur = new Date().getFullYear();
+  const first = eps.reduce(
+    (min, e) => Math.min(min, Number(e.opened_at.slice(0, 4)) || cur),
+    cur,
   );
+  const years: number[] = [];
+  for (let y = cur; y >= first; y--) years.push(y);
+  return years;
 };
 
-// Desglose de causas de un conjunto de episodios:
-// "9 contaminación · 3 desprendimientos · 2 sin causa"
-export const causeBreakdown = (
+// Pares [causa, nº episodios] ordenados por frecuencia — para las
+// cabeceras y las chips-filtro de la vista "Este año". Los episodios
+// sin causa van al final como etiqueta "sin causa".
+export const causeCounts = (
   eps: MunicipalityIncident[],
-): string => {
+): [string, number][] => {
   const byCause = new globalThis.Map<string, number>();
   let unknown = 0;
   for (const e of eps) {
     if (e.cause) byCause.set(e.cause, (byCause.get(e.cause) ?? 0) + 1);
     else unknown += 1;
   }
-  const parts = [...byCause.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([cause, n]) => `${n} ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`);
-  if (unknown) parts.push(`${unknown} sin causa`);
-  return parts.join(' · ');
+  const out: [string, number][] = [...byCause.entries()].sort(
+    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+  );
+  if (unknown) out.push(['sin causa', unknown]);
+  return out;
 };
+
+// Desglose de causas de un conjunto de episodios:
+// "9 contaminación · 3 desprendimientos · 2 sin causa"
+export const causeBreakdown = (
+  eps: MunicipalityIncident[],
+): string =>
+  causeCounts(eps)
+    .map(
+      ([cause, n]) =>
+        `${n} ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`,
+    )
+    .join(' · ');
 
 // Cierres (no avisos) abiertos en el año en curso — para "N cierres
 // en 2026" de las cabeceras
