@@ -1,3 +1,4 @@
+import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
 
@@ -77,6 +78,12 @@ _CAUSE_RULES = [
 ]
 # Sin categoría "Acceso": "acceso prohibido"/"cierre de acceso"/"vallado"
 # describen el mecanismo del cierre, no su razón → no computan como causa.
+#
+# Claves que se comparan como PALABRA ENTERA, no substring: "temporal"
+# casa dentro de "temporalmente" (= de duración limitada) y falsaba
+# todas las observaciones de Náyade ("prohibido el baño temporalmente"
+# → Mar agitado, cuando Sanidad solo cierra por agua)
+_CAUSE_WORD_KEYS = {"temporal"}
 
 # Causas estructurales: no se resuelven solas (hace falta obra civil o
 # el fin de una obra en marcha) → un cierre de prensa por esta causa
@@ -98,7 +105,10 @@ def _short_cause(text: str | None) -> str | None:
         if unicodedata.category(c) != "Mn"
     )
     for keys, label in _CAUSE_RULES:
-        if any(k in t for k in keys):
+        if any(
+            re.search(rf"\b{k}\b", t) if k in _CAUSE_WORD_KEYS else k in t
+            for k in keys
+        ):
             return label
     return None
 

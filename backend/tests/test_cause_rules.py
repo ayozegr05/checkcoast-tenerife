@@ -28,3 +28,17 @@ def test_unknown_text_is_none():
     assert _short_cause(None) is None
     assert _short_cause("") is None
     assert _short_cause("la playa más querida del norte") is None
+
+
+def test_temporalmente_is_not_temporal():
+    # Regresión: la observación estándar de Náyade
+    # "prohibido el baño temporalmente" contiene "temporal" como
+    # substring y clasificaba prohibiciones sanitarias como temporal
+    # de mar — Sanidad solo cierra por agua
+    assert _short_cause(
+        "Zona donde queda prohibido el baño temporalmente"
+    ) is None
+    assert _short_cause("cierre temporal por vertido") == "Contaminación"
+    # pero un temporal de mar de verdad sigue casando
+    assert _short_cause("cerrada por temporal") == "Mar agitado"
+    assert _short_cause("el temporal dañó el acceso") == "Mar agitado"
