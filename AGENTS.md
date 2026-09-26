@@ -18,7 +18,10 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     (`notify_press_event`, etiqueta "· según prensa"; cubre closure,
     warning y reopening — la reapertura solo notifica si había algo
     que reabrir: alerta de prensa ≤21 d o estado oficial no-open);
-    purga tokens DeviceNotRegistered; `_send` nunca propaga errores
+    `notify_beach_states` agrega una pasada del scraper: ≥4 cambios
+    del mismo tipo → un único push resumen ("5 cierres de baño ·
+    Playa X, Playa Y…"), ≤3 → individuales; purga tokens
+    DeviceNotRegistered; `_send` nunca propaga errores
     (red o respuesta no-JSON de Expo → devuelve 0 y se loguea)
   - `news_items.push_pending`/`pushed_at`: la ingesta marca los
     candidatos a push y un sweep al inicio de cada pasada reintenta lo

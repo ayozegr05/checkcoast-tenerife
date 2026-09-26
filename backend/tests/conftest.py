@@ -5,11 +5,12 @@ import pytest
 def _no_real_push(monkeypatch):
     """Los tests jamás deben disparar push reales.
 
-    El endpoint y el scraper importan `notify_beach_status` dentro de la
-    función, así que parchear el atributo del módulo basta."""
+    `_send` es la única salida al Expo Push Service: con el bloqueada,
+    los endpoints y el scraper pueden llamar a notify_* sin efecto
+    real y los tests de notify pueden re-parchearla con un recorder."""
     import app.notify
 
-    monkeypatch.setattr(app.notify, "notify_beach_status", lambda *a, **k: None)
+    monkeypatch.setattr(app.notify, "_send", lambda *a, **k: 0)
 
 
 @pytest.fixture(scope="session", autouse=True)

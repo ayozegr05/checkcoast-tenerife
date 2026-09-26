@@ -610,9 +610,14 @@ def test_beach_news_since_anchors_latest_cluster(seed_data):
 def test_send_push_tolerates_bad_expo_response(monkeypatch):
     """Un 502 con HTML de Expo (json() revienta) no debe propagarse:
     devuelve 0 y la ingesta sigue con el resto de playas."""
+    import importlib
+
     import requests
 
     from app import notify
+
+    # conftest parchea `_send` a noop — recargar recupera la real
+    real_send = importlib.reload(notify)._send
 
     class BadResp:
         def raise_for_status(self):
@@ -626,7 +631,79 @@ def test_send_push_tolerates_bad_expo_response(monkeypatch):
 
     db = SessionLocal()
     try:
-        assert notify._send(db, ["ExponentPushToken[x]"], [{}]) == 0
+        assert real_send(db, ["ExponentPushToken[x]"], [{}]) == 0
+    finally:
+        db.close()
+
+
+def test_push_aggregates_many_closures(monkeypatch):
+    """≥4 cambios del mismo tipo en una pasada → un único push
+    agregado ("5 cierres de baño"), no un bombardeo por playa;
+    los cambios de otro tipo con ≤3 van individuales."""
+    from app import notify
+    from app.db import SessionLocal
+    from app.models import Beach, BeachState, DeviceToken
+
+    token = "ExponentPushToken[pytest-batch]"
+    db = SessionLocal()
+    db.add(DeviceToken(token=token, platform="android"))
+    db.commit()
+
+    batches = []
+    individual = []
+
+    def _beach(i):
+        b = Beach(name=f"PLAYA TEST BATCH {i}", municipality="Santa Cruz")
+        b.id = 9000 + i
+        return b
+
+    monkeypatch.setattr(
+        notify,
+        "_send",
+        lambda db_, toks, msgs: batches.append(msgs) or len(msgs),
+    )
+    monkeypatch.setattr(
+        notify,
+        "notify_beach_status",
+        lambda db_, b, s: individual.append(s) or 1,
+    )
+
+    changes = [(_beach(i), BeachState.closed) for i in range(5)]
+    changes.append((_beach(9), BeachState.open))  # reapertura suelta
+    try:
+        notify.notify_beach_states(db, changes)
+        assert len(batches) == 1  # un solo POST agregado
+        msgs = batches[0]
+        assert msgs and all(m["title"] == "5 cierres de baño" for m in msgs)
+        assert "Playa Test Batch 0" in msgs[0]["body"]
+        assert "Playa Test Batch 4" in msgs[0]["body"]
+        assert msgs[0]["data"] == {"kind": "batch", "state": "closed"}
+        assert individual == [BeachState.open]  # la suelta va aparte
+    finally:
+        db.query(DeviceToken).filter_by(token=token).delete()
+        db.commit()
+        db.close()
+
+
+def test_push_few_changes_stay_individual(monkeypatch):
+    """≤3 cambios del mismo tipo → push individual por playa."""
+    from app import notify
+    from app.db import SessionLocal
+    from app.models import Beach, BeachState
+
+    individual = []
+    monkeypatch.setattr(
+        notify,
+        "notify_beach_status",
+        lambda db_, b, s: individual.append(s) or 1,
+    )
+    db = SessionLocal()
+    try:
+        b = Beach(name="PLAYA TEST SOLO", municipality="M")
+        notify.notify_beach_states(
+            db, [(b, BeachState.closed)] * 3
+        )
+        assert individual == [BeachState.closed] * 3
     finally:
         db.close()
 

@@ -88,6 +88,61 @@ def notify_beach_status(
     return _send(db, tokens, messages) if tokens else 0
 
 
+# Cuando muchas playas cambian en la misma pasada (temporal de levante,
+# vertido grande) un push por playa es un bombardeo: a partir de
+# _AGG_MIN cambios del mismo tipo se manda UN resumen agregado
+_AGG_MIN = 4
+_AGG_LIST_MAX = 5
+
+_AGG_LABEL = {
+    BeachState.closed: "cierres de baño",
+    BeachState.warning: "avisos oficiales",
+    BeachState.open: "reaperturas",
+}
+
+
+def _batch_body(beaches: list[Beach]) -> str:
+    names = [_display_name(b.name) for b in beaches]
+    body = ", ".join(names[:_AGG_LIST_MAX])
+    extra = len(names) - _AGG_LIST_MAX
+    return f"{body} y {extra} más" if extra > 0 else body
+
+
+def notify_beach_states(
+    db: Session, changes: list[tuple[Beach, BeachState]]
+) -> int:
+    """Push de una pasada de cambios oficiales. ≤3 playas del mismo
+    tipo → push individual por playa; ≥4 → un único push agregado
+    ("5 cierres de baño · Playa X, Playa Y…") por tipo."""
+    groups: dict[BeachState, list[Beach]] = {}
+    for beach, state in changes:
+        groups.setdefault(state, []).append(beach)
+
+    sent = 0
+    for state, beaches in groups.items():
+        if len(beaches) < _AGG_MIN:
+            for b in beaches:
+                sent += notify_beach_status(db, b, state)
+            continue
+        tokens = [t for (t,) in db.query(DeviceToken.token).all()]
+        if not tokens:
+            continue
+        body = _batch_body(beaches)
+        messages = [
+            {
+                "to": token,
+                "title": f"{len(beaches)} {_AGG_LABEL[state]}",
+                "body": body,
+                "data": {"kind": "batch", "state": state.value},
+                "sound": "default",
+                "channelId": "alerts",
+            }
+            for token in tokens
+        ]
+        sent += _send(db, tokens, messages)
+    return sent
+
+
 def notify_press_event(db: Session, beach: Beach, event_type: str) -> int:
     """Push de una alerta detectada por prensa antes que por Sanidad.
 

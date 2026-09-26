@@ -483,11 +483,12 @@ def run() -> tuple[int, int]:
             time.sleep(0.3)  # ser amable con el portal
 
         db.commit()
-        # Push a los dispositivos registrados, tras confirmar el commit
-        from app.notify import notify_beach_status
+        # Push a los dispositivos registrados, tras confirmar el commit.
+        # Un temporal que cierra muchas playas a la vez notifica un
+        # resumen agregado en vez de un push por playa
+        from app.notify import notify_beach_states
 
-        for beach, state in changed:
-            notify_beach_status(db, beach, state)
+        notify_beach_states(db, changed)
     except Exception:
         db.rollback()
         raise
