@@ -179,7 +179,12 @@ export default function BeachList({
 
   const statSum = (
     g: BeachGroup,
-    k: 'closures' | 'warnings' | 'closures_last_year' | 'bad_samples',
+    k:
+      | 'closures'
+      | 'warnings'
+      | 'closures_last_year'
+      | 'bad_samples'
+      | 'reconstructed',
   ) => g.members.reduce((s, m) => s + (stats.get(m.id)?.[k] ?? 0), 0);
 
   const groups = useMemo(
@@ -392,7 +397,11 @@ export default function BeachList({
           renderItem={({ item: g }) => {
             const status = worstStatusOf(g);
             const expanded = expandedKey === g.key;
-            const closures = statSum(g, 'closures');
+            // Cabecera del grupo: totales DEDUPLICADOS por playa
+            // física — un cierre de prensa replicado en los 3 PMs
+            // cuenta una vez (Jardín: 5 eventos reales, no 11)
+            const closures =
+              statSum(g, 'closures') + statSum(g, 'reconstructed');
             const warnings = statSum(g, 'warnings');
             const badSamples = statSum(g, 'bad_samples');
             return (
@@ -459,8 +468,9 @@ export default function BeachList({
                         ? fmtShort(st.latest_sampled_at)
                         : null,
                       ev,
-                      st && st.closures + st.warnings > 0
-                        ? `${st.closures} cierres · ${st.warnings} avisos`
+                      // Conteo propio del PM — cuadra con su ficha
+                      st && (st.own_closures ?? 0) + (st.own_warnings ?? 0) > 0
+                        ? `${st.own_closures} cierres · ${st.own_warnings} avisos`
                         : null,
                     ]
                       .filter(Boolean)

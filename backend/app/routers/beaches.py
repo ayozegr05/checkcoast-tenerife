@@ -116,10 +116,19 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
     year_ago = date.today() - timedelta(days=365)
     beaches = list(db.query(Beach))
     episodes: list[Episode] = []
+    # Conteo propio por PM (sin deduplicar entre hermanos): replica la
+    # ficha — incidencia con "prohibido" o evento reconstruido =
+    # cierre; "Sin Calificar" no cuenta (la ficha la lista aparte)
+    own_counts: dict[int, dict[str, int]] = {}
     for beach in beaches:
+        own_c = own_w = 0
         for inc in beach.incidents:
             if is_ungraded_note(inc.observations):
                 continue  # nota administrativa sin alerta real
+            if "prohib" in (inc.observations or "").lower():
+                own_c += 1
+            else:
+                own_w += 1
             press_items = _press_in_window(
                 beach, inc.opened_at, inc.closed_at or date.today()
             )
@@ -137,6 +146,7 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                 )
             )
         for ev in synthesize_events(beach):
+            own_c += 1  # en la ficha via=press|measurement siempre es cierre
             episodes.append(
                 Episode(
                     beach_id=beach.id,
@@ -150,6 +160,7 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                     obs=None,
                 )
             )
+        own_counts[beach.id] = {"closures": own_c, "warnings": own_w}
     # Cada clúster se cuenta una vez, en el PM representativo (min id).
     # Solo los que tienen incidencia oficial van a closures/warnings;
     # los puramente reconstruidos van a `recon` (evita doble conteo:
@@ -191,6 +202,8 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                 latest_evaluation=latest.evaluation if latest else None,
                 latest_sampled_at=latest.sampled_at if latest else None,
                 reconstructed=c["recon"],
+                own_closures=own_counts.get(beach.id, {}).get("closures", 0),
+                own_warnings=own_counts.get(beach.id, {}).get("warnings", 0),
             )
         )
     return stats

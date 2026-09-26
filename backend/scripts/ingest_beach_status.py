@@ -451,10 +451,19 @@ def run() -> tuple[int, int]:
         db.close()
         return 0, 0
     matched: set[int] = set()
-    changed: list[tuple[Beach, BeachState]] = []
     try:
         beaches = {_normalize(b.name): b for b in db.query(Beach).all()}
+        beaches_by_id = {b.id: b for b in beaches.values()}
         latest = _latest_status_map(db)
+        # Snapshot del estado EFECTIVO antes de la pasada: el push
+        # refleja lo que ve el usuario, no el BeachStatus crudo — un
+        # "open" oficial bajo un cierre estructural de prensa vigente
+        # (Gaviotas) no es una reapertura real y no debe notificarse
+        from app.queries import effective_states
+
+        eff_before = {
+            bid: e["status"] for bid, e in effective_states(db).items()
+        }
 
         for cod in _fetch_zones(http):
             try:
@@ -475,20 +484,27 @@ def run() -> tuple[int, int]:
                     matched.add(beach.id)
                     if _persist(db, beach, pm, info.municipality, latest):
                         updated += 1
-                        state = _derive_state(pm)
-                        latest[beach.id] = state
-                        changed.append((beach, state))
+                        latest[beach.id] = _derive_state(pm)
             except requests.RequestException as e:
                 print(f"  zona {cod}: error {e}")
             time.sleep(0.3)  # ser amable con el portal
 
         db.commit()
-        # Push a los dispositivos registrados, tras confirmar el commit.
-        # Un temporal que cierra muchas playas a la vez notifica un
-        # resumen agregado en vez de un push por playa
+        # Push a los dispositivos registrados, tras confirmar el commit:
+        # solo si cambió el estado EFECTIVO (open/closed/warning). Un
+        # cambio de estado crudo que no mueve el efectivo no notifica
+        # — p.ej. la fila "Sin Calificar" de Gaviotas dejando de dar
+        # warning mientras la prensa la mantiene cerrada
         from app.notify import notify_beach_states
 
-        notify_beach_states(db, changed)
+        eff_changes = [
+            (beaches_by_id[bid], BeachState(s["status"]))
+            for bid, s in effective_states(db).items()
+            if eff_before.get(bid) != s["status"]
+            and s["status"] in BeachState._value2member_map_
+            and bid in beaches_by_id
+        ]
+        notify_beach_states(db, eff_changes)
     except Exception:
         db.rollback()
         raise

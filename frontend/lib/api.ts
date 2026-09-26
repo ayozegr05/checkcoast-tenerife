@@ -83,6 +83,11 @@ export type BeachStats = {
   // Episodios reconstruidos (analítica sin incidencia + cierres solo
   // en prensa): cuentan en el ranking como incidentes reales
   reconstructed?: number;
+  // Conteo propio del PM, sin deduplicar entre hermanos de una playa
+  // multi-PM: lo que muestra su ficha. closures/warnings son el
+  // conteo deduplicado por playa física (atribuido a un solo PM)
+  own_closures?: number;
+  own_warnings?: number;
 };
 
 export type BeachNearbyOutfall = {

@@ -89,6 +89,12 @@ class BeachStatsOut(BaseModel):
     # Episodios reconstruidos (analítica sin incidencia + cierres solo
     # en prensa): cuentan en el ranking pero no son BeachIncident
     reconstructed: int = 0
+    # Conteo propio del PM, sin deduplicar entre hermanos: mismo
+    # universo que la ficha (/beaches/{id}/incidents). Las playas
+    # multi-PM (Playa Jardín) comparten la prensa replicada — cada
+    # sub-fila de la lista muestra lo suyo
+    own_closures: int = 0
+    own_warnings: int = 0
 
 
 class OutfallNearestBeachOut(BaseModel):
