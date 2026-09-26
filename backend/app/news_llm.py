@@ -88,6 +88,11 @@ Si relevant=true extrae:
     reapertura → "other" (p.ej. "Costas autoriza obras para reabrir el
     acceso" = other, no reopening)
   · igual para "closure": anuncios de futuros cierres u obras son "other"
+  · análisis político, balance o retrospectiva sobre cierres PASADOS
+    ("achaca a episodios puntuales el cierre de playas", "el verano de
+    los cierres", "un año del cierre de...") no es un cierre nuevo →
+    "other"; solo vale "closure" si el texto afirma explícitamente que
+    la playa SIGUE cerrada hoy
 - cause: la RAZÓN de fondo del cierre/aviso — lo que provocó el problema
   ("vertido de aguas residuales", "bacterias fecales", "gasoil",
   "riesgo de desprendimientos", "temporal de mar", "obras EN la playa").
@@ -204,6 +209,13 @@ class GeminiExtractor:
             closed_since = data.get("closed_since")
             if closed_since is not None and not _CLOSED_SINCE_RE.match(
                 str(closed_since)
+            ):
+                closed_since = None
+            # closed_since solo tiene sentido en eventos de cierre/
+            # afectación; una reapertura o un "other" que lo traiga es
+            # ruido del modelo → se descarta
+            if data.get("event_type") not in (
+                "closure", "warning", "pollution",
             ):
                 closed_since = None
             return EventExtraction(

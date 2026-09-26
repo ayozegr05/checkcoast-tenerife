@@ -39,6 +39,7 @@ import {
   episodeDays,
   recentlyResolved,
 } from '../lib/episodes';
+import { alertLine } from '../lib/alertLine';
 import { groupKeyOf } from '../lib/beachGroups';
 import { colors, fonts } from '../lib/theme';
 import seaStyle from '../assets/mapstyle-sea.json';
@@ -1210,16 +1211,12 @@ export default function CoastMap({
           )}
           <Text style={styles.bannerText}>
             {closedCount || warningCount
-              ? [
-                  closedCount
-                    ? `${closedCount} ${closedCount === 1 ? 'cerrada' : 'cerradas'}`
-                    : null,
-                  warningCount
-                    ? `${warningCount} ${warningCount === 1 ? 'aviso' : 'avisos'}`
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')
+              ? alertLine(
+                  groupedBeaches.features
+                    .filter((f) => f.properties.status === 'closed')
+                    .map((f) => f.properties.alert_cause),
+                  warningCount,
+                )
               : 'Todas las playas sin incidencias'}
             {hasAlerts ? (alertsOpen ? ' ▴' : ' ▾') : ''}
           </Text>

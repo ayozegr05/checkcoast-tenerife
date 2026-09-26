@@ -138,6 +138,26 @@ export default function MunicipalityStats({
       : null;
   }, [episodes, beaches]);
 
+  // Vista Temporada: "Este verano · N cierres · M avisos · X activas
+  // ahora" — resumen del verano en curso, no del año natural
+  const seasonLine = useMemo(() => {
+    if (!seasonRows.length) return null;
+    const c = seasonRows.filter((e) => e.kind === 'closure').length;
+    const a = seasonRows.length - c;
+    const live = beaches.filter(
+      (f) =>
+        f.properties.status === 'closed' ||
+        f.properties.status === 'warning',
+    ).length;
+    return [
+      `${c} ${c === 1 ? 'cierre' : 'cierres'}`,
+      a ? `${a} ${a === 1 ? 'aviso' : 'avisos'}` : null,
+      live ? `${live} ${live === 1 ? 'activa' : 'activas'} ahora` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }, [seasonRows, beaches]);
+
   useEffect(() => {
     fetchBeachStats()
       .then((rows) => setStats(new Map(rows.map((s) => [s.beach_id, s]))))
@@ -435,9 +455,18 @@ export default function MunicipalityStats({
           <Text style={styles.subtitle}>
             {view === 'ranking'
               ? 'Ranking por afectación actual e histórica · toca un municipio para ver su línea temporal'
-              : `Temporada de baño ${season} · junio a septiembre`}
+              : `${
+                  season === new Date().getFullYear()
+                    ? 'Este verano'
+                    : `Verano ${season}`
+                } · junio a septiembre`}
           </Text>
-          {yearLine && <Text style={styles.yearLine}>{yearLine}</Text>}
+          {view === 'ranking' && yearLine && (
+            <Text style={styles.yearLine}>{yearLine}</Text>
+          )}
+          {view === 'temporada' && seasonLine && (
+            <Text style={styles.yearLine}>{seasonLine}</Text>
+          )}
           <View style={styles.viewToggle}>
             {(['ranking', 'temporada'] as const).map((v) => (
               <Pressable
@@ -500,7 +529,9 @@ export default function MunicipalityStats({
                         ? ep.kind === 'closure'
                           ? 'Sigue cerrada'
                           : 'Aviso activo'
-                        : 'Resuelta'}
+                        : ep.kind === 'closure'
+                          ? 'Cierre resuelto'
+                          : 'Aviso resuelto'}
                     </Text>
                   </View>
                   <Text style={styles.rowSub}>
