@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -194,6 +195,14 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
     return stats
 
 
+def _dominant_cause(texts: list[str]) -> str | None:
+    """Causas crudas (LLM/observaciones) → categoría más frecuente."""
+    cats = [c for c in (_short_cause(t) for t in texts) if c]
+    if not cats:
+        return None
+    return Counter(cats).most_common(1)[0][0]
+
+
 def _synth_observations(ev: SynthEvent) -> str:
     if ev.via == "measurement":
         obs = "Prohibido por analítica del agua — sin incidente oficial en Náyade"
@@ -257,15 +266,15 @@ def _collect_episodes(
             end = inc.closed_at or today
             # Noticias dentro de la ventana oficial (±7 días): la
             # incidencia puede anotar que la prensa también lo recogió
-            press_n = sum(
-                1
+            press_items = [
+                n
                 for n in beach.news_items
                 if n.relevant
                 and n.published_at
                 and inc.opened_at - timedelta(days=7)
                 <= n.published_at.date()
                 <= end + timedelta(days=7)
-            )
+            ]
             episodes.append(
                 Episode(
                     beach_id=inc.beach_id,
@@ -282,7 +291,15 @@ def _collect_episodes(
                     via="official",
                     ref_id=inc.id,
                     obs=inc.observations,
-                    press_count=press_n,
+                    press_count=len(press_items),
+                    # Náyade no dice la causa: la toma la prensa de la
+                    # ventana; si nadie la cubrió, un cierre de Sanidad
+                    # es Contaminación por definición (solo mide agua)
+                    cause=(
+                        _short_cause(inc.observations)
+                        or _press_cause(press_items)
+                        or "Contaminación"
+                    ),
                 )
             )
     synth_id = -1
@@ -303,6 +320,14 @@ def _collect_episodes(
                         ev.press_count if ev.via == "press" else 0
                     ),
                     end_estimated=ev.end_estimated,
+                    # prensa: voto de sus causas crudas; measurement:
+                    # la analítica prohibida ES contaminación; un
+                    # cierre de prensa sin razón extraída → sin causa
+                    cause=(
+                        _dominant_cause(ev.causes)
+                        or ("Contaminación" if ev.via == "measurement"
+                            else None)
+                    ),
                 )
             )
             synth_id -= 1
@@ -325,6 +350,7 @@ def _merged_episode_rows(
             closed_at=m.end,
             observations=m.obs,
             via=m.via,
+            cause=m.cause,
         )
         for m in (merged_episode(g) for g in cluster_episodes(episodes))
     ]

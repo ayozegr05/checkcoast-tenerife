@@ -11,17 +11,40 @@ export const seasonYear = (today: Date = new Date()): number =>
     ? today.getFullYear()
     : today.getFullYear() - 1;
 
-// Episodios cuyo INICIO cae dentro de la temporada de baño del año dado
+// Episodios que TOCARON la temporada de baño del año dado: los que
+// empezaron en jun-sep Y los que venían abiertos de antes y seguían
+// (o cerraron) durante el verano — Benijo lleva cerrada desde 2024 y
+// fue un cierre de este verano igualmente
 export const seasonEpisodes = (
   eps: MunicipalityIncident[],
   year: number = seasonYear(),
-): MunicipalityIncident[] =>
-  eps.filter((e) => {
-    const m = e.opened_at.match(/^(\d{4})-(\d{2})/);
-    return (
-      m !== null && Number(m[1]) === year && Number(m[2]) >= 6 && Number(m[2]) <= 9
-    );
-  });
+): MunicipalityIncident[] => {
+  const seasonStart = `${year}-06-01`;
+  const seasonEnd = `${year}-09-30`;
+  return eps.filter(
+    (e) =>
+      e.opened_at <= seasonEnd &&
+      (e.closed_at === null || e.closed_at >= seasonStart),
+  );
+};
+
+// Desglose de causas de un conjunto de episodios:
+// "9 contaminación · 3 desprendimientos · 2 sin causa"
+export const causeBreakdown = (
+  eps: MunicipalityIncident[],
+): string => {
+  const byCause = new globalThis.Map<string, number>();
+  let unknown = 0;
+  for (const e of eps) {
+    if (e.cause) byCause.set(e.cause, (byCause.get(e.cause) ?? 0) + 1);
+    else unknown += 1;
+  }
+  const parts = [...byCause.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([cause, n]) => `${n} ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`);
+  if (unknown) parts.push(`${unknown} sin causa`);
+  return parts.join(' · ');
+};
 
 // Cierres (no avisos) abiertos en el año en curso — para "N cierres
 // en 2026" de las cabeceras

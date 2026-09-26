@@ -19,6 +19,7 @@ Todo es sintético y de solo lectura: nunca escribe en
 `beach_incidents` ni alimenta el estado oficial.
 """
 
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
@@ -421,6 +422,9 @@ class Episode:
     obs: str | None
     press_count: int = 0
     end_estimated: bool = False
+    # Causa normalizada del episodio ("Contaminación",
+    # "Desprendimientos"...) — la calcula quien lo construye
+    cause: str | None = None
 
 
 def base_name(name: str) -> str:
@@ -492,4 +496,10 @@ def merged_episode(g: list[Episode]) -> Episode:
         obs=obs,
         press_count=press_n,
         end_estimated=any(e.end_estimated for e in g),
+        # Causa dominante del episodio fusionado (la más frecuente
+        # entre los miembros que la tienen)
+        cause=(
+            Counter(e.cause for e in g if e.cause).most_common(1)
+            or [(None, 0)]
+        )[0][0],
     )

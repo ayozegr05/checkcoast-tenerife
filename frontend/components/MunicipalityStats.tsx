@@ -112,12 +112,44 @@ export default function MunicipalityStats({
   }, [visible, initialView]);
 
   const season = seasonYear();
+  // Filtro de chips de la vista Temporada: cierres | avisos | activas
+  const [seasonFilter, setSeasonFilter] = useState<
+    'all' | 'closure' | 'warning' | 'active'
+  >('all');
   const seasonRows = useMemo(
     () =>
       seasonEpisodes(episodes, season).sort((a, b) =>
         b.opened_at.localeCompare(a.opened_at),
       ),
     [episodes, season],
+  );
+  // Las que siguen abiertas van primero — una playa cerrada hoy
+  // importa más que su fecha de inicio (Benijo: abierta desde 2024)
+  const seasonRowsFiltered = useMemo(
+    () =>
+      seasonRows
+        .filter((e) =>
+          seasonFilter === 'all'
+            ? true
+            : seasonFilter === 'active'
+              ? e.closed_at === null
+              : e.kind === seasonFilter,
+        )
+        .sort(
+          (a, b) =>
+            (a.closed_at === null ? 0 : 1) -
+              (b.closed_at === null ? 0 : 1) ||
+            b.opened_at.localeCompare(a.opened_at),
+        ),
+    [seasonRows, seasonFilter],
+  );
+  const seasonCounts = useMemo(
+    () => ({
+      closures: seasonRows.filter((e) => e.kind === 'closure').length,
+      warnings: seasonRows.filter((e) => e.kind !== 'closure').length,
+      active: seasonRows.filter((e) => e.closed_at === null).length,
+    }),
+    [seasonRows],
   );
   const yearLine = useMemo(() => {
     const n = closuresThisYear(episodes).length;
@@ -138,25 +170,8 @@ export default function MunicipalityStats({
       : null;
   }, [episodes, beaches]);
 
-  // Vista Temporada: "Este verano · N cierres · M avisos · X activas
-  // ahora" — resumen del verano en curso, no del año natural
-  const seasonLine = useMemo(() => {
-    if (!seasonRows.length) return null;
-    const c = seasonRows.filter((e) => e.kind === 'closure').length;
-    const a = seasonRows.length - c;
-    const live = beaches.filter(
-      (f) =>
-        f.properties.status === 'closed' ||
-        f.properties.status === 'warning',
-    ).length;
-    return [
-      `${c} ${c === 1 ? 'cierre' : 'cierres'}`,
-      a ? `${a} ${a === 1 ? 'aviso' : 'avisos'}` : null,
-      live ? `${live} ${live === 1 ? 'activa' : 'activas'} ahora` : null,
-    ]
-      .filter(Boolean)
-      .join(' · ');
-  }, [seasonRows, beaches]);
+  // Vista Temporada: los conteos son los chips-filtro (cierres /
+  // avisos / activas ahora), no una línea de texto
 
   useEffect(() => {
     fetchBeachStats()
@@ -455,17 +470,49 @@ export default function MunicipalityStats({
           <Text style={styles.subtitle}>
             {view === 'ranking'
               ? 'Ranking por afectación actual e histórica · toca un municipio para ver su línea temporal'
-              : `${
-                  season === new Date().getFullYear()
-                    ? 'Este verano'
-                    : `Verano ${season}`
-                } · junio a septiembre`}
+              : season === new Date().getFullYear()
+                ? 'Este verano'
+                : `Verano ${season}`}
           </Text>
           {view === 'ranking' && yearLine && (
             <Text style={styles.yearLine}>{yearLine}</Text>
           )}
-          {view === 'temporada' && seasonLine && (
-            <Text style={styles.yearLine}>{seasonLine}</Text>
+          {view === 'temporada' && seasonRows.length > 0 && (
+            <View style={styles.seasonChips}>
+              {(
+                [
+                  ['closure', seasonCounts.closures, 'cierre', 'cierres'],
+                  ['warning', seasonCounts.warnings, 'aviso', 'avisos'],
+                  ['active', seasonCounts.active, 'activa', 'activas'],
+                ] as const
+              ).map(([k, n, one, many]) =>
+                n > 0 ? (
+                  <Pressable
+                    key={k}
+                    style={[
+                      styles.seasonChip,
+                      seasonFilter === k && styles.seasonChipOn,
+                    ]}
+                    onPress={() =>
+                      setSeasonFilter((f) => (f === k ? 'all' : k))
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`${
+                      seasonFilter === k ? 'Quitar filtro de' : 'Filtrar por'
+                    } ${n === 1 ? one : many}`}
+                  >
+                    <Text
+                      style={[
+                        styles.seasonChipText,
+                        seasonFilter === k && styles.seasonChipTextOn,
+                      ]}
+                    >
+                      {`${n} ${n === 1 ? one : many}`}
+                    </Text>
+                  </Pressable>
+                ) : null,
+              )}
+            </View>
           )}
           <View style={styles.viewToggle}>
             {(['ranking', 'temporada'] as const).map((v) => (
@@ -496,7 +543,7 @@ export default function MunicipalityStats({
 
         {view === 'temporada' ? (
           <FlatList
-            data={seasonRows}
+            data={seasonRowsFiltered}
             keyExtractor={(ep) => `s${ep.id}-${ep.beach_id}`}
             style={styles.list}
             contentContainerStyle={styles.listContent}
@@ -786,6 +833,31 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
   },
   viewTabTextOn: {
+    color: colors.primaryDark,
+  },
+  // Chips-filtro de la vista Temporada (cierres/avisos/activas) —
+  // tocando uno se filtra la lista a ese tipo de episodio
+  seasonChips: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  seasonChip: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  seasonChipOn: {
+    backgroundColor: '#fff',
+  },
+  seasonChipText: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  seasonChipTextOn: {
     color: colors.primaryDark,
   },
   // Incidente histórico (ya cerrado): outline apagado — el sólido se

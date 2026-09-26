@@ -65,6 +65,10 @@ export type MunicipalityIncident = {
   // (cierre solo recogido por prensa). El backend compone el texto de
   // observations con la aclaración correspondiente
   via?: 'official' | 'measurement' | 'press';
+  // Causa normalizada ("Contaminación", "Desprendimientos"...) — el
+  // backend la infiere de la prensa en ventana; un cierre de Sanidad
+  // sin contexto es Contaminación por definición
+  cause?: string | null;
 };
 
 export type BeachStats = {

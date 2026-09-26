@@ -61,6 +61,10 @@ class MunicipalityIncidentOut(BaseModel):
     # "official" = incidencia Náyade | "measurement" = ventana de
     # analítica prohibida sin incidencia | "press" = solo en prensa
     via: str = "official"
+    # Causa normalizada ("Contaminación", "Desprendimientos"...) — la
+    # oficial se infiere de la prensa en ventana; un cierre de Sanidad
+    # sin contexto es Contaminación por definición (solo mide agua)
+    cause: str | None = None
 
 
 class BeachMeasurementOut(BaseModel):

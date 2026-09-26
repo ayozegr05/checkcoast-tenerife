@@ -35,11 +35,11 @@ import {
   fmtDate,
 } from '../lib/format';
 import {
+  causeBreakdown,
   closuresThisYear,
   episodeDays,
   recentlyResolved,
 } from '../lib/episodes';
-import { alertLine } from '../lib/alertLine';
 import { groupKeyOf } from '../lib/beachGroups';
 import { colors, fonts } from '../lib/theme';
 import seaStyle from '../assets/mapstyle-sea.json';
@@ -445,10 +445,17 @@ export default function CoastMap({
   // abiertos: un cierre estructural sin prensa fresca sigue cerrado
   // aunque su episodio lleve fin estimado (Benijo)
   const yearLine = useMemo(() => {
-    const n = closuresThisYear(episodes).length;
+    const yearClosures = closuresThisYear(episodes);
+    const n = yearClosures.length;
     const live = closedCount + warningCount;
+    // Desglose por causa entre paréntesis: 14 cierres no es lo mismo
+    // si 11 son por vertidos (gestión del agua) que por taludes
+    // puntuales — el banner lo resume, aquí se explica
+    const causes = causeBreakdown(yearClosures);
     return n > 0
       ? `Este año · ${n} ${n === 1 ? 'cierre' : 'cierres'}${
+          causes ? ` (${causes})` : ''
+        }${
           live ? ` · ${live} ${live === 1 ? 'activa' : 'activas'} ahora` : ''
         }`
       : null;
@@ -1211,12 +1218,16 @@ export default function CoastMap({
           )}
           <Text style={styles.bannerText}>
             {closedCount || warningCount
-              ? alertLine(
-                  groupedBeaches.features
-                    .filter((f) => f.properties.status === 'closed')
-                    .map((f) => f.properties.alert_cause),
-                  warningCount,
-                )
+              ? [
+                  closedCount
+                    ? `${closedCount} ${closedCount === 1 ? 'cerrada' : 'cerradas'}`
+                    : null,
+                  warningCount
+                    ? `${warningCount} ${warningCount === 1 ? 'aviso' : 'avisos'}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
               : 'Todas las playas sin incidencias'}
             {hasAlerts ? (alertsOpen ? ' ▴' : ' ▾') : ''}
           </Text>
