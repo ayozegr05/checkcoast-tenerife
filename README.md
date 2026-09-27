@@ -86,6 +86,14 @@ docker compose up -d        # PostGIS + API (alembic migra solo al arrancar)
 
 API en `http://localhost:8001` — docs interactivas en `/docs`.
 
+> **Variables de entorno**: crea un `.env` en la raíz con
+> `GEMINI_API_KEY=...` ([aistudio.google.com](https://aistudio.google.com),
+> free tier) para activar la extracción LLM de prensa. Sin ella el resto
+> funciona igual — solo las noticias quedan sin procesar.
+> `DATABASE_URL` tiene default local; el resto de vars
+> (`NAYADE_SYNC_SECONDS`, `GEMINI_MODEL`…) también
+> — ver `backend/app/config.py`.
+
 ### Opción B — API en local (desarrollo con `--reload`)
 
 ```bash
