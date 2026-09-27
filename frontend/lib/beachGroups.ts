@@ -153,15 +153,27 @@ export const buildGroups = (
     Math.max(...g.members.map((m) => qualityScore(stats.get(m.id))));
   const byName = (a: BeachGroup, b: BeachGroup) =>
     a.name.localeCompare(b.name);
+  // Suelo común para "Más cierres"/"Peor calidad": un empate a 0 no
+  // debe dejar que una playa sin monitorizar (alfabéticamente antes)
+  // adelante a una vigilada — solo "Estado" tenía este suelo
+  const byMonitored = (a: BeachGroup, b: BeachGroup) =>
+    Number(worstStatusOf(a) === 'unmonitored') -
+    Number(worstStatusOf(b) === 'unmonitored');
   if (opts.sortMode === 'cierres') {
     arr.sort(
       (a, b) =>
+        byMonitored(a, b) ||
         totalCierres(b) - totalCierres(a) ||
         sum(b, 'closures_last_year') - sum(a, 'closures_last_year') ||
         byName(a, b),
     );
   } else if (opts.sortMode === 'calidad') {
-    arr.sort((a, b) => worstQuality(b) - worstQuality(a) || byName(a, b));
+    arr.sort(
+      (a, b) =>
+        byMonitored(a, b) ||
+        worstQuality(b) - worstQuality(a) ||
+        byName(a, b),
+    );
   } else {
     arr.sort(
       (a, b) =>

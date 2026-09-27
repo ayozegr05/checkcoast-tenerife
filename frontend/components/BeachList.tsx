@@ -488,7 +488,14 @@ export default function BeachList({
                 </Pressable>
               ),
           )}
-          <View style={styles.chipDivider} />
+        </ScrollChips>
+        <View style={styles.filterBarDivider} />
+        <ScrollChips
+          style={styles.chips}
+          contentContainerStyle={styles.chipsContent}
+          fadeRgbLeft="140,216,230"
+          fadeRgbRight="242,251,253"
+        >
           {presentStatuses.map((s) => (
             <Pressable
               key={s}
@@ -890,14 +897,6 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: colors.text, // navy: mas contraste que blanco sobre turquesa
     fontFamily: fonts.extrabold,
-  },
-  // Separa las dos zonas de chips: orden (radio, siempre uno activo)
-  // a la izquierda | filtros (toggle) a la derecha
-  chipDivider: {
-    width: 1,
-    backgroundColor: 'rgba(8,107,150,0.35)',
-    marginVertical: 4,
-    marginHorizontal: 6,
   },
   chipStatus: {
     flexDirection: 'row',
