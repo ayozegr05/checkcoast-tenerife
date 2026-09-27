@@ -582,9 +582,14 @@ export default function BeachList({
                         ? ` · ${g.members.length} PMs`
                         : ''}
                       {closures + warnings > 0
-                        ? ` · ${closures} cierres · ${warnings} avisos`
+                        ? ` · ${closures} ${
+                            closures === 1 ? 'cierre' : 'cierres'
+                          } · ${warnings} ${
+                            warnings === 1 ? 'aviso' : 'avisos'
+                          }`
                         : ''}
-                      {sortMode === 'calidad'
+                      {sortMode === 'calidad' &&
+                      worstEvalOf(g, stats) != null
                         ? ` · última: ${evalShort(worstEvalOf(g, stats))}`
                         : ''}
                       {badSamples > 0
@@ -615,7 +620,11 @@ export default function BeachList({
                       ev,
                       // Conteo propio del PM — cuadra con su ficha
                       st && (st.own_closures ?? 0) + (st.own_warnings ?? 0) > 0
-                        ? `${st.own_closures} cierres · ${st.own_warnings} avisos`
+                        ? `${st.own_closures} ${
+                            st.own_closures === 1 ? 'cierre' : 'cierres'
+                          } · ${st.own_warnings} ${
+                            st.own_warnings === 1 ? 'aviso' : 'avisos'
+                          }`
                         : null,
                     ]
                       .filter(Boolean)
