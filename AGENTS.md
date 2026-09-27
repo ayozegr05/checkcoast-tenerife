@@ -43,7 +43,13 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     News RSS como fuente; feeds por cabecera como respaldo) +
     `fetch_guia_sitemap`/`fetch_guia_page`: fichas evergreen de Guía
     Islas Canarias (sitio Astro, sin RSS → sitemap-0.xml con
-    `lastmod`; ~50 fichas de playa de Tenerife)
+    `lastmod`; ~50 fichas de playa de Tenerife) +
+    `fetch_municipal_feeds`: RSS de webs de ayuntamientos (Tacoronte,
+    Candelaria, La Laguna Ahora — Pto. de la Cruz tiene feeds
+    desactivados, Adeje anuncia solo en redes) con prefiltro léxico de
+    titular (playa/baño/vertido/costero…) para no gastar Gemini en
+    fiestas y deportes; fuente primaria hacia adelante — el feed solo
+    trae los últimos ~10-20 posts
   - `app/news_llm.py` — `extract_event(article)` detrás de interfaz
     `NewsExtractor`; `GeminiExtractor` (REST, JSON por esquema,
     thinking off, retries); `cause` = razón de fondo, nunca mecanismo

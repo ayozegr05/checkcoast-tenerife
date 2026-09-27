@@ -53,6 +53,27 @@ def source_excluded(source: str | None) -> bool:
     return any(x in s for x in EXCLUDED_SOURCES)
 
 
+# Webs municipales: fuente primaria — muchos avisos de playa solo se
+# publican ahí y nunca los agrega Google News (El Pris, El Bobo...).
+# Puerto de la Cruz tiene los feeds desactivados a propósito
+# ("No feed available") y adeje.es anuncia cierres solo en redes.
+MUNICIPAL_FEEDS = {
+    "Ayto. Tacoronte": "https://www.tacoronte.es/feed/",
+    "Ayto. Candelaria": "https://www.candelaria.es/feed/",
+    "Ayto. La Laguna": "https://lalagunaahora.com/feed/",
+}
+
+# Prefiltro por titular: el feed municipal es ~95% fiestas, deportes y
+# plenos — solo lo que hable de playa/mar/baño gasta una llamada a
+# Gemini. Ajustado al vocabulario real de los avisos municipales
+# ("suspende el baño", "vertido", "piscina natural", "costero").
+_MUNI_BEACHY_RE = re.compile(
+    r"playa|bañ|piscina|vertido|aguas? (?:residuales|fecales)|"
+    r"calidad del agua|fecal|oleaje|mar agitado|litoral|costero",
+    re.IGNORECASE,
+)
+
+
 # Guía Islas Canarias: fichas evergreen por playa (sitio Astro, sin
 # RSS). No son noticias de última hora — son páginas mantenidas que
 # afirman el estado real ("acceso cerrado desde julio de 2024"). El
@@ -128,7 +149,8 @@ def _clean_title(title: str) -> str:
 
 
 def fetch_news() -> list[RawArticle]:
-    """Titulares de todas las queries temáticas, deduplicados por URL."""
+    """Titulares de todas las queries temáticas + feeds municipales,
+    deduplicados por URL."""
     seen: set[str] = set()
     articles = []
     for query in QUERIES:
@@ -136,6 +158,47 @@ def fetch_news() -> list[RawArticle]:
             if a.url and a.url not in seen:
                 seen.add(a.url)
                 articles.append(a)
+    for a in fetch_municipal_feeds():
+        if a.url and a.url not in seen:
+            seen.add(a.url)
+            articles.append(a)
+    return articles
+
+
+def fetch_municipal_feeds() -> list[RawArticle]:
+    """Entradas de playa de los RSS de webs municipales.
+
+    Los feeds traen los últimos ~10-20 posts: cobertura hacia adelante,
+    no histórico. El titular pasa un prefiltro léxico — sin él cada
+    pasada gastaría cuota de Gemini en fiestas y deportes. Un feed
+    caído no aborta el resto."""
+    articles = []
+    for source, feed_url in MUNICIPAL_FEEDS.items():
+        try:
+            resp = requests.get(
+                feed_url, headers={"User-Agent": USER_AGENT}, timeout=30
+            )
+            resp.raise_for_status()
+            root = ET.fromstring(resp.content)
+        except Exception:
+            continue
+        for item in root.findall(".//item"):
+            title = (item.findtext("title") or "").strip()
+            if not _MUNI_BEACHY_RE.search(title):
+                continue
+            pub = item.findtext("pubDate")
+            try:
+                published = parsedate_to_datetime(pub) if pub else None
+            except (TypeError, ValueError):
+                published = None
+            articles.append(
+                RawArticle(
+                    title=title,
+                    url=item.findtext("link") or "",
+                    source=source,
+                    published_at=published,
+                )
+            )
     return articles
 
 
