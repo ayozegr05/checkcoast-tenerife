@@ -1880,7 +1880,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 10,
     paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     elevation: 4,
     // Desplazada a la izquierda: tapa el logo de MapLibre (fijo
     // abajo-izquierda, independiente de attributionPosition)
@@ -1898,17 +1898,19 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     marginLeft: -4,
-    marginRight: 20,
+    marginRight: 14,
   },
   // Swatches informativos en línea (no interactivos — las capas se
-  // controlan desde el panel del botón flotante). wrap obligatorio:
-  // con nowrap la fila desborda la card y el texto se corta por el
-  // borde (pantallas estrechas / fuente grande de accesibilidad)
+  // controlan desde el panel del botón flotante). wrap + flexShrink
+  // obligatorios: sin ellos la fila se centra como bloque mayor que
+  // el hueco y recorta el primer y último swatch por igual
+  // (pantallas estrechas / fuente grande de accesibilidad)
   legendSub: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    flexShrink: 1,
     justifyContent: 'center',
-    gap: 16,
+    gap: 14,
     rowGap: 4,
   },
   swatchRow: {
