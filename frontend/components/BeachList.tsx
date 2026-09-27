@@ -422,7 +422,9 @@ export default function BeachList({
             <Pressable
               key={mode}
               style={[styles.chip, sortMode === mode && styles.chipActive]}
-              onPress={() => setSortMode(mode)}
+              onPress={() =>
+                setSortMode(sortMode === mode ? 'estado' : mode)
+              }
               accessibilityRole="button"
               accessibilityLabel={`Ordenar por ${SORT_LABELS[mode]}`}
               accessibilityState={{ selected: sortMode === mode }}
@@ -438,6 +440,33 @@ export default function BeachList({
             </Pressable>
           ))}
           <View style={styles.chipDivider} />
+          <Pressable
+            style={[
+              styles.chip,
+              styles.chipStatus,
+              statusFilter === 'impecables' && styles.chipActive,
+            ]}
+            onPress={() =>
+              setStatusFilter(
+                statusFilter === 'impecables' ? undefined : 'impecables',
+              )
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Filtrar por playas que nunca tuvieron un problema de agua"
+            accessibilityState={{
+              selected: statusFilter === 'impecables',
+            }}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                statusFilter === 'impecables' && styles.chipTextActive,
+              ]}
+            >
+              Siempre apta
+              {statusFilter === 'impecables' ? ` · ${groups.length}` : ''}
+            </Text>
+          </Pressable>
           {presentStatuses.map((s) => (
             <Pressable
               key={s}
@@ -466,35 +495,10 @@ export default function BeachList({
                 ]}
               >
                 {STATUS_LABELS[s]}
+                {statusFilter === s ? ` · ${groups.length}` : ''}
               </Text>
             </Pressable>
           ))}
-          <Pressable
-            style={[
-              styles.chip,
-              styles.chipStatus,
-              statusFilter === 'impecables' && styles.chipActive,
-            ]}
-            onPress={() =>
-              setStatusFilter(
-                statusFilter === 'impecables' ? undefined : 'impecables',
-              )
-            }
-            accessibilityRole="button"
-            accessibilityLabel="Filtrar por playas que nunca tuvieron un problema de agua"
-            accessibilityState={{
-              selected: statusFilter === 'impecables',
-            }}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                statusFilter === 'impecables' && styles.chipTextActive,
-              ]}
-            >
-              Siempre apta
-            </Text>
-          </Pressable>
         </ScrollChips>
         </ImageBackground>
 

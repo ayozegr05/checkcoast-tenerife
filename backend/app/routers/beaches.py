@@ -159,13 +159,16 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
     own_counts: dict[int, dict[str, int]] = {}
     for beach in beaches:
         own_c = own_w = 0
+        inc_c = inc_w = 0  # solo incidencias reales (sin sintéticos)
         for inc in beach.incidents:
             if is_ungraded_note(inc.observations):
                 continue  # nota administrativa sin alerta real
             if "prohib" in (inc.observations or "").lower():
                 own_c += 1
+                inc_c += 1
             else:
                 own_w += 1
+                inc_w += 1
             press_items = _press_in_window(
                 beach, inc.opened_at, inc.closed_at or date.today()
             )
@@ -228,7 +231,7 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
         own_counts[beach.id] = {
             "closures": own_c,
             "warnings": own_w,
-            "contam": own_c + own_w + press_clusters,
+            "contam": inc_c + inc_w + press_clusters,
         }
     # Cada clúster se cuenta una vez, en el PM representativo (min id).
     # Solo los que tienen incidencia oficial van a closures/warnings;
@@ -262,7 +265,9 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
         non_apta = sum(
             1
             for m in beach.measurements
-            if m.evaluation and "apta" not in m.evaluation.lower()
+            if m.evaluation
+            and "apta" not in m.evaluation.lower()
+            and "sin calificar" not in m.evaluation.lower()
         )
         latest = beach.measurements[0] if beach.measurements else None
         stats.append(

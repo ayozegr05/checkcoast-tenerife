@@ -83,8 +83,9 @@ class BeachStatsOut(BaseModel):
     warnings: int  # resto de incidentes
     closures_last_year: int
     bad_samples: int  # mediciones con evaluación "prohibido"
-    # No aptas en sentido amplio: cualquier evaluación que no sea
-    # "Apta" (prohibido + Sin Calificar + recomendación de no baño)
+    # Evaluadas y NO aptas: "prohibido" + recomendación de no baño.
+    # "Sin Calificar" no cuenta: Sanidad no pudo evaluar la muestra,
+    # no afirma que el agua estuviera mal (ver is_ungraded_note)
     non_apta_samples: int = 0
     total_samples: int
     latest_evaluation: str | None
