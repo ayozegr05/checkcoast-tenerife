@@ -1364,7 +1364,7 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
           min-width:180px; }}
   .gmain .gdl {{ align-self:center; margin-top:auto;
           margin-bottom:4px; }}
-  .gmain b {{ font-size:15px; color:#0d3a52; }}
+  .gmain b {{ font-size:12.5px; color:#0d3a52; }}
   .gtx {{ font-size:12px; color:#33566b; line-height:1.45; }}
   .gdl {{ display:inline-block; background:#075276; color:#fff;
           font-size:13.5px; font-weight:700; padding:10px 16px;
