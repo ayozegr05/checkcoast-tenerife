@@ -7,14 +7,19 @@ cerrada — pero no *por qué*. CheckCoast combina el estado oficial con
 prensa local analizada por LLM para responder la pregunta que Náyade no
 contesta, manteniendo ambas fuentes siempre separadas y etiquetadas.
 
+**API en producción**: https://checkcoast.duckdns.org — docs
+interactivas en `/docs` y página web pública por playa en
+`/b/{id}` (los enlaces que comparte la app).
+
 <!-- TODO: screenshots/GIF de la app cuando esté el build EAS instalado
      Sugeridas: mapa isla, ficha con "En la prensa", banner de alerta, lista -->
 
 ## Qué hace
 
-- 🗺️ **Mapa de la isla** — 167 playas (61 monitorizadas oficialmente +
-  106 de OpenStreetMap) y ~180 puntos de vertido (emisarios submarinos),
-  con alertas pulsantes sobre las playas cerradas
+- 🗺️ **Mapa de la isla** — 192 puntos de baño (62 monitorizados
+  oficialmente + ~130 de OpenStreetMap) y ~180 puntos de vertido
+  (emisarios submarinos), con alertas pulsantes sobre las playas
+  cerradas
 - 🚩 **Estado oficial en tiempo real** — scraper del portal Náyade con
   reintentos, sincronizado cada hora: abierta / aviso / cerrada
 - 📰 **"En la prensa"** — pipeline Google News RSS → LLM (Gemini) que
@@ -26,8 +31,10 @@ contesta, manteniendo ambas fuentes siempre separadas y etiquetadas.
 - 🧪 **Calidad del agua** — histórico de mediciones (E. coli /
   enterococo, umbrales RD 1341/2007) con evolución y ranking por
   municipio
-- 🔍 **Lista completa** — buscador, filtros por municipio, ordenación
-  por estado/cierres/calidad; agrupa puntos de muestreo por playa
+- 🔍 **Lista completa** — buscador, filtros por municipio y por estado,
+  ordenación por estado/cierres/calidad del agua y modo **"Agua siempre
+  apta"** (sin muestras malas ni contaminación oficial o de prensa);
+  agrupa puntos de muestreo por playa
 
 ## Arquitectura
 
@@ -127,8 +134,8 @@ npx expo start --dev-client --port 8082
 ## Testing y CI
 
 ```bash
-cd backend && .venv\Scripts\python -m pytest tests/ -q   # 55 tests
-cd frontend && npx tsc --noEmit && npm test              # typecheck + 22 tests
+cd backend && .venv\Scripts\python -m pytest tests/ -q   # 106 tests
+cd frontend && npx tsc --noEmit && npm test              # typecheck + 42 tests
 ```
 
 GitHub Actions levanta un PostGIS de servicio, ejecuta
