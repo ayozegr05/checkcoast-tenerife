@@ -295,11 +295,16 @@ def main():
                 .first()
             )
             if exists:
+                # La curación manual manda sobre lo que el pipeline
+                # decidiera antes (p.ej. relevant=False por un match
+                # antiguo): corregimos los campos y el flag
                 if not dry and (
-                    exists.event_type != etype
+                    not exists.relevant
+                    or exists.event_type != etype
                     or exists.cause != cause
                     or exists.closed_since != since
                 ):
+                    exists.relevant = True
                     exists.event_type = etype
                     exists.cause = cause
                     exists.closed_since = since
