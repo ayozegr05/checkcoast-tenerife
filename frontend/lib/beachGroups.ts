@@ -50,18 +50,50 @@ export const worstStatusOf = (g: BeachGroup) =>
 export type SortMode = 'estado' | 'cierres' | 'calidad';
 
 // Puntuación de calidad: peor = evaluación mala + más muestras no aptas
+// El historial pesa de verdad (una playa con 8 muestras "prohibido"
+// debe rankear peor que una sin ninguna, aunque hoy esté "Apta"); la
+// evaluación actual solo desempata — antes pesaba al revés y una
+// vigilada sin evaluar ("Sin datos") ganaba a Jardín (8 muestras malas)
 export const qualityScore = (s: BeachStats | undefined): number => {
   if (!s) return -1;
   const evalScore = s.latest_evaluation
     ? /prohib/i.test(s.latest_evaluation)
-      ? 3
+      ? 50
       : /calificar|recomend/i.test(s.latest_evaluation)
-        ? 2
-        : /apta/i.test(s.latest_evaluation)
-          ? 0
-          : 1
-    : 1;
-  return evalScore * 1000 + s.bad_samples;
+        ? 20
+        : 0
+    : 0;
+  return s.bad_samples * 100 + evalScore;
+};
+
+// Etiqueta corta de una evaluación de muestra — para hacer visible
+// en la fila el porqué del sort "peor calidad"
+export const evalShort = (ev: string | null): string => {
+  if (!ev) return 'sin muestras';
+  if (/prohib/i.test(ev)) return 'prohibido';
+  if (/apta/i.test(ev)) return 'apta';
+  if (/calificar/i.test(ev)) return 'sin calificar';
+  if (/recomend|baño/i.test(ev)) return 'no bañarse';
+  return '—';
+};
+
+// Evaluación del PM con peor score del grupo (la que manda en el
+// sort "peor calidad")
+export const worstEvalOf = (
+  g: BeachGroup,
+  stats: Map<number, BeachStats>,
+): string | null => {
+  let worst: BeachStats | undefined;
+  let ws = -2;
+  for (const m of g.members) {
+    const s = stats.get(m.id);
+    const sc = qualityScore(s);
+    if (sc > ws) {
+      ws = sc;
+      worst = s;
+    }
+  }
+  return worst?.latest_evaluation ?? null;
 };
 
 // Filtra, agrupa PMs en playas y ordena según el modo elegido. El
@@ -108,8 +140,15 @@ export const buildGroups = (
         a.properties.name.localeCompare(b.properties.name),
     );
   }
-  const sum = (g: BeachGroup, k: 'closures' | 'closures_last_year') =>
-    g.members.reduce((s, m) => s + (stats.get(m.id)?.[k] ?? 0), 0);
+  const sum = (
+    g: BeachGroup,
+    k: 'closures' | 'closures_last_year' | 'reconstructed',
+  ) => g.members.reduce((s, m) => s + (stats.get(m.id)?.[k] ?? 0), 0);
+  // El mismo número que muestra la fila: cierres oficiales + episodios
+  // reconstruidos (prensa/muestras) — si la fila dice "2 cierres",
+  // el ranking la trata como 2
+  const totalCierres = (g: BeachGroup) =>
+    sum(g, 'closures') + sum(g, 'reconstructed');
   const worstQuality = (g: BeachGroup) =>
     Math.max(...g.members.map((m) => qualityScore(stats.get(m.id))));
   const byName = (a: BeachGroup, b: BeachGroup) =>
@@ -117,8 +156,8 @@ export const buildGroups = (
   if (opts.sortMode === 'cierres') {
     arr.sort(
       (a, b) =>
+        totalCierres(b) - totalCierres(a) ||
         sum(b, 'closures_last_year') - sum(a, 'closures_last_year') ||
-        sum(b, 'closures') - sum(a, 'closures') ||
         byName(a, b),
     );
   } else if (opts.sortMode === 'calidad') {

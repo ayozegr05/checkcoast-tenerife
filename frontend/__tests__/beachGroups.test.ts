@@ -153,23 +153,36 @@ describe('orden por cierres y calidad', () => {
     expect(names).toEqual(['PLAYA B', 'PLAYA A']);
   });
 
-  it('peor calidad primero (evaluación mala pesa más que el recuento)', () => {
-    const a = beach(1, 'PLAYA PROHIBIDA');
-    const b = beach(2, 'PLAYA APTA CON HISTORIAL');
+  it('peor calidad primero (el historial de muestras malas pesa más que la foto de hoy — Jardín con 8 prohibidas rankea antes que "Sin datos" sin ninguna)', () => {
+    const a = beach(1, 'PLAYA APTA CON HISTORIAL');
+    const b = beach(2, 'PLAYA SIN DATOS');
     const stats = new Map<number, BeachStats>([
-      [1, statsOf({ beach_id: 1, latest_evaluation: 'Prohibido' })],
       [
-        2,
+        1,
         statsOf({
-          beach_id: 2,
+          beach_id: 1,
           latest_evaluation: 'Apta',
           bad_samples: 9,
         }),
       ],
+      [2, statsOf({ beach_id: 2, latest_evaluation: null })],
     ]);
     const names = buildGroups([a, b], { sortMode: 'calidad', stats }).map(
       (g) => g.name,
     );
-    expect(names).toEqual(['PLAYA PROHIBIDA', 'PLAYA APTA CON HISTORIAL']);
+    expect(names).toEqual(['PLAYA APTA CON HISTORIAL', 'PLAYA SIN DATOS']);
+  });
+
+  it('a igual historial, prohibido ahora desempata sobre apta ahora', () => {
+    const a = beach(1, 'PLAYA PROHIBIDA');
+    const b = beach(2, 'PLAYA APTA');
+    const stats = new Map<number, BeachStats>([
+      [1, statsOf({ beach_id: 1, latest_evaluation: 'Prohibido' })],
+      [2, statsOf({ beach_id: 2, latest_evaluation: 'Apta' })],
+    ]);
+    const names = buildGroups([a, b], { sortMode: 'calidad', stats }).map(
+      (g) => g.name,
+    );
+    expect(names).toEqual(['PLAYA PROHIBIDA', 'PLAYA APTA']);
   });
 });

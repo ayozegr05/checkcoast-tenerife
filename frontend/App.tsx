@@ -527,10 +527,6 @@ export default function App() {
           if (listMunicipality !== undefined) setMuniOpen(true);
           setListMunicipality(undefined);
         }}
-        onOpenMunicipalities={() => {
-          setListOpen(false);
-          setMuniOpen(true);
-        }}
       />
 
       <OutfallList

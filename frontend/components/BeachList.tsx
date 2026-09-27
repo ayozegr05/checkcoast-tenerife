@@ -36,8 +36,10 @@ import {
   BeachGroup,
   SortMode,
   buildGroups,
+  evalShort,
   groupKeyOf,
   statusOf,
+  worstEvalOf,
   worstStatusOf,
 } from '../lib/beachGroups';
 
@@ -81,7 +83,6 @@ export default function BeachList({
   onSelect,
   onClose,
   initialMunicipality,
-  onOpenMunicipalities,
   onSelectOutfall,
 }: {
   beaches: GeoFeature[];
@@ -92,7 +93,6 @@ export default function BeachList({
   onClose: () => void;
   // undefined = sin filtro (Todos); null = "Sin municipio"
   initialMunicipality?: string | null;
-  onOpenMunicipalities?: () => void;
   // Tap en un emisario cercano dentro de la ficha → verlo en el mapa;
   // el segundo argumento es la playa a restaurar al volver
   onSelectOutfall?: (
@@ -240,7 +240,11 @@ export default function BeachList({
   const presentStatuses = useMemo(
     () =>
       [...new Set(beaches.map(statusOf))].sort(
-        (a, b) => (STATUS_ORDER[a] ?? 9) - (STATUS_ORDER[b] ?? 9),
+        (a, b) =>
+          // "Sin datos" (unknown) siempre el último: es el estado
+          // menos informativo de la fila
+          (a === 'unknown' ? 99 : (STATUS_ORDER[a] ?? 9)) -
+          (b === 'unknown' ? 99 : (STATUS_ORDER[b] ?? 9)),
       ),
     [beaches],
   );
@@ -286,17 +290,6 @@ export default function BeachList({
           <View style={styles.headerTop}>
             <Text style={styles.title}>Playas</Text>
             <View style={styles.headerRight}>
-              {onOpenMunicipalities && (
-                <Pressable
-                  onPress={onOpenMunicipalities}
-                  hitSlop={12}
-                  style={styles.muniBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel="Ver incidencias por municipio"
-                >
-                  <Text style={styles.muniBtnText}>Por municipio</Text>
-                </Pressable>
-              )}
               <Pressable
                 onPress={onClose}
                 hitSlop={12}
@@ -418,55 +411,84 @@ export default function BeachList({
           fadeRgbLeft="140,216,230"
           fadeRgbRight="242,251,253"
         >
-          {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
-            <Pressable
-              key={mode}
-              style={[styles.chip, sortMode === mode && styles.chipActive]}
-              onPress={() =>
-                setSortMode(sortMode === mode ? 'estado' : mode)
-              }
-              accessibilityRole="button"
-              accessibilityLabel={`Ordenar por ${SORT_LABELS[mode]}`}
-              accessibilityState={{ selected: sortMode === mode }}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  sortMode === mode && styles.chipTextActive,
-                ]}
-              >
-                {SORT_LABELS[mode]}
-              </Text>
-            </Pressable>
-          ))}
+          {/* Grupo izquierdo (radio): el orden siempre es uno.
+              "Agua siempre apta" es un modo de este grupo — al
+              activarlo fija el orden a "Estado", y elegir otro chip
+              lo desactiva (no es un toggle aparte) */}
+          {(['estado', 'agua', 'cierres', 'calidad'] as const).map(
+            (item) =>
+              item === 'agua' ? (
+                <Pressable
+                  key="agua"
+                  style={[
+                    styles.chip,
+                    styles.chipStatus,
+                    statusFilter === 'impecables' && styles.chipActive,
+                  ]}
+                  onPress={() => {
+                    if (statusFilter === 'impecables') return;
+                    setStatusFilter('impecables');
+                    setSortMode('estado');
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Filtrar por playas que nunca tuvieron un problema de agua"
+                  accessibilityState={{
+                    selected: statusFilter === 'impecables',
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      statusFilter === 'impecables' &&
+                        styles.chipTextActive,
+                    ]}
+                  >
+                    Agua siempre apta
+                    {statusFilter === 'impecables'
+                      ? ` · ${groups.length}`
+                      : ''}
+                  </Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  key={item}
+                  style={[
+                    styles.chip,
+                    // Radio puro: con "Agua siempre apta" activo el
+                    // orden interno es Estado pero el chip no se
+                    // marca — solo un chip activo a la vez
+                    sortMode === item &&
+                      statusFilter !== 'impecables' &&
+                      styles.chipActive,
+                  ]}
+                  onPress={() => {
+                    setSortMode(item);
+                    // Elegir un orden sale del modo "Agua siempre apta"
+                    if (statusFilter === 'impecables')
+                      setStatusFilter(undefined);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ordenar por ${SORT_LABELS[item]}`}
+                  accessibilityState={{
+                    selected:
+                      sortMode === item &&
+                      statusFilter !== 'impecables',
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      sortMode === item &&
+                        statusFilter !== 'impecables' &&
+                        styles.chipTextActive,
+                    ]}
+                  >
+                    {SORT_LABELS[item]}
+                  </Text>
+                </Pressable>
+              ),
+          )}
           <View style={styles.chipDivider} />
-          <Pressable
-            style={[
-              styles.chip,
-              styles.chipStatus,
-              statusFilter === 'impecables' && styles.chipActive,
-            ]}
-            onPress={() =>
-              setStatusFilter(
-                statusFilter === 'impecables' ? undefined : 'impecables',
-              )
-            }
-            accessibilityRole="button"
-            accessibilityLabel="Filtrar por playas que nunca tuvieron un problema de agua"
-            accessibilityState={{
-              selected: statusFilter === 'impecables',
-            }}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                statusFilter === 'impecables' && styles.chipTextActive,
-              ]}
-            >
-              Siempre apta
-              {statusFilter === 'impecables' ? ` · ${groups.length}` : ''}
-            </Text>
-          </Pressable>
           {presentStatuses.map((s) => (
             <Pressable
               key={s}
@@ -554,6 +576,9 @@ export default function BeachList({
                         : ''}
                       {closures + warnings > 0
                         ? ` · ${closures} cierres · ${warnings} avisos`
+                        : ''}
+                      {sortMode === 'calidad'
+                        ? ` · última: ${evalShort(worstEvalOf(g, stats))}`
                         : ''}
                       {badSamples > 0
                         ? ` · ${badSamples} muestras no aptas`
@@ -735,17 +760,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
   },
-  muniBtn: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  muniBtnText: {
-    color: colors.primaryDark,
-    fontSize: 12,
-    fontFamily: fonts.bold,
-  },
   backBtn: {
     marginRight: 4,
   },
@@ -877,10 +891,13 @@ const styles = StyleSheet.create({
     color: colors.text, // navy: mas contraste que blanco sobre turquesa
     fontFamily: fonts.extrabold,
   },
+  // Separa las dos zonas de chips: orden (radio, siempre uno activo)
+  // a la izquierda | filtros (toggle) a la derecha
   chipDivider: {
     width: 1,
-    backgroundColor: 'rgba(8,107,150,0.18)',
-    marginVertical: 6,
+    backgroundColor: 'rgba(8,107,150,0.35)',
+    marginVertical: 4,
+    marginHorizontal: 6,
   },
   chipStatus: {
     flexDirection: 'row',
