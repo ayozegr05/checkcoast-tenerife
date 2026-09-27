@@ -339,6 +339,7 @@ export default function BeachList({
           contentContainerStyle={styles.chipsContent}
           fadeRgbLeft="140,216,230"
           fadeRgbRight="242,251,253"
+          a11yLabel="municipios"
         >
           <Pressable
             style={[
@@ -405,16 +406,59 @@ export default function BeachList({
           )}
         </ScrollChips>
         <View style={styles.filterBarDivider} />
+        {/* Filtros de estado (toggles independientes) */}
         <ScrollChips
           style={styles.chips}
           contentContainerStyle={styles.chipsContent}
           fadeRgbLeft="140,216,230"
           fadeRgbRight="242,251,253"
+          a11yLabel="filtros de estado"
         >
-          {/* Grupo izquierdo (radio): el orden siempre es uno.
-              "Agua siempre apta" es un modo de este grupo — al
-              activarlo fija el orden a "Estado", y elegir otro chip
-              lo desactiva (no es un toggle aparte) */}
+          {presentStatuses.map((s) => (
+            <Pressable
+              key={s}
+              style={[
+                styles.chip,
+                styles.chipStatus,
+                statusFilter === s && styles.chipActive,
+              ]}
+              onPress={() =>
+                setStatusFilter(statusFilter === s ? undefined : s)
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`Filtrar por estado ${STATUS_LABELS[s]}`}
+              accessibilityState={{ selected: statusFilter === s }}
+            >
+              <View
+                style={[
+                  styles.chipDot,
+                  { backgroundColor: STATUS_COLORS[s] },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.chipText,
+                  statusFilter === s && styles.chipTextActive,
+                ]}
+              >
+                {STATUS_LABELS[s]}
+                {statusFilter === s ? ` · ${groups.length}` : ''}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollChips>
+        <View style={styles.filterBarDivider} />
+        {/* Orden (radio): el orden siempre es uno. "Agua siempre apta"
+            es un modo de este grupo — al activarlo fija el orden a
+            "Estado", y elegir otro chip lo desactiva (no es un toggle
+            aparte) */}
+        <ScrollChips
+          style={styles.chips}
+          contentContainerStyle={styles.chipsContent}
+          fadeRgbLeft="140,216,230"
+          fadeRgbRight="242,251,253"
+          a11yLabel="orden"
+        >
           {(['estado', 'agua', 'cierres', 'calidad'] as const).map(
             (item) =>
               item === 'agua' ? (
@@ -488,46 +532,6 @@ export default function BeachList({
                 </Pressable>
               ),
           )}
-        </ScrollChips>
-        <View style={styles.filterBarDivider} />
-        <ScrollChips
-          style={styles.chips}
-          contentContainerStyle={styles.chipsContent}
-          fadeRgbLeft="140,216,230"
-          fadeRgbRight="242,251,253"
-        >
-          {presentStatuses.map((s) => (
-            <Pressable
-              key={s}
-              style={[
-                styles.chip,
-                styles.chipStatus,
-                statusFilter === s && styles.chipActive,
-              ]}
-              onPress={() =>
-                setStatusFilter(statusFilter === s ? undefined : s)
-              }
-              accessibilityRole="button"
-              accessibilityLabel={`Filtrar por estado ${STATUS_LABELS[s]}`}
-              accessibilityState={{ selected: statusFilter === s }}
-            >
-              <View
-                style={[
-                  styles.chipDot,
-                  { backgroundColor: STATUS_COLORS[s] },
-                ]}
-              />
-              <Text
-                style={[
-                  styles.chipText,
-                  statusFilter === s && styles.chipTextActive,
-                ]}
-              >
-                {STATUS_LABELS[s]}
-                {statusFilter === s ? ` · ${groups.length}` : ''}
-              </Text>
-            </Pressable>
-          ))}
         </ScrollChips>
         </ImageBackground>
 
