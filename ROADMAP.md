@@ -446,6 +446,7 @@ cuerpo de las noticias, no en su fecha de publicación.
 | 10.8 | **Endpoint `/health` + monitor de uptime**: la API reporta estado interno (DB, última sync Náyade, última sync de prensa, errores LLM 24h) y un monitor externo (UptimeRobot free) pingea y alerta por email si cae o la última sync está rancia — observabilidad real de prod, no solo "está vivo" | Pendiente | 🟡 Medio |
 | 10.9 | **Tests de componente** (React Native Testing Library): 2-3 tests sobre `BeachList` — chips renderizan, filtro activo muestra conteo, sort por estado ordena. Cierran el hueco "frontend solo testea lógica pura" | Pendiente | 🟡 Medio |
 | 10.10 | **CD — deploy automático**: job en `.github/workflows/` sobre `main` que despliega por SSH a la VM (clave en GitHub Secrets, rsync + restart del contenedor). Elimina el deploy manual por scp+docker cp — evita olvidos tipo `events.py` | Pendiente | 🟡 Medio |
+| 10.11 | **Landing más viva de lo que parece**: ya sirve datos en tiempo real (192 dots + alertas vivas por petición), pero los cierres estructurales largos leen como dato rancio ("hace 212 días" en "Alertas activas") y los 3 dots de alerta se pierden entre 192. Mejoras: dots de alerta destacados/pulsantes, "cerrada desde sep-2025" para cierres largos, y opcional mapa interactivo MapLibre | Pendiente | 🟢 Trivial / 🟡 Medio |
 
 ---
 
