@@ -1,6 +1,16 @@
 from collections import Counter
 from datetime import date, timedelta
 
+_MESES = (
+    "ene", "feb", "mar", "abr", "may", "jun",
+    "jul", "ago", "sep", "oct", "nov", "dic",
+)
+
+
+def _mes(d: date) -> str:
+    """Mes abreviado + año para observaciones: jul 2024."""
+    return f"{_MESES[d.month - 1]} {d.year}"
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2 import Geography
 from sqlalchemy import func
@@ -103,6 +113,33 @@ def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
     )
 
 
+@router.get("/sampling")
+def sampling_summary(db: Session = Depends(get_db)) -> dict:
+    """Ritmo de muestreo insular de Náyade: media de muestras/mes en
+    temporada (jun-sep) vs temporada baja. Náyade no muestrea toda la
+    isla fuera de temporada — solo un subconjunto (~40 vs ~120/mes),
+    lo que explica los huecos largos entre mediciones."""
+    rows = (
+        db.query(
+            func.to_char(
+                func.date_trunc("month", BeachMeasurement.sampled_at),
+                "YYYY-MM",
+            ).label("month"),
+            func.count(),
+        )
+        .group_by("month")
+        .all()
+    )
+    season = [c for m, c in rows if 6 <= int(m[5:7]) <= 9]
+    off = [c for m, c in rows if not (6 <= int(m[5:7]) <= 9)]
+    return {
+        "season_per_month": round(sum(season) / len(season)) if season else 0,
+        "offseason_per_month": round(sum(off) / len(off)) if off else 0,
+        "season_months": len(season),
+        "offseason_months": len(off),
+    }
+
+
 @router.get("/beaches/stats", response_model=list[BeachStatsOut])
 def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
     """Agregados por playa para el ranking: episodios (cierres/avisos)
@@ -190,6 +227,11 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
             for m in beach.measurements
             if m.evaluation and "prohib" in m.evaluation.lower()
         )
+        non_apta = sum(
+            1
+            for m in beach.measurements
+            if m.evaluation and "apta" not in m.evaluation.lower()
+        )
         latest = beach.measurements[0] if beach.measurements else None
         stats.append(
             BeachStatsOut(
@@ -198,6 +240,7 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                 warnings=c["warnings"],
                 closures_last_year=c["last_year"],
                 bad_samples=bad,
+                non_apta_samples=non_apta,
                 total_samples=len(beach.measurements),
                 latest_evaluation=latest.evaluation if latest else None,
                 latest_sampled_at=latest.sampled_at if latest else None,
@@ -264,6 +307,10 @@ def _synth_observations(ev: SynthEvent) -> str:
                 f" · prensa anunció reapertura el "
                 f"{ev.press_reopening.strftime('%d/%m/%Y')}"
             )
+        for a, b in ev.sample_gaps:
+            # Parada invernal de Náyade: el cierre pudo interrumpirse
+            # sin muestra que lo acredite — se declara, no se oculta
+            obs += f" · sin muestras entre {_mes(a)} y {_mes(b)}"
         return obs
     obs = "Cierre según prensa — sin incidente oficial en Náyade"
     if ev.end_estimated:

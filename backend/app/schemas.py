@@ -83,6 +83,9 @@ class BeachStatsOut(BaseModel):
     warnings: int  # resto de incidentes
     closures_last_year: int
     bad_samples: int  # mediciones con evaluación "prohibido"
+    # No aptas en sentido amplio: cualquier evaluación que no sea
+    # "Apta" (prohibido + Sin Calificar + recomendación de no baño)
+    non_apta_samples: int = 0
     total_samples: int
     latest_evaluation: str | None
     latest_sampled_at: date | None

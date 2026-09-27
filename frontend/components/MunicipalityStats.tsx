@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
+  Image,
   ImageBackground,
   Modal,
   Platform,
@@ -8,6 +9,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -137,6 +139,8 @@ export default function MunicipalityStats({
   // un año en las chips. Arranca en vivo: aunque selYear apunte a la
   // última temporada en primavera, el ranking muestra el estado real
   const [histMode, setHistMode] = useState(true);
+  // Buscador de municipio en el ranking (filtro por nombre)
+  const [muniQuery, setMuniQuery] = useState('');
   // Filtro de chips de la vista Temporada: cierres | avisos | activas
   const [seasonFilter, setSeasonFilter] = useState<
     'all' | 'closure' | 'warning' | 'active'
@@ -476,6 +480,18 @@ export default function MunicipalityStats({
       );
   }, [rows, yearMuni, isYearMode]);
 
+  // Buscador: filtra la vista activa (Histórico o año) por nombre
+  const muniQ = muniQuery.trim().toLowerCase();
+  const filteredRows = useMemo(
+    () =>
+      muniQ
+        ? displayRows.filter((m) =>
+            m.name.toLowerCase().includes(muniQ),
+          )
+        : displayRows,
+    [displayRows, muniQ],
+  );
+
   const score = (m: MuniStats) =>
     isYearMode ? yearScoreOf(m) : scoreOf(m);
   const barColor = (m: MuniStats) =>
@@ -664,7 +680,7 @@ export default function MunicipalityStats({
             {view === 'ranking'
               ? isYearMode
                 ? `Ranking de ${selYear} · episodios del año por municipio`
-                : 'Ranking por afectación actual e histórica · toca un municipio para ver su línea temporal'
+                : 'Ranking por afectación actual e histórica'
               : view === 'temporada'
                 ? selYear === seasonYear()
                   ? 'Este verano'
@@ -851,6 +867,25 @@ export default function MunicipalityStats({
           </View>
         </ImageBackground>
 
+        {view === 'ranking' && (
+          <View style={styles.searchWrap}>
+            <Image
+              source={require('../assets/icons/icon-search.png')}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={styles.search}
+              placeholder="Busca un municipio…"
+              placeholderTextColor={colors.textFaint}
+              value={muniQuery}
+              onChangeText={setMuniQuery}
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+              accessibilityLabel="Buscar municipio por nombre"
+            />
+          </View>
+        )}
+
         {view !== 'ranking' ? (
           <FlatList
             data={view === 'temporada' ? seasonRowsFiltered : yearRows}
@@ -940,8 +975,17 @@ export default function MunicipalityStats({
           />
         ) : (
         <FlatList
-          data={displayRows}
+          data={filteredRows}
           keyExtractor={(m) => m.name}
+          ListEmptyComponent={
+            <Text style={styles.empty}>
+              {muniQ
+                ? `Sin municipios que coincidan con “${muniQuery.trim()}”`
+                : isYearMode
+                  ? `Sin episodios en ${selYear}`
+                  : 'Sin datos de municipios'}
+            </Text>
+          }
           style={styles.list}
           contentContainerStyle={styles.listContent}
           renderItem={({ item, index }) => (
@@ -950,7 +994,7 @@ export default function MunicipalityStats({
               onPress={() => setDetail(item)}
               accessibilityRole="button"
               accessibilityLabel={`${item.name}, posición ${index + 1} de ${
-                displayRows.length
+                filteredRows.length
               }, ${item.beaches} playas, ${
                 isYearMode
                   ? `${item.yearClosures} cierres y ${item.yearWarnings} avisos en ${selYear}`
@@ -1062,13 +1106,6 @@ export default function MunicipalityStats({
               </Text>
             </Pressable>
           )}
-          ListEmptyComponent={
-            <Text style={styles.empty}>
-              {isYearMode
-                ? `Sin episodios en ${selYear}`
-                : 'Sin datos de municipios'}
-            </Text>
-          }
         />
         )}
           </>
@@ -1109,6 +1146,30 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     paddingHorizontal: 16,
     marginTop: 4,
+  },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    marginHorizontal: 12,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    elevation: 2,
+  },
+  searchIcon: {
+    width: 16,
+    height: 16,
+    tintColor: colors.textFaint,
+  },
+  search: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingLeft: 8,
+    fontSize: 15,
+    fontFamily: fonts.regular,
+    color: colors.text,
   },
   list: {
     flex: 1,

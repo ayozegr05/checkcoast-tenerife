@@ -75,8 +75,10 @@ export default function FeatureSheet({
   beaches?: GeoFeature[];
   // Tap en la foto satélite → ver el punto en el mapa
   onViewOnMap?: () => void;
-  // Tap en un emisario cercano de la ficha de playa → verlo en el mapa
-  onSelectOutfall?: (feature: GeoFeature) => void;
+  // Tap en un emisario cercano de la ficha de playa → verlo en el
+  // mapa; el 2º arg es la ficha concreta abierta (el PM elegido si la
+  // playa tiene varios) para que "atrás" vuelva a ELLA, no al picker
+  onSelectOutfall?: (feature: GeoFeature, origin: GeoFeature) => void;
   // Tap en "Playa más cercana" de la ficha de emisario → verla en el mapa
   onSelectBeach?: (feature: GeoFeature) => void;
 }) {
@@ -397,7 +399,11 @@ export default function FeatureSheet({
                 }
                 outfalls={outfalls}
                 onViewOnMap={handleViewOnMap}
-                onSelectOutfall={onSelectOutfall}
+                onSelectOutfall={
+                  onSelectOutfall
+                    ? (f) => onSelectOutfall(f, beachFeature)
+                    : undefined
+                }
               />
             </View>
           )

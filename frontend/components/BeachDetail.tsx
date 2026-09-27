@@ -23,7 +23,12 @@ import {
   fetchBeachNews,
   fetchBeachQuality,
 } from '../lib/api';
-import { displayBeachName, fmtDate } from '../lib/format';
+import {
+  MONTHS_FULL,
+  displayBeachName,
+  fmtDate,
+  fmtPartialDate,
+} from '../lib/format';
 import { pressSummary } from '../lib/press';
 import { colors, fonts } from '../lib/theme';
 import SatelliteShot from './SatelliteShot';
@@ -290,6 +295,101 @@ export default function BeachDetail({
     -1,
   );
 
+  // Huecos de muestreo >45 días entre muestras consecutivas (o desde la
+  // última hasta hoy). Se distinguen dos casos:
+  //  - anómalo: el hueco cubre meses en los que la playa SÍ suele tener
+  //    muestras (Jardín jul-24→ene-25) → aviso ámbar
+  //  - parada anual: el hueco solo cubre meses que nunca se muestrean
+  //    (régimen estacional o parada navideña) → nota tenue declarando
+  //    el calendario real de Sanidad para esa playa
+  const sampleNote = useMemo<{
+    text: string;
+    anomalous: boolean;
+  } | null>(() => {
+    if (!quality || quality.length < 2) return null;
+    const dates = quality.map((m) => m.sampled_at).sort();
+    const sampledMonths = new Set(
+      dates.map((d) => Number(d.slice(5, 7))),
+    );
+    const gaps: { a: string; b: string; open: boolean }[] = [];
+    for (let i = 1; i < dates.length; i++) {
+      if (
+        (Date.parse(dates[i]) - Date.parse(dates[i - 1])) / 86400000 >
+        45
+      ) {
+        gaps.push({ a: dates[i - 1], b: dates[i], open: false });
+      }
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const last = dates[dates.length - 1];
+    if ((Date.parse(today) - Date.parse(last)) / 86400000 > 45) {
+      gaps.push({ a: last, b: today, open: true });
+    }
+    if (!gaps.length) return null;
+    // Meses estrictamente dentro del hueco (pueden envolver el año)
+    const interiorMonths = (a: string, b: string) => {
+      const res: number[] = [];
+      let y = Number(a.slice(0, 4));
+      let m = Number(a.slice(5, 7)) + 1;
+      const by = Number(b.slice(0, 4));
+      const bm = Number(b.slice(5, 7));
+      if (m > 12) {
+        m = 1;
+        y += 1;
+      }
+      while (y < by || (y === by && m < bm)) {
+        res.push(m);
+        m += 1;
+        if (m > 12) {
+          m = 1;
+          y += 1;
+        }
+      }
+      return res;
+    };
+    const anomalous = gaps.filter((g) =>
+      interiorMonths(g.a, g.b).some((m) => sampledMonths.has(m)),
+    );
+    if (anomalous.length) {
+      // "jul 2024" (con espacio) en los huecos reales
+      const my = (iso: string) =>
+        fmtPartialDate(iso.slice(0, 7)).replace('-', ' ');
+      const parts = anomalous.map((g) =>
+        g.open
+          ? `desde ${my(g.a)}`
+          : `entre ${my(g.a)} y ${my(g.b)}`,
+      );
+      return {
+        text: `Anomalía: sin muestras ${parts.join(' · ')}`,
+        anomalous: true,
+      };
+    }
+    const longest = gaps.reduce((x, y) =>
+      Date.parse(y.b) - Date.parse(y.a) > Date.parse(x.b) - Date.parse(x.a)
+        ? y
+        : x,
+    );
+    return {
+      text:
+        `Sanidad deja de muestrearla cada año entre ` +
+        `${MONTHS_FULL[Number(longest.a.slice(5, 7)) - 1]} y ` +
+        MONTHS_FULL[Number(longest.b.slice(5, 7)) - 1],
+      anomalous: false,
+    };
+  }, [quality]);
+
+  // Récord impecable: todas las muestras evaluadas son "Apta" — nota
+  // positiva en verde (las sin evaluar no cuentan en contra ni a favor)
+  const impeccable = useMemo(
+    () =>
+      !!quality?.length &&
+      quality.some((m) => m.evaluation) &&
+      quality.every(
+        (m) => !m.evaluation || /apta/i.test(m.evaluation),
+      ),
+    [quality],
+  );
+
   // Titulares agrupados por evento+causa: la misma noticia cubierta
   // por varios medios queda como un solo bloque escaneable
   const newsGroups = useMemo(() => {
@@ -507,10 +607,20 @@ export default function BeachDetail({
 
       {nearby !== null && nearby.length > 0 && (
         <View style={styles.nearbyTop}>
-          <Text style={styles.historyTitle}>
-            Emisarios cercanos ({nearby.length}){' '}
-            <Text style={styles.historySub}>
-              · en un radio de 1 km · aleja el zoom para verlos
+          <Text style={[styles.historyTitle, { marginBottom: 10 }]}>
+            Emisarios cercanos:{' '}
+            <Text style={[styles.historySub, { color: colors.text }]}>
+              {nearby.length} a menos de 1 km · el más próximo a{' '}
+              <Text
+                style={
+                  nearby[0].distance_m < 500
+                    ? { color: colors.status.warning }
+                    : undefined
+                }
+              >
+                {fmtDistance(nearby[0].distance_m).replace(' ', ' ')}
+              </Text>
+              {' · aleja el zoom si no los ves'}
             </Text>
           </Text>
           {nearby.map((o) => {
@@ -537,10 +647,14 @@ export default function BeachDetail({
                     {o.name}
                   </Text>
                   <Text style={styles.outfallMeta}>
-                    {OUTFALL_STATUS_LABELS[o.status] ?? 'En trámite'} · a{' '}
-                    {fmtDistance(o.distance_m)}
+                    {OUTFALL_STATUS_LABELS[o.status] ?? 'En trámite'}
                   </Text>
                 </View>
+                {/* Distancia como badge: columna escaneable para
+                    comparar emisarios de un vistazo */}
+                <Text style={[styles.outfallDist, { color: accent }]}>
+                  {fmtDistance(o.distance_m)}
+                </Text>
                 {target && onSelectOutfall && (
                   <Text style={styles.outfallChevron}>›</Text>
                 )}
@@ -577,6 +691,18 @@ export default function BeachDetail({
             {incidents.map((inc) => {
               const closure = isClosure(inc);
               const unclassified = isUnclassified(inc);
+              // Duración del episodio: hasta closed_at o hasta hoy
+              const days = Math.max(
+                1,
+                Math.round(
+                  (Date.parse(
+                    inc.closed_at ??
+                      new Date().toISOString().slice(0, 10),
+                  ) -
+                    Date.parse(inc.opened_at)) /
+                    86400000,
+                ),
+              );
               const accent = closure
                 ? colors.status.closed
                 : colors.outfall.unknown;
@@ -603,6 +729,8 @@ export default function BeachDetail({
                     <Text style={styles.incidentDates}>
                       {fmtDate(inc.opened_at)} →{' '}
                       {inc.closed_at ? fmtDate(inc.closed_at) : 'hoy'}
+                      {' · '}
+                      {days} {days === 1 ? 'día' : 'días'}
                     </Text>
                     <View
                       style={[
@@ -695,6 +823,22 @@ export default function BeachDetail({
             <Text style={styles.staleNote}>
               El incidente oficial ya está cerrado · pendiente de nueva
               muestra
+            </Text>
+          ) : null}
+          {impeccable ? (
+            <Text style={styles.impeccableNote}>
+              Nunca ha dado una muestra no apta
+            </Text>
+          ) : null}
+          {sampleNote ? (
+            <Text
+              style={
+                sampleNote.anomalous
+                  ? styles.gapNoteAnomaly
+                  : styles.gapNote
+              }
+            >
+              {sampleNote.text}
             </Text>
           ) : null}
 
@@ -986,6 +1130,27 @@ const styles = StyleSheet.create({
     color: colors.textFaint,
     marginTop: 4,
   },
+  // Récord impecable (agua siempre apta): verde suave
+  impeccableNote: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.status.open,
+    marginTop: 4,
+  },
+  // Hueco de muestreo esperado (calendario de la playa): ámbar
+  gapNote: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.status.warning,
+    marginTop: 4,
+  },
+  // Hueco anómalo (Sanidad dejó de medirla en periodo normal): rojo
+  gapNoteAnomaly: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.danger,
+    marginTop: 4,
+  },
   chartBlock: {
     marginTop: 12,
     borderTopWidth: 1,
@@ -1112,6 +1277,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 1,
+  },
+  outfallDist: {
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    alignSelf: 'center',
+    marginRight: 6,
+    minWidth: 46,
+    textAlign: 'right',
   },
   incident: {
     borderLeftWidth: 3,

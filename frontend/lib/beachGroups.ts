@@ -130,6 +130,19 @@ export const buildGroups = (
           (STATUS_ORDER[worstStatusOf(b)] ?? 9) || byName(a, b),
     );
   }
+  // "impecables": grupos con muestras cuyo histórico es todo "Apta"
+  // (prohibido + Sin Calificar + recomendación cuentan en contra)
+  if (opts.statusFilter === 'impecables') {
+    return arr.filter(
+      (g) =>
+        g.members.some(
+          (m) => (stats.get(m.id)?.total_samples ?? 0) > 0,
+        ) &&
+        g.members.every(
+          (m) => (stats.get(m.id)?.non_apta_samples ?? 1) === 0,
+        ),
+    );
+  }
   return opts.statusFilter === undefined
     ? arr
     : arr.filter((g) => worstStatusOf(g) === opts.statusFilter);

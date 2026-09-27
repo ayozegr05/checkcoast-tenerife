@@ -77,6 +77,9 @@ export type BeachStats = {
   warnings: number;
   closures_last_year: number;
   bad_samples: number;
+  // No aptas en sentido amplio (prohibido + Sin Calificar +
+  // recomendación): cualquier evaluación que no sea "Apta"
+  non_apta_samples: number;
   total_samples: number;
   latest_evaluation: string | null;
   latest_sampled_at: string | null;
@@ -125,6 +128,13 @@ export type BeachNewsResponse = {
   items: BeachNews[];
 };
 
+export type SamplingSummary = {
+  season_per_month: number; // media muestras/mes jun–sep (toda la isla)
+  offseason_per_month: number; // media muestras/mes oct–may
+  season_months: number;
+  offseason_months: number;
+};
+
 export type OutfallNearestBeach = {
   outfall_id: number;
   beach_id: number;
@@ -164,7 +174,9 @@ export const fetchBeachNews = (beachId: number) =>
 export const fetchOutfallNearestBeach = (outfallId: number) =>
   getJson<OutfallNearestBeach>(`/outfalls/${outfallId}/nearest-beach`);
 export const fetchBeachNearbyOutfalls = (beachId: number) =>
-  getJson<BeachNearbyOutfall[]>(`/beaches/${beachId}/nearby-outfalls`);
+  getJson<BeachNearbyOutfall[]>(
+    `/beaches/${beachId}/nearby-outfalls?radius_m=1000`,
+  );
 export const fetchMunicipalityIncidents = (municipality: string) =>
   getJson<MunicipalityIncident[]>(
     `/incidents?municipality=${encodeURIComponent(municipality)}`,
@@ -174,6 +186,7 @@ export const fetchMunicipalityIncidents = (municipality: string) =>
 // anual, "Resueltas recientemente" y la vista Temporada
 export const fetchEpisodes = () =>
   getJson<MunicipalityIncident[]>('/episodes');
+export const fetchSampling = () => getJson<SamplingSummary>('/sampling');
 
 // URL pública compartible de una playa (mini-página OG del backend);
 // WhatsApp/Telegram la convierten en tarjeta con foto satélite.

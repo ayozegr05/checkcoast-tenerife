@@ -38,6 +38,11 @@ PRESS_CLUSTER_GAP = timedelta(days=45)
 PRESS_STALE = timedelta(days=21)
 # Sin reapertura ni muestra apta, el "fin" de un cierre de prensa es
 # incierto: usamos la última mención y lo declaramos en el texto
+# Hueco entre muestras dentro de una racha de prohibido: Náyade deja
+# de muestrear gran parte de la isla fuera de temporada (~36/mes vs
+# ~120 en verano) — un hueco largo se anota en el episodio porque el
+# cierre pudo interrumpirse sin muestra que lo acredite
+SAMPLE_GAP_NOTE = timedelta(days=45)
 
 
 @dataclass
@@ -74,6 +79,10 @@ class SynthEvent:
     # puede retroceder más allá por closed_since; necesario para recalcular
     # el inicio cuando gana un closed_since más preciso del mismo año
     first_pub: date | None = None
+    # Huecos >SAMPLE_GAP_NOTE entre muestras dentro de la ventana de
+    # analítica (parada invernal): el episodio pudo interrumpirse sin
+    # muestra que lo acredite — se declara en las observaciones
+    sample_gaps: list[tuple[date, date]] = field(default_factory=list)
 
 
 def _bad(m) -> bool:
@@ -141,17 +150,23 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
     today = today or date.today()
 
     # 1. Ventanas de prohibición por analítica (rachas de "prohibido")
+    # — guardando las fechas de las malas para anotar huecos de
+    # muestreo dentro de cada ventana (parada invernal)
     ms = sorted(beach.measurements, key=lambda m: m.sampled_at)
-    windows: list[tuple[date, date | None]] = []
+    windows: list[tuple[date, date | None, list[date]]] = []
     run_start: date | None = None
+    run_bad: list[date] = []
     for m in ms:
         if _bad(m):
-            run_start = run_start or m.sampled_at
+            if run_start is None:
+                run_start = m.sampled_at
+            run_bad.append(m.sampled_at)
         elif run_start is not None:
-            windows.append((run_start, m.sampled_at))
+            windows.append((run_start, m.sampled_at, run_bad))
             run_start = None
+            run_bad = []
     if run_start is not None:
-        windows.append((run_start, None))  # prohibición viva
+        windows.append((run_start, None, run_bad))  # prohibición viva
 
     # 2. Descartar ventanas ya cubiertas por incidencia oficial. Las
     # notas "Sin Calificar" no son incidencias reales (registro de
@@ -165,9 +180,17 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
     ]
     events = [
         SynthEvent(
-            kind="closure", opened_at=s, closed_at=e, via="measurement"
+            kind="closure",
+            opened_at=s,
+            closed_at=e,
+            via="measurement",
+            sample_gaps=[
+                (a, b)
+                for a, b in zip(rb, rb[1:])
+                if b - a > SAMPLE_GAP_NOTE
+            ],
         )
-        for s, e in windows
+        for s, e, rb in windows
         if not any(
             _overlaps(s, e, o_s, o_e) for o_s, o_e in official
         )

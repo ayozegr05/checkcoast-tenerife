@@ -19,7 +19,13 @@ import {
 
 import BeachDetail from './BeachDetail';
 import ScrollChips from './ScrollChips';
-import { BeachStats, GeoFeature, fetchBeachStats } from '../lib/api';
+import {
+  BeachStats,
+  GeoFeature,
+  MunicipalityIncident,
+  fetchBeachStats,
+  fetchEpisodes,
+} from '../lib/api';
 import {
   pointLongLabel,
   displayBeachName,
@@ -30,6 +36,7 @@ import {
   BeachGroup,
   SortMode,
   buildGroups,
+  groupKeyOf,
   statusOf,
   worstStatusOf,
 } from '../lib/beachGroups';
@@ -102,6 +109,7 @@ export default function BeachList({
     undefined,
   );
   const [stats, setStats] = useState<Map<number, BeachStats>>(new Map());
+  const [episodes, setEpisodes] = useState<MunicipalityIncident[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<GeoFeature | null>(null);
   // Scroll del detalle: BeachDetail baja a "Ver titulares" al expandir
@@ -150,6 +158,7 @@ export default function BeachList({
     if (!visible) setDetail(null);
   }, [visible]);
 
+
   // Stats frescas cada vez que se abre
   useEffect(() => {
     if (!visible) return;
@@ -158,7 +167,93 @@ export default function BeachList({
         setStats(new Map(rows.map((s) => [s.beach_id, s]))),
       )
       .catch(() => {});
+    fetchEpisodes()
+      .then(setEpisodes)
+      .catch(() => {});
   }, [visible]);
+
+  // Totales de la cabecera por playa física (grupo): un conjunto de
+  // PMs vigilados cuenta UNA playa monitorizada, no N
+  const totals = useMemo(() => {
+    const seen = new Map<string, boolean>();
+    for (const f of beaches) {
+      const k = groupKeyOf(f);
+      seen.set(
+        k,
+        (seen.get(k) ?? false) || f.properties.monitored !== false,
+      );
+    }
+    let mon = 0;
+    let un = 0;
+    for (const v of seen.values()) v ? mon++ : un++;
+    return { mon, un };
+  }, [beaches]);
+
+  // Correlación isla: cuántas playas con episodios por contaminación
+  // tienen un emisario catalogado a <500 m. Coincidencia espacial —
+  // nunca causalidad afirmada
+  const correlation = useMemo(() => {
+    if (!episodes.length || !outfalls?.length) return null;
+    const hav = (a: [number, number], b: [number, number]) => {
+      const rad = Math.PI / 180;
+      const dLa = (b[1] - a[1]) * rad;
+      const dLo = (b[0] - a[0]) * rad;
+      const s =
+        Math.sin(dLa / 2) ** 2 +
+        Math.cos(a[1] * rad) *
+          Math.cos(b[1] * rad) *
+          Math.sin(dLo / 2) ** 2;
+      return 2 * 6371000 * Math.asin(Math.sqrt(s));
+    };
+    const byId = new Map(beaches.map((f) => [f.id, f]));
+    const polluted = new Set<string>();
+    const near = new Set<string>();
+    for (const ep of episodes) {
+      if (ep.kind !== 'closure' || ep.cause !== 'Contaminación') continue;
+      const f = byId.get(ep.beach_id);
+      if (!f) continue;
+      const key = groupKeyOf(f);
+      polluted.add(key);
+      if (
+        outfalls.some(
+          (o) =>
+            hav(f.geometry.coordinates, o.geometry.coordinates) <= 500,
+        )
+      ) {
+        near.add(key);
+      }
+    }
+    return polluted.size
+      ? { total: polluted.size, near: near.size }
+      : null;
+  }, [episodes, beaches, outfalls]);
+
+  // Récord impecable: grupos físicos de playas vigiladas (los PMs
+  // hermanos cuentan una vez) cuyas muestras fueron todas "Apta"
+  const impeccable = useMemo(() => {
+    if (!stats.size) return null;
+    const byGroup = new Map<
+      string,
+      { nonApta: number; total: number }
+    >();
+    for (const f of beaches) {
+      const s = stats.get(f.id);
+      if (!s) continue;
+      const k = groupKeyOf(f);
+      const a = byGroup.get(k) ?? { nonApta: 0, total: 0 };
+      a.nonApta += s.non_apta_samples;
+      a.total += s.total_samples;
+      byGroup.set(k, a);
+    }
+    let clean = 0;
+    let sampled = 0;
+    for (const a of byGroup.values()) {
+      if (a.total === 0) continue;
+      sampled++;
+      if (a.nonApta === 0) clean++;
+    }
+    return sampled ? { clean, sampled } : null;
+  }, [stats, beaches]);
 
   const municipalities = useMemo(
     () =>
@@ -212,28 +307,75 @@ export default function BeachList({
           style={styles.header}
           resizeMode="cover"
         >
-          <Text style={styles.title}>Playas monitorizadas</Text>
-          <View style={styles.headerRight}>
-            {onOpenMunicipalities && (
+          {/* Fila 1: título + acciones. Los datos isla van a ancho
+              completo debajo — antes apretaban el botón "Por
+              municipio" */}
+          <View style={styles.headerTop}>
+            <Text style={styles.title}>Playas</Text>
+            <View style={styles.headerRight}>
+              {onOpenMunicipalities && (
+                <Pressable
+                  onPress={onOpenMunicipalities}
+                  hitSlop={12}
+                  style={styles.muniBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver incidencias por municipio"
+                >
+                  <Text style={styles.muniBtnText}>Por municipio</Text>
+                </Pressable>
+              )}
               <Pressable
-                onPress={onOpenMunicipalities}
+                onPress={onClose}
                 hitSlop={12}
-                style={styles.muniBtn}
                 accessibilityRole="button"
-                accessibilityLabel="Ver incidencias por municipio"
+                accessibilityLabel="Cerrar lista de playas"
               >
-                <Text style={styles.muniBtnText}>Por municipio</Text>
+                <Text style={styles.close}>✕</Text>
               </Pressable>
-            )}
-            <Pressable
-              onPress={onClose}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Cerrar lista de playas"
-            >
-              <Text style={styles.close}>✕</Text>
-            </Pressable>
+            </View>
           </View>
+          <Text style={styles.headerSub}>
+            {totals.mon} vigiladas · {totals.un} sin vigilar
+          </Text>
+          {correlation && (
+            <Text style={styles.headerSub}>
+              De las {correlation.total} playas con cierres por
+              contaminación, {correlation.near} tienen un emisario a
+              menos de 500 m
+            </Text>
+          )}
+          {impeccable && (
+            <Pressable
+              onPress={() =>
+                setStatusFilter(
+                  statusFilter === 'impecables'
+                    ? undefined
+                    : 'impecables',
+                )
+              }
+              accessibilityRole="button"
+              accessibilityLabel={
+                statusFilter === 'impecables'
+                  ? 'Quitar el filtro y ver todas las playas'
+                  : 'Ver solo las playas sin muestras no aptas'
+              }
+              accessibilityState={{
+                selected: statusFilter === 'impecables',
+              }}
+            >
+              <Text
+                style={[
+                  styles.headerSub,
+                  styles.headerSubLink,
+                  statusFilter === 'impecables' &&
+                    styles.headerSubLinkOn,
+                ]}
+              >
+                {impeccable.clean} playas vigiladas nunca han dado una
+                muestra no apta ›
+              </Text>
+            </Pressable>
+          )}
         </ImageBackground>
 
         <View style={styles.searchWrap}>
@@ -607,13 +749,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop:
       (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 10,
     paddingBottom: 12,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerRight: {
     flexDirection: 'row',
@@ -681,7 +825,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: fonts.extrabold,
     color: '#fff',
-    flex: 1,
+  },
+  headerSub: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 2,
+  },
+  // El dato "impecables" filtra la lista al tocarlo: lo marca el
+  // subrayado; activo sube el peso para que se note el filtro
+  headerSubLink: {
+    color: '#fff',
+    textDecorationLine: 'underline',
+  },
+  headerSubLinkOn: {
+    fontFamily: fonts.extrabold,
   },
   close: {
     fontSize: 20,

@@ -17,30 +17,37 @@ const summary = (s: Partial<BeachNewsSummary>): BeachNewsSummary => ({
 });
 
 describe('pressSummary — ciclo de vida del cierre', () => {
-  it('cerrada ahora: presente + "desde el"', () => {
+  it('cerrada ahora: presente + "desde el" + días que lleva', () => {
     const r = pressSummary(summary({}), {
       stillClosed: true,
       reopenedAt: null,
+      now: new Date('2026-09-27T12:00:00Z'),
     });
     expect(r.main).toBe(
-      'Cerrada por riesgo de desprendimientos · desde el 03/06/2026',
+      'Cerrada por riesgo de desprendimientos\n' +
+        'desde el 03/06/2026 · lleva 116 días',
     );
     expect(r.sub).toBe('según prensa · 9 medios');
   });
 
-  it('cierre resuelto: pasado + fecha puntual', () => {
+  it('cierre resuelto: pasado + rango completo + días', () => {
     const r = pressSummary(
       summary({
         cause: 'vertido de gasoil',
         since: '2026-08-21T08:00:00Z',
         outlets_count: 1,
       }),
-      { stillClosed: false, reopenedAt: '2026-08-26' },
+      {
+        stillClosed: false,
+        reopenedAt: '2026-08-26',
+        now: new Date('2026-10-01T12:00:00Z'),
+      },
     );
-    expect(r.main).toBe('Estuvo cerrada por vertido de gasoil · el 21/08/2026');
-    expect(r.sub).toBe(
-      'según prensa · 1 medio · Sanidad la reabrió el 26/08/2026',
+    expect(r.main).toBe(
+      'Estuvo cerrada por vertido de gasoil\n' +
+        'del 21/08/2026 al 26/08/2026 · 5 días',
     );
+    expect(r.sub).toBe('según prensa · 1 medio');
   });
 
   it('cierre pasado sin reapertura oficial registrada', () => {
@@ -66,7 +73,8 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     expect(r.tone).toBe('reopened');
     expect(r.main).toBe('Reabierta el 25/09/2026');
     expect(r.sub).toBe(
-      'según prensa · 9 medios · estuvo cerrada desde el 23/09/2026',
+      'según prensa · 9 medios · estuvo cerrada desde el ' +
+        '23/09/2026 · ~2 días',
     );
   });
 
@@ -104,20 +112,30 @@ describe('pressSummary — ciclo de vida del cierre', () => {
         since: '2026-07-31T10:00:00Z',
         closed_since: '2024-07',
       }),
-      { stillClosed: true, reopenedAt: null },
+      {
+        stillClosed: true,
+        reopenedAt: null,
+        now: new Date('2026-07-01T12:00:00Z'),
+      },
     );
     expect(r.main).toBe(
-      'Cerrada por riesgo de desprendimientos · desde jul-2024',
+      'Cerrada por riesgo de desprendimientos\n' +
+        'desde jul-2024 · lleva ~730 días',
     );
   });
 
   it('closed_since de solo año: "desde 2024"', () => {
     const r = pressSummary(
       summary({ since: '2026-05-21T10:00:00Z', closed_since: '2024' }),
-      { stillClosed: true, reopenedAt: null },
+      {
+        stillClosed: true,
+        reopenedAt: null,
+        now: new Date('2026-01-01T12:00:00Z'),
+      },
     );
     expect(r.main).toBe(
-      'Cerrada por riesgo de desprendimientos · desde 2024',
+      'Cerrada por riesgo de desprendimientos\n' +
+        'desde 2024 · lleva ~731 días',
     );
   });
 
@@ -127,10 +145,15 @@ describe('pressSummary — ciclo de vida del cierre', () => {
         since: '2026-05-21T10:00:00Z',
         closed_since: '2024-07-15',
       }),
-      { stillClosed: true, reopenedAt: null },
+      {
+        stillClosed: true,
+        reopenedAt: null,
+        now: new Date('2026-07-15T12:00:00Z'),
+      },
     );
     expect(r.main).toBe(
-      'Cerrada por riesgo de desprendimientos · desde el 15/07/2024',
+      'Cerrada por riesgo de desprendimientos\n' +
+        'desde el 15/07/2024 · lleva 730 días',
     );
   });
 
@@ -148,7 +171,8 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     );
     expect(r.tone).toBe('reopened');
     expect(r.sub).toBe(
-      'según prensa · 9 medios · estuvo cerrada desde jul-2024',
+      'según prensa · 9 medios · estuvo cerrada desde jul-2024 ' +
+        '· ~816 días',
     );
   });
 });

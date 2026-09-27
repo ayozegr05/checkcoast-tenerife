@@ -10,6 +10,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert as RNAlert,
   BackHandler,
   Linking,
   NativeModules,
@@ -88,11 +89,12 @@ export default function App() {
   const [listMunicipality, setListMunicipality] = useState<
     string | null | undefined
   >(undefined);
-  // [lon, lat, zoom?]: sin zoom = fly-to estándar (13, con card);
-  // con zoom = acercar a pelo, sin abrir ficha
-  const [focus, setFocus] = useState<[number, number, number?] | null>(
-    null,
-  );
+  // [lon, lat, zoom?, tipoCard?]: sin zoom = fly-to estándar (13,
+  // con card); con zoom sin tipo = pin exacto sin card; con tipo =
+  // zoom con ficha abierta (padding de la card)
+  const [focus, setFocus] = useState<
+    [number, number, number?, ('beach' | 'outfall')?] | null
+  >(null);
   const [introVisible, setIntroVisible] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   // "Ver en mapa" desde la ficha: la card se oculta pero la selección
@@ -213,6 +215,7 @@ export default function App() {
     setMuniOpen(false);
     setOutfallListOpen(false);
     setReturnToOutfalls(false);
+    setRestoreSel(null);
     setSheetHidden(false);
     setSelection({
       type: 'beach',
@@ -262,6 +265,7 @@ export default function App() {
     setListMunicipality(undefined);
     setReturnToMuni(false);
     setReturnToOutfalls(false);
+    setRestoreSel(null);
     setSheetHidden(true);
     setSelection({
       type: 'beach',
@@ -277,6 +281,7 @@ export default function App() {
   const handleOutfallSelect = (feature: GeoFeature) => {
     setOutfallListOpen(false);
     setReturnToOutfalls(true);
+    setRestoreSel(null);
     setSheetHidden(false);
     setSelection({ type: 'outfall', feature });
     setFocus([...feature.geometry.coordinates]);
@@ -298,19 +303,33 @@ export default function App() {
   };
   // Pin tocado desde dentro de una ficha (emisario cercano en la de
   // playa, playa más cercana en la de emisario): el mapa vuela al punto
-  // con su pin seleccionado (card oculta) y la ficha previa queda
-  // guardada para volver a ella al cerrar
-  const flyToPin = (sel: Selection, restore: Selection | null) => {
+  // con su pin seleccionado. `entries` = pasos que se apilan para el
+  // botón atrás (la ficha de origen y, si venía de la lista, su ficha
+  // dentro del modal). showSheet abre la ficha del punto en vez de
+  // dejar solo el pin destacado (emisario desde ficha de playa)
+  const flyToPin = (
+    sel: Selection,
+    restore: Selection | null,
+    showSheet = false,
+  ) => {
     setListOpen(false);
     setMuniOpen(false);
     setOutfallListOpen(false);
     setRestoreSel(restore);
-    setSheetHidden(true);
+    setSheetHidden(!showSheet);
     setSelection(sel);
-    setFocus([...sel.feature.geometry.coordinates, 15.5]);
+    // Con ficha abierta la cámara aplica su padding (la card tapa la
+    // zona baja); sin ficha el pin se centra exacto
+    setFocus(
+      showSheet
+        ? [...sel.feature.geometry.coordinates, 15.5, sel.type]
+        : [...sel.feature.geometry.coordinates, 15.5],
+    );
   };
-  const openOutfall = (feature: GeoFeature, restore: Selection | null) =>
-    flyToPin({ type: 'outfall', feature }, restore);
+  const openOutfall = (
+    feature: GeoFeature,
+    restore: Selection | null,
+  ) => flyToPin({ type: 'outfall', feature }, restore, true);
   const openBeachPin = (
     feature: GeoFeature,
     restore: Selection | null,
@@ -324,13 +343,30 @@ export default function App() {
       restore,
     );
 
+  // Cierre explícito (✕ o gesto de arrastrar): suelta en el mapa
+  // libre — no retrocede por la cadena de origen ni reabre listas
   const closeSheet = () => {
+    setRestoreSel(null);
+    setReturnToMuni(false);
+    setReturnToOutfalls(false);
+    setSelection(null);
+    setSheetHidden(false);
+  };
+
+  // Atrás hardware: retrocede por donde viniste — si la ficha se abrió
+  // desde otra (emisario desde playa) su card se restaura; si venía de
+  // una lista (emisarios, municipios) esa lista se reabre
+  const backSheet = () => {
     if (restoreSel) {
       const back = restoreSel;
       setRestoreSel(null);
       setSheetHidden(false);
       setSelection(back);
-      setFocus([...back.feature.geometry.coordinates, 15.5]);
+      setFocus([
+        ...back.feature.geometry.coordinates,
+        15.5,
+        back.type,
+      ]);
       return;
     }
     setSelection(null);
@@ -346,17 +382,40 @@ export default function App() {
   };
 
   // Botón atrás de Android: la ficha no es un Modal, así que sin este
-  // handler atrás cerraría la app. Con selección activa (card abierta
-  // o pin destacado tras "Ver en mapa") atrás = closeSheet, que ya
-  // sabe restaurar la ficha previa o reabrir la lista de origen
-  const closeSheetRef = useRef(closeSheet);
-  closeSheetRef.current = closeSheet;
+  // handler atrás cerraría la app. Orden: overlays propios (guía,
+  // intro) → ficha (backSheet, que recuerda la de origen a diferencia
+  // de la ✕) → mapa limpio → confirmación antes de salir. Los Modals
+  // (listas) consumen su propio atrás nativo antes de llegar aquí
+  const backSheetRef = useRef(backSheet);
+  backSheetRef.current = backSheet;
   const hasSelectionRef = useRef(false);
   hasSelectionRef.current = selection !== null;
+  const helpOpenRef = useRef(helpOpen);
+  helpOpenRef.current = helpOpen;
+  const introOpenRef = useRef(introVisible);
+  introOpenRef.current = introVisible;
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (!hasSelectionRef.current) return false;
-      closeSheetRef.current();
+      if (helpOpenRef.current) {
+        setHelpOpen(false);
+        return true;
+      }
+      if (introOpenRef.current) {
+        setIntroVisible(false);
+        return true;
+      }
+      if (hasSelectionRef.current) {
+        backSheetRef.current();
+        return true;
+      }
+      RNAlert.alert('Salir de CheckCoast', '¿Quieres salir de la app?', [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Salir',
+          style: 'destructive',
+          onPress: () => BackHandler.exitApp(),
+        },
+      ]);
       return true;
     });
     return () => sub.remove();
@@ -383,19 +442,11 @@ export default function App() {
           setReturnToMuni(false);
           setReturnToOutfalls(false);
         }}
+        // Buscar/Ayuda pisan la ficha: cierra directo (no retrocede)
         onDismissSelection={() => {
-          if (restoreSel) {
-            const back = restoreSel;
-            setRestoreSel(null);
-            setSheetHidden(false);
-            setSelection(back);
-            setFocus([...back.feature.geometry.coordinates, 15.5]);
-            return;
-          }
-          setSelection(null);
-          setSheetHidden(false);
           setReturnToMuni(false);
           setReturnToOutfalls(false);
+          closeSheet();
         }}
         onOpenList={() => setListOpen(true)}
         onOpenMunicipalities={() => {
@@ -504,11 +555,23 @@ export default function App() {
 
       {selection && !sheetHidden && (
         <FeatureSheet
+          // Remount por selección: la animación de cierre deja el
+          // componente con alto 0 y closing=true — sin key la ficha
+          // restaurada (y todas las siguientes) quedan invisibles
+          key={`${selection.type}-${selection.feature.id}`}
           selection={selection}
           onClose={closeSheet}
           outfalls={outfalls.features}
           beaches={beachesFC.features}
-          onSelectOutfall={(f) => openOutfall(f, selection)}
+          onSelectOutfall={(f, origin) =>
+            // Se guarda la ficha concreta vista (sin members): atrás
+            // la restaura directa, no el selector de PMs del grupo
+            openOutfall(f, {
+              type: 'beach',
+              feature: origin,
+              hasAlert: origin.properties.alert === true,
+            })
+          }
           onSelectBeach={(f) => openBeachPin(f, selection)}
           onViewOnMap={() => {
             // Ocultar la card pero mantener la selección: el pin sigue

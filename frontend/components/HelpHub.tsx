@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  BackHandler,
   Image,
   ImageBackground,
   ImageSourcePropType,
@@ -142,6 +143,22 @@ export default function HelpHub({
   onShowIntro?: () => void;
 }) {
   const [topic, setTopic] = useState<Topic | null>(null);
+
+  // Atrás hardware: dentro de una sección vuelve al índice; en el
+  // índice devuelve false para que App cierre la guía entera
+  useEffect(() => {
+    const sub = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (topic) {
+          setTopic(null);
+          return true;
+        }
+        return false;
+      },
+    );
+    return () => sub.remove();
+  }, [topic]);
 
   return (
     <View style={styles.backdrop}>

@@ -66,6 +66,11 @@ const MONTHS_SHORT = [
   'ene', 'feb', 'mar', 'abr', 'may', 'jun',
   'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
 ];
+// Meses en nombre completo ("entre noviembre y enero")
+export const MONTHS_FULL = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
 export const fmtPartialDate = (iso: string) => {
   const parts = iso.split('-');
   if (parts.length === 1) return parts[0];

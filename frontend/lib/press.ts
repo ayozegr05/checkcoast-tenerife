@@ -46,11 +46,23 @@ export const pressSummary = (
         : s.closed_since || s.since
           ? `desde el ${fmtDate((s.closed_since || s.since!).slice(0, 10))}`
           : null;
+    // Cuánto estuvo cerrada: con inicio parcial es aproximado ("~")
+    const startRaw = s.closed_since || s.since;
+    const startIso = startRaw
+      ? startRaw.length === 4
+        ? `${startRaw}-01-01`
+        : startRaw.length === 7
+          ? `${startRaw}-01`
+          : startRaw.slice(0, 10)
+      : null;
+    const dur = startIso
+      ? ` · ~${Math.max(1, Math.round((Date.parse(opts.reopenedAt!.slice(0, 10)) - Date.parse(startIso)) / 86_400_000))} días`
+      : '';
     return {
       main: `Reabierta el ${fmtDate(opts.reopenedAt!.slice(0, 10))}`,
       sub:
         `según prensa · ${medios}` +
-        (closedFor ? ` · estuvo cerrada ${closedFor}` : ''),
+        (closedFor ? ` · estuvo cerrada ${closedFor}${dur}` : ''),
       tone: 'reopened' as const,
     };
   }
@@ -65,25 +77,64 @@ export const pressSummary = (
       : null;
   const sinceIsPartial =
     !!s.closed_since && s.closed_since.length < 10;
-  let date = '';
-  if (isClosure && !opts.stillClosed) {
-    // Pasado: "el 21/08" — fecha exacta; con precisión parcial sigue
-    // siendo "desde jul-2024" ("el jul-2024" no se dice)
-    date = sinceText
+  // Inicio del episodio como día ISO: con precisión parcial se asume
+  // el día 1 y el conteo se marca con "~" (no inventamos día exacto)
+  const startRaw = s.closed_since || s.since;
+  const startIso = startRaw
+    ? startRaw.length === 4
+      ? `${startRaw}-01-01`
+      : startRaw.length === 7
+        ? `${startRaw}-01`
+        : startRaw.slice(0, 10)
+    : null;
+  const daySpan = (a: string, b: string) =>
+    Math.max(
+      1,
+      Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000),
+    );
+  const approx = sinceIsPartial ? '~' : '';
+  const todayIso = (opts.now ?? new Date()).toISOString().slice(0, 10);
+
+  // Cierre: el "cuánto duró" es parte del titular — rango completo +
+  // días en una segunda línea; la atribución queda abajo
+  if (isClosure) {
+    const nounTxt = `${shownNoun}${s.cause ? ` ${prep} ${s.cause}` : ''}`;
+    if (opts.stillClosed) {
+      const line2 = startIso
+        ? `desde ${sinceIsPartial ? '' : 'el '}${sinceText} · lleva ` +
+          `${approx}${daySpan(startIso, todayIso)} días`
+        : '';
+      return {
+        main: `${nounTxt}${line2 ? `\n${line2}` : ''}`,
+        sub: `según prensa · ${medios}`,
+        tone: 'default' as const,
+      };
+    }
+    if (opts.reopenedAt && startIso) {
+      const end = opts.reopenedAt.slice(0, 10);
+      return {
+        main:
+          `${nounTxt}\n` +
+          `del ${fmtDate(startIso)} al ${fmtDate(end)} · ` +
+          `${approx}${daySpan(startIso, end)} días`,
+        sub: `según prensa · ${medios}`,
+        tone: 'default' as const,
+      };
+    }
+    // Episodio caducado sin reapertura registrada: sin fin, sin días
+    const date = sinceText
       ? ` · ${sinceIsPartial ? 'desde' : 'el'} ${sinceText}`
       : '';
-  } else {
-    date = sinceText
-      ? ` · ${sinceIsPartial ? 'desde' : dmark} ${sinceText}`
-      : '';
+    return {
+      main: `${nounTxt}${date}`,
+      sub: `según prensa · ${medios}`,
+      tone: 'default' as const,
+    };
   }
-  // Sanidad registró la reapertura de ese mismo episodio
-  const reopen = opts.reopenedAt
-    ? ` · Sanidad la reabrió el ${fmtDate(opts.reopenedAt)}`
-    : '';
+  const date = sinceText ? ` · ${dmark} ${sinceText}` : '';
   return {
     main: `${shownNoun}${s.cause ? ` ${prep} ${s.cause}` : ''}${date}`,
-    sub: `según prensa · ${medios}${reopen}`,
+    sub: `según prensa · ${medios}`,
     tone: 'default' as const,
   };
 };

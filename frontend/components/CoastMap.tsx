@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  BackHandler,
   Image,
   Keyboard,
   NativeSyntheticEvent,
@@ -106,9 +107,10 @@ export type Selection =
 type CoastMapProps = {
   outfalls: FeatureCollection;
   beaches: FeatureCollection; // con properties.alert ya inyectado
-  // [lon, lat, zoom?] a donde volar la cámara; con zoom explícito se
-  // centra exacto (no hay card abierta que tape el punto)
-  focus?: [number, number, number?] | null;
+  // [lon, lat, zoom?, tipoCard?] a donde volar la cámara; con zoom
+  // explícito y SIN tipo se centra exacto (pin sin card). Con tipo,
+  // se aplica el padding de la card que se abre (beach | outfall)
+  focus?: [number, number, number?, ('beach' | 'outfall')?] | null;
   selectionActive: boolean; // hay card abierta -> al cerrar restaura vista
   // id del PM representante de la playa seleccionada: su etiqueta de
   // nombre se pinta en una capa propia que gana siempre los solapes
@@ -511,8 +513,15 @@ export default function CoastMap({
       cameraRef.current?.flyTo({
         center: [cx, cy],
         zoom: focus[2] ?? 13,
-        // Sin zoom explícito hay card abierta (o a punto) → padding
-        padding: exact ? undefined : CARD_PAD,
+        // Card abierta (o a punto) → padding para no tapar el pin:
+        // tipo explícito en el foco, o sin zoom exacto el de playa
+        padding: focus[3]
+          ? focus[3] === 'outfall'
+            ? CARD_PAD_OUTFALL
+            : CARD_PAD
+          : exact
+            ? undefined
+            : CARD_PAD,
         duration: 1500,
       });
     }
@@ -628,6 +637,21 @@ export default function CoastMap({
   };
   // Lo mismo para el desplegable de avisos del banner y el panel de
   // capas — tocar el mapa u otro botón cierra lo que esté abierto
+  // Atrás con buscador/avisos/capas abierto: se cierra el overlay, no
+  // la app. Al re-suscribirse en cada cambio este listener queda el
+  // más reciente y corre antes que el handler de selección de App
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (searchOpen || alertsOpen || layersOpen) {
+        closeOverlays();
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchOpen, alertsOpen, layersOpen]);
+
   const closeOverlays = () => {
     closeSearch();
     setAlertsOpen(false);
