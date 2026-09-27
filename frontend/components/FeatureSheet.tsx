@@ -448,7 +448,7 @@ export default function FeatureSheet({
                     <Text style={styles.nearTitle}>
                       Playa más cercana{' '}
                       <Text style={styles.nearSub}>
-                        · aleja el zoom para verla
+                        · si no la ves, aleja el zoom
                       </Text>
                     </Text>
                     <Pressable
