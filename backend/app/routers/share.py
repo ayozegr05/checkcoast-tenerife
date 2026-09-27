@@ -27,15 +27,48 @@ from app.models import (
     Beach,
     BeachIncident,
     BeachMeasurement,
-    BeachStatus,
     NewsItem,
     Outfall,
 )
-from app.queries import beaches_with_latest_status
+from app.queries import beaches_with_latest_status, effective_states
 
 router = APIRouter(tags=["share"])
 
 _ANDROID_PACKAGE = "com.checkcoast.tenerife"
+
+_MONTHS = [
+    "ene", "feb", "mar", "abr", "may", "jun",
+    "jul", "ago", "sep", "oct", "nov", "dic",
+]
+
+
+def _live_status_counts(db: Session) -> dict[str, int]:
+    """Recuento de estados efectivos AHORA (misma regla que el mapa de
+    la app) — antes se contaban todas las filas históricas de
+    beach_statuses y el contador mentía (5 cerradas cuando hay 3)."""
+    counts: dict[str, int] = {}
+    for e in effective_states(db).values():
+        s = e["status"]
+        s = s.value if hasattr(s, "value") else s
+        counts[s] = counts.get(s, 0) + 1
+    return counts
+
+
+def _alert_when(aword: str, rep: datetime | None, now: datetime) -> str:
+    """'cerrada · hace 3 días' si es reciente; 'cerrada desde feb 2026'
+    cuando el cierre lleva >30 d — 'hace 212 días' en una alerta viva
+    se lee como dato rancio, no como cierre en curso."""
+    if rep is not None and rep.tzinfo is None:
+        rep = rep.replace(tzinfo=timezone.utc)
+    days = (now - rep).days if rep else 0
+    if days <= 30:
+        ago = (
+            "hoy" if days == 0
+            else "ayer" if days == 1
+            else f"hace {days} días"
+        )
+        return f"{aword} · {ago}"
+    return f"{aword} desde {_MONTHS[rep.month - 1]} {rep.year}"
 
 
 @router.get("/.well-known/assetlinks.json")
@@ -488,9 +521,13 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     outfall_rows = "".join(
         f'<div class="ofrow" style="border-color:'
         f'{_OUTFALL_STATUS.get(o.status.value, _OUTFALL_STATUS["unknown"])[1]}">'
-        f'<div class="ofname">{html.escape(o.name)}</div>'
+        f'<div><div class="ofname">{html.escape(o.name)}</div>'
         f'<div class="ofmeta">{_OUTFALL_STATUS.get(o.status.value, _OUTFALL_STATUS["unknown"])[0]}'
-        f" · a {round(o.distance_m)} m</div></div>"
+        # Distancia como cifra destacada (como en la ficha de la app);
+        # <500 m va en naranja de aviso — es el dato que impacta
+        f'</div></div><div class="ofdist'
+        f'{" near" if o.distance_m < 500 else ""}">'
+        f"a {round(o.distance_m)} m</div></div>"
         for o in outfalls
     )
     outfalls_block = (
@@ -691,12 +728,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     )
 
     # Contadores vivos para el panel lateral desktop
-    status_counts = {
-        (k.value if hasattr(k, "value") else k): v
-        for k, v in db.query(BeachStatus.status, func.count())
-        .group_by(BeachStatus.status)
-        .all()
-    }
+    status_counts = _live_status_counts(db)
     total_beaches = db.query(func.count(Beach.id)).scalar()
 
     # Alertas vivas de la isla para el panel lateral: la misma regla
@@ -710,14 +742,6 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         rows_a = ""
         for a in island_alerts:
             rep = a.reported_at
-            if rep is not None and rep.tzinfo is None:
-                rep = rep.replace(tzinfo=timezone.utc)
-            days = (now - rep).days if rep else 0
-            ago = (
-                "hoy" if days == 0
-                else "ayer" if days == 1
-                else f"hace {days} días"
-            )
             via = "según prensa" if a.via == "press" else "oficial"
             acolor = _STATUS.get(a.status, _STATUS["unknown"])[1]
             aword = "cerrada" if a.status == "closed" else "aviso"
@@ -726,7 +750,8 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
                 f'<a class="sal" href="/b/{a.beach_id}">'
                 f'<i style="background:{acolor}"></i><div>'
                 f"<b>{html.escape(_display_name(a.beach_name))}</b>"
-                f"<span>{aword} · {ago} · {via} · {amuni}</span>"
+                f"<span>{_alert_when(aword, rep, now)} · "
+                f"{via} · {amuni}</span>"
                 "</div></a>"
             )
         salerts = (
@@ -860,9 +885,14 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
   .sec {{ margin-top:16px; font-size:13px; font-weight:700;
           color:#0d3a52; }}
   .ofrow {{ margin-top:8px; padding:8px 12px; border-left:3px solid;
-          background:#f4f9fb; border-radius:0 8px 8px 0; }}
+          background:#f4f9fb; border-radius:0 8px 8px 0;
+          display:flex; justify-content:space-between;
+          align-items:center; gap:10px; }}
   .ofname {{ font-size:13px; font-weight:600; color:#0d3a52; }}
   .ofmeta {{ font-size:11px; color:#7a919c; margin-top:1px; }}
+  .ofdist {{ font-size:15px; font-weight:700; color:#075276;
+          white-space:nowrap; }}
+  .ofdist.near {{ color:#e65100; }}
   .radius {{ font-size:11px; color:#7a919c; margin-top:6px; }}
   .press {{ margin:16px 0 6px; background:#fff7e8;
           border:1px solid #f0d9a8;
@@ -1068,12 +1098,7 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
     enlazables a su /b/{id} — la demo completa sin instalar nada."""
     from app.routers.alerts import list_alerts
 
-    status_counts = {
-        (k.value if hasattr(k, "value") else k): v
-        for k, v in db.query(BeachStatus.status, func.count())
-        .group_by(BeachStatus.status)
-        .all()
-    }
+    status_counts = _live_status_counts(db)
     total_beaches = db.query(func.count(Beach.id)).scalar()
     island_alerts = list_alerts(db)
     alert_state = {a.beach_id: a.status for a in island_alerts}
@@ -1099,9 +1124,14 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
         )
         x, y = _px(lon, lat, clon, clat, dlon, dlat)
         if 0 <= x <= 100 and 0 <= y <= 100:
+            col = _STATUS.get(st, _STATUS["unknown"])[1]
+            # Las playas con alerta viva pulsan (mismo gesto que los
+            # pines parpadeantes de la app) — entre 192 dots, lo único
+            # que el visitante necesita localizar es lo que pita
+            alert_cls = " alert" if beach.id in alert_state else ""
             dots += (
-                f'<i class="mdot" style="left:{x:.1f}%;top:{y:.1f}%;'
-                f'background:{_STATUS.get(st, _STATUS["unknown"])[1]}"'
+                f'<i class="mdot{alert_cls}" style="left:{x:.1f}%;'
+                f'top:{y:.1f}%;background:{col};--pc:{col}"'
                 f' title="{html.escape(_display_name(beach.name))}"></i>'
             )
 
@@ -1110,10 +1140,6 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
     now = datetime.now(timezone.utc)
     for a in island_alerts[:5]:
         rep = a.reported_at
-        if rep is not None and rep.tzinfo is None:
-            rep = rep.replace(tzinfo=timezone.utc)
-        days = (now - rep).days if rep else 0
-        ago = "hoy" if days == 0 else "ayer" if days == 1 else f"hace {days} días"
         via = "según prensa" if a.via == "press" else "oficial"
         acolor = _STATUS.get(a.status, _STATUS["unknown"])[1]
         aword = "cerrada" if a.status == "closed" else "aviso"
@@ -1121,7 +1147,7 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
             f'<a class="sal" href="/b/{a.beach_id}">'
             f'<i style="background:{acolor}"></i><div>'
             f"<b>{html.escape(_display_name(a.beach_name))}</b>"
-            f"<span>{aword} · {ago} · {via} · "
+            f"<span>{_alert_when(aword, rep, now)} · {via} · "
             f'{html.escape(a.municipality or "")}</span></div></a>'
         )
     alerts_block = (
@@ -1235,6 +1261,11 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
           border:1.5px solid rgba(255,255,255,.9);
           transform:translate(-50%,-50%);
           box-shadow:0 1px 3px rgba(0,0,0,.45); }}
+  .mdot.alert {{ width:11px; height:11px; z-index:2;
+          animation:mpulse 1.7s ease-out infinite; }}
+  @keyframes mpulse {{
+    0% {{ box-shadow:0 0 0 0 var(--pc, rgba(198,40,40,.55)); }}
+    100% {{ box-shadow:0 0 0 11px rgba(198,40,40,0); }} }}
   .ibody {{ padding:16px 20px 20px; }}
   .sec {{ margin-top:4px; font-size:13px; font-weight:700;
           color:#0d3a52; }}
