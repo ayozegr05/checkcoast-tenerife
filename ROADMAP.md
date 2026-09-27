@@ -426,7 +426,7 @@ cuerpo de las noticias, no en su fecha de publicación.
 | 9.2 | Screenshots/GIF de la app (mapa, ranking, vertidos, ficha) | Pendiente — capturas del APK nuevo | 🟢 Trivial |
 | 9.3 | Diagrama de arquitectura (Mermaid en README) | ✅ Hecho (`02fe195`) | 🟢 Trivial |
 | 9.4 | Documentar decisiones técnicas | ✅ Hecho — `DECISIONS.md` (`02fe195`) | 🟢 Trivial |
-| 9.5 | Subir repo a GitHub (sin remote aún — activa CI + da URL pública) | Pendiente | 🟢 Trivial |
+| 9.5 | Subir repo a GitHub (sin remote aún — activa CI + da URL pública) | ✅ Hecho (2026-09-27) — `github.com/ayozegr05/checkcoast-tenerife`, historial reescrito a noreply (mailmap), LICENSE MIT, CI arrancó solo | 🟢 Trivial |
 | 9.6 | Vídeo demo breve (~45 s): grabación de pantalla + texto superpuesto, sin voz — hook "Náyade dice QUÉ, esto dice POR QUÉ" | Pendiente | 🟡 Medio |
 | 9.7 | Post LinkedIn: problema en 1 frase + vídeo/GIF + 3 bullets técnicos + link repo (requiere 9.5) | Pendiente | 🟢 Trivial |
 | 9.8 | **Homepage de producto** en `checkcoast.duckdns.org/`: hero + mapa vivo de la isla (puntos por estado) + stats + alertas enlazables + grid de playas ejemplo + cómo funciona | ✅ Hecho (`a5fd60c`) | 🟡 Medio |
