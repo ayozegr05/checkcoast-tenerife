@@ -41,6 +41,13 @@ type MuniStats = {
   incidents: number; // cierres + avisos históricos
   closuresLastYear: number;
   badSamples: number;
+  // Modo-año (ranking con un año pasado seleccionado): episodios del
+  // municipio en selYear — deduplicados por playa base en /episodes,
+  // misma fuente que la vista "Este año"
+  yearClosures?: number;
+  yearWarnings?: number;
+  yearActive?: number;
+  yearBeaches?: string[]; // playas afectadas ese año
 };
 
 // Una playa extensa tiene varios puntos de muestreo (PM1, PM2...):
@@ -66,6 +73,16 @@ const barColorOf = (m: MuniStats) =>
 // top 3 marca "los que peor están", no un premio. Neutro del 4º en adelante
 const rankColorOf = (m: MuniStats, index: number) =>
   index < 3 ? barColorOf(m) : '#8fa3ad';
+
+// Modo-año: un cierre pesa el triple que un aviso; la barra roja si
+// hubo cierres, naranja si solo avisos
+const yearScoreOf = (m: MuniStats) =>
+  (m.yearClosures ?? 0) * 3 + (m.yearWarnings ?? 0);
+
+const yearBarColorOf = (m: MuniStats) =>
+  (m.yearClosures ?? 0) > 0
+    ? colors.status.closed
+    : colors.status.warning;
 
 const fmtDate = (iso: string) => iso.split('-').reverse().join('/');
 
@@ -116,6 +133,10 @@ export default function MunicipalityStats({
   // Año seleccionado en las vistas cronológicas (verano/año) —
   // por defecto el vigente; las chips de año lo cambian
   const [selYear, setSelYear] = useState(seasonYear());
+  // Ranking: 'Histórico' (vivo + histórico total) vs modo-año al elegir
+  // un año en las chips. Arranca en vivo: aunque selYear apunte a la
+  // última temporada en primavera, el ranking muestra el estado real
+  const [histMode, setHistMode] = useState(true);
   // Filtro de chips de la vista Temporada: cierres | avisos | activas
   const [seasonFilter, setSeasonFilter] = useState<
     'all' | 'closure' | 'warning' | 'active'
@@ -129,6 +150,7 @@ export default function MunicipalityStats({
     if (!visible) return;
     setView(initialView);
     setYearCause(initialCause ?? 'all');
+    setHistMode(true); // el ranking siempre abre en "Histórico"
   }, [visible, initialView, initialCause]);
 
   const seasonRows = useMemo(
@@ -173,11 +195,16 @@ export default function MunicipalityStats({
     () => yearEpisodes(episodes, selYear),
     [episodes, selYear],
   );
-  // Las chips de causa cuentan solo CIERRES del año — igual que el
-  // desglose del banner ("14 cierres (7 mar agitado · ...)")
+  // Ámbito de las chips de causa y su filtro: en ranking siguen a la
+  // vista activa (Histórico = todo el registro, modo-año = ese año);
+  // en la vista "Este año" siempre el año seleccionado
+  const causeScope =
+    view === 'ranking' && histMode ? episodes : yearAll;
+  // Las chips de causa cuentan solo CIERRES — igual que el desglose
+  // del banner ("14 cierres (7 mar agitado · ...)")
   const yearCauses = useMemo(
-    () => causeCounts(yearAll.filter((e) => e.kind === 'closure')),
-    [yearAll],
+    () => causeCounts(causeScope.filter((e) => e.kind === 'closure')),
+    [causeScope],
   );
   const yearRows = useMemo(
     () =>
@@ -202,7 +229,7 @@ export default function MunicipalityStats({
   const muniCauseCount = useMemo(() => {
     const m = new Map<string | null, number>();
     if (yearCause === 'all') return m;
-    for (const e of yearAll) {
+    for (const e of causeScope) {
       if (e.kind !== 'closure') continue;
       const hit =
         yearCause === 'sin causa' ? !e.cause : e.cause === yearCause;
@@ -210,13 +237,43 @@ export default function MunicipalityStats({
       m.set(e.municipality, (m.get(e.municipality) ?? 0) + 1);
     }
     return m;
-  }, [yearAll, yearCause]);
+  }, [causeScope, yearCause]);
 
   // Años con datos para el selector (compartido por las tres vistas:
-  // en ranking decide a qué año se aplica el filtro de causa)
+  // en ranking decide a qué año se aplica el filtro de causa — y con
+  // un año pasado el ranking entero pasa a modo-año)
   const years = useMemo(() => episodeYears(episodes), [episodes]);
+  const curYear = new Date().getFullYear();
+  const isYearMode = view === 'ranking' && !histMode;
+  // Episodios del año seleccionado por municipio: /episodes ya viene
+  // deduplicado por playa base (un cluster por playa física, no por
+  // PM — el megacierre de Jardín en PM1/PM4/PM5 cuenta una vez)
+  const yearMuni = useMemo(() => {
+    const m = new Map<
+      string | null,
+      {
+        closures: number;
+        warnings: number;
+        active: number;
+        beaches: Set<string>;
+      }
+    >();
+    for (const e of yearAll) {
+      const c = m.get(e.municipality) ?? {
+        closures: 0,
+        warnings: 0,
+        active: 0,
+        beaches: new Set<string>(),
+      };
+      if (e.kind === 'closure') c.closures += 1;
+      else c.warnings += 1;
+      if (e.closed_at === null) c.active += 1;
+      c.beaches.add(displayBeachName(e.beach_name));
+      m.set(e.municipality, c);
+    }
+    return m;
+  }, [yearAll]);
   const yearLine = useMemo(() => {
-    const n = closuresThisYear(episodes).length;
     // "Activas" = alertas VIVAS (estado efectivo), no episodios sin
     // cerrar: un cierre estructural sin prensa fresca sigue vivo aunque
     // su episodio tenga fin estimado (Benijo, Gaviotas, Garachico)
@@ -225,14 +282,30 @@ export default function MunicipalityStats({
         f.properties.status === 'closed' ||
         f.properties.status === 'warning',
     ).length;
-    return n > 0
-      ? `Este año · ${n} ${n === 1 ? 'cierre' : 'cierres'}${
-          live
-            ? ` · ${live} ${live === 1 ? 'activa' : 'activas'} ahora`
-            : ''
-        }`
-      : null;
-  }, [episodes, beaches]);
+    if (!isYearMode) {
+      // Histórico: registro completo — totales, causas de los cierres
+      // y desde qué año hay datos (mediciones Náyade desde ene-2023)
+      const closures = episodes.filter((e) => e.kind === 'closure');
+      const warnings = episodes.length - closures.length;
+      if (closures.length === 0 && warnings === 0) return null;
+      const firstYear = years[years.length - 1];
+      const parts = [
+        `${closures.length} ${closures.length === 1 ? 'cierre' : 'cierres'}`,
+      ];
+      if (warnings)
+        parts.push(
+          `${warnings} ${warnings === 1 ? 'aviso' : 'avisos'}`,
+        );
+      let line = parts.join(' · ');
+      if (firstYear) line += ` desde ${firstYear}`;
+      if (live)
+        line += ` · ${live} ${live === 1 ? 'activa' : 'activas'} ahora`;
+      return line;
+    }
+    const n = closuresThisYear(episodes, selYear).length;
+    if (n === 0) return null;
+    return `${selYear} · ${n} ${n === 1 ? 'cierre' : 'cierres'}`;
+  }, [episodes, beaches, selYear, isYearMode, years]);
 
   // Vista Temporada: los conteos son los chips-filtro (cierres /
   // avisos / activas ahora), no una línea de texto
@@ -265,29 +338,33 @@ export default function MunicipalityStats({
   const detailRows = useMemo<MunicipalityIncident[]>(() => {
     if (!detail) return [];
     const official = incidents ?? [];
-    if (detail.municipality) return official;
-    const pressRows: MunicipalityIncident[] = beaches
-      .filter(
-        (f) =>
-          (f.properties.municipality ?? 'Sin municipio') ===
-            detail.name && f.properties.alert === true,
-      )
-      .map((f) => ({
-        id: -f.id, // id negativo: no colisiona con incidentes reales
-        beach_id: f.id,
-        beach_name: f.properties.name,
-        municipality: detail.municipality,
-        kind:
-          f.properties.status === 'warning'
-            ? ('warning' as const)
-            : ('closure' as const),
-        opened_at: (f.properties.reported_at ?? '').slice(0, 10),
-        closed_at: null,
-        observations: 'Según prensa — sin incidente oficial en Náyade',
-        via: 'press',
-      }));
+    const pressRows: MunicipalityIncident[] = detail.municipality
+      ? [] // solo "Sin municipio" sintetiza alertas de prensa en cliente
+      : beaches
+          .filter(
+            (f) =>
+              (f.properties.municipality ?? 'Sin municipio') ===
+                detail.name && f.properties.alert === true,
+          )
+          .map((f) => ({
+            id: -f.id, // id negativo: no colisiona con incidentes reales
+            beach_id: f.id,
+            beach_name: f.properties.name,
+            municipality: detail.municipality,
+            kind:
+              f.properties.status === 'warning'
+                ? ('warning' as const)
+                : ('closure' as const),
+            opened_at: (f.properties.reported_at ?? '').slice(0, 10),
+            closed_at: null,
+            observations:
+              'Según prensa — sin incidente oficial en Náyade',
+            via: 'press',
+          }));
     return [...official, ...pressRows]
-      .sort((a, b) => b.opened_at.localeCompare(a.opened_at))
+      .sort((a, b) =>
+        (b.opened_at ?? '').localeCompare(a.opened_at ?? ''),
+      )
       // Con una causa activa el detalle muestra solo esos episodios
       .filter((inc) =>
         yearCause === 'all'
@@ -295,8 +372,17 @@ export default function MunicipalityStats({
           : yearCause === 'sin causa'
             ? !inc.cause
             : inc.cause === yearCause,
+      )
+      // En modo-año la línea temporal solo muestra episodios que
+      // tocaron ese año (mismo solape que yearEpisodes)
+      .filter(
+        (inc) =>
+          !isYearMode ||
+          ((inc.opened_at ?? '') <= `${selYear}-12-31` &&
+            (inc.closed_at === null ||
+              inc.closed_at >= `${selYear}-01-01`)),
       );
-  }, [detail, incidents, beaches, yearCause]);
+  }, [detail, incidents, beaches, yearCause, isYearMode, selYear]);
 
   // Estado vivo por playa: un incidente abierto cuyo observations no
   // dice "prohibido" se clasifica como aviso, pero si la playa está
@@ -365,7 +451,36 @@ export default function MunicipalityStats({
       );
   }, [beaches, stats, yearCause, muniCauseCount]);
 
-  const maxScore = Math.max(1, ...rows.map(scoreOf));
+  // Ranking con un año pasado seleccionado: las filas muestran los
+  // episodios DE ESE AÑO, no el estado vivo ni el histórico — solo
+  // municipios que sufrieron algo ese año, por severidad anual
+  const displayRows = useMemo(() => {
+    if (!isYearMode) return rows;
+    return rows
+      .map((m) => {
+        const y = yearMuni.get(m.municipality);
+        return {
+          ...m,
+          yearClosures: y?.closures ?? 0,
+          yearWarnings: y?.warnings ?? 0,
+          yearActive: y?.active ?? 0,
+          yearBeaches: [...(y?.beaches ?? [])].sort(),
+        };
+      })
+      .filter(
+        (m) => (m.yearClosures ?? 0) + (m.yearWarnings ?? 0) > 0,
+      )
+      .sort(
+        (a, b) =>
+          yearScoreOf(b) - yearScoreOf(a) || a.name.localeCompare(b.name),
+      );
+  }, [rows, yearMuni, isYearMode]);
+
+  const score = (m: MuniStats) =>
+    isYearMode ? yearScoreOf(m) : scoreOf(m);
+  const barColor = (m: MuniStats) =>
+    isYearMode ? yearBarColorOf(m) : barColorOf(m);
+  const maxScore = Math.max(1, ...displayRows.map(score));
 
   return (
     <Modal
@@ -404,7 +519,9 @@ export default function MunicipalityStats({
                 </Pressable>
               </View>
               <Text style={styles.subtitle}>
-                Línea temporal de incidentes · más reciente primero
+                Línea temporal de incidentes
+                {isYearMode ? ` · ${selYear}` : ''} · más reciente
+                primero
               </Text>
             </ImageBackground>
 
@@ -545,7 +662,9 @@ export default function MunicipalityStats({
           </View>
           <Text style={styles.subtitle}>
             {view === 'ranking'
-              ? 'Ranking por afectación actual e histórica · toca un municipio para ver su línea temporal'
+              ? isYearMode
+                ? `Ranking de ${selYear} · episodios del año por municipio`
+                : 'Ranking por afectación actual e histórica · toca un municipio para ver su línea temporal'
               : view === 'temporada'
                 ? selYear === seasonYear()
                   ? 'Este verano'
@@ -559,14 +678,39 @@ export default function MunicipalityStats({
           )}
           {years.length > 1 && (
             <View style={styles.seasonChips}>
+              {view === 'ranking' && (
+                <Pressable
+                  style={[
+                    styles.seasonChip,
+                    histMode && styles.seasonChipOn,
+                  ]}
+                  onPress={() => setHistMode(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver ranking histórico completo"
+                >
+                  <Text
+                    style={[
+                      styles.seasonChipText,
+                      histMode && styles.seasonChipTextOn,
+                    ]}
+                  >
+                    Histórico
+                  </Text>
+                </Pressable>
+              )}
               {years.map((y) => (
                 <Pressable
                   key={y}
                   style={[
                     styles.seasonChip,
-                    selYear === y && styles.seasonChipOn,
+                    (view === 'ranking'
+                      ? !histMode && selYear === y
+                      : selYear === y) && styles.seasonChipOn,
                   ]}
-                  onPress={() => setSelYear(y)}
+                  onPress={() => {
+                    setSelYear(y);
+                    if (view === 'ranking') setHistMode(false);
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel={`Ver ${
                     view === 'temporada' ? 'verano' : 'año'
@@ -765,16 +909,38 @@ export default function MunicipalityStats({
               );
             }}
             ListEmptyComponent={
-              <Text style={styles.empty}>
-                {view === 'temporada'
-                  ? 'Sin episodios este verano'
-                  : 'Sin episodios este año'}
-              </Text>
+              view === 'temporada' &&
+              selYear === curYear &&
+              new Date().getMonth() < 5 ? (
+                // La temporada jun-sep aún no ha empezado: la lista
+                // vacía sería ambigua — ofrecer la última completada
+                <View style={styles.emptyWrap}>
+                  <Text style={styles.emptyNote}>
+                    El verano {selYear} aún no ha comenzado
+                  </Text>
+                  <Pressable
+                    style={styles.emptyCta}
+                    onPress={() => setSelYear(selYear - 1)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Ver Verano ${selYear - 1}`}
+                  >
+                    <Text style={styles.emptyCtaText}>
+                      Ver Verano {selYear - 1}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Text style={styles.empty}>
+                  {view === 'temporada'
+                    ? 'Sin episodios este verano'
+                    : 'Sin episodios este año'}
+                </Text>
+              )
             }
           />
         ) : (
         <FlatList
-          data={rows}
+          data={displayRows}
           keyExtractor={(m) => m.name}
           style={styles.list}
           contentContainerStyle={styles.listContent}
@@ -784,8 +950,12 @@ export default function MunicipalityStats({
               onPress={() => setDetail(item)}
               accessibilityRole="button"
               accessibilityLabel={`${item.name}, posición ${index + 1} de ${
-                rows.length
-              }, ${item.beaches} playas, ${item.incidents} incidentes`}
+                displayRows.length
+              }, ${item.beaches} playas, ${
+                isYearMode
+                  ? `${item.yearClosures} cierres y ${item.yearWarnings} avisos en ${selYear}`
+                  : `${item.incidents} incidentes`
+              }`}
               accessibilityHint="Ver línea temporal de incidentes"
             >
               <View style={styles.rowHeader}>
@@ -793,7 +963,13 @@ export default function MunicipalityStats({
                   style={[
                     styles.rank,
                     index < 3 && styles.rankPodium,
-                    { backgroundColor: rankColorOf(item, index) },
+                    {
+                      backgroundColor: isYearMode
+                        ? index < 3
+                          ? yearBarColorOf(item)
+                          : '#8fa3ad'
+                        : rankColorOf(item, index),
+                    },
                   ]}
                 >
                   <Text style={styles.rankText}>{index + 1}</Text>
@@ -812,25 +988,54 @@ export default function MunicipalityStats({
                   style={[
                     styles.barFill,
                     {
-                      width: `${(scoreOf(item) / maxScore) * 100}%`,
-                      backgroundColor: barColorOf(item),
+                      width: `${(score(item) / maxScore) * 100}%`,
+                      backgroundColor: barColor(item),
                     },
                   ]}
                 />
               </View>
               <View style={styles.rowStats}>
-                {item.closedNow > 0 && (
-                  <Text style={[styles.badge, styles.badgeClosed]}>
-                    {item.closedNow}{' '}
-                    {item.closedNow === 1 ? 'cerrada' : 'cerradas'} ahora
-                  </Text>
-                )}
-                {item.warningNow > 0 && (
-                  <Text style={[styles.badge, styles.badgeWarning]}>
-                    {item.warningNow}{' '}
-                    {item.warningNow === 1 ? 'aviso' : 'avisos'} activo
-                    {item.warningNow === 1 ? '' : 's'}
-                  </Text>
+                {isYearMode ? (
+                  <>
+                    {(item.yearClosures ?? 0) > 0 && (
+                      <Text style={[styles.badge, styles.badgeClosed]}>
+                        {item.yearClosures}{' '}
+                        {item.yearClosures === 1 ? 'cierre' : 'cierres'}
+                      </Text>
+                    )}
+                    {(item.yearWarnings ?? 0) > 0 && (
+                      <Text style={[styles.badge, styles.badgeWarning]}>
+                        {item.yearWarnings}{' '}
+                        {item.yearWarnings === 1 ? 'aviso' : 'avisos'}
+                      </Text>
+                    )}
+                    {(item.yearActive ?? 0) > 0 && (
+                      <Text style={[styles.badge, styles.badgeEnded]}>
+                        {item.yearActive}{' '}
+                        {item.yearActive === 1
+                          ? 'sigue abierta'
+                          : 'siguen abiertas'}
+                      </Text>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {item.closedNow > 0 && (
+                      <Text style={[styles.badge, styles.badgeClosed]}>
+                        {item.closedNow}{' '}
+                        {item.closedNow === 1 ? 'cerrada' : 'cerradas'}{' '}
+                        ahora
+                      </Text>
+                    )}
+                    {item.warningNow > 0 && (
+                      <Text style={[styles.badge, styles.badgeWarning]}>
+                        {item.warningNow}{' '}
+                        {item.warningNow === 1 ? 'aviso' : 'avisos'}{' '}
+                        activo
+                        {item.warningNow === 1 ? '' : 's'}
+                      </Text>
+                    )}
+                  </>
                 )}
                 {yearCause !== 'all' && (
                   <Text style={[styles.badge, styles.badgeEnded]}>
@@ -841,17 +1046,28 @@ export default function MunicipalityStats({
                   </Text>
                 )}
               </View>
-              <Text style={styles.rowSub}>
-                {item.incidents}{' '}
-                {item.incidents === 1 ? 'incidente' : 'incidentes'} (
-                {item.closuresLastYear} últ. año) · {item.badSamples}{' '}
-                {item.badSamples === 1 ? 'muestra' : 'muestras'} no apta
-                {item.badSamples === 1 ? '' : 's'}
+              <Text
+                style={styles.rowSub}
+                numberOfLines={isYearMode ? 2 : 1}
+              >
+                {isYearMode
+                  ? `Afectadas: ${(item.yearBeaches ?? []).join(' · ')}`
+                  : `${item.incidents} ${
+                      item.incidents === 1 ? 'incidente' : 'incidentes'
+                    } (${item.closuresLastYear} últ. año) · ${
+                      item.badSamples
+                    } ${
+                      item.badSamples === 1 ? 'muestra' : 'muestras'
+                    } no apta${item.badSamples === 1 ? '' : 's'}`}
               </Text>
             </Pressable>
           )}
           ListEmptyComponent={
-            <Text style={styles.empty}>Sin datos de municipios</Text>
+            <Text style={styles.empty}>
+              {isYearMode
+                ? `Sin episodios en ${selYear}`
+                : 'Sin datos de municipios'}
+            </Text>
           }
         />
         )}
@@ -1068,6 +1284,27 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textFaint,
     marginTop: 40,
+  },
+  emptyWrap: {
+    marginTop: 40,
+    alignItems: 'center',
+  },
+  emptyNote: {
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    textAlign: 'center',
+  },
+  emptyCta: {
+    marginTop: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+  },
+  emptyCtaText: {
+    fontSize: 13,
+    fontFamily: fonts.semibold,
+    color: '#fff',
   },
   backBtn: {
     marginRight: 4,
