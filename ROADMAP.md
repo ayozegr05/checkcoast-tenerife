@@ -443,6 +443,9 @@ cuerpo de las noticias, no en su fecha de publicación.
 | 10.5 | **Alertas con causa**: `effective_states` devuelve `cause` (categoría corta: Contaminación / Desprendimientos / Obras / Acceso / Mar agitado, normalizada de texto libre LLM/observaciones) + `cause_via`; `/beaches` expone `alert_cause`/`cause_via`; la fila del desplegable muestra la causa bajo "Cerrada" | ✅ Hecho (`c8ef3a4`, `f9e7bff`) | 🟡 Medio |
 | 10.6 | **google-services.json commiteado**: API key Firebase visible en repo | ✅ Decidido — se queda (config pública por diseño, va en cada APK; mantiene clone→build). Key restringida en GCP por app `com.checkcoast.tenerife` + SHA-1 (debug + EAS) | 🟢 Trivial |
 | 10.7 | **Revisión pre-publicación del repo** (antes de 9.5) | ✅ Hecho — spikes nunca commiteados (.pyc limpiados), `deploy/` solo tenía `__pycache__`, `.gitignore` cubre .env/keystores/credentials/android/, Caddyfile+compose sin secretos, `frontend/.claude/` fuera del tracking. Verificado: puerto 5433 de la VM cerrado desde internet | 🟢 Trivial |
+| 10.8 | **Endpoint `/health` + monitor de uptime**: la API reporta estado interno (DB, última sync Náyade, última sync de prensa, errores LLM 24h) y un monitor externo (UptimeRobot free) pingea y alerta por email si cae o la última sync está rancia — observabilidad real de prod, no solo "está vivo" | Pendiente | 🟡 Medio |
+| 10.9 | **Tests de componente** (React Native Testing Library): 2-3 tests sobre `BeachList` — chips renderizan, filtro activo muestra conteo, sort por estado ordena. Cierran el hueco "frontend solo testea lógica pura" | Pendiente | 🟡 Medio |
+| 10.10 | **CD — deploy automático**: job en `.github/workflows/` sobre `main` que despliega por SSH a la VM (clave en GitHub Secrets, rsync + restart del contenedor). Elimina el deploy manual por scp+docker cp — evita olvidos tipo `events.py` | Pendiente | 🟡 Medio |
 
 ---
 
@@ -450,7 +453,17 @@ cuerpo de las noticias, no en su fecha de publicación.
 **Hito activo:** 9 — Portfolio (quedan capturas/vídeo del APK, repo
 público en GitHub y post LinkedIn; 8.8 queda verificación end-to-end
 de App Links con build firmada por EAS)
-**Última actualización:** 2026-09-26 — Hito 8.12 implementado:
+**Última actualización:** 2026-09-27 — UX de la lista de playas:
+3 filas de chips (municipios / estados / orden), "Agua siempre apta"
+como modo radio, "Sin datos" siempre último, "Peor calidad" con
+evidencia en fila y ordenada por historial de muestras, vigiladas
+siempre antes que no monitorizadas en empates. Repo preparado para
+publicación: barrido de secretos del historial (limpio salvo
+`google-services.json`, público por diseño), LICENSE MIT, README al
+día + vars de entorno documentadas, historial reescrito a identidad
+noreply de GitHub vía mailmap. Nuevos pendientes: 10.8 `/health` +
+uptime monitor, 10.9 tests de componente, 10.10 CD por SSH.
+Antes, 2026-09-26 — Hito 8.12 implementado:
 `news_items.closed_since` (inicio real del cierre según el texto),
 fuente Guía Islas Canarias vía sitemap (~50 fichas, `lastmod`, sin
 push), episodios estructurales sin caducidad por silencio en el
