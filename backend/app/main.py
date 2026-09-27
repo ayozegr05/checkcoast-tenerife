@@ -71,6 +71,13 @@ app.mount(
     name="icons",
 )
 
+# Imágenes de la landing pública (captura de la app, QR al repo)
+app.mount(
+    "/img",
+    StaticFiles(directory="app/static/img"),
+    name="img",
+)
+
 
 @app.get("/health")
 def health() -> dict:

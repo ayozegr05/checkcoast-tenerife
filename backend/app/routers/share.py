@@ -437,7 +437,6 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         .limit(30)
         .all()
     )
-    news = news_items[0] if news_items else None
     state, press_label = _effective_state(
         db, beach, official, news_items
     )
@@ -671,17 +670,24 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         )
         if closed_after:
             line += f" · Sanidad la reabrió el {closed_after.strftime('%d/%m/%Y')}"
-        when = (
-            news.published_at.strftime("%d/%m/%Y") if news.published_at else ""
-        )
+        # Hasta 3 titulares enlazables, como la caja "En la prensa"
+        # de la app — venden el "porqué" mejor que uno solo
+        titles = ""
+        for n in news_items[:3]:
+            nwhen = (
+                n.published_at.strftime("%d/%m/%Y") if n.published_at else ""
+            )
+            titles += (
+                f'<a class="ptitle" href="{html.escape(n.url)}">'
+                f"{html.escape(n.title)}</a>"
+                f'<div class="pmeta">{html.escape(n.source or "")}'
+                f"{' · ' + nwhen if nwhen else ''}</div>"
+            )
         press = (
             f'<div class="{press_cls}"><div class="psum">{line}</div>'
             f'<div class="ptag">según prensa · {outlets} '
             f'medio{"s" if outlets != 1 else ""}</div>'
-            f'<a class="ptitle" href="{html.escape(news.url)}">'
-            f"{html.escape(news.title)}</a>"
-            f'<div class="pmeta">{html.escape(news.source or "")}'
-            f"{' · ' + when if when else ''}</div></div>"
+            f"{titles}</div>"
         )
 
     # Con cierre/aviso activo el motivo es lo primero que importa:
@@ -747,7 +753,8 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
             aword = "cerrada" if a.status == "closed" else "aviso"
             amuni = html.escape(a.municipality or "")
             rows_a += (
-                f'<a class="sal" href="/b/{a.beach_id}">'
+                f'<a class="sal sal-{"c" if a.status == "closed" else "w"}"'
+                f' href="/b/{a.beach_id}">'
                 f'<i style="background:{acolor}"></i><div>'
                 f"<b>{html.escape(_display_name(a.beach_name))}</b>"
                 f"<span>{_alert_when(aword, rep, now)} · "
@@ -839,7 +846,10 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     .salerts .sl {{ font-size:11px; color:#6d8b9a; font-weight:600;
             text-transform:uppercase; letter-spacing:.4px; }}
     .sal {{ display:flex; align-items:center; gap:9px; margin-top:9px;
-            text-decoration:none; }}
+            text-decoration:none; border-radius:10px;
+            padding:8px 11px; }}
+    .sal.sal-c {{ background:#fdeceb; border:1px solid #f0c4bd; }}
+    .sal.sal-w {{ background:#fdf1da; border:1px solid #eec27e; }}
     .sal i {{ flex:none; width:9px; height:9px; border-radius:50%; }}
     .sal b {{ display:block; font-size:12px; color:#0d3a52;
             font-weight:600; }}
@@ -978,14 +988,14 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
       {notice}
       {rows}
       {outfalls_block}
+      {press}
       {chart_block}
       {inc_block}
-      {press}
       <a class="open" href="{deep}" onclick="openApp(); return false;">
         Abrir en la app</a>
       <p id="noapp" class="noapp">Si no se abrió, aún no tienes la app
         instalada.</p>
-      <a class="homelink" href="/">← Todas las playas</a>
+      <a class="homelink" href="/">← Inicio</a>
       <p class="src">{foot}</p>
     </div>
   </div>
@@ -1144,7 +1154,8 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
         acolor = _STATUS.get(a.status, _STATUS["unknown"])[1]
         aword = "cerrada" if a.status == "closed" else "aviso"
         alert_rows += (
-            f'<a class="sal" href="/b/{a.beach_id}">'
+            f'<a class="sal sal-{"c" if a.status == "closed" else "w"}"'
+            f' href="/b/{a.beach_id}">'
             f'<i style="background:{acolor}"></i><div>'
             f"<b>{html.escape(_display_name(a.beach_name))}</b>"
             f"<span>{_alert_when(aword, rep, now)} · {via} · "
@@ -1203,7 +1214,9 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
             f"</a>"
         )
     examples_block = (
-        f'<div class="sec">Explora una playa</div>'
+        '<div class="sec">Explora una playa</div>'
+        '<div class="exnote">Ejemplos destacados — la lista completa, '
+        "con filtros por municipio y estado, está en la app</div>"
         f'<div class="bgrid">{cards}</div>'
         if cards else ""
     )
@@ -1266,31 +1279,59 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
   @keyframes mpulse {{
     0% {{ box-shadow:0 0 0 0 var(--pc, rgba(198,40,40,.55)); }}
     100% {{ box-shadow:0 0 0 11px rgba(198,40,40,0); }} }}
-  .ibody {{ padding:16px 20px 20px; }}
-  .sec {{ margin-top:4px; font-size:13px; font-weight:700;
+  .ibody {{ padding:16px 20px 20px;
+          background:
+            radial-gradient(900px 320px at 15% 0%,
+              rgba(255,255,255,.55), rgba(255,255,255,0) 60%),
+            linear-gradient(180deg,#e2eef6 0%,#d8e9f2 55%,#cfe2ec 100%); }}
+  .sec {{ margin-top:22px; font-size:15px; font-weight:700;
           color:#0d3a52; }}
+  .sec ~ .sec {{ border-top:1px solid #b9d3e2; padding-top:20px; }}
+  .lower {{ margin-top:22px; border-top:1px solid #b9d3e2;
+          padding-top:20px; }}
+  .lower .sec {{ margin-top:0; }}
+  .lcol {{ display:flex; flex-direction:column; }}
+  .lcol .steps {{ display:flex; flex-direction:column;
+          justify-content:space-between; gap:8px; flex:1; }}
+  .rcol {{ margin-top:16px; display:flex;
+          flex-direction:column; }}
+  .rcards {{ margin-top:10px; display:flex; gap:10px;
+          align-items:stretch; flex-wrap:wrap; flex:1; }}
+  .gmain {{ flex:1; }}
+  .gfeats {{ display:flex; flex-direction:column; gap:4px;
+          margin-top:9px; }}
+  .gfeats span {{ font-size:11.5px; color:#33566b; }}
+  .gfeats i {{ font-style:normal; font-weight:700;
+          color:#0a7a4f; }}
+  .gside {{ display:flex; flex-direction:column; gap:10px;
+          flex:1; min-width:150px; }}
+  .gsrow {{ flex-direction:row; gap:12px; flex:1;
+          padding:10px 14px; }}
   .abox {{ margin-top:8px; }}
   .sal {{ display:flex; align-items:center; gap:9px; margin-top:9px;
-          text-decoration:none; }}
+          text-decoration:none; border-radius:10px;
+          padding:8px 11px; }}
+  .sal.sal-c {{ background:#fdeceb; border:1px solid #f0c4bd; }}
+  .sal.sal-w {{ background:#fdf1da; border:1px solid #eec27e; }}
   .sal i {{ flex:none; width:9px; height:9px; border-radius:50%; }}
   .sal b {{ display:block; font-size:12px; color:#0d3a52;
           font-weight:600; }}
   .sal:hover b {{ color:#075276; }}
   .sal span {{ font-size:10.5px; color:#7a919c; }}
-  .cols2 {{ margin-top:16px; }}
-  .cols2 .sleg {{ margin-top:0; }}
   @media (min-width:900px) {{
     .abox {{ display:grid; grid-template-columns:1fr 1fr;
             gap:0 24px; }}
     .bgrid {{ grid-template-columns:repeat(4,1fr) !important; }}
-    .cols2 {{ display:grid; grid-template-columns:1fr 1fr;
-             gap:8px 28px; align-items:start; }}
-    .cols2 > div {{ min-width:0; }}
+    .lower {{ display:grid; grid-template-columns:repeat(4,1fr);
+            gap:10px; }}
+    .lcol {{ grid-column:1/3; }}
+    .rcol {{ grid-column:3/5; margin-top:0; }}
+    .rcards {{ flex-wrap:nowrap; }}
   }}
   .bgrid {{ display:grid; grid-template-columns:1fr 1fr; gap:10px;
           margin-top:10px; }}
   .bc {{ text-decoration:none; border-radius:12px; overflow:hidden;
-          background:#f4f9fb; border:1px solid #e2edf2; }}
+          background:#fff; border:1px solid #c9dfea; }}
   .bc:hover {{ border-color:#17b8ce; }}
   .bimg {{ position:relative; height:86px; background-size:cover;
           background-position:center; }}
@@ -1302,8 +1343,11 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
   .bcmuni {{ font-size:10.5px; color:#7a919c; padding:1px 10px 9px; }}
   .bcvia {{ color:#8a6d1a; font-weight:600; }}
   .steps {{ margin-top:16px; }}
-  .step {{ display:flex; gap:10px; margin-top:10px;
-          align-items:flex-start; }}
+  .steps {{ display:grid; grid-template-columns:1fr 1fr; gap:8px;
+          margin-top:10px; }}
+  .step {{ display:flex; gap:9px; align-items:flex-start;
+          background:#fff; border:1px solid #c9dfea;
+          border-radius:12px; padding:10px 12px; }}
   .stepn {{ flex:none; width:20px; height:20px; border-radius:50%;
           background:#075276; color:#fff; font-size:11px;
           font-weight:700; display:flex; align-items:center;
@@ -1311,11 +1355,31 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
   .step b {{ font-size:12.5px; color:#0d3a52; }}
   .step span {{ display:block; font-size:11.5px; color:#5b7a8a;
           margin-top:1px; }}
-  .sleg {{ margin-top:16px; background:#f4f9fb; border-radius:12px;
-          padding:12px 14px; font-size:12px; color:#33566b; }}
-  .sleg div {{ display:flex; align-items:center; gap:9px;
-          margin:5px 0; }}
-  .sleg img {{ width:20px; height:20px; }}
+  .exnote {{ font-size:11.5px; color:#7a919c; margin-top:2px; }}
+  .gcard {{ background:#fff; border:1px solid #c9dfea;
+          border-radius:12px; padding:14px 20px; flex:1;
+          display:flex; flex-direction:column; gap:8px;
+          align-items:center; justify-content:center; }}
+  .gmain {{ align-items:flex-start; justify-content:flex-start;
+          min-width:180px; }}
+  .gmain .gdl {{ align-self:center; margin-top:auto;
+          margin-bottom:4px; }}
+  .gmain b {{ font-size:15px; color:#0d3a52; }}
+  .gtx {{ font-size:12px; color:#33566b; line-height:1.45; }}
+  .gdl {{ display:inline-block; background:#075276; color:#fff;
+          font-size:13.5px; font-weight:700; padding:10px 16px;
+          border-radius:9px; text-decoration:none; }}
+  .gdl:hover {{ background:#0a628c; }}
+  .gsoon {{ display:none; font-size:11px; color:#e65100;
+          font-weight:600; }}
+  .ggh {{ color:#24292f; text-decoration:none; }}
+  .ggh:hover {{ color:#075276; }}
+  .ggh span {{ font-size:12px; text-align:center; line-height:1.3;
+          color:#33566b; font-weight:600; }}
+  .gqr {{ width:74px; height:74px; background:#fff;
+          padding:4px; border-radius:8px; flex:none; }}
+  .gqrbox span, .gsrow span {{ font-size:11.5px; color:#33566b;
+          font-weight:600; text-align:left; line-height:1.3; }}
   .src {{ margin-top:14px; font-size:11px; color:#7a919c; }}
   .foot {{ margin:14px 4px 0; font-size:11px; color:#a8c4d2;
           text-align:center; }}
@@ -1344,40 +1408,65 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
     <div class="ibody">
       {alerts_block}
       {examples_block}
-      <div class="cols2">
-        <div>
-          <div class="sec">Cómo funciona</div>
-          <div class="step"><div class="stepn">1</div><div>
-            <b>Náyade / Sanidad</b>
-            <span>Estado oficial, cierres y analíticas del agua cada hora.</span>
-          </div></div>
-          <div class="step"><div class="stepn">2</div><div>
-            <b>Prensa local</b>
-            <span>El porqué de los cierres, etiquetado «según prensa» —
-              y ahora también avisa por push.</span>
-          </div></div>
-          <div class="step"><div class="stepn">3</div><div>
-            <b>Emisarios</b>
-            <span>Los 180 vertidos del censo costero con su situación legal,
-              junto a cada playa.</span>
-          </div></div>
-        </div>
-        <div>
-          <div class="sleg">
-            <div><img src="/icons/pin-open.png" alt=""> Playa — el color
-              marca su estado</div>
-            <div><img src="/icons/pin-outfall-legal.png" alt=""> Emisario
-              autorizado</div>
-            <div><img src="/icons/pin-outfall-processing.png" alt="">
-              Emisario en trámite</div>
-            <div><img src="/icons/pin-outfall-illegal.png" alt=""> Emisario
-              no autorizado</div>
+      <div class="lower">
+      <div class="lcol">
+      <div class="sec">Cómo funciona</div>
+      <div class="steps">
+        <div class="step"><div class="stepn">1</div><div>
+          <b>Náyade / Sanidad</b>
+          <span>Estado oficial, cierres y analíticas del agua cada hora.</span>
+        </div></div>
+        <div class="step"><div class="stepn">2</div><div>
+          <b>Prensa local</b>
+          <span>El porqué de los cierres, etiquetado «según prensa».</span>
+        </div></div>
+        <div class="step"><div class="stepn">3</div><div>
+          <b>Emisarios</b>
+          <span>Los 180 vertidos del censo costero con su situación legal,
+            junto a cada playa.</span>
+        </div></div>
+        <div class="step"><div class="stepn">4</div><div>
+          <b>Municipios</b>
+          <span>Ranking por ayuntamiento: cierres, avisos y calidad
+            del agua.</span>
+        </div></div>
+      </div>
+      </div>
+      <div class="rcol">
+      <div class="sec">Llévala en el bolsillo</div>
+      <div class="rcards">
+        <div class="gcard gmain">
+          <b>El estado de tu playa al abrir el móvil.</b>
+          <div class="gfeats">
+            <span><i>✓</i> Aviso cuando tu playa cierra o reabre</span>
+            <span><i>✓</i> Las 192 playas — ordena por municipio,
+              estado o calidad</span>
+            <span><i>✓</i> Entérate de todos los incidentes
+              de este verano</span>
           </div>
-          <p class="src">App gratuita para Android · notificaciones push
-            al cerrar o reabrir una playa · Datos: Náyade / Min. Sanidad ·
-            MITECO · OpenStreetMap · © Esri</p>
+          <a class="gdl" href="#"
+            onclick="document.getElementById('gpsoon').style.display='block';return false;">
+            Descargar para Android</a>
+          <div class="gsoon" id="gpsoon">Próximamente disponible</div>
+        </div>
+        <div class="gside">
+          <div class="gcard gsrow">
+            <img class="gqr" src="/img/qr-github.png"
+              alt="QR a las descargas en GitHub">
+            <span>Descarga la APK<br>en tu móvil</span>
+          </div>
+          <a class="gcard gsrow ggh"
+            href="https://github.com/ayozegr05/checkcoast-tenerife">
+          <svg viewBox="0 0 24 24" width="42" height="42"
+            fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+            <span>Código abierto<br>en GitHub</span>
+          </a>
         </div>
       </div>
+      </div>
+      </div>
+      <p class="src">Datos: Náyade / Min. Sanidad · MITECO ·
+        OpenStreetMap · © Esri</p>
     </div>
   </div>
   <p class="foot">CheckCoast Tenerife · proyecto cívico de datos
