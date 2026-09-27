@@ -4,14 +4,16 @@
 import type { BeachStats, GeoFeature } from './api';
 import { beachBaseName, beachGroupKey } from './format';
 
-// Orden de prioridad: lo que necesita atención del bañista primero;
-// las no monitorizadas van al final (no hay estado oficial que ordenar)
+// Orden de prioridad: lo que necesita atención del bañista primero.
+// "Sin datos" (vigilada pero Náyade no dice nada) va la última de
+// todas — es el estado menos informativo, por debajo incluso de las
+// no monitorizadas
 export const STATUS_ORDER: Record<string, number> = {
   closed: 0,
   warning: 1,
-  unknown: 2,
-  open: 3,
-  unmonitored: 4,
+  open: 2,
+  unmonitored: 3,
+  unknown: 4,
 };
 
 // Una OSM sin monitorizar con alerta (p.ej. Benijo, cerrada según

@@ -101,16 +101,16 @@ describe('orden por estado', () => {
     beach(5, 'Cala OSM', { monitored: false }),
   ];
 
-  it('cerrada > aviso > sin datos > apta > no monitorizada', () => {
+  it('cerrada > aviso > apta > no monitorizada > sin datos', () => {
     const names = buildGroups(list(), { sortMode: 'estado' }).map(
       (g) => g.name,
     );
     expect(names).toEqual([
       'PLAYA CERRADA',
       'PLAYA CON AVISO',
-      'PLAYA SIN DATOS',
       'PLAYA ABIERTA',
       'Cala OSM',
+      'PLAYA SIN DATOS',
     ]);
   });
 

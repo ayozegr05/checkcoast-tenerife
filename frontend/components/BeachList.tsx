@@ -237,14 +237,11 @@ export default function BeachList({
 
   // Estados presentes en los datos, en orden de severidad: solo se
   // muestran chips de filtro para lo que realmente hay en la lista
+  // (STATUS_ORDER ya deja "Sin datos" el último)
   const presentStatuses = useMemo(
     () =>
       [...new Set(beaches.map(statusOf))].sort(
-        (a, b) =>
-          // "Sin datos" (unknown) siempre el último: es el estado
-          // menos informativo de la fila
-          (a === 'unknown' ? 99 : (STATUS_ORDER[a] ?? 9)) -
-          (b === 'unknown' ? 99 : (STATUS_ORDER[b] ?? 9)),
+        (a, b) => (STATUS_ORDER[a] ?? 9) - (STATUS_ORDER[b] ?? 9),
       ),
     [beaches],
   );
