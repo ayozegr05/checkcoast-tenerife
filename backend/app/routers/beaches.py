@@ -197,7 +197,39 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                     obs=None,
                 )
             )
-        own_counts[beach.id] = {"closures": own_c, "warnings": own_w}
+        # Episodios de agua (descalifican el récord "impecable"):
+        # toda incidencia oficial real — Sanidad solo mide agua — más
+        # clústeres de prensa con causa Contaminación FUERA de la
+        # ventana de una incidencia (los de dentro ya cuentan vía
+        # ella; un clúster = menciones separadas por ≤45 días)
+        inc_windows = [
+            (inc.opened_at, inc.closed_at or date.today())
+            for inc in beach.incidents
+            if not is_ungraded_note(inc.observations)
+        ]
+        press_contam = sorted(
+            it.published_at.date()
+            for it in beach.news_items
+            if it.relevant
+            and it.event_type in ("closure", "warning", "pollution")
+            and _short_cause(it.cause) == "Contaminación"
+            and it.published_at
+            and not any(
+                s <= it.published_at.date() <= e
+                for s, e in inc_windows
+            )
+        )
+        press_clusters = 0
+        last_d: date | None = None
+        for d in press_contam:
+            if last_d is None or d - last_d > PRESS_CLUSTER_GAP:
+                press_clusters += 1
+            last_d = d
+        own_counts[beach.id] = {
+            "closures": own_c,
+            "warnings": own_w,
+            "contam": own_c + own_w + press_clusters,
+        }
     # Cada clúster se cuenta una vez, en el PM representativo (min id).
     # Solo los que tienen incidencia oficial van a closures/warnings;
     # los puramente reconstruidos van a `recon` (evita doble conteo:
@@ -247,6 +279,7 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                 reconstructed=c["recon"],
                 own_closures=own_counts.get(beach.id, {}).get("closures", 0),
                 own_warnings=own_counts.get(beach.id, {}).get("warnings", 0),
+                contam_episodes=own_counts.get(beach.id, {}).get("contam", 0),
             )
         )
     return stats

@@ -133,6 +133,7 @@ describe('orden por cierres y calidad', () => {
     closures_last_year: 0,
     bad_samples: 0,
     non_apta_samples: 0,
+    contam_episodes: 0,
     total_samples: 0,
     latest_evaluation: null,
     latest_sampled_at: null,

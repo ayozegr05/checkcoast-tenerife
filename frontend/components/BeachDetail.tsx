@@ -378,18 +378,6 @@ export default function BeachDetail({
     };
   }, [quality]);
 
-  // Récord impecable: todas las muestras evaluadas son "Apta" — nota
-  // positiva en verde (las sin evaluar no cuentan en contra ni a favor)
-  const impeccable = useMemo(
-    () =>
-      !!quality?.length &&
-      quality.some((m) => m.evaluation) &&
-      quality.every(
-        (m) => !m.evaluation || /apta/i.test(m.evaluation),
-      ),
-    [quality],
-  );
-
   // Titulares agrupados por evento+causa: la misma noticia cubierta
   // por varios medios queda como un solo bloque escaneable
   const newsGroups = useMemo(() => {
@@ -825,11 +813,6 @@ export default function BeachDetail({
               muestra
             </Text>
           ) : null}
-          {impeccable ? (
-            <Text style={styles.impeccableNote}>
-              Nunca ha dado una muestra no apta
-            </Text>
-          ) : null}
           {sampleNote ? (
             <Text
               style={
@@ -1128,13 +1111,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fonts.regular,
     color: colors.textFaint,
-    marginTop: 4,
-  },
-  // Récord impecable (agua siempre apta): verde suave
-  impeccableNote: {
-    fontSize: 11,
-    fontFamily: fonts.semibold,
-    color: colors.status.open,
     marginTop: 4,
   },
   // Hueco de muestreo esperado (calendario de la playa): ámbar

@@ -98,6 +98,11 @@ class BeachStatsOut(BaseModel):
     # sub-fila de la lista muestra lo suyo
     own_closures: int = 0
     own_warnings: int = 0
+    # Episodios de agua del PM: incidencias oficiales (Sanidad solo
+    # mide agua) + clústeres de prensa con causa Contaminación fuera
+    # de la ventana de una incidencia. Desprendimientos/obras/mar
+    # agitado no cuentan — el agua no tuvo la culpa
+    contam_episodes: int = 0
 
 
 class OutfallNearestBeachOut(BaseModel):

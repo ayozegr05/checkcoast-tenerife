@@ -228,33 +228,6 @@ export default function BeachList({
       : null;
   }, [episodes, beaches, outfalls]);
 
-  // Récord impecable: grupos físicos de playas vigiladas (los PMs
-  // hermanos cuentan una vez) cuyas muestras fueron todas "Apta"
-  const impeccable = useMemo(() => {
-    if (!stats.size) return null;
-    const byGroup = new Map<
-      string,
-      { nonApta: number; total: number }
-    >();
-    for (const f of beaches) {
-      const s = stats.get(f.id);
-      if (!s) continue;
-      const k = groupKeyOf(f);
-      const a = byGroup.get(k) ?? { nonApta: 0, total: 0 };
-      a.nonApta += s.non_apta_samples;
-      a.total += s.total_samples;
-      byGroup.set(k, a);
-    }
-    let clean = 0;
-    let sampled = 0;
-    for (const a of byGroup.values()) {
-      if (a.total === 0) continue;
-      sampled++;
-      if (a.nonApta === 0) clean++;
-    }
-    return sampled ? { clean, sampled } : null;
-  }, [stats, beaches]);
-
   const municipalities = useMemo(
     () =>
       [...new Set(beaches.map((f) => f.properties.municipality).filter(Boolean))]
@@ -343,38 +316,6 @@ export default function BeachList({
               contaminación, {correlation.near} tienen un emisario a
               menos de 500 m
             </Text>
-          )}
-          {impeccable && (
-            <Pressable
-              onPress={() =>
-                setStatusFilter(
-                  statusFilter === 'impecables'
-                    ? undefined
-                    : 'impecables',
-                )
-              }
-              accessibilityRole="button"
-              accessibilityLabel={
-                statusFilter === 'impecables'
-                  ? 'Quitar el filtro y ver todas las playas'
-                  : 'Ver solo las playas sin muestras no aptas'
-              }
-              accessibilityState={{
-                selected: statusFilter === 'impecables',
-              }}
-            >
-              <Text
-                style={[
-                  styles.headerSub,
-                  styles.headerSubLink,
-                  statusFilter === 'impecables' &&
-                    styles.headerSubLinkOn,
-                ]}
-              >
-                {impeccable.clean} playas vigiladas nunca han dado una
-                muestra no apta ›
-              </Text>
-            </Pressable>
           )}
         </ImageBackground>
 
@@ -528,6 +469,32 @@ export default function BeachList({
               </Text>
             </Pressable>
           ))}
+          <Pressable
+            style={[
+              styles.chip,
+              styles.chipStatus,
+              statusFilter === 'impecables' && styles.chipActive,
+            ]}
+            onPress={() =>
+              setStatusFilter(
+                statusFilter === 'impecables' ? undefined : 'impecables',
+              )
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Filtrar por playas que nunca tuvieron un problema de agua"
+            accessibilityState={{
+              selected: statusFilter === 'impecables',
+            }}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                statusFilter === 'impecables' && styles.chipTextActive,
+              ]}
+            >
+              Siempre apta
+            </Text>
+          </Pressable>
         </ScrollChips>
         </ImageBackground>
 
@@ -831,15 +798,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     color: 'rgba(255,255,255,0.85)',
     marginTop: 2,
-  },
-  // El dato "impecables" filtra la lista al tocarlo: lo marca el
-  // subrayado; activo sube el peso para que se note el filtro
-  headerSubLink: {
-    color: '#fff',
-    textDecorationLine: 'underline',
-  },
-  headerSubLinkOn: {
-    fontFamily: fonts.extrabold,
   },
   close: {
     fontSize: 20,

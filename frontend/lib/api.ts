@@ -80,6 +80,9 @@ export type BeachStats = {
   // No aptas en sentido amplio (prohibido + Sin Calificar +
   // recomendación): cualquier evaluación que no sea "Apta"
   non_apta_samples: number;
+  // Episodios de agua: incidencias oficiales + prensa con causa
+  // Contaminación (Desprendimientos/obras/mar agitado no cuentan)
+  contam_episodes: number;
   total_samples: number;
   latest_evaluation: string | null;
   latest_sampled_at: string | null;

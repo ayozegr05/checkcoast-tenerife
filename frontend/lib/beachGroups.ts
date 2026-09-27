@@ -130,8 +130,10 @@ export const buildGroups = (
           (STATUS_ORDER[worstStatusOf(b)] ?? 9) || byName(a, b),
     );
   }
-  // "impecables": grupos con muestras cuyo histórico es todo "Apta"
-  // (prohibido + Sin Calificar + recomendación cuentan en contra)
+  // "impecables": grupos vigilados que nunca tuvieron un problema de
+  // AGUA — ni una muestra no apta ni un episodio de contaminación
+  // (oficial o de prensa). Desprendimientos/obras no descuentan: el
+  // agua no tuvo la culpa
   if (opts.statusFilter === 'impecables') {
     return arr.filter(
       (g) =>
@@ -139,7 +141,9 @@ export const buildGroups = (
           (m) => (stats.get(m.id)?.total_samples ?? 0) > 0,
         ) &&
         g.members.every(
-          (m) => (stats.get(m.id)?.non_apta_samples ?? 1) === 0,
+          (m) =>
+            (stats.get(m.id)?.non_apta_samples ?? 1) === 0 &&
+            (stats.get(m.id)?.contam_episodes ?? 1) === 0,
         ),
     );
   }
