@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from geoalchemy2 import Geography
-from sqlalchemy import func
+from geoalchemy2 import Geography, Geometry
+from sqlalchemy import cast, func, literal
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -8,9 +8,11 @@ from app.models import Beach, Outfall, OutfallStatus
 from app.schemas import (
     Feature,
     FeatureCollection,
-    OutfallNearestBeachOut,
+    OutfallNearbyBeachOut,
     PointGeometry,
 )
+
+_NEARBY_BEACH_RADIUS_M = 1500
 
 router = APIRouter(tags=["outfalls"])
 
@@ -61,35 +63,45 @@ def list_outfalls(
 
 
 @router.get(
-    "/outfalls/{outfall_id}/nearest-beach",
-    response_model=OutfallNearestBeachOut,
+    "/outfalls/{outfall_id}/nearby-beaches",
+    response_model=list[OutfallNearbyBeachOut],
 )
-def outfall_nearest_beach(
+def outfall_nearby_beaches(
     outfall_id: int, db: Session = Depends(get_db)
-) -> OutfallNearestBeachOut:
-    """Playa catalogada más cercana al vertido, con distancia en metros
-    (geography). Contextualiza el impacto del vertido sobre el baño."""
+) -> list[OutfallNearbyBeachOut]:
+    """Playas catalogadas en un radio de 1.5 km del vertido, ordenadas
+    por distancia (metros reales, geography). Es proximidad geométrica
+    — no implica que Sanidad vincule el vertido a ninguna de ellas."""
     outfall = db.get(Outfall, outfall_id)
     if outfall is None:
         raise HTTPException(status_code=404, detail="Outfall not found")
-    row = (
-        db.query(
-            Beach.id,
-            Beach.name,
-            Beach.municipality,
-            func.ST_Distance(
+    # outfall.geom ya está cargado (ORM) — se usa como parámetro en vez
+    # de referenciar la tabla outfalls, para que el FROM solo tenga
+    # beaches (evita el cartesian product warning de SQLAlchemy)
+    outfall_geog = cast(literal(outfall.geom, type_=Geometry), Geography)
+    distance = func.ST_Distance(
+        Beach.geom.cast(Geography), outfall_geog
+    ).label("distance_m")
+    rows = (
+        db.query(Beach.id, Beach.name, Beach.municipality, distance)
+        .filter(
+            func.ST_DWithin(
                 Beach.geom.cast(Geography),
-                Outfall.geom.cast(Geography),
-            ).label("distance_m"),
+                outfall_geog,
+                _NEARBY_BEACH_RADIUS_M,
+            )
         )
-        .filter(Outfall.id == outfall_id)
         .order_by("distance_m")
-        .first()
+        .limit(5)
+        .all()
     )
-    return OutfallNearestBeachOut(
-        outfall_id=outfall.id,
-        beach_id=row.id,
-        beach_name=row.name,
-        municipality=row.municipality,
-        distance_m=row.distance_m,
-    )
+    return [
+        OutfallNearbyBeachOut(
+            outfall_id=outfall.id,
+            beach_id=row.id,
+            beach_name=row.name,
+            municipality=row.municipality,
+            distance_m=row.distance_m,
+        )
+        for row in rows
+    ]

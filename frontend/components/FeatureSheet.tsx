@@ -19,8 +19,8 @@ import SatelliteShot from './SatelliteShot';
 import type { Selection } from './CoastMap';
 import type { GeoFeature } from '../lib/api';
 import {
-  OutfallNearestBeach,
-  fetchOutfallNearestBeach,
+  OutfallNearbyBeach,
+  fetchOutfallNearbyBeaches,
 } from '../lib/api';
 import {
   beachBaseName,
@@ -159,14 +159,15 @@ export default function FeatureSheet({
     recomputeMore();
   };
 
-  // Playa mas cercana al vertido (contexto de impacto)
-  const [nearest, setNearest] = useState<OutfallNearestBeach | null>(null);
+  // Playas en un radio de 1.5 km del vertido (proximidad geométrica,
+  // no implica vínculo oficial con ningún cierre)
+  const [nearby, setNearby] = useState<OutfallNearbyBeach[]>([]);
   useEffect(() => {
     if (isBeach) return;
-    setNearest(null);
-    fetchOutfallNearestBeach(feature.id)
-      .then(setNearest)
-      .catch(() => setNearest(null));
+    setNearby([]);
+    fetchOutfallNearbyBeaches(feature.id)
+      .then(setNearby)
+      .catch(() => setNearby([]));
   }, [feature.id, isBeach]);
 
   // Marcadores de la foto satélite del emisario: otros vertidos y las
@@ -438,20 +439,21 @@ export default function FeatureSheet({
             {p.municipality ? (
               <Text style={styles.row}>Municipio: {p.municipality}</Text>
             ) : null}
-            {nearest ? (
-              (() => {
-                const beachTarget = (beaches ?? []).find(
-                  (b) => b.id === nearest.beach_id,
-                );
-                return (
-                  <>
-                    <Text style={styles.nearTitle}>
-                      Playa más cercana{' '}
-                      <Text style={styles.nearSub}>
-                        · si no la ves, aleja el zoom
-                      </Text>
-                    </Text>
+            {nearby.length > 0 ? (
+              <>
+                <Text style={styles.nearTitle}>
+                  Playas cercanas{' '}
+                  <Text style={styles.nearSub}>
+                    · si no las ves, aleja el zoom
+                  </Text>
+                </Text>
+                {nearby.map((n) => {
+                  const beachTarget = (beaches ?? []).find(
+                    (b) => b.id === n.beach_id,
+                  );
+                  return (
                     <Pressable
+                      key={n.beach_id}
                       style={[
                         styles.nearestBox,
                         {
@@ -467,21 +469,21 @@ export default function FeatureSheet({
                       }
                       disabled={!beachTarget || !onSelectBeach}
                       accessibilityRole="button"
-                      accessibilityLabel={`${displayBeachName(nearest.beach_name)}, ver en el mapa`}
+                      accessibilityLabel={`${displayBeachName(n.beach_name)}, ver en el mapa`}
                     >
                       <Text style={[styles.nearestText, { flex: 1 }]}>
                         <Text style={styles.nearestName}>
-                          {displayBeachName(nearest.beach_name)}
+                          {displayBeachName(n.beach_name)}
                         </Text>
-                        {' · '}a {fmtDistance(nearest.distance_m)}
+                        {' · '}a {fmtDistance(n.distance_m)}
                       </Text>
                       {beachTarget && onSelectBeach && (
                         <Text style={styles.nearestChevron}>›</Text>
                       )}
                     </Pressable>
-                  </>
-                );
-              })()
+                  );
+                })}
+              </>
             ) : null}
             <Text style={styles.row}>
               Fuente: Censo de Vertidos 2025 (Gob. Canarias)

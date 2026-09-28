@@ -106,7 +106,7 @@ class BeachStatsOut(BaseModel):
     contam_episodes: int = 0
 
 
-class OutfallNearestBeachOut(BaseModel):
+class OutfallNearbyBeachOut(BaseModel):
     outfall_id: int
     beach_id: int
     beach_name: str

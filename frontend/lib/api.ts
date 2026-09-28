@@ -138,7 +138,7 @@ export type SamplingSummary = {
   offseason_months: number;
 };
 
-export type OutfallNearestBeach = {
+export type OutfallNearbyBeach = {
   outfall_id: number;
   beach_id: number;
   beach_name: string;
@@ -174,8 +174,8 @@ export const fetchBeachQuality = (beachId: number) =>
 export const fetchBeachStats = () => getJson<BeachStats[]>('/beaches/stats');
 export const fetchBeachNews = (beachId: number) =>
   getJson<BeachNewsResponse>(`/beaches/${beachId}/news`);
-export const fetchOutfallNearestBeach = (outfallId: number) =>
-  getJson<OutfallNearestBeach>(`/outfalls/${outfallId}/nearest-beach`);
+export const fetchOutfallNearbyBeaches = (outfallId: number) =>
+  getJson<OutfallNearbyBeach[]>(`/outfalls/${outfallId}/nearby-beaches`);
 export const fetchBeachNearbyOutfalls = (beachId: number) =>
   getJson<BeachNearbyOutfall[]>(
     `/beaches/${beachId}/nearby-outfalls?radius_m=1000`,
