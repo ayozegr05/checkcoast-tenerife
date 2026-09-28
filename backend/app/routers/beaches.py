@@ -12,8 +12,8 @@ def _mes(d: date) -> str:
     return f"{_MESES[d.month - 1]} {d.year}"
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from geoalchemy2 import Geography
-from sqlalchemy import func
+from geoalchemy2 import Geography, Geometry
+from sqlalchemy import cast, func, literal
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
@@ -724,10 +724,15 @@ def beach_nearby_outfalls(
     """Emisarios catalogados dentro del radio de la playa, ordenados por
     distancia (metros reales, geography). Contextualiza qué vertidos
     amenazan cada zona de baño."""
-    if db.get(Beach, beach_id) is None:
+    beach = db.get(Beach, beach_id)
+    if beach is None:
         raise HTTPException(status_code=404, detail="Beach not found")
+    # beach.geom ya está cargado (ORM) — se usa como parámetro en vez de
+    # referenciar la tabla beaches, para que el FROM solo tenga outfalls
+    # (evita el cartesian product warning de SQLAlchemy)
+    beach_geog = cast(literal(beach.geom, type_=Geometry), Geography)
     distance = func.ST_Distance(
-        Beach.geom.cast(Geography), Outfall.geom.cast(Geography)
+        beach_geog, Outfall.geom.cast(Geography)
     ).label("distance_m")
     rows = (
         db.query(
@@ -737,10 +742,9 @@ def beach_nearby_outfalls(
             Outfall.status,
             distance,
         )
-        .filter(Beach.id == beach_id)
         .filter(
             func.ST_DWithin(
-                Beach.geom.cast(Geography),
+                beach_geog,
                 Outfall.geom.cast(Geography),
                 radius_m,
             )

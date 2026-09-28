@@ -17,9 +17,9 @@ from pathlib import Path
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response
-from sqlalchemy import func
+from sqlalchemy import cast, func, literal
 from sqlalchemy.orm import Session
-from geoalchemy2 import Geography
+from geoalchemy2 import Geography, Geometry
 
 from app.config import settings
 from app.db import get_db
@@ -457,20 +457,23 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         .limit(8)
         .all()
     )
+    # beach.geom ya está cargado (ORM) — se usa como parámetro en vez de
+    # referenciar la tabla beaches, para que el FROM solo tenga outfalls
+    # (evita el cartesian product warning de SQLAlchemy)
+    beach_geog = cast(literal(beach.geom, type_=Geometry), Geography)
     outfalls = (
         db.query(
             Outfall.name,
             Outfall.status,
             func.ST_Distance(
-                Beach.geom.cast(Geography), Outfall.geom.cast(Geography)
+                beach_geog, Outfall.geom.cast(Geography)
             ).label("distance_m"),
             func.ST_X(Outfall.geom).label("olon"),
             func.ST_Y(Outfall.geom).label("olat"),
         )
-        .filter(Beach.id == beach.id)
         .filter(
             func.ST_DWithin(
-                Beach.geom.cast(Geography),
+                beach_geog,
                 Outfall.geom.cast(Geography),
                 _NEARBY_OUTFALL_RADIUS_M,
             )
