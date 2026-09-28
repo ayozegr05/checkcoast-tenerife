@@ -39,6 +39,9 @@ export type BeachIncident = {
   via?: 'official' | 'measurement' | 'press';
   // La ventana de analítica además la recogió la prensa
   press_confirmed?: boolean;
+  // closed_at es la última mención en prensa (cota), no cierre real —
+  // la UI lo marca "~" en vez de inventar una duración exacta
+  end_estimated?: boolean;
 };
 
 export type BeachMeasurement = {
@@ -65,6 +68,8 @@ export type MunicipalityIncident = {
   // (cierre solo recogido por prensa). El backend compone el texto de
   // observations con la aclaración correspondiente
   via?: 'official' | 'measurement' | 'press';
+  // closed_at = última mención en prensa, no un cierre corroborado
+  end_estimated?: boolean;
   // Causa normalizada ("Contaminación", "Desprendimientos"...) — el
   // backend la infiere de la prensa en ventana; un cierre de Sanidad
   // sin contexto es Contaminación por definición

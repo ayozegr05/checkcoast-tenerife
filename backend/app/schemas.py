@@ -47,6 +47,9 @@ class BeachIncidentOut(BaseModel):
     # La ventana de analítica además la recogió la prensa — en la ficha
     # se muestra como CIERRE igual que uno oficial (fue real)
     press_confirmed: bool = False
+    # closed_at es la última mención en prensa, no un cierre real —
+    # la UI lo marca "~" en vez de mostrar duración exacta inventada
+    end_estimated: bool = False
 
 
 class MunicipalityIncidentOut(BaseModel):
@@ -65,6 +68,9 @@ class MunicipalityIncidentOut(BaseModel):
     # oficial se infiere de la prensa en ventana; un cierre de Sanidad
     # sin contexto es Contaminación por definición (solo mide agua)
     cause: str | None = None
+    # closed_at = última mención en prensa (cota estimada), no cierre
+    # corroborado — la UI lo marca "~"
+    end_estimated: bool = False
 
 
 class BeachMeasurementOut(BaseModel):

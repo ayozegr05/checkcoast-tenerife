@@ -468,6 +468,7 @@ def _merged_episode_rows(
             observations=m.obs,
             via=m.via,
             cause=m.cause,
+            end_estimated=m.end_estimated,
         )
         for m in (merged_episode(g) for g in cluster_episodes(episodes))
     ]
@@ -542,6 +543,7 @@ def beach_incidents(
                 source_url=None,
                 via=ev.via,
                 press_confirmed=ev.press_confirmed,
+                end_estimated=ev.end_estimated,
             )
         )
         synth_id -= 1

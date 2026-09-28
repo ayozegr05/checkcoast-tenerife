@@ -670,9 +670,11 @@ export default function MunicipalityStats({
                         {inc.opened_at ? fmtDate(inc.opened_at) : '—'}
                         {' → '}
                         {inc.closed_at
-                          ? fmtDate(inc.closed_at)
+                          ? `${
+                              inc.end_estimated ? '~' : ''
+                            }${fmtDate(inc.closed_at)}`
                           : 'activo'}
-                        {inc.opened_at
+                        {inc.opened_at && !inc.end_estimated
                           ? ` · ${durationDays(inc)} ${
                               durationDays(inc) === 1 ? 'día' : 'días'
                             }`
