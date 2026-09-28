@@ -729,16 +729,15 @@ export default function BeachDetail({
                 >
                   <View style={styles.incidentHead}>
                     <Text style={styles.incidentDates}>
-                      {fmtDate(inc.opened_at)} →{' '}
-                      {inc.closed_at
-                        ? `${inc.end_estimated ? '~' : ''}${fmtDate(inc.closed_at)}`
-                        : 'hoy'}
-                      {!inc.end_estimated && (
-                        <>
-                          {' · '}
-                          {days} {days === 1 ? 'día' : 'días'}
-                        </>
-                      )}
+                      {inc.end_estimated
+                        ? // Fin estimado (última mención): no se
+                          // muestra — solo el día del cierre
+                          fmtDate(inc.opened_at)
+                        : `${fmtDate(inc.opened_at)} → ${
+                            inc.closed_at
+                              ? fmtDate(inc.closed_at)
+                              : 'hoy'
+                          } · ${days} ${days === 1 ? 'día' : 'días'}`}
                     </Text>
                     <View
                       style={[

@@ -667,18 +667,29 @@ export default function MunicipalityStats({
                         <Text style={styles.tlGo}>›</Text>
                       </View>
                       <Text style={styles.tlDates}>
-                        {inc.opened_at ? fmtDate(inc.opened_at) : '—'}
-                        {' → '}
-                        {inc.closed_at
-                          ? `${
-                              inc.end_estimated ? '~' : ''
-                            }${fmtDate(inc.closed_at)}`
-                          : 'activo'}
-                        {inc.opened_at && !inc.end_estimated
-                          ? ` · ${durationDays(inc)} ${
-                              durationDays(inc) === 1 ? 'día' : 'días'
-                            }`
-                          : ''}
+                        {inc.end_estimated
+                          ? // Fin estimado (última mención en prensa):
+                            // no se muestra — solo el día del cierre
+                            inc.opened_at
+                            ? fmtDate(inc.opened_at)
+                            : '—'
+                          : `${
+                              inc.opened_at
+                                ? fmtDate(inc.opened_at)
+                                : '—'
+                            } → ${
+                              inc.closed_at
+                                ? fmtDate(inc.closed_at)
+                                : 'activo'
+                            }${
+                              inc.opened_at
+                                ? ` · ${durationDays(inc)} ${
+                                    durationDays(inc) === 1
+                                      ? 'día'
+                                      : 'días'
+                                  }`
+                                : ''
+                            }`}
                       </Text>
                       {inc.observations ? (
                         <Text style={styles.tlObs}>
