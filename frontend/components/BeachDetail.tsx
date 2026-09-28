@@ -427,10 +427,13 @@ export default function BeachDetail({
     // El episodio que empezó en `since` puede durar meses o años
     // (closed_since retrocede el inicio): la reapertura es el cierre
     // de un incidente que empezó junto a `since` y terminó después
+    // Una fecha de fin estimada (última mención en prensa) NO es una
+    // reapertura: sin ella el banner inventaría "del X al X · 1 día"
     const later = (incidents ?? [])
       .filter(
         (i) =>
           i.closed_at !== null &&
+          !i.end_estimated &&
           i.closed_at >= since &&
           i.opened_at <= limStr,
       )
