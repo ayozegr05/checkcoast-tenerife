@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  BackHandler,
   NativeScrollEvent,
   NativeSyntheticEvent,
   PanResponder,
@@ -93,6 +94,21 @@ export default function FeatureSheet({
   const [chosenPm, setChosenPm] = useState<GeoFeature | null>(null);
   useEffect(() => setChosenPm(null), [selection]);
   const showPmPicker = isBeach && members.length > 1 && !chosenPm;
+
+  // Atrás hardware: con un PM elegido vuelve primero al selector de
+  // puntos de muestreo (este handler corre antes que el de App, que
+  // cerraría la ficha entera). Devolviendo false el gesto sigue su
+  // cadena normal: picker → cerrar ficha
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (chosenPm) {
+        setChosenPm(null);
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [chosenPm]);
   const beachFeature = chosenPm ?? feature;
 
   const winH = useWindowDimensions().height;
@@ -166,7 +182,20 @@ export default function FeatureSheet({
     if (isBeach) return;
     setNearby([]);
     fetchOutfallNearbyBeaches(feature.id)
-      .then(setNearby)
+      // Una fila por playa, no por PM: "Porís de Abona PM1/PM2" son la
+      // misma playa — dedup por nombre base conservando la más cercana
+      .then((list) =>
+        setNearby(
+          list.filter(
+            (n, i) =>
+              list.findIndex(
+                (m) =>
+                  beachBaseName(m.beach_name) ===
+                  beachBaseName(n.beach_name),
+              ) === i,
+          ),
+        ),
+      )
       .catch(() => setNearby([]));
   }, [feature.id, isBeach]);
 
@@ -308,6 +337,10 @@ export default function FeatureSheet({
           <Pressable
             onPress={() => dismiss()}
             hitSlop={12}
+            style={({ pressed }) => [
+              styles.closeBtn,
+              pressed && styles.pressFx,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Cerrar ficha"
           >
@@ -348,7 +381,10 @@ export default function FeatureSheet({
                 return (
                   <Pressable
                     key={m.id}
-                    style={styles.pmRow}
+                    style={({ pressed }) => [
+                      styles.pmRow,
+                      pressed && styles.pressFx,
+                    ]}
                     onPress={() => setChosenPm(m)}
                     accessibilityRole="button"
                     accessibilityLabel={`${
@@ -383,6 +419,7 @@ export default function FeatureSheet({
                 <Pressable
                   onPress={() => setChosenPm(null)}
                   hitSlop={6}
+                  style={({ pressed }) => pressed && styles.pressFx}
                   accessibilityRole="button"
                   accessibilityLabel={`Volver a los ${members.length} puntos de muestreo`}
                 >
@@ -454,13 +491,14 @@ export default function FeatureSheet({
                   return (
                     <Pressable
                       key={n.beach_id}
-                      style={[
+                      style={({ pressed }) => [
                         styles.nearestBox,
                         {
                           borderLeftColor:
                             STATUS_COLORS[statusKey] ??
                             colors.status.unknown,
                         },
+                        pressed && styles.pressFx,
                       ]}
                       onPress={
                         beachTarget && onSelectBeach
@@ -469,13 +507,34 @@ export default function FeatureSheet({
                       }
                       disabled={!beachTarget || !onSelectBeach}
                       accessibilityRole="button"
-                      accessibilityLabel={`${displayBeachName(n.beach_name)}, ver en el mapa`}
+                      accessibilityLabel={`${displayBeachName(beachBaseName(n.beach_name))}, ver en el mapa`}
                     >
-                      <Text style={[styles.nearestText, { flex: 1 }]}>
-                        <Text style={styles.nearestName}>
-                          {displayBeachName(n.beach_name)}
+                      <View style={styles.nearestBody}>
+                        <Text
+                          style={styles.nearestName}
+                          numberOfLines={1}
+                        >
+                          {displayBeachName(beachBaseName(n.beach_name))}
                         </Text>
-                        {' · '}a {fmtDistance(n.distance_m)}
+                        {n.municipality ? (
+                          <Text style={styles.nearestMeta}>
+                            {n.municipality}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {/* Distancia como badge: columna escaneable,
+                          mismo formato que "Emisarios cercanos" */}
+                      <Text
+                        style={[
+                          styles.nearestDist,
+                          {
+                            color:
+                              STATUS_COLORS[statusKey] ??
+                              colors.status.unknown,
+                          },
+                        ]}
+                      >
+                        {fmtDistance(n.distance_m)}
                       </Text>
                       {beachTarget && onSelectBeach && (
                         <Text style={styles.nearestChevron}>›</Text>
@@ -485,12 +544,19 @@ export default function FeatureSheet({
                 })}
               </>
             ) : null}
-            <Text style={styles.row}>
-              Fuente: Censo de Vertidos 2025 (Gob. Canarias)
-            </Text>
           </View>
         )}
       </ScrollView>
+
+      {/* Pie de la ficha: la fuente del dato va fija abajo con
+          separador — es metadato, no parte del contenido */}
+      {!isBeach && (
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Fuente: Censo de Vertidos 2025 (Gob. Canarias)
+          </Text>
+        </View>
+      )}
 
       {/* "Ver más": insinúa que hay contenido debajo. Aparece cuando el
           contenido no cabe en el viewport actual del ScrollView (aunque
@@ -500,7 +566,13 @@ export default function FeatureSheet({
           abajo. */}
       {showMore && (
         <Pressable
-          style={styles.moreBtn}
+          style={({ pressed }) => [
+            styles.moreBtn,
+            // Con footer fijo (ficha de emisario) el botón sube por
+            // encima de él para no pisarlo
+            !isBeach && styles.moreBtnRaised,
+            pressed && styles.pressFx,
+          ]}
           onPress={() => {
             // Sin expandir la card: "Ver más" solo baja el contenido
             // una página (~85% del viewport) dentro de la misma altura
@@ -535,6 +607,10 @@ export default function FeatureSheet({
 }
 
 const styles = StyleSheet.create({
+  // Feedback táctil común: leve fundido al presionar
+  pressFx: {
+    opacity: 0.6,
+  },
   sheet: {
     position: 'absolute',
     left: 10,
@@ -577,10 +653,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fonts.bold,
     color: colors.text,
+    textAlign: 'center',
   },
   close: {
     fontSize: 18,
+    fontFamily: fonts.extrabold,
     color: colors.textMuted,
+  },
+  // Botón ✕ cuadrado-redondeado: la cabecera de la ficha va tintada
+  // con el color de estado, así que el fondo es una sombra suave
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(7,82,118,0.10)',
   },
   body: {
     flex: 1,
@@ -590,7 +678,7 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   chip: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -609,10 +697,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   nearestBox: {
-    marginTop: 8,
+    marginBottom: 6,
     borderLeftWidth: 3,
     paddingLeft: 10,
-    paddingVertical: 6,
+    paddingVertical: 4,
     backgroundColor: colors.background,
     borderRadius: 4,
     flexDirection: 'row',
@@ -624,16 +712,32 @@ const styles = StyleSheet.create({
     color: colors.textFaint,
     paddingRight: 8,
   },
-  nearestText: {
-    fontSize: 12,
+  nearestBody: {
+    flex: 1,
+    paddingRight: 4,
+  },
+  nearestMeta: {
+    fontSize: 11,
     fontFamily: fonts.regular,
     color: colors.textMuted,
+    marginTop: 1,
+  },
+  // Distancia como badge en columna — mismo patrón que
+  // outfallDist en BeachDetail ("Emisarios cercanos")
+  nearestDist: {
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    alignSelf: 'center',
+    marginRight: 6,
+    minWidth: 46,
+    textAlign: 'right',
   },
   nearTitle: {
     fontSize: 13,
     fontFamily: fonts.bold,
     color: colors.text,
     marginTop: 8,
+    marginBottom: 8,
   },
   nearSub: {
     fontSize: 11,
@@ -641,7 +745,8 @@ const styles = StyleSheet.create({
     color: colors.textFaint,
   },
   nearestName: {
-    fontFamily: fonts.bold,
+    fontSize: 12,
+    fontFamily: fonts.semibold,
     color: colors.text,
   },
   pmHint: {
@@ -704,6 +809,19 @@ const styles = StyleSheet.create({
   moreBtnImg: {
     borderRadius: 12,
     opacity: 0.7,
+  },
+  // Sobre el footer fijo de la ficha de emisario (~34px alto)
+  moreBtnRaised: {
+    bottom: 44,
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  footerText: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
   },
   moreText: {
     fontSize: 12,

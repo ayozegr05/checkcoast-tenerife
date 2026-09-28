@@ -40,6 +40,7 @@ export default function ScrollChips({
   fadeRgbLeft,
   fadeRgbRight,
   a11yLabel = 'filtros',
+  edgeFade = true,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -52,6 +53,10 @@ export default function ScrollChips({
   fadeRgbRight?: string;
   // Qué se desplaza, para los labels de accesibilidad
   a11yLabel?: string;
+  // Sobre fondos fotográficos/degradados el bloque del fade queda
+  // visible como "sombra cuadrada" — se puede apagar y dejar solo
+  // el círculo de la flecha (queda limpio igual que sobre fondo liso)
+  edgeFade?: boolean;
 }) {
   const scrollRef = useRef<ScrollView>(null);
   const dims = useRef({ x: 0, w: 0, cw: 0 });
@@ -99,9 +104,13 @@ export default function ScrollChips({
 
       {canLeft && (
         <View style={[styles.edge, { left: 0 }]} pointerEvents="box-none">
-          <EdgeFade right={false} rgb={fadeRgbLeft ?? fadeRgb} />
+          {edgeFade && <EdgeFade right={false} rgb={fadeRgbLeft ?? fadeRgb} />}
           <Pressable
-            style={[styles.arrow, { left: 2 }]}
+            style={({ pressed }) => [
+              styles.arrow,
+              { left: 2 },
+              pressed && styles.pressFx,
+            ]}
             onPress={() => scrollBy(-1)}
             accessibilityRole="button"
             accessibilityLabel={`Desplazar ${a11yLabel} a la izquierda`}
@@ -112,9 +121,13 @@ export default function ScrollChips({
       )}
       {canRight && (
         <View style={[styles.edge, { right: 0 }]} pointerEvents="box-none">
-          <EdgeFade right rgb={fadeRgbRight ?? fadeRgb} />
+          {edgeFade && <EdgeFade right rgb={fadeRgbRight ?? fadeRgb} />}
           <Pressable
-            style={[styles.arrow, { right: 2 }]}
+            style={({ pressed }) => [
+              styles.arrow,
+              { right: 2 },
+              pressed && styles.pressFx,
+            ]}
             onPress={() => scrollBy(1)}
             accessibilityRole="button"
             accessibilityLabel={`Desplazar ${a11yLabel} a la derecha`}
@@ -128,6 +141,10 @@ export default function ScrollChips({
 }
 
 const styles = StyleSheet.create({
+  // Feedback táctil común: leve fundido al presionar
+  pressFx: {
+    opacity: 0.6,
+  },
   wrap: {
     position: 'relative',
   },

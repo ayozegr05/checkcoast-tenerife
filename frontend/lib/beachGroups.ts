@@ -2,7 +2,7 @@
 // PMs → una fila por playa (nombre base + municipio), orden por estado.
 
 import type { BeachStats, GeoFeature } from './api';
-import { beachBaseName, beachGroupKey } from './format';
+import { beachBaseName, beachGroupKey, searchNorm } from './format';
 
 // Orden de prioridad: lo que necesita atención del bañista primero.
 // "Sin datos" (vigilada pero Náyade no dice nada) va la última de
@@ -112,10 +112,10 @@ export const buildGroups = (
   } = {},
 ): BeachGroup[] => {
   const stats = opts.stats ?? new Map<number, BeachStats>();
-  const q = (opts.query ?? '').trim().toLowerCase();
+  const q = searchNorm(opts.query ?? '');
   const filtered = beaches.filter(
     (f) =>
-      (!q || f.properties.name.toLowerCase().includes(q)) &&
+      (!q || searchNorm(f.properties.name).includes(q)) &&
       (opts.municipality === undefined ||
         (opts.municipality === null
           ? f.properties.municipality == null

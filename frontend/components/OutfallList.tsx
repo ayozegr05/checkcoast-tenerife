@@ -15,6 +15,7 @@ import {
 
 import ScrollChips from './ScrollChips';
 import { GeoFeature } from '../lib/api';
+import { searchNorm } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 
 // El censo de vertidos clasifica por situación administrativa:
@@ -105,11 +106,11 @@ export default function OutfallList({
     (counts.illegal ?? 0) + (counts.legal ?? 0) + (counts.unknown ?? 0);
 
   const rows = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = searchNorm(query);
     return outfalls
       .filter(
         (f) =>
-          (!q || f.properties.name.toLowerCase().includes(q)) &&
+          (!q || searchNorm(f.properties.name).includes(q)) &&
           (status === undefined ||
             (f.properties.status ?? 'unknown') === status) &&
           (municipality === undefined ||
@@ -139,8 +140,17 @@ export default function OutfallList({
           resizeMode="cover"
         >
           <View style={styles.headerRow}>
-            <Text style={styles.title}>Emisarios al mar</Text>
-            <Pressable onPress={onClose} hitSlop={12}>
+            <Text style={[styles.title, { flex: 1, textAlign: 'center' }]}>
+              Emisarios al mar
+            </Text>
+            <Pressable
+              onPress={onClose}
+              hitSlop={12}
+              style={({ pressed }) => [
+                styles.closeBtn,
+                pressed && styles.pressFx,
+              ]}
+            >
               <Text style={styles.close}>✕</Text>
             </Pressable>
           </View>
@@ -185,7 +195,11 @@ export default function OutfallList({
           fadeRgbRight="242,251,253"
         >
           <Pressable
-            style={[styles.chip, status === undefined && styles.chipActive]}
+            style={({ pressed }) => [
+              styles.chip,
+              status === undefined && styles.chipActive,
+              pressed && styles.pressFx,
+            ]}
             onPress={() => setStatus(undefined)}
           >
             <Text
@@ -200,7 +214,11 @@ export default function OutfallList({
           {(['illegal', 'unknown', 'legal'] as const).map((s) => (
             <Pressable
               key={s}
-              style={[styles.chip, status === s && styles.chipActive]}
+              style={({ pressed }) => [
+                styles.chip,
+                status === s && styles.chipActive,
+                pressed && styles.pressFx,
+              ]}
               onPress={() => setStatus(status === s ? undefined : s)}
             >
               <Text
@@ -222,9 +240,10 @@ export default function OutfallList({
           fadeRgbRight="242,251,253"
         >
           <Pressable
-            style={[
+            style={({ pressed }) => [
               styles.chip,
               municipality === undefined && styles.chipActive,
+              pressed && styles.pressFx,
             ]}
             onPress={() => setMunicipality(undefined)}
           >
@@ -240,7 +259,11 @@ export default function OutfallList({
           {municipalities.map((m) => (
             <Pressable
               key={m}
-              style={[styles.chip, municipality === m && styles.chipActive]}
+              style={({ pressed }) => [
+                styles.chip,
+                municipality === m && styles.chipActive,
+                pressed && styles.pressFx,
+              ]}
               onPress={() =>
                 setMunicipality(municipality === m ? undefined : m)
               }
@@ -266,7 +289,13 @@ export default function OutfallList({
           renderItem={({ item: f }) => {
             const s = f.properties.status ?? 'unknown';
             return (
-              <Pressable style={styles.row} onPress={() => onSelect(f)}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.row,
+                  pressed && styles.pressFx,
+                ]}
+                onPress={() => onSelect(f)}
+              >
                 <View style={styles.rowText}>
                   <Text style={styles.rowName}>
                     {capName(f.properties.name)}
@@ -297,6 +326,10 @@ export default function OutfallList({
 }
 
 const styles = StyleSheet.create({
+  // Feedback táctil común: leve fundido al presionar
+  pressFx: {
+    opacity: 0.6,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -323,7 +356,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: 'rgba(255,255,255,0.85)',
     paddingHorizontal: 16,
-    marginTop: 4,
+    marginTop: 23,
   },
   source: {
     fontSize: 10,
@@ -334,7 +367,16 @@ const styles = StyleSheet.create({
   },
   close: {
     fontSize: 20,
+    fontFamily: fonts.extrabold,
     color: 'rgba(255,255,255,0.9)',
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   searchWrap: {
     flexDirection: 'row',

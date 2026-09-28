@@ -29,6 +29,7 @@ import {
 import {
   pointLongLabel,
   displayBeachName,
+  beachBaseName,
 } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 import {
@@ -285,11 +286,17 @@ export default function BeachList({
               completo debajo — antes apretaban el botón "Por
               municipio" */}
           <View style={styles.headerTop}>
-            <Text style={styles.title}>Playas</Text>
+            <Text style={[styles.title, { flex: 1, textAlign: 'center' }]}>
+              Playas
+            </Text>
             <View style={styles.headerRight}>
               <Pressable
                 onPress={onClose}
                 hitSlop={12}
+                style={({ pressed }) => [
+                  styles.closeBtn,
+                  pressed && styles.pressFx,
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel="Cerrar lista de playas"
               >
@@ -297,7 +304,7 @@ export default function BeachList({
               </Pressable>
             </View>
           </View>
-          <Text style={styles.headerSub}>
+          <Text style={[styles.headerSub, { marginTop: 23 }]}>
             {totals.mon} vigiladas · {totals.un} sin vigilar
           </Text>
           {correlation && (
@@ -339,9 +346,10 @@ export default function BeachList({
           a11yLabel="municipios"
         >
           <Pressable
-            style={[
+            style={({ pressed }) => [
               styles.chip,
               municipality === undefined && styles.chipActive,
+              pressed && styles.pressFx,
             ]}
             onPress={() => setMunicipality(undefined)}
             accessibilityRole="button"
@@ -360,7 +368,11 @@ export default function BeachList({
           {municipalities.map((m) => (
             <Pressable
               key={m}
-              style={[styles.chip, municipality === m && styles.chipActive]}
+              style={({ pressed }) => [
+                styles.chip,
+                municipality === m && styles.chipActive,
+                pressed && styles.pressFx,
+              ]}
               onPress={() =>
                 setMunicipality(municipality === m ? undefined : m)
               }
@@ -380,9 +392,10 @@ export default function BeachList({
           ))}
           {beaches.some((f) => f.properties.municipality == null) && (
             <Pressable
-              style={[
+              style={({ pressed }) => [
                 styles.chip,
                 municipality === null && styles.chipActive,
+                pressed && styles.pressFx,
               ]}
               onPress={() =>
                 setMunicipality(municipality === null ? undefined : null)
@@ -414,10 +427,11 @@ export default function BeachList({
           {presentStatuses.map((s) => (
             <Pressable
               key={s}
-              style={[
+              style={({ pressed }) => [
                 styles.chip,
                 styles.chipStatus,
                 statusFilter === s && styles.chipActive,
+                pressed && styles.pressFx,
               ]}
               onPress={() =>
                 setStatusFilter(statusFilter === s ? undefined : s)
@@ -439,7 +453,7 @@ export default function BeachList({
                 ]}
               >
                 {STATUS_LABELS[s]}
-                {statusFilter === s ? ` · ${groups.length}` : ''}
+                {statusFilter === s ? ` (${groups.length})` : ''}
               </Text>
             </Pressable>
           ))}
@@ -461,10 +475,11 @@ export default function BeachList({
               item === 'agua' ? (
                 <Pressable
                   key="agua"
-                  style={[
+                  style={({ pressed }) => [
                     styles.chip,
                     styles.chipStatus,
                     statusFilter === 'impecables' && styles.chipActive,
+                    pressed && styles.pressFx,
                   ]}
                   onPress={() => {
                     if (statusFilter === 'impecables') return;
@@ -486,14 +501,14 @@ export default function BeachList({
                   >
                     Agua siempre apta
                     {statusFilter === 'impecables'
-                      ? ` · ${groups.length}`
+                      ? ` (${groups.length})`
                       : ''}
                   </Text>
                 </Pressable>
               ) : (
                 <Pressable
                   key={item}
-                  style={[
+                  style={({ pressed }) => [
                     styles.chip,
                     // Radio puro: con "Agua siempre apta" activo el
                     // orden interno es Estado pero el chip no se
@@ -501,6 +516,7 @@ export default function BeachList({
                     sortMode === item &&
                       statusFilter !== 'impecables' &&
                       styles.chipActive,
+                    pressed && styles.pressFx,
                   ]}
                   onPress={() => {
                     setSortMode(item);
@@ -550,7 +566,10 @@ export default function BeachList({
             return (
               <View style={styles.row}>
                 <Pressable
-                  style={styles.rowMain}
+                  style={({ pressed }) => [
+                    styles.rowMain,
+                    pressed && styles.pressFx,
+                  ]}
                   onPress={() =>
                     g.members.length === 1
                       ? openDetail(g.members[0])
@@ -633,7 +652,10 @@ export default function BeachList({
                     return (
                       <Pressable
                         key={f.id}
-                        style={styles.pmRow}
+                        style={({ pressed }) => [
+                          styles.pmRow,
+                          pressed && styles.pressFx,
+                        ]}
                         onPress={() => openDetail(f)}
                         accessibilityRole="button"
                         accessibilityLabel={`${
@@ -682,21 +704,23 @@ export default function BeachList({
               style={styles.header}
               resizeMode="cover"
             >
-              <Pressable
-                onPress={() => setDetail(null)}
-                hitSlop={12}
-                style={styles.backBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Volver a la lista"
-              >
-                <Text style={styles.backText}>‹</Text>
-              </Pressable>
-              <Text style={styles.title} numberOfLines={2}>
-                {displayBeachName(detail.properties.name)}
-                {detail.properties.municipality
-                  ? ` · ${detail.properties.municipality}`
-                  : ''}
-              </Text>
+              <View style={styles.detailHeaderRow}>
+                <Text
+                  style={[styles.title, { flex: 1, textAlign: 'center' }]}
+                  numberOfLines={2}
+                >
+                  {displayBeachName(
+                    beaches.filter(
+                      (b) => groupKeyOf(b) === groupKeyOf(detail),
+                    ).length > 1
+                      ? detail.properties.name
+                      : beachBaseName(detail.properties.name),
+                  )}
+                  {detail.properties.municipality
+                    ? ` · ${detail.properties.municipality}`
+                    : ''}
+                </Text>
+              </View>
             </ImageBackground>
             <ScrollView
               ref={detailScrollRef}
@@ -732,7 +756,10 @@ export default function BeachList({
                 hasta el final y se oculta al llegar abajo */}
             {showMore && (
               <Pressable
-                style={styles.moreBtn}
+                style={({ pressed }) => [
+                  styles.moreBtn,
+                  pressed && styles.pressFx,
+                ]}
                 onPress={() => {
                   detailScrollRef.current?.scrollToEnd({
                     animated: true,
@@ -757,6 +784,10 @@ export default function BeachList({
 }
 
 const styles = StyleSheet.create({
+  // Feedback táctil común: leve fundido al presionar
+  pressFx: {
+    opacity: 0.6,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -776,6 +807,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+  },
+  detailHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   backBtn: {
     marginRight: 4,
@@ -836,7 +871,18 @@ const styles = StyleSheet.create({
   },
   close: {
     fontSize: 20,
+    fontFamily: fonts.extrabold,
     color: 'rgba(255,255,255,0.9)',
+  },
+  // Botón ✕ contenido: cuadrado de esquinas suaves translúcido —
+  // affordance visible sin pesar sobre el header degradado
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   searchWrap: {
     flexDirection: 'row',

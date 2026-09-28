@@ -264,6 +264,13 @@ npx tsc --noEmit                                        # typecheck
 - **Náyade** se cae por horas: es normal, el scheduler lo tolera
 - **Hot reload** con capas MapLibre da `[Error: 'id' cannot be changed]`
   → reiniciar con `npx expo start --dev-client -c`
+- **Mar del satélite = PNOA a pelo, decisión final** (2026-09-28): las
+  costuras entre tiles en mar abierto son inherentes a la ortofoto
+  (corrección de brillo por tile). No reintentar tinte/máscara/
+  batimetría — todas las variantes evaluadas quedaron peor (ver
+  ROADMAP 7.6). Scripts/archivos del experimento:
+  `backend/scripts/_gen_sea_{mask,texture}.py`,
+  `frontend/assets/sea-{mask.json,texture.png}` (sin uso, borrables)
 - **Node 24.21.0 LTS** vía nvm-windows (`nvm use 24.21.0`); quedan
   versiones viejas instaladas (20.12.2, 18, 17, 16) por si hicieran
   falta

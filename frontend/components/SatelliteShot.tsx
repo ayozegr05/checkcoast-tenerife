@@ -149,7 +149,11 @@ export default function SatelliteShot({
           onPress={() => setLevel((l) => l - 1)}
           disabled={level === 0}
           hitSlop={6}
-          style={[styles.zoomBtn, level === 0 && styles.zoomBtnOff]}
+          style={({ pressed }) => [
+            styles.zoomBtn,
+            level === 0 && styles.zoomBtnOff,
+            pressed && styles.pressFx,
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Acercar vista satélite"
           accessibilityState={{ disabled: level === 0 }}
@@ -164,9 +168,10 @@ export default function SatelliteShot({
           onPress={() => setLevel((l) => l + 1)}
           disabled={level === LEVELS.length - 1}
           hitSlop={6}
-          style={[
+          style={({ pressed }) => [
             styles.zoomBtn,
             level === LEVELS.length - 1 && styles.zoomBtnOff,
+            pressed && styles.pressFx,
           ]}
           accessibilityRole="button"
           accessibilityLabel="Alejar vista satélite"
@@ -185,7 +190,10 @@ export default function SatelliteShot({
           <Pressable
             onPress={onPress}
             hitSlop={6}
-            style={styles.zoomBtn}
+            style={({ pressed }) => [
+              styles.zoomBtn,
+              pressed && styles.pressFx,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Ver en el mapa"
           >
@@ -205,6 +213,10 @@ export default function SatelliteShot({
 }
 
 const styles = StyleSheet.create({
+  // Feedback táctil común: leve fundido al presionar
+  pressFx: {
+    opacity: 0.6,
+  },
   wrap: {
     marginTop: 8,
     borderRadius: 10,

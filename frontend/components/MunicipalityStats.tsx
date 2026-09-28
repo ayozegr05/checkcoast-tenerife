@@ -29,9 +29,10 @@ import {
   seasonYear,
   yearEpisodes,
 } from '../lib/episodes';
-import { displayBeachName } from '../lib/format';
+import { displayBeachName, searchNorm } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 import Skeleton from './Skeleton';
+import ScrollChips from './ScrollChips';
 
 type MuniStats = {
   municipality: string | null;
@@ -88,6 +89,9 @@ const yearBarColorOf = (m: MuniStats) =>
 
 const fmtDate = (iso: string) => iso.split('-').reverse().join('/');
 
+// Chips de año visibles antes de plegar el resto tras "Más años ›"
+const MAX_YEAR_CHIPS = 4;
+
 // Duración en días naturales incluyendo el día de apertura
 const durationDays = (inc: MunicipalityIncident) => {
   const end = inc.closed_at ? new Date(inc.closed_at) : new Date();
@@ -136,9 +140,9 @@ export default function MunicipalityStats({
   // por defecto el vigente; las chips de año lo cambian
   const [selYear, setSelYear] = useState(seasonYear());
   // Ranking: 'Histórico' (vivo + histórico total) vs modo-año al elegir
-  // un año en las chips. Arranca en vivo: aunque selYear apunte a la
-  // última temporada en primavera, el ranking muestra el estado real
-  const [histMode, setHistMode] = useState(true);
+  // un año en las chips. Abre en el año vigente — lo que interesa es
+  // el ahora; el histórico completo queda como último chip
+  const [histMode, setHistMode] = useState(false);
   // Buscador de municipio en el ranking (filtro por nombre)
   const [muniQuery, setMuniQuery] = useState('');
   // Filtro de chips de la vista Temporada: cierres | avisos | activas
@@ -147,6 +151,9 @@ export default function MunicipalityStats({
   >('all');
   // Filtro de chips de la vista "Este año": por causa ('all' = todas)
   const [yearCause, setYearCause] = useState<string>(initialCause ?? 'all');
+  // Chips de año plegadas tras "Más años ›" cuando hay más de
+  // MAX_YEAR_CHIPS — los antiguos no compiten con el ahora
+  const [showAllYears, setShowAllYears] = useState(false);
 
   // El modal vive montado (conserva scroll/estado): al abrirlo manda
   // la vista pedida, no la última visitada
@@ -154,7 +161,14 @@ export default function MunicipalityStats({
     if (!visible) return;
     setView(initialView);
     setYearCause(initialCause ?? 'all');
-    setHistMode(true); // el ranking siempre abre en "Histórico"
+    // Ranking abre en "Este año" si hay datos; si el año vigente aún
+    // no tiene episodios cae al último año con datos, y sin años al
+    // histórico completo
+    const ys = episodeYears(episodes);
+    const cy = new Date().getFullYear();
+    setSelYear(ys.includes(cy) ? cy : (ys[0] ?? seasonYear()));
+    setHistMode(ys.length === 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initialView, initialCause]);
 
   const seasonRows = useMemo(
@@ -247,6 +261,33 @@ export default function MunicipalityStats({
   // en ranking decide a qué año se aplica el filtro de causa — y con
   // un año pasado el ranking entero pasa a modo-año)
   const years = useMemo(() => episodeYears(episodes), [episodes]);
+  // Si la lista de años crece más allá de MAX_YEAR_CHIPS solo quedan
+  // visibles los recientes y el resto se pliega tras "Más años ›" —
+  // Histórico va fijo al final y nunca se traga el scroll. Si el año
+  // seleccionado está oculto se despliega solo (sin botón muerto)
+  const visibleYears = useMemo(() => {
+    const recent = years.slice(0, MAX_YEAR_CHIPS);
+    const canCollapse =
+      years.length > MAX_YEAR_CHIPS && recent.includes(selYear);
+    return canCollapse && !showAllYears ? recent : years;
+  }, [years, showAllYears, selYear]);
+  const canCollapseYears =
+    years.length > MAX_YEAR_CHIPS &&
+    years.slice(0, MAX_YEAR_CHIPS).includes(selYear);
+  // Conteo de episodios por chip de año: en Temporada cuenta los del
+  // verano (jun-sep); en ranking/"Este año" los del año natural
+  const chipCounts = useMemo(() => {
+    const m = new globalThis.Map<number, number>();
+    for (const y of years)
+      m.set(
+        y,
+        (view === 'temporada' ? seasonEpisodes : yearEpisodes)(
+          episodes,
+          y,
+        ).length,
+      );
+    return m;
+  }, [episodes, years, view]);
   const curYear = new Date().getFullYear();
   const isYearMode = view === 'ranking' && !histMode;
   // Episodios del año seleccionado por municipio: /episodes ya viene
@@ -481,13 +522,11 @@ export default function MunicipalityStats({
   }, [rows, yearMuni, isYearMode]);
 
   // Buscador: filtra la vista activa (Histórico o año) por nombre
-  const muniQ = muniQuery.trim().toLowerCase();
+  const muniQ = searchNorm(muniQuery);
   const filteredRows = useMemo(
     () =>
       muniQ
-        ? displayRows.filter((m) =>
-            m.name.toLowerCase().includes(muniQ),
-          )
+        ? displayRows.filter((m) => searchNorm(m.name).includes(muniQ))
         : displayRows,
     [displayRows, muniQ],
   );
@@ -516,7 +555,11 @@ export default function MunicipalityStats({
                 <Pressable
                   onPress={() => setDetail(null)}
                   hitSlop={12}
-                  style={styles.backBtn}
+                  style={({ pressed }) => [
+                    styles.backBtn,
+                    styles.closeBtn,
+                    pressed && styles.pressFx,
+                  ]}
                   accessibilityRole="button"
                   accessibilityLabel="Volver al ranking"
                 >
@@ -527,7 +570,10 @@ export default function MunicipalityStats({
                 </Text>
                 <Pressable
                   onPress={() => onSelect(detail.municipality)}
-                  style={styles.listBtn}
+                  style={({ pressed }) => [
+                    styles.listBtn,
+                    pressed && styles.pressFx,
+                  ]}
                   accessibilityRole="button"
                   accessibilityLabel="Ver playas del municipio"
                 >
@@ -587,7 +633,10 @@ export default function MunicipalityStats({
                       )}
                     </View>
                     <Pressable
-                      style={styles.tlBody}
+                      style={({ pressed }) => [
+                        styles.tlBody,
+                        pressed && styles.pressFx,
+                      ]}
                       onPress={() => onSelectBeach?.(inc.beach_id)}
                       accessibilityRole="button"
                       accessibilityLabel={`Ver ficha de ${displayBeachName(
@@ -671,8 +720,17 @@ export default function MunicipalityStats({
           resizeMode="cover"
         >
           <View style={styles.header}>
-            <Text style={styles.title}>Incidencias por municipio</Text>
-            <Pressable onPress={onClose} hitSlop={12}>
+            <Text style={[styles.title, { flex: 1, textAlign: 'center' }]}>
+              Incidencias por municipio
+            </Text>
+            <Pressable
+              onPress={onClose}
+              hitSlop={12}
+              style={({ pressed }) => [
+                styles.closeBtn,
+                pressed && styles.pressFx,
+              ]}
+            >
               <Text style={styles.close}>✕</Text>
             </Pressable>
           </View>
@@ -692,36 +750,23 @@ export default function MunicipalityStats({
           {view === 'ranking' && yearLine && (
             <Text style={styles.yearLine}>{yearLine}</Text>
           )}
+        </ImageBackground>
+
           {years.length > 1 && (
-            <View style={styles.seasonChips}>
-              {view === 'ranking' && (
-                <Pressable
-                  style={[
-                    styles.seasonChip,
-                    histMode && styles.seasonChipOn,
-                  ]}
-                  onPress={() => setHistMode(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Ver ranking histórico completo"
-                >
-                  <Text
-                    style={[
-                      styles.seasonChipText,
-                      histMode && styles.seasonChipTextOn,
-                    ]}
-                  >
-                    Histórico
-                  </Text>
-                </Pressable>
-              )}
-              {years.map((y) => (
+            <ScrollChips
+              style={styles.seasonChipsWrap}
+              contentContainerStyle={styles.seasonChips}
+              a11yLabel="años"
+            >
+              {visibleYears.map((y) => (
                 <Pressable
                   key={y}
-                  style={[
+                  style={({ pressed }) => [
                     styles.seasonChip,
                     (view === 'ranking'
                       ? !histMode && selYear === y
                       : selYear === y) && styles.seasonChipOn,
+                    pressed && styles.pressFx,
                   ]}
                   onPress={() => {
                     setSelYear(y);
@@ -735,7 +780,9 @@ export default function MunicipalityStats({
                   <Text
                     style={[
                       styles.seasonChipText,
-                      selYear === y && styles.seasonChipTextOn,
+                      (view === 'ranking'
+                        ? !histMode && selYear === y
+                        : selYear === y) && styles.seasonChipTextOn,
                     ]}
                   >
                     {view === 'temporada'
@@ -745,13 +792,62 @@ export default function MunicipalityStats({
                       : y === new Date().getFullYear()
                         ? 'Este año'
                         : `${y}`}
+                    {` (${chipCounts.get(y) ?? 0})`}
                   </Text>
                 </Pressable>
               ))}
-            </View>
+              {canCollapseYears && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.seasonChip,
+                    pressed && styles.pressFx,
+                  ]}
+                  onPress={() => setShowAllYears((v) => !v)}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showAllYears
+                      ? 'Plegar la lista de años'
+                      : 'Ver todos los años'
+                  }
+                >
+                  <Text style={styles.seasonChipText}>
+                    {showAllYears
+                      ? 'Menos ›'
+                      : view === 'temporada'
+                        ? 'Más veranos ›'
+                        : 'Más años ›'}
+                  </Text>
+                </Pressable>
+              )}
+              {view === 'ranking' && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.seasonChip,
+                    histMode && styles.seasonChipOn,
+                    pressed && styles.pressFx,
+                  ]}
+                  onPress={() => setHistMode(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver ranking histórico completo"
+                >
+                  <Text
+                    style={[
+                      styles.seasonChipText,
+                      histMode && styles.seasonChipTextOn,
+                    ]}
+                  >
+                    Histórico ({episodes.length})
+                  </Text>
+                </Pressable>
+              )}
+            </ScrollChips>
           )}
           {view === 'temporada' && seasonRows.length > 0 && (
-            <View style={styles.seasonChips}>
+            <ScrollChips
+              style={styles.seasonChipsWrap}
+              contentContainerStyle={styles.seasonChips}
+              a11yLabel="filtros de episodios"
+            >
               {(
                 [
                   ['closure', seasonCounts.closures, 'cierre', 'cierres'],
@@ -762,9 +858,10 @@ export default function MunicipalityStats({
                 n > 0 ? (
                   <Pressable
                     key={k}
-                    style={[
+                    style={({ pressed }) => [
                       styles.seasonChip,
                       seasonFilter === k && styles.seasonChipOn,
+                      pressed && styles.pressFx,
                     ]}
                     onPress={() =>
                       setSeasonFilter((f) => (f === k ? 'all' : k))
@@ -785,14 +882,19 @@ export default function MunicipalityStats({
                   </Pressable>
                 ) : null,
               )}
-            </View>
+            </ScrollChips>
           )}
           {view !== 'temporada' && yearCauses.length > 0 && (
-            <View style={styles.seasonChips}>
+            <ScrollChips
+              style={styles.seasonChipsWrap}
+              contentContainerStyle={styles.seasonChips}
+              a11yLabel="filtros por causa"
+            >
               <Pressable
-                style={[
+                style={({ pressed }) => [
                   styles.seasonChip,
                   yearCause === 'all' && styles.seasonChipOn,
+                  pressed && styles.pressFx,
                 ]}
                 onPress={() => setYearCause('all')}
                 accessibilityRole="button"
@@ -810,9 +912,10 @@ export default function MunicipalityStats({
               {yearCauses.map(([cause, n]) => (
                 <Pressable
                   key={cause}
-                  style={[
+                  style={({ pressed }) => [
                     styles.seasonChip,
                     yearCause === cause && styles.seasonChipOn,
+                    pressed && styles.pressFx,
                   ]}
                   onPress={() =>
                     setYearCause((c) => (c === cause ? 'all' : cause))
@@ -830,15 +933,16 @@ export default function MunicipalityStats({
                   </Text>
                 </Pressable>
               ))}
-            </View>
+            </ScrollChips>
           )}
           <View style={styles.viewToggle}>
             {(['ranking', 'temporada', 'year'] as const).map((v) => (
               <Pressable
                 key={v}
-                style={[
+                style={({ pressed }) => [
                   styles.viewTab,
                   view === v && styles.viewTabOn,
+                  pressed && styles.pressFx,
                 ]}
                 onPress={() => setView(v)}
                 accessibilityRole="button"
@@ -865,7 +969,6 @@ export default function MunicipalityStats({
               </Pressable>
             ))}
           </View>
-        </ImageBackground>
 
         {view === 'ranking' && (
           <View style={styles.searchWrap}>
@@ -896,7 +999,10 @@ export default function MunicipalityStats({
               const open = ep.closed_at === null;
               return (
                 <Pressable
-                  style={styles.row}
+                  style={({ pressed }) => [
+                    styles.row,
+                    pressed && styles.pressFx,
+                  ]}
                   onPress={() => onSelectBeach?.(ep.beach_id)}
                   accessibilityRole="button"
                   accessibilityLabel={`Ver ficha de ${displayBeachName(
@@ -954,7 +1060,10 @@ export default function MunicipalityStats({
                     El verano {selYear} aún no ha comenzado
                   </Text>
                   <Pressable
-                    style={styles.emptyCta}
+                    style={({ pressed }) => [
+                      styles.emptyCta,
+                      pressed && styles.pressFx,
+                    ]}
                     onPress={() => setSelYear(selYear - 1)}
                     accessibilityRole="button"
                     accessibilityLabel={`Ver Verano ${selYear - 1}`}
@@ -990,7 +1099,10 @@ export default function MunicipalityStats({
           contentContainerStyle={styles.listContent}
           renderItem={({ item, index }) => (
             <Pressable
-              style={styles.row}
+              style={({ pressed }) => [
+                styles.row,
+                pressed && styles.pressFx,
+              ]}
               onPress={() => setDetail(item)}
               accessibilityRole="button"
               accessibilityLabel={`${item.name}, posición ${index + 1} de ${
@@ -1116,6 +1228,10 @@ export default function MunicipalityStats({
 }
 
 const styles = StyleSheet.create({
+  // Feedback táctil común: leve fundido al presionar
+  pressFx: {
+    opacity: 0.6,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1138,14 +1254,23 @@ const styles = StyleSheet.create({
   },
   close: {
     fontSize: 20,
+    fontFamily: fonts.extrabold,
     color: 'rgba(255,255,255,0.9)',
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   subtitle: {
     fontSize: 12,
     fontFamily: fonts.regular,
     color: 'rgba(255,255,255,0.85)',
     paddingHorizontal: 16,
-    marginTop: 4,
+    marginTop: 23,
   },
   searchWrap: {
     flexDirection: 'row',
@@ -1270,7 +1395,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: 16,
     marginTop: 10,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: colors.border,
     borderRadius: 8,
     padding: 2,
   },
@@ -1286,35 +1411,37 @@ const styles = StyleSheet.create({
   viewTabText: {
     fontSize: 12,
     fontFamily: fonts.semibold,
-    color: 'rgba(255,255,255,0.85)',
+    color: colors.textMuted,
   },
   viewTabTextOn: {
     color: colors.primaryDark,
   },
   // Chips-filtro de la vista Temporada (cierres/avisos/activas) —
   // tocando uno se filtra la lista a ese tipo de episodio
+  seasonChipsWrap: {
+    marginTop: 10,
+  },
   seasonChips: {
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 16,
-    marginTop: 10,
   },
   seasonChip: {
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.18)',
   },
   seasonChipOn: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.accent,
   },
   seasonChipText: {
     fontSize: 11,
     fontFamily: fonts.semibold,
-    color: 'rgba(255,255,255,0.9)',
+    color: colors.text,
   },
   seasonChipTextOn: {
-    color: colors.primaryDark,
+    color: colors.text,
+    fontFamily: fonts.extrabold,
   },
   // Incidente histórico (ya cerrado): outline apagado — el sólido se
   // reserva a los activos para que no se lean como vigentes

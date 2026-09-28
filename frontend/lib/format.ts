@@ -123,6 +123,18 @@ export const beachGroupKey = (name: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+// Normalizador de búsqueda: sin acentos y con "del" ≡ "de el" — la
+// toponimia oficial mezcla "PLAYA DEL CARMEN" y "PLAYA DE EL MÉDANO",
+// así que el usuario no tiene que adivinar la grafía del censo
+export const searchNorm = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\bdel\b/g, 'de el')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 // Etiqueta del punto de muestreo dentro de su playa: "PM3"; si la
 // playa se subdivide por romano (Troya I/II) se antepone: "II · PM3"
 export const beachPointLabel = (name: string) => {

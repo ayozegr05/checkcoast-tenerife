@@ -10,9 +10,10 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert as RNAlert,
   BackHandler,
+  Image,
   Linking,
+  Modal,
   NativeModules,
   Pressable,
   StyleSheet,
@@ -96,6 +97,8 @@ export default function App() {
     [number, number, number?, ('beach' | 'outfall')?] | null
   >(null);
   const [introVisible, setIntroVisible] = useState(false);
+  // Intro reabierta desde la Guía: sin checkbox y con ‹/✕ de sección
+  const [introRevisit, setIntroRevisit] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   // "Ver en mapa" desde la ficha: la card se oculta pero la selección
   // se mantiene — el pin queda grande y el mapa no restaura la vista
@@ -103,6 +106,9 @@ export default function App() {
   // Emisario abierto desde "Emisarios cercanos" de una ficha de playa:
   // la selección previa se guarda para restaurarla al cerrar/atrás
   const [restoreSel, setRestoreSel] = useState<Selection | null>(null);
+  // Confirmación de salida: modal propio (el Alert nativo no admite
+  // centrado ni marca) — el Modal consume su atrás con onRequestClose
+  const [exitOpen, setExitOpen] = useState(false);
 
   const loadData = () => {
     setError(null);
@@ -394,6 +400,8 @@ export default function App() {
   helpOpenRef.current = helpOpen;
   const introOpenRef = useRef(introVisible);
   introOpenRef.current = introVisible;
+  const introRevisitRef = useRef(introRevisit);
+  introRevisitRef.current = introRevisit;
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (helpOpenRef.current) {
@@ -402,20 +410,15 @@ export default function App() {
       }
       if (introOpenRef.current) {
         setIntroVisible(false);
+        // Reabierta desde la Guía: atrás vuelve al índice, no al mapa
+        if (introRevisitRef.current) setHelpOpen(true);
         return true;
       }
       if (hasSelectionRef.current) {
         backSheetRef.current();
         return true;
       }
-      RNAlert.alert('Salir de CheckCoast', '¿Quieres salir de la app?', [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Salir',
-          style: 'destructive',
-          onPress: () => BackHandler.exitApp(),
-        },
-      ]);
+      setExitOpen(true);
       return true;
     });
     return () => sub.remove();
@@ -448,25 +451,31 @@ export default function App() {
           setReturnToOutfalls(false);
           closeSheet();
         }}
-        onOpenList={() => setListOpen(true)}
+        onOpenList={() => {
+          closeSheet();
+          setListOpen(true);
+        }}
         onOpenMunicipalities={() => {
+          closeSheet();
           setMuniView('ranking');
           setMuniCause(null);
           setMuniOpen(true);
         }}
         onOpenTemporada={() => {
+          closeSheet();
           setMuniView('temporada');
           setMuniCause(null);
           setMuniOpen(true);
         }}
-        onOpenCause={(cause) => {
-          setMuniView('year');
-          setMuniCause(cause);
-          setMuniOpen(true);
-        }}
         episodes={episodes}
-        onOpenOutfalls={() => setOutfallListOpen(true)}
-        onOpenHelp={() => setHelpOpen(true)}
+        onOpenOutfalls={() => {
+          closeSheet();
+          setOutfallListOpen(true);
+        }}
+        onOpenHelp={() => {
+          closeSheet();
+          setHelpOpen(true);
+        }}
       />
 
       {(loading || !fontsLoaded) && (
@@ -478,7 +487,10 @@ export default function App() {
         <View style={styles.overlay}>
           <Text style={styles.errorText}>Error cargando datos: {error}</Text>
           <Pressable
-            style={styles.retryBtn}
+            style={({ pressed }) => [
+              styles.retryBtn,
+              pressed && styles.pressFx,
+            ]}
             onPress={loadData}
             accessibilityRole="button"
             accessibilityLabel="Reintentar cargar datos"
@@ -489,7 +501,14 @@ export default function App() {
       )}
 
       {introVisible && !loading && !error && fontsLoaded && (
-        <IntroCard onClose={closeIntro} />
+        <IntroCard
+          revisit={introRevisit}
+          onClose={closeIntro}
+          onBack={() => {
+            setIntroVisible(false);
+            setHelpOpen(true);
+          }}
+        />
       )}
 
       {helpOpen && (
@@ -497,6 +516,7 @@ export default function App() {
           onClose={() => setHelpOpen(false)}
           onShowIntro={() => {
             setHelpOpen(false);
+            setIntroRevisit(true);
             setIntroVisible(true);
           }}
         />
@@ -584,6 +604,50 @@ export default function App() {
         />
       )}
 
+      <Modal
+        visible={exitOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setExitOpen(false)}
+      >
+        <View style={styles.exitBackdrop}>
+          <View style={styles.exitCard}>
+            <Image
+              source={require('./assets/icon.png')}
+              style={styles.exitIcon}
+            />
+            <Text style={styles.exitTitle}>Salir de CheckCoast</Text>
+            <Text style={styles.exitMsg}>¿Quieres salir de la app?</Text>
+            <View style={styles.exitBtns}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.exitBtn,
+                  styles.exitBtnGhost,
+                  pressed && styles.pressFx,
+                ]}
+                onPress={() => setExitOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar y seguir en la app"
+              >
+                <Text style={styles.exitBtnGhostText}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.exitBtn,
+                  styles.exitBtnDanger,
+                  pressed && styles.pressFx,
+                ]}
+                onPress={() => BackHandler.exitApp()}
+                accessibilityRole="button"
+                accessibilityLabel="Salir de la app"
+              >
+                <Text style={styles.exitBtnDangerText}>Salir</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <StatusBar style="auto" />
     </View>
   );
@@ -621,5 +685,74 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontFamily: fonts.bold,
+  },
+  pressFx: {
+    opacity: 0.6,
+  },
+  exitBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(6,40,56,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  exitCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+  },
+  exitIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  exitTitle: {
+    fontSize: 17,
+    fontFamily: fonts.bold,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  exitMsg: {
+    marginTop: 6,
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    textAlign: 'center',
+  },
+  exitBtns: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+    gap: 12,
+  },
+  exitBtn: {
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exitBtnGhost: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  exitBtnGhostText: {
+    fontSize: 14,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+  },
+  exitBtnDanger: {
+    backgroundColor: colors.danger,
+  },
+  exitBtnDangerText: {
+    fontSize: 14,
+    fontFamily: fonts.bold,
+    color: '#fff',
   },
 });

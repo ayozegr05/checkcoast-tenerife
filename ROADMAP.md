@@ -156,6 +156,7 @@ Tres niveles, en orden de impacto/esfuerzo:
 | 7.3 | Skeletons de carga en listas (en vez de spinner/nada) | ✅ Hecho (componente Skeleton sea-glass con pulso; ficha de playa + línea temporal de municipio) | 🟢 Trivial |
 | 7.4 | Animación de entrada de la card (slide-up ~200ms) | ✅ Hecho (spring de apertura de la bottom-sheet; + borde y sombra reforzados para destacar del mapa/leyenda) | 🟢 Trivial |
 | 7.5 | Accessibility labels en controles principales | ✅ Hecho (auditoría completa: chips, filas, buscadores, selector PM, switches, toggle gráfica) | 🟡 Medio |
+| 7.6 | Mar de la vista satélite (costuras de tile PNOA en mar abierto) | ✅ Decisión consciente (2026-09-28): se queda **PNOA sin procesar** (sin capas sintéticas encima). Evaluadas y descartadas: batimetría Esri/GEBCO (artefactos de sonar + velo sobre tierra), `fill-pattern` con textura clonada/sintética (efecto toalla/losa), Sentinel-2 EOX (tierra muy suave), Esri World Imagery (tiles negros en Anaga/Teide), velo de color plano (artificioso). Las costuras son inherentes a la ortofoto libre — Google usa un mar sintético procesado de pago, no una foto real | 🟡 Medio (evaluación) |
 
 ## Hito 8 — Calidad y despliegue ⬜
 

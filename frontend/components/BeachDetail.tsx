@@ -504,6 +504,7 @@ export default function BeachDetail({
       <Pressable
         onPress={() => setNewsOpen((v) => !v)}
         hitSlop={8}
+        style={({ pressed }) => pressed && styles.pressFx}
         accessibilityRole="button"
         accessibilityLabel={
           newsOpen
@@ -525,7 +526,10 @@ export default function BeachDetail({
               {g.items.map((n) => (
                 <Pressable
                   key={n.id}
-                  style={styles.newsRow}
+                  style={({ pressed }) => [
+                    styles.newsRow,
+                    pressed && styles.pressFx,
+                  ]}
                   onPress={() =>
                     Linking.openURL(n.url).catch(() => {})
                   }
@@ -578,7 +582,10 @@ export default function BeachDetail({
         </View>
         <Pressable
           onPress={share}
-          style={styles.shareBtn}
+          style={({ pressed }) => [
+            styles.shareBtn,
+            pressed && styles.pressFx,
+          ]}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel="Compartir estado de la playa"
@@ -620,7 +627,11 @@ export default function BeachDetail({
             return (
               <Pressable
                 key={o.outfall_id}
-                style={[styles.outfallRow, { borderLeftColor: accent }]}
+                style={({ pressed }) => [
+                  styles.outfallRow,
+                  { borderLeftColor: accent },
+                  pressed && styles.pressFx,
+                ]}
                 onPress={
                   target && onSelectOutfall
                     ? () => onSelectOutfall(target)
@@ -839,9 +850,10 @@ export default function BeachDetail({
                     <Pressable
                       key={param}
                       onPress={() => setChartParam(param)}
-                      style={[
+                      style={({ pressed }) => [
                         styles.toggleChip,
                         chartParam === param && styles.toggleChipOn,
+                        pressed && styles.pressFx,
                       ]}
                       accessibilityRole="button"
                       accessibilityLabel={`Ver evolución de ${QUALITY_THRESHOLDS[param].label}`}
@@ -978,6 +990,10 @@ export default function BeachDetail({
 }
 
 const styles = StyleSheet.create({
+  // Feedback táctil común: leve fundido al presionar
+  pressFx: {
+    opacity: 0.6,
+  },
   // Estado centrado como "titular" de la ficha; Compartir docked a la
   // derecha en absoluto para no robarle el centro al chip
   topRow: {

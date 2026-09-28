@@ -171,7 +171,10 @@ export default function HelpHub({
           <View style={styles.titleRow}>
             {topic && (
               <Pressable
-                style={styles.headerBack}
+                style={({ pressed }) => [
+                  styles.headerBack,
+                  pressed && styles.pressFx,
+                ]}
                 onPress={() => setTopic(null)}
                 accessibilityRole="button"
                 accessibilityLabel="Volver al índice de la guía"
@@ -189,6 +192,18 @@ export default function HelpHub({
                   : 'Elige un tema para ver cómo funciona'}
               </Text>
             </View>
+            <Pressable
+              onPress={onClose}
+              hitSlop={12}
+              style={({ pressed }) => [
+                styles.closeBtn,
+                pressed && styles.pressFx,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar la guía"
+            >
+              <Text style={styles.close}>✕</Text>
+            </Pressable>
           </View>
         </ImageBackground>
 
@@ -204,7 +219,10 @@ export default function HelpHub({
                 <>
                   {onShowIntro && (
                     <Pressable
-                      style={styles.topicRow}
+                      style={({ pressed }) => [
+                        styles.topicRow,
+                        pressed && styles.pressFx,
+                      ]}
                       onPress={onShowIntro}
                       accessibilityRole="button"
                       accessibilityLabel="Ver la tarjeta de bienvenida"
@@ -227,7 +245,10 @@ export default function HelpHub({
                   {TOPICS.map((t) => (
                     <Pressable
                       key={t.key}
-                      style={styles.topicRow}
+                      style={({ pressed }) => [
+                        styles.topicRow,
+                        pressed && styles.pressFx,
+                      ]}
                       onPress={() => setTopic(t)}
                       accessibilityRole="button"
                       accessibilityLabel={`Ayuda sobre ${t.title}`}
@@ -244,24 +265,16 @@ export default function HelpHub({
               )}
         </View>
 
-        <View style={styles.footer}>
-          <View />
-          <Pressable onPress={onClose} accessibilityRole="button">
-            <ImageBackground
-              source={require('../assets/gradient-sea.png')}
-              style={styles.btn}
-              resizeMode="cover"
-            >
-              <Text style={styles.btnText}>Cerrar</Text>
-            </ImageBackground>
-          </Pressable>
-        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Feedback táctil común: leve fundido al presionar
+  pressFx: {
+    opacity: 0.6,
+  },
   backdrop: {
     position: 'absolute',
     top: 0,
@@ -271,6 +284,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(7, 43, 62, 0.35)',
+    // Android: sin elevation los botones flotantes del mapa (elev 3-6)
+    // ganan el hit-test aunque queden bajo la cortina. shadowColor
+    // transparent: la elevation dibuja una sombra negra en los bordes
+    // de la vista (bandas laterales a pantalla completa)
+    elevation: 30,
+    zIndex: 30,
+    shadowColor: 'transparent',
   },
   card: {
     width: '86%',
@@ -312,6 +332,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     marginTop: -3,
   },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    marginLeft: 12,
+  },
+  close: {
+    fontSize: 20,
+    fontFamily: fonts.extrabold,
+    color: 'rgba(255,255,255,0.9)',
+  },
   title: {
     fontSize: 20,
     // Android corta el acento de la Í sin aire suficiente — gotcha
@@ -319,6 +353,7 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontFamily: fonts.extrabold,
     color: '#fff',
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 13,
@@ -326,6 +361,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.9)',
     marginTop: 4,
     lineHeight: 20,
+    textAlign: 'center',
   },
   body: {
     paddingHorizontal: 20,
@@ -379,28 +415,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     color: colors.textMuted,
     marginLeft: 8,
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    marginTop: 6,
-  },
-  backBtn: {
-    paddingVertical: 9,
-    paddingRight: 12,
-  },
-  btn: {
-    borderRadius: 8,
-    paddingVertical: 9,
-    paddingHorizontal: 20,
-    overflow: 'hidden',
-  },
-  btnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: fonts.bold,
   },
 });

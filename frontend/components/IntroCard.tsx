@@ -32,9 +32,15 @@ const HINTS: [ImageSourcePropType, string][] = [
 
 export default function IntroCard({
   onClose,
+  revisit = false,
+  onBack,
 }: {
   // dontShow = true -> persistir "no volver a mostrar"
   onClose: (dontShow: boolean) => void;
+  // Reabierta desde la Guía: sin "No volver a mostrar" (la acaban de
+  // pedir) — ‹ vuelve al índice de la guía, ✕ cierra al mapa
+  revisit?: boolean;
+  onBack?: () => void;
 }) {
   const [dontShow, setDontShow] = useState(false);
   return (
@@ -45,7 +51,50 @@ export default function IntroCard({
           style={styles.header}
           resizeMode="cover"
         >
-          <Text style={styles.title}>CheckCoast Tenerife</Text>
+          <View style={styles.titleRow}>
+            {revisit && onBack && (
+              <Pressable
+                onPress={onBack}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.navBackBtn,
+                  pressed && styles.pressFx,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Volver a la guía"
+              >
+                <Text style={styles.navBackText}>‹</Text>
+              </Pressable>
+            )}
+            <View style={styles.titleCenter}>
+              <Image
+                source={require('../assets/icon.png')}
+                style={[
+                  styles.titleIcon,
+                  revisit && styles.titleIconRevisit,
+                ]}
+              />
+              <Text
+                style={[styles.title, revisit && styles.titleRevisit]}
+              >
+                CheckCoast Tenerife
+              </Text>
+            </View>
+            {revisit && (
+              <Pressable
+                onPress={() => onClose(false)}
+                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.navBtn,
+                  pressed && styles.pressFx,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar"
+              >
+                <Text style={styles.navCloseText}>✕</Text>
+              </Pressable>
+            )}
+          </View>
           <Text style={styles.subtitle}>
             Estado de las playas y emisarios de la isla, con datos
             oficiales actualizados
@@ -61,37 +110,51 @@ export default function IntroCard({
           ))}
         </View>
 
-        <View style={styles.footer}>
-          <Pressable
-            style={styles.checkRow}
-            onPress={() => setDontShow((v) => !v)}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: dontShow }}
-          >
-            <View style={[styles.checkBox, dontShow && styles.checkBoxOn]}>
-              {dontShow && <Text style={styles.checkMark}>✓</Text>}
-            </View>
-            <Text style={styles.checkLabel}>No volver a mostrar</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => onClose(dontShow)}
-            accessibilityRole="button"
-          >
-            <ImageBackground
-              source={require('../assets/gradient-sea.png')}
-              style={styles.btn}
-              resizeMode="cover"
+        {!revisit && (
+          <View style={styles.footer}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.checkRow,
+                pressed && styles.pressFx,
+              ]}
+              onPress={() => setDontShow((v) => !v)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: dontShow }}
             >
-              <Text style={styles.btnText}>Entendido</Text>
-            </ImageBackground>
-          </Pressable>
-        </View>
+              <View
+                style={[styles.checkBox, dontShow && styles.checkBoxOn]}
+              >
+                {dontShow && <Text style={styles.checkMark}>✓</Text>}
+              </View>
+              <Text style={styles.checkLabel}>
+                No mostrar al inicio
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => onClose(dontShow)}
+              style={({ pressed }) => pressed && styles.pressFx}
+              accessibilityRole="button"
+            >
+              <ImageBackground
+                source={require('../assets/gradient-sea.png')}
+                style={styles.btn}
+                resizeMode="cover"
+              >
+                <Text style={styles.btnText}>Entendido</Text>
+              </ImageBackground>
+            </Pressable>
+          </View>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Feedback táctil común: leve fundido al presionar
+  pressFx: {
+    opacity: 0.6,
+  },
   backdrop: {
     position: 'absolute',
     top: 0,
@@ -101,9 +164,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(7, 43, 62, 0.35)',
+    // Android: sin elevation los botones flotantes del mapa (elev 3-6)
+    // ganan el hit-test aunque queden bajo la cortina. shadowColor
+    // transparent: la elevation dibuja una sombra negra en los bordes
+    // de la vista (bandas laterales a pantalla completa)
+    elevation: 30,
+    zIndex: 30,
+    shadowColor: 'transparent',
   },
   card: {
-    marginHorizontal: 24,
+    width: '86%',
     maxWidth: 420,
     alignSelf: 'center',
     backgroundColor: colors.surface,
@@ -120,17 +190,76 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 14,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  titleCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 10,
+  },
+  titleIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+  },
+  // Botones de cabecera del modo "revisit": ‹ círculo como el de
+  // HelpHub, ✕ cuadrado-redondeado como las secciones
+  navBackBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  navBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  navBackText: {
+    color: '#fff',
+    fontSize: 22,
+    fontFamily: fonts.bold,
+    marginTop: -3,
+  },
+  navCloseText: {
+    fontSize: 20,
+    fontFamily: fonts.extrabold,
+    color: 'rgba(255,255,255,0.9)',
+  },
   title: {
     fontSize: 20,
     fontFamily: fonts.extrabold,
     color: '#fff',
   },
+  // En modo revisit (desde la Guía) los botones ‹ ✕ roban ancho —
+  // título e icono un punto más pequeños para que respire, igual que
+  // las cabeceras de sección (títulos cortos a 18)
+  titleRevisit: {
+    fontSize: 17,
+  },
+  titleIconRevisit: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+  },
   subtitle: {
     fontSize: 13,
     fontFamily: fonts.regular,
     color: 'rgba(255,255,255,0.9)',
-    marginTop: 4,
+    marginTop: 10,
     lineHeight: 18,
+    textAlign: 'center',
   },
   body: {
     paddingHorizontal: 20,
