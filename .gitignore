@@ -36,3 +36,8 @@ Thumbs.db
 .idea/
 .vscode/
 .claude/
+
+# Scripts one-off locales (prefijo _) y assets experimentales de mar
+backend/scripts/_*.py
+frontend/assets/sea-mask.json
+frontend/assets/sea-texture.png
