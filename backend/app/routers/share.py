@@ -1252,15 +1252,15 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
            rgba(7,43,62,.62),rgba(7,82,118,.42)); }}
   .page {{ width:100%; max-width:480px; }}
   @media (min-width:900px) {{ .page {{ max-width:880px; }} }}
-  .brand {{ display:flex; align-items:center; gap:10px; color:#fff;
-          font-weight:700; font-size:19px; letter-spacing:.2px;
-          text-shadow:0 1px 4px rgba(0,0,0,.4); }}
+  .brand {{ display:flex; align-items:center; justify-content:center;
+          gap:10px; color:#fff; font-weight:700; font-size:25px;
+          letter-spacing:.2px; text-shadow:0 1px 4px rgba(0,0,0,.4); }}
   .brand img {{ width:42px; height:42px; border-radius:10px;
           box-shadow:0 2px 6px rgba(0,0,0,.3); }}
   .tfe {{ font-weight:400; color:#a8d4e0; }}
   .hero {{ color:#fff; margin:18px 0 16px;
           text-shadow:0 1px 4px rgba(0,0,0,.4); }}
-  .hero h1 {{ margin:0; font-size:26px; line-height:1.2; }}
+  .hero h1 {{ margin:0; font-size:19px; line-height:1.3; }}
   .hero p {{ margin:8px 0 0; font-size:14px; line-height:1.5;
           color:#dcebf2; }}
   .stat {{ background:rgba(255,255,255,.92); border-radius:12px;
