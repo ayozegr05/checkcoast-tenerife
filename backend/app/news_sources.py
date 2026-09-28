@@ -14,6 +14,7 @@ Feeds por cabecera verificados como respaldo (mismo formato RawArticle):
 Diario de Avisos `/feed/`, Canarias7 `/rss/2.0/?section=/canarias/tenerife`.
 """
 
+import html
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -61,6 +62,11 @@ MUNICIPAL_FEEDS = {
     "Ayto. Tacoronte": "https://www.tacoronte.es/feed/",
     "Ayto. Candelaria": "https://www.candelaria.es/feed/",
     "Ayto. La Laguna": "https://lalagunaahora.com/feed/",
+    # Prensa hiperlocal del Valle de Güímar (Candelaria, Arafo, Güímar,
+    # Fasnia): cubre avisos que no indexa Google News (sus artículos ni
+    # siquiera nombran "Tenerife") — caso Punta Larga, cierre por
+    # socavón bajo el paseo (may-2026) que la ingesta perdió
+    "Valle de Güímar": "https://valledeguimar.es/feed/",
 }
 
 # Prefiltro por titular: el feed municipal es ~95% fiestas, deportes y
@@ -72,6 +78,25 @@ _MUNI_BEACHY_RE = re.compile(
     r"calidad del agua|fecal|oleaje|mar agitado|litoral|costero",
     re.IGNORECASE,
 )
+
+_XML_ENTITIES = {"amp", "lt", "gt", "quot", "apos"}
+
+
+def _fix_named_entities(text: str) -> str:
+    """Convierte entidades HTML con nombre (&uuml;) a literales.
+
+    Algunos WordPress (p.ej. valledeguimar.es) emiten RSS con entidades
+    que no existen en XML — ElementTree aborta la pasada entera si no
+    se sanea. Las cinco entidades XML reales se respetan."""
+    return re.sub(
+        r"&([a-zA-Z]+);",
+        lambda m: (
+            m.group(0)
+            if m.group(1) in _XML_ENTITIES
+            else html.unescape(m.group(0))
+        ),
+        text,
+    )
 
 
 # Guía Islas Canarias: fichas evergreen por playa (sitio Astro, sin
@@ -179,7 +204,14 @@ def fetch_municipal_feeds() -> list[RawArticle]:
                 feed_url, headers={"User-Agent": USER_AGENT}, timeout=30
             )
             resp.raise_for_status()
-            root = ET.fromstring(resp.content)
+            raw = resp.content
+            root = ET.fromstring(
+                _fix_named_entities(
+                    raw.decode("utf-8", "replace")
+                    if isinstance(raw, bytes)
+                    else raw
+                )
+            )
         except Exception:
             continue
         for item in root.findall(".//item"):
