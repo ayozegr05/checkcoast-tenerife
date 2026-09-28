@@ -76,6 +76,7 @@ export const evalShort = (ev: string | null): string => {
   if (/apta/i.test(ev)) return 'apta';
   if (/calificar/i.test(ev)) return 'sin calificar';
   if (/recomend|baño/i.test(ev)) return 'no bañarse';
+  if (/pendiente/i.test(ev)) return 'pendiente';
   return '—';
 };
 

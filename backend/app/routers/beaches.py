@@ -268,6 +268,9 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
             if m.evaluation
             and "apta" not in m.evaluation.lower()
             and "sin calificar" not in m.evaluation.lower()
+            # "Pendiente Valoración por Administración Sanitaria" =
+            # muestra aún sin evaluar, no un veredicto negativo
+            and "pendiente" not in m.evaluation.lower()
         )
         latest = beach.measurements[0] if beach.measurements else None
         stats.append(

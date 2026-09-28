@@ -548,6 +548,13 @@ export default function BeachList({
         </ScrollChips>
         </ImageBackground>
 
+        {statusFilter === 'impecables' && (
+          <Text style={styles.impecablesNote}>
+            Solo playas vigiladas por Sanidad: cero muestras no aptas y
+            cero episodios de contaminación
+          </Text>
+        )}
+
         <FlatList
           data={groups}
           keyExtractor={(g) => g.key}
@@ -933,6 +940,17 @@ const styles = StyleSheet.create({
   chipsContent: {
     paddingHorizontal: 8,
     gap: 4,
+    paddingVertical: 6,
+  },
+  // Nota aclaratoria del filtro "Agua siempre apta": solo cuenta
+  // playas vigiladas (las OSM sin vigilancia no tienen muestras)
+  impecablesNote: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 6,
   },
   // Segmentos de la barra: transparentes (no son botones sueltos) —
