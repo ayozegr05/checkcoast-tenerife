@@ -168,21 +168,149 @@ const NEWS_EVENT_LABELS: Record<string, string> = {
   other: 'Noticia',
 };
 
-// Titulares agrupados por evento+causa: la misma noticia cubierta
-// por varios medios queda como un solo bloque escaneable
-function groupNewsItems(items: BeachNews[]) {
-  const groups = new Map<string, { label: string; items: BeachNews[] }>();
-  for (const n of items) {
-    const key = `${n.event_type ?? 'other'}|${n.cause ?? ''}`;
-    const et = NEWS_EVENT_LABELS[n.event_type ?? ''] ?? 'Noticia';
-    const g = groups.get(key) ?? {
-      label: `${et}${n.cause ? ` · ${n.cause}` : ''}`,
-      items: [],
-    };
-    g.items.push(n);
-    groups.set(key, g);
+// Fases de un episodio en orden narrativo: se cerró, hubo avisos o
+// vertidos, y finalmente se reabrió
+const NEWS_GROUP_ORDER = [
+  'closure',
+  'warning',
+  'pollution',
+  'reopening',
+  'other',
+];
+
+// Tema de la causa para la sublista dentro de cada fase: el texto
+// crudo del LLM varía ("exceso de enterococos", "niveles elevados de
+// enterococos") pero el tema es el mismo
+const NEWS_TOPIC_LABELS: [RegExp, string][] = [
+  [/enterococ/i, 'Enterococos'],
+  [/e\.?\s?coli|escherichia/i, 'E. coli'],
+  [/gasoil|hidrocarbur|diésel|diesel|fuel|petr/i, 'Vertido de hidrocarburos'],
+  [/fecal|residual|depuradora|aguas?\s*sucias/i, 'Vertido fecal'],
+  [/alga/i, 'Algas'],
+  [/desprend|derrumb|talud/i, 'Desprendimientos'],
+  [/obra|dragado|acceso/i, 'Obras'],
+  [/mar\s*agitad|corriente|oleaje|temporal|ola/i, 'Mar agitado'],
+  [/vertido|contamin|calidad/i, 'Calidad del agua'],
+];
+
+const newsTopicLabel = (cause: string | null): string | null => {
+  if (!cause) return null;
+  for (const [re, label] of NEWS_TOPIC_LABELS) {
+    if (re.test(cause)) return label;
   }
-  return [...groups.values()];
+  return cause; // causa sin tema catalogado: se muestra su texto
+};
+
+// Color por fase: cierre/contaminación rojo, aviso ámbar, reapertura
+// verde — el borde y la flecha del titular siguen la fase
+const NEWS_PHASE_COLOR: Record<string, string> = {
+  closure: colors.status.closed,
+  pollution: colors.status.closed,
+  warning: colors.status.warning,
+  reopening: colors.status.open,
+  other: colors.status.warning,
+};
+
+type NewsGroup = {
+  type: string;
+  label: string;
+  sections: { label: string | null; items: BeachNews[] }[];
+};
+
+// Titulares agrupados por fase del episodio y, dentro, por tema de
+// causa — la misma noticia cubierta por varios medios queda como un
+// solo bloque escaneable. Las reaperturas no se subdividen: el porqué
+// es siempre el mismo ("mejoró la calidad del agua")
+function groupNewsItems(items: BeachNews[]): NewsGroup[] {
+  const byType = new Map<string, Map<string | null, BeachNews[]>>();
+  for (const n of items) {
+    const type = n.event_type ?? 'other';
+    const topic =
+      type === 'reopening' ? null : newsTopicLabel(n.cause);
+    const subs = byType.get(type) ?? new Map<string | null, BeachNews[]>();
+    const arr = subs.get(topic) ?? [];
+    arr.push(n);
+    subs.set(topic, arr);
+    byType.set(type, subs);
+  }
+  return [...byType.entries()]
+    .sort(
+      (a, b) =>
+        NEWS_GROUP_ORDER.indexOf(a[0]) - NEWS_GROUP_ORDER.indexOf(b[0]),
+    )
+    .map(([type, subs]) => ({
+      type,
+      label: NEWS_EVENT_LABELS[type] ?? 'Noticia',
+      sections: [...subs.entries()].map(([label, sub]) => ({
+        label,
+        items: sub,
+      })),
+    }));
+}
+
+// Fila de titular enlazable: borde y flecha con el color de la fase
+// (o el del banner si es de reapertura)
+function NewsItemRow({ n, accent }: { n: BeachNews; accent: string }) {
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.newsRow,
+        { borderLeftColor: accent },
+        pressed && styles.pressFx,
+      ]}
+      onPress={() => Linking.openURL(n.url).catch(() => {})}
+      accessibilityRole="link"
+      accessibilityLabel={`Noticia: ${n.title}`}
+    >
+      <View style={styles.newsRowBody}>
+        <Text style={styles.newsTitle} numberOfLines={2}>
+          {n.title}
+        </Text>
+        <Text style={styles.newsMeta} numberOfLines={1}>
+          {[
+            n.source,
+            n.published_at ? fmtDate(n.published_at.slice(0, 10)) : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </Text>
+      </View>
+      <Text style={[styles.newsChevron, { color: accent }]}>›</Text>
+    </Pressable>
+  );
+}
+
+// Bloque completo de grupos+sublistas: compartido por el banner y la
+// expansión de cada fila del historial
+function NewsGroupList({
+  groups,
+  accentOverride,
+}: {
+  groups: NewsGroup[];
+  accentOverride?: string;
+}) {
+  return (
+    <>
+      {groups.map((g) => {
+        const accent = accentOverride ?? NEWS_PHASE_COLOR[g.type];
+        return (
+          <View key={g.type} style={styles.newsGroup}>
+            <Text style={styles.newsGroupTitle}>{g.label}</Text>
+            {g.sections.map((s) => (
+              <View key={s.label ?? '_'}>
+                {s.label && (
+                  <Text style={styles.newsSubTitle}>{s.label}</Text>
+                )}
+                {s.items.map((n) => (
+                  <NewsItemRow key={n.id} n={n} accent={accent} />
+                ))}
+              </View>
+            ))}
+          </View>
+        );
+      })}
+    </>
+  );
 }
 
 // Contenido de la ficha de playa, compartido entre la hoja sobre el mapa
@@ -537,42 +665,12 @@ export default function BeachDetail({
       </Pressable>
       {newsOpen && (
         <>
-          {bannerGroups.map((g) => (
-            <View key={g.label} style={styles.newsGroup}>
-              <Text style={styles.newsGroupTitle}>{g.label}</Text>
-              {g.items.map((n) => (
-                <Pressable
-                  key={n.id}
-                  style={({ pressed }) => [
-                    styles.newsRow,
-                    pressed && styles.pressFx,
-                  ]}
-                  onPress={() =>
-                    Linking.openURL(n.url).catch(() => {})
-                  }
-                  accessibilityRole="link"
-                  accessibilityLabel={`Noticia: ${n.title}`}
-                >
-                  <View style={styles.newsRowBody}>
-                    <Text style={styles.newsTitle} numberOfLines={2}>
-                      {n.title}
-                    </Text>
-                    <Text style={styles.newsMeta} numberOfLines={1}>
-                      {[
-                        n.source,
-                        n.published_at
-                          ? fmtDate(n.published_at.slice(0, 10))
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </Text>
-                  </View>
-                  <Text style={styles.newsChevron}>›</Text>
-                </Pressable>
-              ))}
-            </View>
-          ))}
+          <NewsGroupList
+            groups={bannerGroups}
+            accentOverride={
+              pressReopened ? colors.status.open : undefined
+            }
+          />
           <Text style={styles.chartFoot}>
             Contexto de prensa: no altera el estado oficial (Náyade)
           </Text>
@@ -798,53 +896,11 @@ export default function BeachDetail({
                       {/* Agrupados por fase del episodio: las
                           noticias de cierre y las de reapertura son
                           evidencias distintas del mismo suceso */}
-                      {openInc === inc.id &&
-                        groupNewsItems(inc.press_items!).map((g) => (
-                          <View key={g.label} style={styles.newsGroup}>
-                            <Text style={styles.newsGroupTitle}>
-                              {g.label}
-                            </Text>
-                            {g.items.map((n) => (
-                              <Pressable
-                                key={n.id}
-                                style={({ pressed }) => [
-                                  styles.newsRow,
-                                  pressed && styles.pressFx,
-                                ]}
-                                onPress={() =>
-                                  Linking.openURL(n.url).catch(() => {})
-                                }
-                                accessibilityRole="link"
-                                accessibilityLabel={`Noticia: ${n.title}`}
-                              >
-                                <View style={styles.newsRowBody}>
-                                  <Text
-                                    style={styles.newsTitle}
-                                    numberOfLines={2}
-                                  >
-                                    {n.title}
-                                  </Text>
-                                  <Text
-                                    style={styles.newsMeta}
-                                    numberOfLines={1}
-                                  >
-                                    {[
-                                      n.source,
-                                      n.published_at
-                                        ? fmtDate(
-                                            n.published_at.slice(0, 10),
-                                          )
-                                        : null,
-                                    ]
-                                      .filter(Boolean)
-                                      .join(' · ')}
-                                  </Text>
-                                </View>
-                                <Text style={styles.newsChevron}>›</Text>
-                              </Pressable>
-                            ))}
-                          </View>
-                        ))}
+                      {openInc === inc.id && (
+                        <NewsGroupList
+                          groups={groupNewsItems(inc.press_items!)}
+                        />
+                      )}
                     </>
                   )}
                 </View>
@@ -1445,6 +1501,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 4,
     marginTop: 4,
+  },
+  // Tema de la causa dentro de la fase ("Enterococos", "Vertido
+  // fecal"): sublista bajo el titular de grupo
+  newsSubTitle: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+    marginTop: 4,
+    marginBottom: 2,
   },
   // Cada titular es una tarjeta blanca dentro de la caja ámbar "según
   // prensa": el blanco la separa del crema y el chevron naranja al
