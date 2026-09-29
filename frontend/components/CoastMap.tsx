@@ -1968,7 +1968,9 @@ const styles = StyleSheet.create({
   // Wrapper posicional a todo lo ancho: centra la tarjeta de capas
   legend: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 40 : 10,
+    // 46 despeja la barra de gestos y casi la de 3 botones (~48dp);
+    // número fijo porque no usamos safe-area-context
+    bottom: Platform.OS === 'android' ? 46 : 10,
     left: 0,
     right: 0,
     alignItems: 'center',
