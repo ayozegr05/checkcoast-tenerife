@@ -178,27 +178,40 @@ const NEWS_GROUP_ORDER = [
   'other',
 ];
 
-// Tema de la causa para la sublista dentro de cada fase: el texto
-// crudo del LLM varía ("exceso de enterococos", "niveles elevados de
-// enterococos") pero el tema es el mismo
-const NEWS_TOPIC_LABELS: [RegExp, string][] = [
-  [/enterococ/i, 'Enterococos'],
-  [/e\.?\s?coli|escherichia/i, 'E. coli'],
-  [/gasoil|hidrocarbur|diésel|diesel|fuel|petr/i, 'Vertido de hidrocarburos'],
-  [/fecal|residual|depuradora|aguas?\s*sucias/i, 'Vertido fecal'],
-  [/alga/i, 'Algas'],
-  [/desprend|derrumb|talud/i, 'Desprendimientos'],
-  [/obra|dragado|acceso/i, 'Obras'],
-  [/mar\s*agitad|corriente|oleaje|temporal|ola/i, 'Mar agitado'],
-  [/vertido|contamin|calidad/i, 'Calidad del agua'],
+// Tema de la causa como frase fluida para el título del grupo: el
+// texto crudo del LLM varía ("exceso de enterococos", "niveles
+// elevados de enterococos") pero el tema es el mismo
+const NEWS_TOPIC_PHRASES: [RegExp, string][] = [
+  [/enterococ/i, 'niveles elevados de enterococos'],
+  [/e\.?\s?coli|escherichia/i, 'niveles elevados de E. coli'],
+  [
+    /gasoil|hidrocarbur|diésel|diesel|fuel|petr/i,
+    'vertido de hidrocarburos',
+  ],
+  [/fecal|residual|depuradora|aguas?\s*sucias/i, 'vertido de aguas fecales'],
+  [/alga/i, 'presencia de algas'],
+  [/desprend|derrumb|talud/i, 'riesgo de desprendimientos'],
+  [/obra|dragado|acceso/i, 'obras'],
+  [/mar\s*agitad|corriente|oleaje|temporal|ola/i, 'mar agitado'],
+  [/vertido|contamin|calidad/i, 'mala calidad del agua'],
 ];
 
-const newsTopicLabel = (cause: string | null): string | null => {
+const newsTopicPhrase = (cause: string | null): string | null => {
   if (!cause) return null;
-  for (const [re, label] of NEWS_TOPIC_LABELS) {
-    if (re.test(cause)) return label;
+  for (const [re, phrase] of NEWS_TOPIC_PHRASES) {
+    if (re.test(cause)) return phrase;
   }
   return cause; // causa sin tema catalogado: se muestra su texto
+};
+
+// Frase del grupo: "Cierre · niveles elevados de enterococos",
+// "Reapertura · mejora la calidad del agua". En reapertura la causa
+// es siempre la misma — coletilla fija si el LLM extrajo algo
+const newsGroupPhrase = (type: string, cause: string | null) => {
+  if (type === 'reopening') {
+    return cause ? 'mejora la calidad del agua' : null;
+  }
+  return newsTopicPhrase(cause);
 };
 
 // Color por fase: cierre/contaminación rojo, aviso ámbar, reapertura
@@ -214,38 +227,32 @@ const NEWS_PHASE_COLOR: Record<string, string> = {
 type NewsGroup = {
   type: string;
   label: string;
-  sections: { label: string | null; items: BeachNews[] }[];
+  items: BeachNews[];
 };
 
-// Titulares agrupados por fase del episodio y, dentro, por tema de
-// causa — la misma noticia cubierta por varios medios queda como un
-// solo bloque escaneable. Las reaperturas no se subdividen: el porqué
-// es siempre el mismo ("mejoró la calidad del agua")
+// Titulares agrupados por fase + tema de causa en un solo título
+// fluido ("Cierre · vertido de aguas fecales"): la misma noticia
+// cubierta por varios medios queda como un solo bloque escaneable
 function groupNewsItems(items: BeachNews[]): NewsGroup[] {
-  const byType = new Map<string, Map<string | null, BeachNews[]>>();
+  const groups = new Map<string, NewsGroup>();
   for (const n of items) {
     const type = n.event_type ?? 'other';
-    const topic =
-      type === 'reopening' ? null : newsTopicLabel(n.cause);
-    const subs = byType.get(type) ?? new Map<string | null, BeachNews[]>();
-    const arr = subs.get(topic) ?? [];
-    arr.push(n);
-    subs.set(topic, arr);
-    byType.set(type, subs);
-  }
-  return [...byType.entries()]
-    .sort(
-      (a, b) =>
-        NEWS_GROUP_ORDER.indexOf(a[0]) - NEWS_GROUP_ORDER.indexOf(b[0]),
-    )
-    .map(([type, subs]) => ({
+    const phrase = newsGroupPhrase(type, n.cause);
+    const key = `${type}|${phrase ?? ''}`;
+    const g = groups.get(key) ?? {
       type,
-      label: NEWS_EVENT_LABELS[type] ?? 'Noticia',
-      sections: [...subs.entries()].map(([label, sub]) => ({
-        label,
-        items: sub,
-      })),
-    }));
+      label: `${NEWS_EVENT_LABELS[type] ?? 'Noticia'}${
+        phrase ? ` · ${phrase}` : ''
+      }`,
+      items: [],
+    };
+    g.items.push(n);
+    groups.set(key, g);
+  }
+  return [...groups.values()].sort(
+    (a, b) =>
+      NEWS_GROUP_ORDER.indexOf(a.type) - NEWS_GROUP_ORDER.indexOf(b.type),
+  );
 }
 
 // Fila de titular enlazable: borde y flecha con el color de la fase
@@ -280,8 +287,8 @@ function NewsItemRow({ n, accent }: { n: BeachNews; accent: string }) {
   );
 }
 
-// Bloque completo de grupos+sublistas: compartido por el banner y la
-// expansión de cada fila del historial
+// Bloque completo de grupos: compartido por el banner y la expansión
+// de cada fila del historial
 function NewsGroupList({
   groups,
   accentOverride,
@@ -294,17 +301,10 @@ function NewsGroupList({
       {groups.map((g) => {
         const accent = accentOverride ?? NEWS_PHASE_COLOR[g.type];
         return (
-          <View key={g.type} style={styles.newsGroup}>
+          <View key={g.label} style={styles.newsGroup}>
             <Text style={styles.newsGroupTitle}>{g.label}</Text>
-            {g.sections.map((s) => (
-              <View key={s.label ?? '_'}>
-                {s.label && (
-                  <Text style={styles.newsSubTitle}>{s.label}</Text>
-                )}
-                {s.items.map((n) => (
-                  <NewsItemRow key={n.id} n={n} accent={accent} />
-                ))}
-              </View>
+            {g.items.map((n) => (
+              <NewsItemRow key={n.id} n={n} accent={accent} />
             ))}
           </View>
         );
@@ -340,7 +340,19 @@ export default function BeachDetail({
   const [nearby, setNearby] = useState<BeachNearbyOutfall[] | null>(null);
   const [news, setNews] = useState<BeachNewsResponse | null>(null);
   const [newsOpen, setNewsOpen] = useState(false);
-  const [openInc, setOpenInc] = useState<number | null>(null);
+  // Varias filas del historial pueden estar abiertas a la vez — en
+  // acordeón, abrir la fila 2 cerraba la 1, el contenido se encogía
+  // ~9 titulares por encima del dedo y el scroll saltaba al fondo
+  const [openIncs, setOpenIncs] = useState<ReadonlySet<number>>(
+    new Set(),
+  );
+  const toggleInc = (id: number) =>
+    setOpenIncs((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const [chartParam, setChartParam] = useState<'ecoli' | 'enterococci'>(
     'ecoli',
   );
@@ -353,7 +365,7 @@ export default function BeachDetail({
     setNearby(null);
     setNews(null);
     setNewsOpen(false);
-    setOpenInc(null);
+    setOpenIncs(new Set());
     fetchBeachNearbyOutfalls(feature.id)
       .then(setNearby)
       .catch(() => setNearby([]));
@@ -875,20 +887,18 @@ export default function BeachDetail({
                   {(inc.press_items?.length ?? 0) > 0 && (
                     <>
                       <Pressable
-                        onPress={() =>
-                          setOpenInc((v) => (v === inc.id ? null : inc.id))
-                        }
+                        onPress={() => toggleInc(inc.id)}
                         hitSlop={8}
                         style={({ pressed }) => pressed && styles.pressFx}
                         accessibilityRole="button"
                         accessibilityLabel={
-                          openInc === inc.id
+                          openIncs.has(inc.id)
                             ? 'Ocultar titulares del episodio'
                             : `Ver ${inc.press_items!.length} titulares del episodio`
                         }
                       >
                         <Text style={styles.newsToggle}>
-                          {openInc === inc.id
+                          {openIncs.has(inc.id)
                             ? 'Ocultar titulares ▴'
                             : `Ver titulares (${inc.press_items!.length}) ▾`}
                         </Text>
@@ -896,7 +906,7 @@ export default function BeachDetail({
                       {/* Agrupados por fase del episodio: las
                           noticias de cierre y las de reapertura son
                           evidencias distintas del mismo suceso */}
-                      {openInc === inc.id && (
+                      {openIncs.has(inc.id) && (
                         <NewsGroupList
                           groups={groupNewsItems(inc.press_items!)}
                         />
@@ -1502,15 +1512,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginTop: 4,
   },
-  // Tema de la causa dentro de la fase ("Enterococos", "Vertido
-  // fecal"): sublista bajo el titular de grupo
-  newsSubTitle: {
-    fontSize: 11,
-    fontFamily: fonts.semibold,
-    color: colors.text,
-    marginTop: 4,
-    marginBottom: 2,
-  },
+
   // Cada titular es una tarjeta blanca dentro de la caja ámbar "según
   // prensa": el blanco la separa del crema y el chevron naranja al
   // final anuncia que es pulsable (abre el artículo)

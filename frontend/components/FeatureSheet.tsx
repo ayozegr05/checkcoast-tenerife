@@ -369,10 +369,6 @@ export default function FeatureSheet({
         onScroll={handleScroll}
         onMomentumScrollEnd={handleScroll}
         scrollEventThrottle={80}
-        // Cuando una fila del historial despliega sus titulares el
-        // contenido crece: ancla lo visible para que la fila tocada
-        // no se vaya de pantalla ni salte al final de la ficha
-        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
       >
         {isBeach ? (
           showPmPicker ? (
