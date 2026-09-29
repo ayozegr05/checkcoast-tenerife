@@ -65,13 +65,6 @@ const closuresInYears = (incidents: BeachIncident[], years: number) => {
   ).length;
 };
 
-// Color de la evaluación del último análisis
-const evaluationColor = (evaluation: string) => {
-  if (/apta/i.test(evaluation)) return colors.status.open;
-  if (/prohib/i.test(evaluation)) return colors.status.closed;
-  return colors.status.warning;
-};
-
 // Umbrales RD 1341/2007 (aguas costeras), UFC/100 mL:
 // [excelente, buena] — por encima de "buena" es insuficiente/mala
 const QUALITY_THRESHOLDS: Record<
@@ -815,16 +808,6 @@ export default function BeachDetail({
               </View>
             );
           })}
-          {quality[0].evaluation ? (
-            <Text
-              style={[
-                styles.evaluation,
-                { color: evaluationColor(quality[0].evaluation) },
-              ]}
-            >
-              {quality[0].evaluation}
-            </Text>
-          ) : null}
           {beachKey === 'open' &&
           /prohib|calificar/i.test(quality[0].evaluation ?? '') ? (
             <Text style={styles.staleNote}>
@@ -884,6 +867,7 @@ export default function BeachDetail({
               <ScrollChips
                 fadeRgb="255, 255, 255"
                 a11yLabel="la gráfica"
+                anchorEnd
               >
                 <View style={styles.chartInner}>
                   <View style={styles.chartArea}>
@@ -1125,11 +1109,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fonts.semibold,
     marginTop: 1,
-  },
-  evaluation: {
-    fontSize: 12,
-    fontFamily: fonts.bold,
-    marginTop: 8,
   },
   staleNote: {
     fontSize: 11,

@@ -41,6 +41,7 @@ export default function ScrollChips({
   fadeRgbRight,
   a11yLabel = 'filtros',
   edgeFade = true,
+  anchorEnd = false,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -57,9 +58,13 @@ export default function ScrollChips({
   // visible como "sombra cuadrada" — se puede apagar y dejar solo
   // el círculo de la flecha (queda limpio igual que sobre fondo liso)
   edgeFade?: boolean;
+  // Series temporales: el scroll abre anclado al final (lo más
+  // reciente a la vista, el pasado se explora hacia la izquierda)
+  anchorEnd?: boolean;
 }) {
   const scrollRef = useRef<ScrollView>(null);
   const dims = useRef({ x: 0, w: 0, cw: 0 });
+  const anchoredRef = useRef(false);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
 
@@ -96,6 +101,13 @@ export default function ScrollChips({
         }}
         onContentSizeChange={(cw) => {
           dims.current.cw = cw;
+          // Anclado inicial al final: una vez al medir el contenido,
+          // sin animación (no es scroll del usuario, es posición inicial)
+          if (anchorEnd && !anchoredRef.current && cw > 0) {
+            anchoredRef.current = true;
+            scrollRef.current?.scrollToEnd({ animated: false });
+            dims.current.x = Math.max(0, cw - dims.current.w);
+          }
           update();
         }}
       >
