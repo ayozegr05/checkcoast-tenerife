@@ -424,11 +424,11 @@ cuerpo de las noticias, no en su fecha de publicación.
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
 | 9.1 | README completo: qué es, features, stack, fuentes de datos, cómo ejecutar | ✅ Hecho (`02fe195`) | 🟡 Medio |
-| 9.2 | Screenshots/GIF de la app (mapa, ranking, vertidos, ficha) | Pendiente — capturas del APK nuevo | 🟢 Trivial |
+| 9.2 | Screenshots/GIF de la app — plan acordado (2026-09-29): README 5 capturas: ① mapa + banner plegado (solo capa playas, sin emisarios) ② ficha Benijo "Desprendimientos · desde jul-2024" (el diferenciador según-prensa) ③ historial + gráfica calidad ④ banner alertas desplegado con "Reabiertas recientemente" ⑤ capa emisarios zoom isla (todos los estados o solo ilegales — probar ambos toggle en Capas). Solo para vídeo: vista Temporada, push (ficticia con seed_fake_news), lista "Agua siempre apta" (prescindible) | Pendiente — capturas del APK nuevo | 🟢 Trivial |
 | 9.3 | Diagrama de arquitectura (Mermaid en README) | ✅ Hecho (`02fe195`) | 🟢 Trivial |
 | 9.4 | Documentar decisiones técnicas | ✅ Hecho — `DECISIONS.md` (`02fe195`) | 🟢 Trivial |
 | 9.5 | Subir repo a GitHub (sin remote aún — activa CI + da URL pública) | ✅ Hecho (2026-09-27) — `github.com/ayozegr05/checkcoast-tenerife`, historial reescrito a noreply (mailmap), LICENSE MIT, CI arrancó solo | 🟢 Trivial |
-| 9.6 | Vídeo demo breve (~45 s): grabación de pantalla + texto superpuesto, sin voz — hook "Náyade dice QUÉ, esto dice POR QUÉ" | Pendiente | 🟡 Medio |
+| 9.6 | Vídeo demo breve (~45 s): grabación de pantalla + texto superpuesto, sin voz — hook "Náyade dice QUÉ, esto dice POR QUÉ". Guion acordado (2026-09-29): 0-5s mapa+banner "¿Puedo bañarme hoy?" · 5-15s tap playa cerrada → ficha causa según prensa · 15-22s texto hook + scroll historial · 22-30s capa emisarios · 30-38s lista "Agua siempre apta" o vista Temporada · 38-45s push ficticia de cierre → logo+tagline. Método: clips cortos separados por beat (no una toma larga), montaje Clipchamp/CapCut con texto overlay, sin voz, música ambiente sutil. La push final requiere inyectar `seed_fake_news` (La Viuda) desde la VM y limpiar después | Pendiente | 🟡 Medio |
 | 9.7 | Post LinkedIn: problema en 1 frase + vídeo/GIF + 3 bullets técnicos + link repo (requiere 9.5) | Pendiente | 🟢 Trivial |
 | 9.8 | **Homepage de producto** en `checkcoast.duckdns.org/`: hero + mapa vivo de la isla (puntos por estado) + stats + alertas enlazables + grid de playas ejemplo + cómo funciona | ✅ Hecho (`a5fd60c`) | 🟡 Medio |
 | 9.9 | Ficha Google Play ($25 una vez, internal testing primero) — instalable real > APK suelto | Opcional | 🟡 Medio |
