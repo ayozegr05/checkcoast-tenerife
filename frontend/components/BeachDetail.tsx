@@ -168,6 +168,23 @@ const NEWS_EVENT_LABELS: Record<string, string> = {
   other: 'Noticia',
 };
 
+// Titulares agrupados por evento+causa: la misma noticia cubierta
+// por varios medios queda como un solo bloque escaneable
+function groupNewsItems(items: BeachNews[]) {
+  const groups = new Map<string, { label: string; items: BeachNews[] }>();
+  for (const n of items) {
+    const key = `${n.event_type ?? 'other'}|${n.cause ?? ''}`;
+    const et = NEWS_EVENT_LABELS[n.event_type ?? ''] ?? 'Noticia';
+    const g = groups.get(key) ?? {
+      label: `${et}${n.cause ? ` · ${n.cause}` : ''}`,
+      items: [],
+    };
+    g.items.push(n);
+    groups.set(key, g);
+  }
+  return [...groups.values()];
+}
+
 // Contenido de la ficha de playa, compartido entre la hoja sobre el mapa
 // (FeatureSheet) y la vista detalle dentro de la lista (BeachList)
 export default function BeachDetail({
@@ -195,6 +212,7 @@ export default function BeachDetail({
   const [nearby, setNearby] = useState<BeachNearbyOutfall[] | null>(null);
   const [news, setNews] = useState<BeachNewsResponse | null>(null);
   const [newsOpen, setNewsOpen] = useState(false);
+  const [openInc, setOpenInc] = useState<number | null>(null);
   const [chartParam, setChartParam] = useState<'ecoli' | 'enterococci'>(
     'ecoli',
   );
@@ -207,6 +225,7 @@ export default function BeachDetail({
     setNearby(null);
     setNews(null);
     setNewsOpen(false);
+    setOpenInc(null);
     fetchBeachNearbyOutfalls(feature.id)
       .then(setNearby)
       .catch(() => setNearby([]));
@@ -371,22 +390,7 @@ export default function BeachDetail({
     };
   }, [quality]);
 
-  // Titulares agrupados por evento+causa: la misma noticia cubierta
-  // por varios medios queda como un solo bloque escaneable
-  const newsGroups = useMemo(() => {
-    const groups = new Map<string, { label: string; items: BeachNews[] }>();
-    for (const n of news?.items ?? []) {
-      const key = `${n.event_type ?? 'other'}|${n.cause ?? ''}`;
-      const et = NEWS_EVENT_LABELS[n.event_type ?? ''] ?? 'Noticia';
-      const g = groups.get(key) ?? {
-        label: `${et}${n.cause ? ` · ${n.cause}` : ''}`,
-        items: [],
-      };
-      g.items.push(n);
-      groups.set(key, g);
-    }
-    return [...groups.values()];
-  }, [news]);
+
 
   // Emisarios como marcadores de la foto satélite: su posición real se
   // proyecta al encuadre dentro de SatelliteShot
@@ -477,6 +481,18 @@ export default function BeachDetail({
       })
     : null;
   const pressReopened = press?.tone === 'reopened';
+  // El banner solo enseña los titulares del episodio que narra
+  // (episode_items = último clúster de cobertura): una reapertura
+  // reciente muestra sus noticias de reapertura; un cierre activo,
+  // las de su episodio. Backend sin episode_items → saco completo
+  const epItems =
+    news?.episode_items && news.episode_items.length > 0
+      ? news.episode_items
+      : (news?.items ?? []);
+  const reopenItems = epItems.filter((n) => n.event_type === 'reopening');
+  const bannerItems =
+    pressReopened && reopenItems.length > 0 ? reopenItems : epItems;
+  const bannerGroups = groupNewsItems(bannerItems);
   const pressBanner = press !== null && (
     <View
       style={[styles.pressBanner, pressReopened && styles.pressBannerReopened]}
@@ -505,18 +521,18 @@ export default function BeachDetail({
         accessibilityLabel={
           newsOpen
             ? 'Ocultar titulares de prensa'
-            : `Ver ${news!.summary.items_count} titulares de prensa`
+            : `Ver ${bannerItems.length} titulares de prensa`
         }
       >
         <Text style={styles.newsToggle}>
           {newsOpen
             ? 'Ocultar titulares ▴'
-            : `Ver titulares (${news!.summary.items_count}) ▾`}
+            : `Ver titulares (${bannerItems.length}) ▾`}
         </Text>
       </Pressable>
       {newsOpen && (
         <>
-          {newsGroups.map((g) => (
+          {bannerGroups.map((g) => (
             <View key={g.label} style={styles.newsGroup}>
               <Text style={styles.newsGroupTitle}>{g.label}</Text>
               {g.items.map((n) => (
@@ -748,6 +764,63 @@ export default function BeachDetail({
                         : inc.observations}
                     </Text>
                   ) : null}
+                  {/* Evidencia del episodio: titulares que lo
+                      sustentan (prensa) o lo corroboraron (oficial) */}
+                  {(inc.press_items?.length ?? 0) > 0 && (
+                    <>
+                      <Pressable
+                        onPress={() =>
+                          setOpenInc((v) => (v === inc.id ? null : inc.id))
+                        }
+                        hitSlop={8}
+                        style={({ pressed }) => pressed && styles.pressFx}
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          openInc === inc.id
+                            ? 'Ocultar titulares del episodio'
+                            : `Ver ${inc.press_items!.length} titulares del episodio`
+                        }
+                      >
+                        <Text style={styles.newsToggle}>
+                          {openInc === inc.id
+                            ? 'Ocultar titulares ▴'
+                            : `Ver titulares (${inc.press_items!.length}) ▾`}
+                        </Text>
+                      </Pressable>
+                      {openInc === inc.id &&
+                        inc.press_items!.map((n) => (
+                          <Pressable
+                            key={n.id}
+                            style={({ pressed }) => [
+                              styles.newsRow,
+                              pressed && styles.pressFx,
+                            ]}
+                            onPress={() =>
+                              Linking.openURL(n.url).catch(() => {})
+                            }
+                            accessibilityRole="link"
+                            accessibilityLabel={`Noticia: ${n.title}`}
+                          >
+                            <View style={styles.newsRowBody}>
+                              <Text style={styles.newsTitle} numberOfLines={2}>
+                                {n.title}
+                              </Text>
+                              <Text style={styles.newsMeta} numberOfLines={1}>
+                                {[
+                                  n.source,
+                                  n.published_at
+                                    ? fmtDate(n.published_at.slice(0, 10))
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </Text>
+                            </View>
+                            <Text style={styles.newsChevron}>›</Text>
+                          </Pressable>
+                        ))}
+                    </>
+                  )}
                 </View>
               );
             })}

@@ -314,6 +314,19 @@ def _press_in_window(beach: Beach, start: date, end: date) -> list:
     ]
 
 
+def _news_out(n: NewsItem) -> NewsItemOut:
+    return NewsItemOut(
+        id=n.id,
+        beach_id=n.beach_id,
+        title=n.title,
+        url=n.url,
+        source=n.source,
+        published_at=n.published_at,
+        event_type=n.event_type,
+        cause=n.cause,
+    )
+
+
 def _incident_kind(inc, press_items) -> str:
     """'prohibido' en la observación → cierre. Además, si la prensa de
     la ventana habla de cierre el episodio es un cierre aunque Náyade
@@ -520,6 +533,7 @@ def beach_incidents(
         .order_by(BeachIncident.opened_at.desc())
         .all()
     )
+    today = date.today()
     out = [
         BeachIncidentOut(
             id=row.id,
@@ -528,6 +542,19 @@ def beach_incidents(
             closed_at=row.closed_at,
             observations=row.observations,
             source_url=row.source_url,
+            # Titulares de la ventana ±7 d que corroboran la
+            # incidencia oficial — la fila los despliega como
+            # evidencia ("según prensa")
+            press_items=[
+                _news_out(n)
+                for n in sorted(
+                    _press_in_window(
+                        beach, row.opened_at, row.closed_at or today
+                    ),
+                    key=lambda n: n.published_at,
+                    reverse=True,
+                )
+            ],
         )
         for row in rows
     ]
@@ -544,6 +571,14 @@ def beach_incidents(
                 via=ev.via,
                 press_confirmed=ev.press_confirmed,
                 end_estimated=ev.end_estimated,
+                press_items=[
+                    _news_out(n)
+                    for n in sorted(
+                        ev.press_items,
+                        key=lambda n: n.published_at,
+                        reverse=True,
+                    )
+                ],
             )
         )
         synth_id -= 1
@@ -690,6 +725,24 @@ def beach_news(
         closed_since = _min_closed_since(
             r.closed_since for r in pool
         )
+    # Titulares del ÚLTIMO episodio de cobertura: clúster encadenado
+    # por fecha (hueco >PRESS_CLUSTER_GAP rompe), con cualquier tipo
+    # de evento — la reapertura forma parte del episodio que cierra.
+    # El banner de la ficha despliega solo estos, no el saco de 30
+    ep_start = None
+    prev_d = None
+    for d in sorted(r.published_at for r in rows if r.published_at):
+        if prev_d is not None and d - prev_d > PRESS_CLUSTER_GAP:
+            ep_start = d
+        elif ep_start is None:
+            ep_start = d
+        prev_d = d
+    episode_items = [
+        r
+        for r in rows
+        if r.published_at and ep_start is not None
+        and r.published_at >= ep_start
+    ]
     return BeachNewsOut(
         summary=NewsSummaryOut(
             event_type=dominant,
@@ -699,19 +752,8 @@ def beach_news(
             since=since,
             closed_since=closed_since,
         ),
-        items=[
-            NewsItemOut(
-                id=row.id,
-                beach_id=row.beach_id,
-                title=row.title,
-                url=row.url,
-                source=row.source,
-                published_at=row.published_at,
-                event_type=row.event_type,
-                cause=row.cause,
-            )
-            for row in rows
-        ],
+        items=[_news_out(row) for row in rows],
+        episode_items=[_news_out(r) for r in episode_items],
     )
 
 

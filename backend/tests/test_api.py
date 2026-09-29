@@ -607,6 +607,77 @@ def test_beach_news_since_anchors_latest_cluster(seed_data):
         db.close()
 
 
+def test_incident_press_items_and_episode_items(seed_data):
+    """La ficha liga titulares a su episodio:
+
+    - Una incidencia oficial con prensa en su ventana ±7 d la lleva
+      en `press_items` (corroboración).
+    - Un cierre solo de prensa fuera de toda ventana genera fila
+      `via=press` con sus propios titulares.
+    - `/news.episode_items` = último clúster de cobertura, no el saco
+      completo (el banner enseña solo el episodio que narra).
+    """
+    from datetime import date, datetime, timedelta, timezone
+
+    from app.db import SessionLocal
+    from app.models import BeachIncident, NewsItem
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    now = datetime.now(timezone.utc)
+    today = date.today()
+    inc = BeachIncident(
+        beach_id=beach_id,
+        opened_at=today - timedelta(days=10),
+        closed_at=today - timedelta(days=5),
+        observations="Zona donde queda prohibido el baño temporalmente",
+    )
+    near = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-ep-near",
+        title="Cierran la playa por vertido",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        published_at=now - timedelta(days=8),
+    )
+    old = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-ep-old",
+        title="La playa lleva cerrada semanas",
+        source="Otro Medio",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        published_at=now - timedelta(days=80),
+    )
+    db.add_all([inc, near, old])
+    db.commit()
+    try:
+        rows = client.get(f"/beaches/{beach_id}/incidents").json()
+        official = next(r for r in rows if r["via"] == "official")
+        assert [n["title"] for n in official["press_items"]] == [
+            near.title
+        ]
+        press_rows = [r for r in rows if r["via"] == "press"]
+        assert len(press_rows) == 1
+        assert [n["title"] for n in press_rows[0]["press_items"]] == [
+            old.title
+        ]
+
+        body = client.get(f"/beaches/{beach_id}/news").json()
+        ep_titles = [n["title"] for n in body["episode_items"]]
+        # Último episodio = el clúster reciente; el de hace 80 días
+        # es otro episodio y no entra en el banner
+        assert near.title in ep_titles
+        assert old.title not in ep_titles
+    finally:
+        db.delete(inc)
+        db.delete(near)
+        db.delete(old)
+        db.commit()
+        db.close()
+
+
 def test_send_push_tolerates_bad_expo_response(monkeypatch):
     """Un 502 con HTML de Expo (json() revienta) no debe propagarse:
     devuelve 0 y la ingesta sigue con el resto de playas."""

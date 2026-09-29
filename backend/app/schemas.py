@@ -34,6 +34,17 @@ class BeachStatusOut(BaseModel):
     source_url: str | None
 
 
+class NewsItemOut(BaseModel):
+    id: int
+    beach_id: int
+    title: str
+    url: str
+    source: str | None
+    published_at: datetime | None
+    event_type: str | None
+    cause: str | None
+
+
 class BeachIncidentOut(BaseModel):
     id: int
     beach_id: int
@@ -50,6 +61,9 @@ class BeachIncidentOut(BaseModel):
     # closed_at es la última mención en prensa, no un cierre real —
     # la UI lo marca "~" en vez de mostrar duración exacta inventada
     end_estimated: bool = False
+    # Titulares que sustentan o corroboran el episodio — la fila del
+    # historial los despliega como evidencia ("según prensa")
+    press_items: list[NewsItemOut] = []
 
 
 class MunicipalityIncidentOut(BaseModel):
@@ -128,17 +142,6 @@ class BeachNearbyOutfallOut(BaseModel):
     distance_m: float
 
 
-class NewsItemOut(BaseModel):
-    id: int
-    beach_id: int
-    title: str
-    url: str
-    source: str | None
-    published_at: datetime | None
-    event_type: str | None
-    cause: str | None
-
-
 class NewsSummaryOut(BaseModel):
     """Agregado determinista de las noticias casadas: el "por qué"
     dominante según prensa (moda de event_type/cause ya extraídos)."""
@@ -157,6 +160,9 @@ class NewsSummaryOut(BaseModel):
 class BeachNewsOut(BaseModel):
     summary: NewsSummaryOut
     items: list[NewsItemOut]
+    # Solo los titulares del último episodio de cobertura — el banner
+    # de la ficha despliega estos, no el saco completo de `items`
+    episode_items: list[NewsItemOut] = []
 
 
 class DeviceIn(BaseModel):

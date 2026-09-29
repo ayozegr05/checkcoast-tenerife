@@ -79,6 +79,9 @@ class SynthEvent:
     # puede retroceder más allá por closed_since; necesario para recalcular
     # el inicio cuando gana un closed_since más preciso del mismo año
     first_pub: date | None = None
+    # Noticias que forman el episodio — la ficha las despliega como
+    # evidencia bajo la fila del historial ("Ver titulares")
+    press_items: list = field(default_factory=list)
     # Huecos >SAMPLE_GAP_NOTE entre muestras dentro de la ventana de
     # analítica (parada invernal): el episodio pudo interrumpirse sin
     # muestra que lo acredite — se declara en las observaciones
@@ -222,6 +225,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
         if hit is not None:
             hit.press_confirmed = True
             hit.press_count += 1
+            hit.press_items.append(n)
             if n.source and n.source not in hit.sources:
                 hit.sources.append(n.source)
             continue
@@ -270,6 +274,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
             _closed_since_date(cluster.closed_since) or date.max,
         )
         cluster.press_count += 1
+        cluster.press_items.append(n)
         cluster.last_closure = max(cluster.last_closure or pub, pub)
         if n.cause:
             cluster.causes.append(n.cause)
@@ -292,6 +297,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
             ):
                 ev.press_confirmed = True
                 ev.press_count += 1
+                ev.press_items.append(n)
                 ev.reopenings_in_window.append(pub)
                 if n.source and n.source not in ev.sources:
                     ev.sources.append(n.source)
@@ -318,6 +324,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                 # cerrado, no cierra uno más antiguo
                 if closed_ev is not None:
                     closed_ev.press_count += 1
+                    closed_ev.press_items.append(n)
                     if n.source and n.source not in closed_ev.sources:
                         closed_ev.sources.append(n.source)
                 continue
@@ -340,6 +347,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                     ev = max(pool, key=lambda e: e.opened_at)
                     ev.closed_at = pub
                     ev.press_count += 1
+                    ev.press_items.append(n)
                     if n.source and n.source not in ev.sources:
                         ev.sources.append(n.source)
                     last_close_pub = pub
@@ -414,6 +422,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
             ),
             causes=[c for e in press_evs for c in e.causes],
             first_pub=min(e.first_pub or e.opened_at for e in press_evs),
+            press_items=[i for e in press_evs for i in e.press_items],
         )
         merged.opened_at = min(
             merged.first_pub or date.max,

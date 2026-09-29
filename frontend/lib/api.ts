@@ -42,6 +42,9 @@ export type BeachIncident = {
   // closed_at es la última mención en prensa (cota), no cierre real —
   // la UI lo marca "~" en vez de inventar una duración exacta
   end_estimated?: boolean;
+  // Titulares que sustentan/corroboran el episodio — la fila del
+  // historial los despliega como evidencia ("según prensa")
+  press_items?: BeachNews[];
 };
 
 export type BeachMeasurement = {
@@ -134,6 +137,9 @@ export type BeachNewsSummary = {
 export type BeachNewsResponse = {
   summary: BeachNewsSummary;
   items: BeachNews[];
+  // Solo los titulares del último episodio de cobertura — el banner
+  // de la ficha despliega estos, no el saco completo de `items`
+  episode_items?: BeachNews[];
 };
 
 export type SamplingSummary = {
