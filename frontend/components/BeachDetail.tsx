@@ -524,7 +524,12 @@ export default function BeachDetail({
             : `Ver ${bannerItems.length} titulares de prensa`
         }
       >
-        <Text style={styles.newsToggle}>
+        <Text
+          style={[
+            styles.newsToggle,
+            pressReopened && styles.newsToggleReopened,
+          ]}
+        >
           {newsOpen
             ? 'Ocultar titulares ▴'
             : `Ver titulares (${bannerItems.length}) ▾`}
@@ -698,7 +703,10 @@ export default function BeachDetail({
             {closuresInYears(incidents, 1) === 1 ? '' : 'es'} el último año
             · {closuresInYears(incidents, 5)} en los últimos 5 años
           </Text>
-          <ScrollView style={styles.historyList} nestedScrollEnabled>
+          {/* Sin scroll interno: la sección crece con su contenido y
+              scrollea la ficha entera — un cajón fijo dejaba los
+              titulares expandidos en una ventana diminuta */}
+          <View>
             {incidents.map((inc) => {
               const closure = isClosure(inc);
               const unclassified = isUnclassified(inc);
@@ -787,44 +795,62 @@ export default function BeachDetail({
                             : `Ver titulares (${inc.press_items!.length}) ▾`}
                         </Text>
                       </Pressable>
+                      {/* Agrupados por fase del episodio: las
+                          noticias de cierre y las de reapertura son
+                          evidencias distintas del mismo suceso */}
                       {openInc === inc.id &&
-                        inc.press_items!.map((n) => (
-                          <Pressable
-                            key={n.id}
-                            style={({ pressed }) => [
-                              styles.newsRow,
-                              pressed && styles.pressFx,
-                            ]}
-                            onPress={() =>
-                              Linking.openURL(n.url).catch(() => {})
-                            }
-                            accessibilityRole="link"
-                            accessibilityLabel={`Noticia: ${n.title}`}
-                          >
-                            <View style={styles.newsRowBody}>
-                              <Text style={styles.newsTitle} numberOfLines={2}>
-                                {n.title}
-                              </Text>
-                              <Text style={styles.newsMeta} numberOfLines={1}>
-                                {[
-                                  n.source,
-                                  n.published_at
-                                    ? fmtDate(n.published_at.slice(0, 10))
-                                    : null,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ')}
-                              </Text>
-                            </View>
-                            <Text style={styles.newsChevron}>›</Text>
-                          </Pressable>
+                        groupNewsItems(inc.press_items!).map((g) => (
+                          <View key={g.label} style={styles.newsGroup}>
+                            <Text style={styles.newsGroupTitle}>
+                              {g.label}
+                            </Text>
+                            {g.items.map((n) => (
+                              <Pressable
+                                key={n.id}
+                                style={({ pressed }) => [
+                                  styles.newsRow,
+                                  pressed && styles.pressFx,
+                                ]}
+                                onPress={() =>
+                                  Linking.openURL(n.url).catch(() => {})
+                                }
+                                accessibilityRole="link"
+                                accessibilityLabel={`Noticia: ${n.title}`}
+                              >
+                                <View style={styles.newsRowBody}>
+                                  <Text
+                                    style={styles.newsTitle}
+                                    numberOfLines={2}
+                                  >
+                                    {n.title}
+                                  </Text>
+                                  <Text
+                                    style={styles.newsMeta}
+                                    numberOfLines={1}
+                                  >
+                                    {[
+                                      n.source,
+                                      n.published_at
+                                        ? fmtDate(
+                                            n.published_at.slice(0, 10),
+                                          )
+                                        : null,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(' · ')}
+                                  </Text>
+                                </View>
+                                <Text style={styles.newsChevron}>›</Text>
+                              </Pressable>
+                            ))}
+                          </View>
                         ))}
                     </>
                   )}
                 </View>
               );
             })}
-          </ScrollView>
+          </View>
         </View>
       )}
 
@@ -1138,9 +1164,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textFaint,
   },
-  historyList: {
-    maxHeight: 140,
-  },
   qualityCard: {
     marginTop: 10,
     borderTopWidth: 1,
@@ -1407,6 +1430,10 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     color: colors.status.warning,
     marginBottom: 4,
+  },
+  // En el banner de reapertura (verde) el enlace sigue la paleta
+  newsToggleReopened: {
+    color: colors.status.open,
   },
   newsGroup: {
     marginTop: 4,
