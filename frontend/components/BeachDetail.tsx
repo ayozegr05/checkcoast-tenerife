@@ -178,11 +178,11 @@ const NEWS_GROUP_ORDER = [
   'other',
 ];
 
-// Temas de la causa en orden de prioridad: cuando un mismo texto toca
-// varios ("contaminación fecal con enterococos") gana el primero —
-// el parámetro medido manda sobre la fuente, la fuente sobre lo
-// físico, y "obras" es lo más vago. Todos los específicos están al
-// mismo nivel: el tema del grupo sale por mayoría de citas
+// Temas de la causa en orden de prioridad dentro de un mismo texto:
+// el parámetro medido gana a la fuente, la fuente a lo físico y
+// "obras" es lo más vago. Todos los específicos están al mismo
+// nivel — el tema del grupo sale por mayoría de citas (empate: el
+// del titular más reciente)
 const NEWS_TOPIC_PATTERNS: { key: string; re: RegExp; phrase: string }[] = [
   {
     key: 'enterococos',
@@ -195,25 +195,35 @@ const NEWS_TOPIC_PATTERNS: { key: string; re: RegExp; phrase: string }[] = [
     phrase: 'niveles elevados de E. coli',
   },
   {
+    key: 'bacterias',
+    re: /bacteria|bacteriol/i,
+    phrase: 'niveles bacteriológicos elevados',
+  },
+  {
     key: 'hidrocarburos',
     re: /gasoil|hidrocarbur|diésel|diesel|fuel|petr/i,
     phrase: 'vertido de hidrocarburos',
   },
   { key: 'algas', re: /alga/i, phrase: 'presencia de algas' },
   {
-    key: 'fecal',
-    re: /fecal|residual|depuradora|aguas?\s*sucias/i,
-    phrase: 'vertido de aguas fecales',
+    key: 'socavacion',
+    re: /socav|cavidad|cueva|erosi|hundimiento|colapso/i,
+    phrase: 'riesgo de colapso del terreno',
   },
   {
     key: 'desprendimientos',
     re: /desprend|derrumb|talud/i,
     phrase: 'desprendimientos',
   },
+  {
+    key: 'fecal',
+    re: /fecal|residual|depuradora|aguas?\s*sucias/i,
+    phrase: 'vertido de aguas fecales',
+  },
   { key: 'obras', re: /obra|dragado|acceso/i, phrase: 'obras' },
   {
     key: 'generico',
-    re: /vertido|contamin|calidad|bacteria/i,
+    re: /vertido|contamin|calidad/i,
     phrase: 'mala calidad del agua',
   },
 ];
