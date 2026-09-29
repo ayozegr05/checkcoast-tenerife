@@ -11,13 +11,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
-  Image,
   Linking,
-  Modal,
   NativeModules,
   Pressable,
   StyleSheet,
   Text,
+  ToastAndroid,
   TurboModuleRegistry,
   View,
 } from 'react-native';
@@ -106,9 +105,8 @@ export default function App() {
   // Emisario abierto desde "Emisarios cercanos" de una ficha de playa:
   // la selección previa se guarda para restaurarla al cerrar/atrás
   const [restoreSel, setRestoreSel] = useState<Selection | null>(null);
-  // Confirmación de salida: modal propio (el Alert nativo no admite
-  // centrado ni marca) — el Modal consume su atrás con onRequestClose
-  const [exitOpen, setExitOpen] = useState(false);
+  // Doble atrás para salir: marca temporal del último atrás en el mapa
+  const lastBackRef = useRef(0);
 
   const loadData = () => {
     setError(null);
@@ -390,7 +388,7 @@ export default function App() {
   // Botón atrás de Android: la ficha no es un Modal, así que sin este
   // handler atrás cerraría la app. Orden: overlays propios (guía,
   // intro) → ficha (backSheet, que recuerda la de origen a diferencia
-  // de la ✕) → mapa limpio → confirmación antes de salir. Los Modals
+  // de la ✕) → mapa limpio → doble atrás para salir. Los Modals
   // (listas) consumen su propio atrás nativo antes de llegar aquí
   const backSheetRef = useRef(backSheet);
   backSheetRef.current = backSheet;
@@ -418,7 +416,18 @@ export default function App() {
         backSheetRef.current();
         return true;
       }
-      setExitOpen(true);
+      // Doble atrás para salir: el primer toque avisa, el segundo
+      // (≤2,5 s) envía a fondo — sin salidas accidentales ni modal que
+      // prometía un "salir" que Android no concede de verdad
+      if (Date.now() - lastBackRef.current < 2500) {
+        BackHandler.exitApp();
+        return true;
+      }
+      lastBackRef.current = Date.now();
+      ToastAndroid.show(
+        'Pulsa atrás otra vez para salir',
+        ToastAndroid.SHORT,
+      );
       return true;
     });
     return () => sub.remove();
@@ -604,50 +613,6 @@ export default function App() {
         />
       )}
 
-      <Modal
-        visible={exitOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setExitOpen(false)}
-      >
-        <View style={styles.exitBackdrop}>
-          <View style={styles.exitCard}>
-            <Image
-              source={require('./assets/icon.png')}
-              style={styles.exitIcon}
-            />
-            <Text style={styles.exitTitle}>Salir de CheckCoast</Text>
-            <Text style={styles.exitMsg}>¿Quieres salir de la app?</Text>
-            <View style={styles.exitBtns}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.exitBtn,
-                  styles.exitBtnGhost,
-                  pressed && styles.pressFx,
-                ]}
-                onPress={() => setExitOpen(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Cancelar y seguir en la app"
-              >
-                <Text style={styles.exitBtnGhostText}>Cancelar</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.exitBtn,
-                  styles.exitBtnDanger,
-                  pressed && styles.pressFx,
-                ]}
-                onPress={() => BackHandler.exitApp()}
-                accessibilityRole="button"
-                accessibilityLabel="Salir de la app"
-              >
-                <Text style={styles.exitBtnDangerText}>Salir</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
       <StatusBar style="auto" />
     </View>
   );
@@ -688,71 +653,5 @@ const styles = StyleSheet.create({
   },
   pressFx: {
     opacity: 0.6,
-  },
-  exitBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(6,40,56,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-  },
-  exitCard: {
-    width: '100%',
-    maxWidth: 320,
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingVertical: 24,
-    paddingHorizontal: 22,
-    alignItems: 'center',
-  },
-  exitIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  exitTitle: {
-    fontSize: 17,
-    fontFamily: fonts.bold,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  exitMsg: {
-    marginTop: 6,
-    fontSize: 13,
-    fontFamily: fonts.regular,
-    color: colors.textFaint,
-    textAlign: 'center',
-  },
-  exitBtns: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-    gap: 12,
-  },
-  exitBtn: {
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exitBtnGhost: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  exitBtnGhostText: {
-    fontSize: 14,
-    fontFamily: fonts.semibold,
-    color: colors.text,
-  },
-  exitBtnDanger: {
-    backgroundColor: colors.danger,
-  },
-  exitBtnDangerText: {
-    fontSize: 14,
-    fontFamily: fonts.bold,
-    color: '#fff',
   },
 });
