@@ -178,40 +178,91 @@ const NEWS_GROUP_ORDER = [
   'other',
 ];
 
-// Tema de la causa como frase fluida para el título del grupo: el
-// texto crudo del LLM varía ("exceso de enterococos", "niveles
-// elevados de enterococos") pero el tema es el mismo
-const NEWS_TOPIC_PHRASES: [RegExp, string][] = [
-  [/enterococ/i, 'niveles elevados de enterococos'],
-  [/e\.?\s?coli|escherichia/i, 'niveles elevados de E. coli'],
-  [
-    /gasoil|hidrocarbur|diésel|diesel|fuel|petr/i,
-    'vertido de hidrocarburos',
-  ],
-  [/fecal|residual|depuradora|aguas?\s*sucias/i, 'vertido de aguas fecales'],
-  [/alga/i, 'presencia de algas'],
-  [/desprend|derrumb|talud/i, 'riesgo de desprendimientos'],
-  [/obra|dragado|acceso/i, 'obras'],
-  [/mar\s*agitad|corriente|oleaje|temporal|ola/i, 'mar agitado'],
-  [/vertido|contamin|calidad/i, 'mala calidad del agua'],
+// Temas de la causa en orden de prioridad: cuando un mismo texto toca
+// varios ("contaminación fecal con enterococos") gana el primero —
+// el parámetro medido manda sobre la fuente, la fuente sobre lo
+// físico, y "obras" es lo más vago. Todos los específicos están al
+// mismo nivel: el tema del grupo sale por mayoría de citas
+const NEWS_TOPIC_PATTERNS: { key: string; re: RegExp; phrase: string }[] = [
+  {
+    key: 'enterococos',
+    re: /enterococ/i,
+    phrase: 'niveles elevados de enterococos',
+  },
+  {
+    key: 'ecoli',
+    re: /e\.?\s?coli|escherichia/i,
+    phrase: 'niveles elevados de E. coli',
+  },
+  {
+    key: 'hidrocarburos',
+    re: /gasoil|hidrocarbur|diésel|diesel|fuel|petr/i,
+    phrase: 'vertido de hidrocarburos',
+  },
+  { key: 'algas', re: /alga/i, phrase: 'presencia de algas' },
+  {
+    key: 'fecal',
+    re: /fecal|residual|depuradora|aguas?\s*sucias/i,
+    phrase: 'vertido de aguas fecales',
+  },
+  {
+    key: 'desprendimientos',
+    re: /desprend|derrumb|talud/i,
+    phrase: 'desprendimientos',
+  },
+  { key: 'obras', re: /obra|dragado|acceso/i, phrase: 'obras' },
+  {
+    key: 'generico',
+    re: /vertido|contamin|calidad|bacteria/i,
+    phrase: 'mala calidad del agua',
+  },
 ];
 
-const newsTopicPhrase = (cause: string | null): string | null => {
+const newsTopicKey = (cause: string | null): string | null => {
   if (!cause) return null;
-  for (const [re, phrase] of NEWS_TOPIC_PHRASES) {
-    if (re.test(cause)) return phrase;
+  for (const t of NEWS_TOPIC_PATTERNS) {
+    if (t.re.test(cause)) return t.key;
   }
-  return cause; // causa sin tema catalogado: se muestra su texto
+  return 'raw'; // causa con texto pero sin tema catalogado
 };
 
-// Frase del grupo: "Cierre · niveles elevados de enterococos",
-// "Reapertura · mejora la calidad del agua". En reapertura la causa
-// es siempre la misma — coletilla fija si el LLM extrajo algo
-const newsGroupPhrase = (type: string, cause: string | null) => {
+// Frase ganadora del grupo de un episodio: un episodio real tiene una
+// sola causa — el resto son paráfrasis de los medios. Gana el tema
+// más citado; en empate, el del titular más reciente (items llegan
+// ordenados desc por fecha). Enterococos + E. coli son parámetros
+// hermanos de la misma muestra → frase combinada
+const newsGroupPhrase = (
+  type: string,
+  items: BeachNews[],
+): string | null => {
   if (type === 'reopening') {
-    return cause ? 'mejora la calidad del agua' : null;
+    return items.some((n) => n.cause)
+      ? 'mejora la calidad del agua'
+      : null;
   }
-  return newsTopicPhrase(cause);
+  const counts = new Map<string, number>();
+  for (const n of items) {
+    const k = newsTopicKey(n.cause);
+    if (!k || k === 'raw') continue;
+    counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  if (counts.get('enterococos') && counts.get('ecoli')) {
+    return 'niveles elevados de enterococos y E. coli';
+  }
+  if (counts.size > 0) {
+    const max = Math.max(...counts.values());
+    const tied = new Set(
+      [...counts.keys()].filter((k) => counts.get(k) === max),
+    );
+    // items llegan desc por fecha: el primero empatado es el reciente
+    const winner = newsTopicKey(
+      items.find((n) => tied.has(newsTopicKey(n.cause) ?? ''))!.cause,
+    )!;
+    return NEWS_TOPIC_PATTERNS.find((t) => t.key === winner)!.phrase;
+  }
+  // Sin tema catalogado: la causa cruda más reciente informa mejor
+  // que nada ("avance del mar" en Punta Larga)
+  return items.find((n) => n.cause)?.cause ?? null;
 };
 
 // Color por fase: cierre/contaminación rojo, aviso ámbar, reapertura
@@ -230,29 +281,32 @@ type NewsGroup = {
   items: BeachNews[];
 };
 
-// Titulares agrupados por fase + tema de causa en un solo título
-// fluido ("Cierre · vertido de aguas fecales"): la misma noticia
-// cubierta por varios medios queda como un solo bloque escaneable
+// Titulares agrupados por fase del episodio, una sola causa ganadora
+// por fase ("Cierre · niveles elevados de enterococos"): el episodio
+// real tiene una causa y el resto son paráfrasis de los medios
 function groupNewsItems(items: BeachNews[]): NewsGroup[] {
-  const groups = new Map<string, NewsGroup>();
+  const byType = new Map<string, BeachNews[]>();
   for (const n of items) {
     const type = n.event_type ?? 'other';
-    const phrase = newsGroupPhrase(type, n.cause);
-    const key = `${type}|${phrase ?? ''}`;
-    const g = groups.get(key) ?? {
-      type,
-      label: `${NEWS_EVENT_LABELS[type] ?? 'Noticia'}${
-        phrase ? ` · ${phrase}` : ''
-      }`,
-      items: [],
-    };
-    g.items.push(n);
-    groups.set(key, g);
+    const arr = byType.get(type) ?? [];
+    arr.push(n);
+    byType.set(type, arr);
   }
-  return [...groups.values()].sort(
-    (a, b) =>
-      NEWS_GROUP_ORDER.indexOf(a.type) - NEWS_GROUP_ORDER.indexOf(b.type),
-  );
+  return [...byType.entries()]
+    .sort(
+      (a, b) =>
+        NEWS_GROUP_ORDER.indexOf(a[0]) - NEWS_GROUP_ORDER.indexOf(b[0]),
+    )
+    .map(([type, groupItems]) => {
+      const phrase = newsGroupPhrase(type, groupItems);
+      return {
+        type,
+        label: `${NEWS_EVENT_LABELS[type] ?? 'Noticia'}${
+          phrase ? ` · ${phrase}` : ''
+        }`,
+        items: groupItems,
+      };
+    });
 }
 
 // Fila de titular enlazable: borde y flecha con el color de la fase
