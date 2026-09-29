@@ -516,22 +516,30 @@ def merged_episode(g: list[Episode]) -> Episode:
     else:
         # los eventos sintéticos ya llevan la mención a prensa en su obs
         obs = next((e.obs for e in g if e.obs), None)
+    merged_end = (
+        None
+        if any(e.end is None for e in g)
+        else max(e.end for e in g if e.end)
+    )
     return Episode(
         beach_id=min(e.beach_id for e in g),
         base=g[0].base,
         municipality=g[0].municipality,
         kind="closure" if any(e.kind == "closure" for e in g) else "warning",
         start=min(e.start for e in g),
-        end=None if any(e.end is None for e in g) else max(
-            e.end for e in g if e.end
-        ),
+        end=merged_end,
         via=via,
         ref_id=next(
             (e.ref_id for e in g if e.via == "official"), g[0].ref_id
         ),
         obs=obs,
         press_count=press_n,
-        end_estimated=any(e.end_estimated for e in g),
+        # El fin solo es estimado si la fecha que gana vino de la
+        # última mención — un cierre oficial posterior lo invalida
+        end_estimated=merged_end is not None
+        and any(
+            e.end_estimated and e.end == merged_end for e in g
+        ),
         # Causa dominante del episodio fusionado (la más frecuente
         # entre los miembros que la tienen)
         cause=(

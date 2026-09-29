@@ -102,7 +102,8 @@ export const activeEpisodes = (
 ): MunicipalityIncident[] => eps.filter((e) => e.closed_at === null);
 
 // Resueltas en los últimos `days` — la sección verde del panel de
-// alertas (puente entre el push de reapertura y la ficha)
+// alertas (puente entre el push de reapertura y la ficha). Un fin
+// estimado (última mención en prensa) no es una reapertura: no sale
 export const recentlyResolved = (
   eps: MunicipalityIncident[],
   days = 30,
@@ -111,7 +112,10 @@ export const recentlyResolved = (
   const lim = new Date(today.getTime() - days * 86_400_000)
     .toISOString()
     .slice(0, 10);
-  return eps.filter((e) => e.closed_at !== null && e.closed_at >= lim);
+  return eps.filter(
+    (e) =>
+      e.closed_at !== null && !e.end_estimated && e.closed_at >= lim,
+  );
 };
 
 // Días naturales que duró (o lleva) un episodio, incluyendo el inicial
