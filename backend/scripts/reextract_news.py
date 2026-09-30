@@ -78,9 +78,20 @@ def main() -> None:
                 if ext.relevant else []
             )
             ext, hits, used = _enrich_with_body(
-                art, ext, hits, beaches, extractor
+                art,
+                ext,
+                hits,
+                beaches,
+                extractor,
+                rescue=any(r.relevant for r in rows),
             )
             bodies += used
+            if ext is None:
+                print(
+                    f"  [keep] {rows[0].title[:70]} "
+                    f"(titular no relevante, cuerpo inaccesible)"
+                )
+                continue
             for row in rows:
                 row.relevant = ext.relevant
                 row.event_type = ext.event_type

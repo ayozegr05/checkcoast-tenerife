@@ -196,7 +196,7 @@ const NEWS_TOPIC_PATTERNS: { key: string; re: RegExp; phrase: string }[] = [
   },
   {
     key: 'bacterias',
-    re: /bacteria|bacteriol/i,
+    re: /bacteria|bacteriol|microbiolog/i,
     phrase: 'niveles bacteriológicos elevados',
   },
   {

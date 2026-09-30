@@ -19,6 +19,7 @@ Uso: python -m scripts.ingest_news
 
 import re
 import time
+import unicodedata
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
@@ -107,27 +108,76 @@ def _press_push_candidate(
     return True
 
 
+# Causas ya específicas (parámetro medido, sustancia o fenómeno físico
+# nombrado): con ellas el cuerpo no añadiría nada al porqué.
+_SPECIFIC_CAUSE_KEYS = (
+    "enterococo", "coli", "fecal", "gasoil", "hidrocarburo", "fuel",
+    "alga", "medusa", "desprend", "talud", "derrumbe", "corrimiento",
+    "colapso", "socav",
+)
+
+
+def _cause_is_generic(cause: str | None) -> bool:
+    """La causa dice el "qué" sin el "por qué" específico ("mala calidad
+    del agua", "contaminación", "vertido" a secas, "avance del mar") —
+    el cuerpo del artículo suele nombrar el parámetro o la sustancia
+    real, así que merece la descarga."""
+    if not cause:
+        return False
+    t = "".join(
+        c
+        for c in unicodedata.normalize("NFD", cause.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+    return not any(k in t for k in _SPECIFIC_CAUSE_KEYS)
+
+
 def _enrich_with_body(
     art: RawArticle,
     ext: EventExtraction,
     hits: list[Beach],
     beaches: list[Beach],
     extractor,
-) -> tuple[EventExtraction, list[Beach], bool]:
+    rescue: bool = False,
+) -> tuple[EventExtraction | None, list[Beach], bool]:
     """Segunda pasada híbrida: titular → cuerpo del artículo.
 
     Se dispara cuando el titular no basta: noticia relevante que no casó
     con ninguna playa (el cuerpo puede nombrar el municipio), cuya causa
     no está clara (ausente o puramente mecanismo, p.ej. "acceso
-    prohibido") o cuya causa es "Obras" — la categoría más tramposa: un
+    prohibido"), es genérica ("mala calidad del agua"/"contaminación"/
+    "vertido" a secas — el cuerpo suele nombrar enterococos, E. coli o
+    la sustancia) o es "Obras" — la categoría más tramposa: un
     titular que habla de "materiales de obra"/"obras de emergencia" suele
     describir el mecanismo y el cuerpo revela el vertido o el
     desprendimiento real (Candelaria: "obstrucción por materiales de
-    obra" era un vertido). Devuelve (ext, hits, consumió_descarga)."""
+    obra" era un vertido). Devuelve (ext, hits, consumió_descarga).
+
+    `rescue=True` (re-extracción): un ítem guardado como relevante cuya
+    nueva lectura del titular dice no-relevante se contrasta con el
+    cuerpo antes de degradar — el titular pudo extraerse mal, o la fila
+    original se extrajo con cuerpo. ext=None en la salida significa
+    "sin evidencia nueva: conservar la fila como estaba"."""
     if not ext.relevant:
-        return ext, hits, False
+        if not rescue:
+            return ext, hits, False
+        body = resolve_and_fetch(art.url)
+        if not body:
+            return None, hits, True
+        ext2 = extract_event(replace(art, body=body), extractor)
+        time.sleep(2)
+        if ext2 is not None and ext2.relevant:
+            return ext2, match_beaches(ext2, beaches, title=art.title), True
+        if ext2 is None:
+            return None, hits, True
+        return ext, hits, True  # el cuerpo confirma: no relevante
     cause = _short_cause(ext.cause)
-    if hits and cause is not None and cause != "Obras":
+    if (
+        hits
+        and cause is not None
+        and cause != "Obras"
+        and not _cause_is_generic(ext.cause)
+    ):
         return ext, hits, False
     body = resolve_and_fetch(art.url)
     if not body:

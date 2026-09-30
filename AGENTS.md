@@ -74,7 +74,9 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
   - `scripts/` — `ingest_outfalls.py`, `ingest_beaches.py` (censo MITECO
     + solver ALTCHA), `ingest_beach_status.py` (scraper Náyade),
     `ingest_osm_beaches.py` (Overpass), `ingest_news.py` (prensa → LLM
-    → `news_items`, con segunda pasada cuerpo si el titular no aclara;
+    → `news_items`, con segunda pasada cuerpo si el titular no aclara
+    o la causa es genérica ("mala calidad del agua", "vertido" a secas
+    — el cuerpo suele nombrar el parámetro o la sustancia real);
     `_sync_guia` re-extrae fichas de la Guía solo cuando cambia su
     `lastmod`, tope `news_max_guia_fetches`=10/pasada, nunca push),
     `reextract_news.py` (refresca extracciones guardadas: `--beach`,
