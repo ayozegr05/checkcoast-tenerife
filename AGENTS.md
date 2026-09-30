@@ -261,6 +261,87 @@ npx tsc --noEmit                                        # typecheck
   teñido legal/illegal/unknown; playas = círculo azul/naranja/gris +
   sombrilla)
 
+## Extracción de prensa: protocolo LLM titular → cuerpo
+
+Pipeline en dos pasadas (`scripts/ingest_news.py::_enrich_with_body`):
+
+1. **Pasada 1**: `extract_event` solo con el titular (Gemini).
+2. **Pasada 2** (descarga de cuerpo) se dispara si el ítem es relevante Y:
+   - no casó con ninguna playa (el cuerpo puede nombrar el municipio), o
+   - no tiene causa, o la causa es **genérica** (no contiene ninguna
+     clave específica: enterococo, coli, fecal, gasoil, hidrocarburo,
+     fuel, alga, medusa, desprend, talud, derrumbe, corrimiento,
+     colapso, socav — ver `_cause_is_generic`), o
+   - la causa es "Obras" (mecanismo tramposo que suele ocultar vertido)
+3. Cuerpo = `news_resolve.resolve_and_fetch` (decode URL Google News →
+   URL editorial → trafilatura). Tope `news_max_body_fetches=8`/pasada,
+   ~2 s entre llamadas LLM. Si el cuerpo no se obtiene o el LLM con
+   cuerpo dice no-relevante, se conserva la extracción del titular.
+
+**`reextract_news` + modo rescue**: re-extrae ítems guardados. Si un
+ítem relevante re-extrae como no-relevante solo con titular, se
+contrastra con el cuerpo antes de degradar; si no hay evidencia nueva
+(cuerpo inaccesible o LLM falla) la fila se conserva. Devuelve
+`ext=None` → el caller hace `continue` sin tocar la fila.
+
+**Regla de oro — re-extracción masiva**: el LLM NO es determinista.
+Antes/después de un `reextract --max N` comparar por playa
+(relevant/event_type/cause/closed_since). En 2026-09 una pasada de 85
+URLs degradó reaperturas reales de Jardín y plantó `closed_since`
+falsos (pieza política PSOE → closure con cs=2025-06-23; Bajamar →
+cs=2025-05-14 por mención histórica en el cuerpo). Las fichas de la
+Guía nunca se re-extraen solo-titular (el script las excluye por
+source). `closed_since` solo vale si el texto afirma que el cierre
+sigue vigente — una mención histórica no ancla el episodio.
+
+## Matriz de etiquetado de causas (UI)
+
+Una etiqueta por fase del episodio, orden narrativo `CIERRE → AVISO →
+CONTAMINACIÓN → REAPERTURA`; titulares enlazables debajo del grupo;
+varias filas expandibles a la vez; color por fase (cierre rojo,
+reapertura verde; banner reopened todo verde). El banner solo usa
+`episode_items` (titulares de SU episodio).
+
+**Todas las causas específicas al mismo nivel**: enterococos, E. coli,
+niveles bacteriológicos, hidrocarburos/gasoil, algas, vertido fecal,
+desprendimientos, obras, riesgo de colapso del terreno. La
+especificidad es contextual, no una jerarquía fija por categoría.
+
+Reglas de precedencia aprobadas por el usuario:
+
+- **Parámetro nombrado gana a causa-fuente**: si cualquier titular del
+  episodio nombra enterococos/E. coli, la etiqueta es bacteriana aunque
+  la mayoría diga "contaminación fecal" o "vertido" (E. coli > fecal).
+  Pendiente: el ganador actual es por mayoría de citas — hay que
+  cambiarlo a "la causa más específica presente gana" (params >
+  fuente > genérico); entre el mismo nivel, la más citada/reciente.
+- Enterococos + E. coli conviviendo → frase combinada
+  `niveles elevados de enterococos y E. coli`.
+- En un mismo titular: `desprendimientos` gana a `obras` (la obra es la
+  respuesta, el desprendimiento la causa).
+- Dos específicos de familias distintas (gasoil + e.coli, muy raro):
+  combinar ambas, no elegir una.
+- **"Bacterias" sin parámetro** ("el doble de bacterias permitido") →
+  `niveles bacteriológicos elevados`, honesto: no inventar cuál.
+- Causa mencionada en pasado como contexto no gana a la causa actual.
+- **Fallback genérico**: "mala calidad del agua"/"contaminación"/
+  "vertido" a secas → `CIERRE · MALA CALIDAD DEL AGUA`; sin causa →
+  `CIERRE` a secas.
+- **Reapertura**: etiqueta fija `REAPERTURA · MEJORA LA CALIDAD DEL
+  AGUA` — nunca hereda la causa extraída (suele ser eco del cierre:
+  "bacterias fecales" en una reapertura).
+- **"Mar agitado"/"avance del mar" no son causas** (son desencadenante
+  o mala extracción): nunca se muestran. Punta Larga = mar socavando
+  el terreno bajo el paseo → `riesgo de colapso del terreno`
+  (patrón socav/cavidad/cueva/erosión/hundimiento/colapso).
+
+Matching: `press_aliases` (columna Beach) para nombres de prensa
+("Bajamar" → PISCINAS NATURALES DE BAJAMAR PM1/PM2; "Los Guanches" →
+Candelaria). `match_beaches` prefiere clave exacta sobre contención —
+si no, el nombre del censo opaca al alias. Reparación de datos típica:
+UPDATE `relevant`/`press_aliases`/`closed_since` + `_rematch_pending`
+(sin LLM). Noticias multi-PM se replican por PM.
+
 ## Gotchas conocidos
 
 - **Náyade** se cae por horas: es normal, el scheduler lo tolera
@@ -301,6 +382,16 @@ npx tsc --noEmit                                        # typecheck
 
 ## Pendiente inmediato
 
+- **Reparar datos de prod tras la re-extracción de 2026-09-30**: Jardín
+  puede mostrarse cerrada estando abierta (reaperturas degradadas a
+  `relevant=false` + cierre fantasma de la pieza PSOE con
+  `closed_since=2025-06-23`). Auditar `relevant`/`closed_since` de
+  todas las URLs procesadas ese día; restaurar lo degradado injusto y
+  anular `closed_since` históricos inventados
+- **Frontend `groupNewsItems`**: el ganador de etiqueta pasa de mayoría
+  de citas a "la más específica presente" (parámetro nombrado >
+  causa-fuente > genérico) — queja del usuario: episodios con E. coli
+  etiquetaban "vertido de aguas fecales"
 - Hito 9 (portfolio): capturas/vídeo del APK, repo público en GitHub
   (activa CI), post LinkedIn; opcional ficha Google Play
 - Verificación E2E de App Links con build firmada por EAS (8.8)
