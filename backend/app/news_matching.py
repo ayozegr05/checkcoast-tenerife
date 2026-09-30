@@ -120,13 +120,15 @@ def match_beaches(
             _press_key(a)
             for a in (getattr(b, "press_aliases", None) or [])
         ]
-        hit = next(
+        # El exacto (nombre o alias) gana a las contenciones: si no,
+        # "Bajamar" casaría por substring contra "PISCINAS NATURALES DE
+        # BAJAMAR" antes de llegar a su alias exacto y la contención
+        # con "CASTILLO-BAJAMAR" dejaría el match ambiguo
+        hit = next((k for k in keys if k == target), None) or next(
             (
                 k
                 for k in keys
-                if k == target
-                or target in k
-                or (len(k) >= _MIN_NAME_LEN and k in target)
+                if target in k or (len(k) >= _MIN_NAME_LEN and k in target)
             ),
             None,
         )
