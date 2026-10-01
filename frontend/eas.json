@@ -15,7 +15,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://130.110.233.198:8001"
+        "EXPO_PUBLIC_API_URL": "https://checkcoast.duckdns.org"
       },
       "android": {
         "buildType": "apk"

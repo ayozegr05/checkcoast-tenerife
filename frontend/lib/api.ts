@@ -18,6 +18,9 @@ export type GeoFeature = {
     source_url?: string | null;
     fetched_at?: string | null;
     reported_at?: string | null;
+    // Inicio de la alerta efectiva (press → fecha de la noticia);
+    // reported_at es el scrape oficial y no ordena la lista del banner
+    alerted_at?: string | null;
     alert?: boolean;
   };
 };

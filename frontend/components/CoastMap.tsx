@@ -6,6 +6,7 @@ import {
   NativeSyntheticEvent,
   Platform,
   Pressable,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -168,6 +169,14 @@ const BEACH_STATES: [string, string, string][] = [
   [colors.status.closed, 'Cerrada', 'closed'],
   [colors.status.unmonitored, 'Sin monitorizar', 'unmonitored'],
 ];
+// Categorías de causa que el backend emite para cierres estructurales
+// (_STRUCTURAL_CAUSES en queries.py) — se mantienen en el tiempo, al
+// contrario que un episodio de contaminación
+const STRUCTURAL_CAUSES = new Set([
+  'Desprendimientos',
+  'Obras',
+  'Colapso del terreno',
+]);
 const OUTFALL_STATES: [string, string, string][] = [
   [colors.outfall.legal, 'Autorizado', 'legal'],
   [colors.outfall.illegal, 'No autorizado', 'illegal'],
@@ -469,6 +478,36 @@ export default function CoastMap({
     }),
     [groupedBeaches],
   );
+
+  // Dos grandes categorías de alerta: contaminación (transitoria) y
+  // cierre estructural (desprendimientos/obras/colapso — se mantiene
+  // en el tiempo). Dentro de cada sección, de la más reciente a la
+  // más antigua por inicio real de la alerta (alerted_at)
+  const alertSections = useMemo<[string, GeoFeature[]][]>(() => {
+    const byWhen = (a: GeoFeature, b: GeoFeature) =>
+      (b.properties.alerted_at ?? b.properties.reported_at ?? '')
+        .localeCompare(
+          a.properties.alerted_at ?? a.properties.reported_at ?? '',
+        );
+    const isStructural = (f: GeoFeature) =>
+      f.properties.status === 'closed' &&
+      !!f.properties.alert_cause &&
+      STRUCTURAL_CAUSES.has(f.properties.alert_cause);
+    const contam = alertBeaches.features
+      .filter((f) => f.properties.status === 'closed' && !isStructural(f))
+      .sort(byWhen);
+    const structural = alertBeaches.features
+      .filter(isStructural)
+      .sort(byWhen);
+    const warnings = alertBeaches.features
+      .filter((f) => f.properties.status === 'warning')
+      .sort(byWhen);
+    return [
+      ['Contaminación', contam],
+      ['Cierre estructural', structural],
+      ['Avisos', warnings],
+    ].filter(([, fs]) => fs.length > 0) as [string, GeoFeature[]][];
+  }, [alertBeaches]);
 
   // Marcas de la leyenda: se aplican sobre la FC entera del source —
   // pins, etiquetas, seleccionada y pulso quedan filtrados de una vez
@@ -1379,67 +1418,97 @@ export default function CoastMap({
           </Text>
         </Pressable>
         {alertsOpen && hasAlerts && (
-          <View style={styles.alertList}>
+          // Card acotada: sin maxHeight una ola de alertas desbordaba
+          // hasta la barra nativa; la lista scrollea y el botón de
+          // episodios queda fijo abajo (fuera del ScrollView)
+          <View style={[styles.alertList, { maxHeight: winH * 0.62 }]}>
+            <ScrollView
+              style={styles.alertListScroll}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+            >
             <Text
               style={[styles.alertSection, styles.alertSectionActive]}
             >
               Activas ahora · {alertBeaches.features.length}
             </Text>
-            {[...alertBeaches.features]
-              .sort((a) => (a.properties.status === 'closed' ? -1 : 1))
-              .map((f) => {
-                const s =
-                  f.properties.status === 'closed' ? 'closed' : 'warning';
-                return (
-                  <Pressable
-                    key={
-                      (f.properties as { groupKey?: string }).groupKey ??
-                      f.id
-                    }
-                    style={({ pressed }) => [
-                      styles.alertRow,
-                      pressed && styles.pressFx,
-                    ]}
-                    onPress={() => openAlertBeach(f)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${displayBeachName(
-                      beachBaseName(f.properties.name),
-                    )}, ${s === 'closed' ? 'cerrada' : 'aviso'}`}
-                  >
-                    <View
-                      style={[
-                        styles.alertDot,
-                        { backgroundColor: colors.status[s] },
-                      ]}
-                    />
-                    <View style={styles.alertText}>
-                      <Text style={styles.alertName} numberOfLines={1}>
-                        {displayBeachName(
-                          beachBaseName(f.properties.name),
-                        )}
-                      </Text>
-                      <Text style={styles.alertSub} numberOfLines={1}>
-                        {f.properties.municipality ?? ''}
-                      </Text>
-                    </View>
-                    <View style={styles.alertStateCol}>
-                      <Text
-                        style={[
-                          styles.alertState,
-                          { color: colors.status[s] },
-                        ]}
-                      >
-                        {s === 'closed' ? 'Cerrada' : 'Aviso'}
-                      </Text>
-                      {f.properties.alert_cause ? (
-                        <Text style={styles.alertCause} numberOfLines={1}>
-                          {f.properties.alert_cause}
+            {alertSections.map(
+              ([sectionLabel, features]) =>
+                features.length > 0 && (
+                  <View key={sectionLabel}>
+                    {alertSections.length > 1 &&
+                      features.length > 0 && (
+                        <Text style={styles.alertSubsection}>
+                          {sectionLabel} · {features.length}
                         </Text>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                );
-              })}
+                      )}
+                    {features.map((f) => {
+                      const s =
+                        f.properties.status === 'closed'
+                          ? 'closed'
+                          : 'warning';
+                      return (
+                        <Pressable
+                          key={
+                            (f.properties as { groupKey?: string })
+                              .groupKey ?? f.id
+                          }
+                          style={({ pressed }) => [
+                            styles.alertRow,
+                            pressed && styles.pressFx,
+                          ]}
+                          onPress={() => openAlertBeach(f)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${displayBeachName(
+                            beachBaseName(f.properties.name),
+                          )}, ${s === 'closed' ? 'cerrada' : 'aviso'}`}
+                        >
+                          <View
+                            style={[
+                              styles.alertDot,
+                              { backgroundColor: colors.status[s] },
+                            ]}
+                          />
+                          <View style={styles.alertText}>
+                            <Text
+                              style={styles.alertName}
+                              numberOfLines={1}
+                            >
+                              {displayBeachName(
+                                beachBaseName(f.properties.name),
+                              )}
+                            </Text>
+                            <Text
+                              style={styles.alertSub}
+                              numberOfLines={1}
+                            >
+                              {f.properties.municipality ?? ''}
+                            </Text>
+                          </View>
+                          <View style={styles.alertStateCol}>
+                            <Text
+                              style={[
+                                styles.alertState,
+                                { color: colors.status[s] },
+                              ]}
+                            >
+                              {s === 'closed' ? 'Cerrada' : 'Aviso'}
+                            </Text>
+                            {f.properties.alert_cause ? (
+                              <Text
+                                style={styles.alertCause}
+                                numberOfLines={1}
+                              >
+                                {f.properties.alert_cause}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ),
+            )}
             {resueltas.length > 0 && (
               <Text
                 style={[styles.alertSection, styles.alertSectionResolved]}
@@ -1491,6 +1560,7 @@ export default function CoastMap({
                 </View>
               </Pressable>
             ))}
+            </ScrollView>
             {onOpenTemporada && (
               <Pressable
                 style={({ pressed }) => [
@@ -1827,6 +1897,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
   },
+  alertListScroll: {
+    // Cede altura al botón fijo de abajo cuando la lista crece
+    flexShrink: 1,
+  },
   alertRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1888,6 +1962,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+  },
+  // Subsección dentro de "Activas ahora" (contaminación vs cierre
+  // estructural): más discreta que la banda de sección
+  alertSubsection: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontFamily: fonts.extrabold,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   // Activa = peligro suave; resuelta = alivio
   alertSectionActive: {

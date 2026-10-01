@@ -178,101 +178,176 @@ const NEWS_GROUP_ORDER = [
   'other',
 ];
 
-// Temas de la causa en orden de prioridad dentro de un mismo texto:
-// el parámetro medido gana a la fuente, la fuente a lo físico y
-// "obras" es lo más vago. Todos los específicos están al mismo
-// nivel — el tema del grupo sale por mayoría de citas (empate: el
-// del titular más reciente)
-const NEWS_TOPIC_PATTERNS: { key: string; re: RegExp; phrase: string }[] = [
+// Temas de la causa agrupados por familia. La especificidad decide la
+// etiqueta del episodio: dentro de una familia gana el menor rank
+// (parámetro nombrado > parámetro sin nombrar > fuente vaga o
+// mecanismo) y a igual rank el más citado, desempatando por el
+// titular más reciente. El orden del array fija la precedencia dentro
+// de un mismo texto ("desprendimientos" tapa a "obras")
+const NEWS_TOPIC_PATTERNS: {
+  key: string;
+  family: string;
+  rank: number;
+  re: RegExp;
+  phrase: string;
+}[] = [
   {
     key: 'enterococos',
+    family: 'bacterias',
+    rank: 0,
     re: /enterococ/i,
     phrase: 'niveles elevados de enterococos',
   },
   {
     key: 'ecoli',
+    family: 'bacterias',
+    rank: 0,
     re: /e\.?\s?coli|escherichia/i,
     phrase: 'niveles elevados de E. coli',
   },
   {
     key: 'bacterias',
+    family: 'bacterias',
+    rank: 1,
     re: /bacteria|bacteriol|microbiolog/i,
     phrase: 'niveles bacteriológicos elevados',
   },
   {
+    key: 'fecal',
+    family: 'bacterias',
+    rank: 2,
+    re: /fecal|residual|depuradora|aguas?\s*sucias/i,
+    phrase: 'vertido de aguas fecales',
+  },
+  {
     key: 'hidrocarburos',
+    family: 'quimica',
+    rank: 0,
     re: /gasoil|hidrocarbur|diésel|diesel|fuel|petr/i,
     phrase: 'vertido de hidrocarburos',
   },
-  { key: 'algas', re: /alga/i, phrase: 'presencia de algas' },
+  {
+    key: 'algas',
+    family: 'algas',
+    rank: 0,
+    re: /alga/i,
+    phrase: 'presencia de algas',
+  },
   {
     key: 'socavacion',
+    family: 'fisica',
+    rank: 0,
     re: /socav|cavidad|cueva|erosi|hundimiento|colapso/i,
     phrase: 'riesgo de colapso del terreno',
   },
   {
     key: 'desprendimientos',
+    family: 'fisica',
+    rank: 0,
     re: /desprend|derrumb|talud/i,
     phrase: 'desprendimientos',
   },
   {
-    key: 'fecal',
-    re: /fecal|residual|depuradora|aguas?\s*sucias/i,
-    phrase: 'vertido de aguas fecales',
+    key: 'obras',
+    family: 'fisica',
+    rank: 1,
+    re: /obra|dragado|acceso/i,
+    phrase: 'obras',
   },
-  { key: 'obras', re: /obra|dragado|acceso/i, phrase: 'obras' },
   {
     key: 'generico',
+    family: 'generico',
+    rank: 0,
     re: /vertido|contamin|calidad/i,
     phrase: 'mala calidad del agua',
   },
 ];
 
-const newsTopicKey = (cause: string | null): string | null => {
-  if (!cause) return null;
-  for (const t of NEWS_TOPIC_PATTERNS) {
-    if (t.re.test(cause)) return t.key;
-  }
-  return 'raw'; // causa con texto pero sin tema catalogado
+// Causas que no son causa (desencadenante del mar o mala extracción):
+// nunca se muestran como etiqueta
+const NEWS_NON_CAUSE_RE = /mar agitado|avance del mar|oleaje|marejada/i;
+
+// Claves que aporta un ítem: la primera coincidencia de cada familia —
+// en un mismo texto pueden coexistir familias distintas (E. coli +
+// gasoil), pero dentro de una familia solo cuenta la más específica
+const newsTopicKeys = (cause: string | null) => {
+  if (!cause) return [];
+  const seen = new Set<string>();
+  return NEWS_TOPIC_PATTERNS.filter((t) => {
+    if (seen.has(t.family) || !t.re.test(cause)) return false;
+    seen.add(t.family);
+    return true;
+  });
 };
 
 // Frase ganadora del grupo de un episodio: un episodio real tiene una
-// sola causa — el resto son paráfrasis de los medios. Gana el tema
-// más citado; en empate, el del titular más reciente (items llegan
-// ordenados desc por fecha). Enterococos + E. coli son parámetros
-// hermanos de la misma muestra → frase combinada
+// sola causa por familia — el resto son paráfrasis de los medios.
+// Gana la más específica presente (parámetro > fuente > genérico);
+// la mayoría de citas solo desempata al mismo nivel, y tras ella el
+// titular más reciente (items llegan ordenados desc por fecha).
+// Familias distintas combinan ("E. coli y vertido de hidrocarburos");
+// enterococos + E. coli son parámetros hermanos → frase combinada
 const newsGroupPhrase = (
   type: string,
   items: BeachNews[],
 ): string | null => {
-  if (type === 'reopening') {
-    return items.some((n) => n.cause)
-      ? 'mejora la calidad del agua'
-      : null;
+  if (type === 'reopening') return 'mejora la calidad del agua';
+  const fams = new Map<
+    string,
+    Map<string, { count: number; firstIdx: number }>
+  >();
+  items.forEach((n, i) => {
+    for (const t of newsTopicKeys(n.cause)) {
+      const fam = fams.get(t.family) ?? new Map();
+      const e = fam.get(t.key) ?? { count: 0, firstIdx: i };
+      e.count += 1;
+      fam.set(t.key, e);
+      fams.set(t.family, fam);
+    }
+  });
+  // Con cualquier específico presente, el genérico no compite
+  if (fams.size > 1) fams.delete('generico');
+  const topic = (key: string) =>
+    NEWS_TOPIC_PATTERNS.find((t) => t.key === key)!;
+  const phrases: { order: number; phrase: string }[] = [];
+  for (const [family, votes] of fams) {
+    if (family === 'generico') continue;
+    // bacterias con los dos parámetros nombrados → frase combinada
+    if (
+      family === 'bacterias' &&
+      votes.has('enterococos') &&
+      votes.has('ecoli')
+    ) {
+      phrases.push({
+        order: 0,
+        phrase: 'niveles elevados de enterococos y E. coli',
+      });
+      continue;
+    }
+    const [winner] = [...votes.entries()].reduce((a, b) => {
+      const [ta, tb] = [topic(a[0]), topic(b[0])];
+      if (ta.rank !== tb.rank) return ta.rank < tb.rank ? a : b;
+      if (a[1].count !== b[1].count)
+        return a[1].count > b[1].count ? a : b;
+      return a[1].firstIdx < b[1].firstIdx ? a : b;
+    });
+    const t = topic(winner);
+    phrases.push({ order: NEWS_TOPIC_PATTERNS.indexOf(t), phrase: t.phrase });
   }
-  const counts = new Map<string, number>();
-  for (const n of items) {
-    const k = newsTopicKey(n.cause);
-    if (!k || k === 'raw') continue;
-    counts.set(k, (counts.get(k) ?? 0) + 1);
+  if (phrases.length > 0) {
+    phrases.sort((a, b) => a.order - b.order);
+    const ps = phrases.map((p) => p.phrase);
+    return ps.length === 1
+      ? ps[0]
+      : `${ps.slice(0, -1).join(', ')} y ${ps[ps.length - 1]}`;
   }
-  if (counts.get('enterococos') && counts.get('ecoli')) {
-    return 'niveles elevados de enterococos y E. coli';
-  }
-  if (counts.size > 0) {
-    const max = Math.max(...counts.values());
-    const tied = new Set(
-      [...counts.keys()].filter((k) => counts.get(k) === max),
-    );
-    // items llegan desc por fecha: el primero empatado es el reciente
-    const winner = newsTopicKey(
-      items.find((n) => tied.has(newsTopicKey(n.cause) ?? ''))!.cause,
-    )!;
-    return NEWS_TOPIC_PATTERNS.find((t) => t.key === winner)!.phrase;
-  }
+  if (fams.has('generico')) return 'mala calidad del agua';
   // Sin tema catalogado: la causa cruda más reciente informa mejor
-  // que nada ("avance del mar" en Punta Larga)
-  return items.find((n) => n.cause)?.cause ?? null;
+  // que nada — salvo no-causas ("avance del mar" en Punta Larga)
+  return (
+    items.find((n) => n.cause && !NEWS_NON_CAUSE_RE.test(n.cause))
+      ?.cause ?? null
+  );
 };
 
 // Color por fase: cierre/contaminación rojo, aviso ámbar, reapertura
@@ -366,7 +441,9 @@ function NewsGroupList({
         const accent = accentOverride ?? NEWS_PHASE_COLOR[g.type];
         return (
           <View key={g.label} style={styles.newsGroup}>
-            <Text style={styles.newsGroupTitle}>{g.label}</Text>
+            <Text style={[styles.newsGroupTitle, { color: accent }]}>
+              {g.label}
+            </Text>
             {g.items.map((n) => (
               <NewsItemRow key={n.id} n={n} accent={accent} />
             ))}
@@ -448,10 +525,10 @@ export default function BeachDetail({
           items: [],
         }),
       );
-    if (unmonitored) return; // sin datos oficiales
     fetchBeachIncidents(feature.id)
       .then(setIncidents)
       .catch(() => setIncidents([]));
+    if (unmonitored) return; // sin mediciones oficiales
     fetchBeachQuality(feature.id)
       .then(setQuality)
       .catch(() => setQuality([]));
