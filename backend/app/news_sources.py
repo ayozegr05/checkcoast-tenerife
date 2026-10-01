@@ -66,6 +66,7 @@ def source_excluded(source: str | None) -> bool:
 # propósito ("No feed available") y adeje.es anuncia cierres solo en
 # redes. Sin feed localizado (sondeado 2026-09-30): Arona,
 # Los Realejos, Garachico, Guía de Isora, Arafo, Arico, La Matanza.
+# El Rosario encontrado 2026-10-02 (feed bajo /index.php/feed/).
 MUNICIPAL_FEEDS = {
     "Ayto. Tacoronte": "https://www.tacoronte.es/feed/",
     "Ayto. Candelaria": "https://www.candelaria.es/feed/",
@@ -78,6 +79,8 @@ MUNICIPAL_FEEDS = {
     "Ayto. Fasnia": "https://www.fasnia.com/feed/",
     "Ayto. La Victoria": "https://www.lavictoriadeacentejo.es/feed/",
     "Ayto. Güímar": "https://www.guimar.es/rss.xml",
+    # WordPress con permalinks index.php: el feed cuelga de ahí
+    "Ayto. El Rosario": "https://www.ayuntamientoelrosario.org/index.php/feed/",
     "Ayto. Santiago del Teide": "https://www.santiagodelteide.es/feed/",
     "Ayto. El Sauzal": "https://www.elsauzal.es/feed/",
     "Ayto. La Orotava": "https://www.laorotava.es/rss.xml",
