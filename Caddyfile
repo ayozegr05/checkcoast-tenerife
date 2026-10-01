@@ -1,3 +1,7 @@
 checkcoast.duckdns.org {
 	reverse_proxy api:8000
 }
+
+controlpick.duckdns.org {
+	reverse_proxy controlpick-backend:8000
+}
