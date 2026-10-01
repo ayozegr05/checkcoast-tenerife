@@ -1,5 +1,5 @@
 from collections import Counter
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 _MESES = (
     "ene", "feb", "mar", "abr", "may", "jun",
@@ -19,8 +19,12 @@ from sqlalchemy.orm import Session, selectinload
 from app.db import get_db
 from app.events import (
     PRESS_CLUSTER_GAP,
+    RETRO_WINDOW,
     Episode,
     SynthEvent,
+    _closed_since_date,
+    _in_window,
+    _is_structural,
     _min_closed_since,
     base_name,
     cluster_episodes,
@@ -37,8 +41,12 @@ from app.models import (
     Outfall,
 )
 from app.queries import (
+    _CAUSE_RANK,
+    _episode_params,
+    _params_in_text,
     _press_cause,
     _short_cause,
+    CONTAMINATION_CAUSES,
     beaches_with_latest_status,
     effective_states,
     is_ungraded_note,
@@ -105,6 +113,14 @@ def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
                     ),
                     "reported_at": (
                         status.reported_at.isoformat() if status else None
+                    ),
+                    # Cuándo empezó la alerta efectiva (press → fecha de
+                    # la noticia, no del scrape): ordena el desplegable
+                    "alerted_at": (
+                        eff[beach.id]["reported_at"].isoformat()
+                        if eff.get(beach.id, {}).get("alerted")
+                        and eff[beach.id].get("reported_at")
+                        else None
                     ),
                 },
             )
@@ -215,7 +231,7 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
             for it in beach.news_items
             if it.relevant
             and it.event_type in ("closure", "warning", "pollution")
-            and _short_cause(it.cause) == "Contaminación"
+            and _short_cause(it.cause) in CONTAMINATION_CAUSES
             and it.published_at
             and not any(
                 s <= it.published_at.date() <= e
@@ -294,11 +310,20 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
 
 
 def _dominant_cause(texts: list[str]) -> str | None:
-    """Causas crudas (LLM/observaciones) → categoría más frecuente."""
-    cats = [c for c in (_short_cause(t) for t in texts) if c]
-    if not cats:
+    """Causas crudas (LLM/observaciones) → etiqueta del episodio.
+    Gana la más específica (_CAUSE_RANK); la mayoría solo desempata
+    dentro del mismo nivel. Si los textos citan los dos parámetros
+    fecales, la etiqueta los muestra juntos."""
+    counts = Counter(c for c in (_short_cause(t) for t in texts) if c)
+    if not counts:
         return None
-    return Counter(cats).most_common(1)[0][0]
+    params: set[str] = set()
+    for t in texts:
+        if t:
+            params |= _params_in_text(t)
+    if params == {"E. coli", "Enterococos"}:
+        return "E. coli y enterococos"
+    return min(counts, key=lambda c: (_CAUSE_RANK.get(c, 9), -counts[c]))
 
 
 def _press_in_window(beach: Beach, start: date, end: date) -> list:
@@ -653,6 +678,13 @@ def _news_cause(items: list[NewsItem]) -> str | None:
     cat = _press_cause(items)
     if cat is None:
         return None
+    if cat == "E. coli y enterococos":
+        # Etiqueta compuesta: muestra el texto del ítem que nombre los
+        # dos parámetros (suele llevar la cifra, "E. coli >800 UFC…")
+        for it in items:
+            if _episode_params([it]) == {"E. coli", "Enterococos"}:
+                return it.cause
+        return cat
     for it in items:
         if _short_cause(it.cause) == cat:
             return it.cause
@@ -684,19 +716,116 @@ def beach_news(
         .all()
     )
     dominant = _event_mode(rows)
+    # Una reapertura real termina el episodio de cobertura: la
+    # cadena no se encadena a través de ella aunque el hueco sea
+    # <GAP (Jardín: cierres 12-ago→reapertura 4-sep→cierre 30-sep
+    # son TRES episodios; el cierre de hoy no "viene del 12-ago")
+    last_reopen = max(
+        (
+            r.published_at
+            for r in rows
+            if r.event_type == "reopening" and r.published_at
+        ),
+        default=None,
+    )
     # "Desde cuándo": inicio del episodio ACTUAL, no del titular más
     # viejo — un hueco >PRESS_CLUSTER_GAP entre cierres separa
     # episodios (El Médano: cierres de julio + cierres de septiembre;
-    # el banner debe anclar a septiembre, no a julio)
-    dates = sorted(
+    # el banner debe anclar a septiembre, no a julio) y una reapertura
+    # entre medios también rompe la cadena (Puertito: cierre 8-may →
+    # reapertura 9-may → cierre 5-jun son dos episodios, el "desde" es
+    # junio, no mayo)
+    reopen_dates = sorted(
         r.published_at for r in rows
-        if r.event_type == dominant and r.published_at
+        if r.event_type == "reopening" and r.published_at
+    )
+
+    # Cierre "retrospectivo": publicado DESPUÉS de la reapertura pero
+    # relata el episodio ya resuelto — lo delata su propio texto
+    # (closed_since ≤ reapertura) o falta de corroboración como suceso
+    # nuevo (un medio solo, sin cuerpo verificado). Un "cerrada de
+    # nuevo" real llega con varios medios o con fecha propia — un
+    # análisis tardío no puede resucitar el episodio (El Socorro:
+    # pieza del 25-sep sobre el cierre del miércoles 23, publicada
+    # tras la ola de reaperturas)
+    closure_rows = [
+        r
+        for r in rows
+        if r.event_type == "closure" and r.published_at
+    ]
+    outlets_by_day: dict[date, set] = {}
+    for r in closure_rows:
+        outlets_by_day.setdefault(r.published_at.date(), set()).add(
+            r.source or ""
+        )
+
+    def _is_new_episode_closure(r: NewsItem) -> bool:
+        if last_reopen is None or r.published_at <= last_reopen:
+            return True
+        cs = _closed_since_date(r.closed_since)
+        if cs is not None:
+            return cs > last_reopen.date()
+        # Pasada la ventana retrospectiva, un cierre de 1 solo medio
+        # es un suceso nuevo legítimo (Punta Larga). Dentro de ella,
+        # sin closed_since que lo sitúe después, hace falta ola de
+        # medios — body_verified solo dice que leyó el cuerpo, no que
+        # el suceso sea nuevo
+        return (
+            r.published_at - last_reopen > RETRO_WINDOW
+            or len(outlets_by_day.get(r.published_at.date(), set())) >= 2
+        )
+
+    dominant_rows = [
+        r for r in rows if r.event_type == dominant and r.published_at
+    ]
+    dates = sorted(r.published_at for r in dominant_rows)
+    if dominant == "closure" and last_reopen is not None:
+        post_reopen = [
+            r.published_at
+            for r in dominant_rows
+            if r.published_at > last_reopen and _is_new_episode_closure(r)
+        ]
+        if post_reopen:
+            dates = post_reopen
+    # Un episodio estructural ABIERTO no se parte por hueco de
+    # cobertura: nadie repite la misma noticia mientras dura la obra
+    # (Gaviotas: cierre jun-2026 y titular de sep es el mismo episodio
+    # vivo, no uno nuevo). El hueco >GAP solo separa cuando la causa
+    # es transitoria — ahí el silencio sí sugiere que reabrió sin
+    # cobertura
+    beach = db.get(Beach, beach_id)
+    evs = synthesize_events(beach) if beach else []
+    open_structural = dominant == "closure" and any(
+        e.via == "press" and e.closed_at is None and _is_structural(e)
+        for e in evs
     )
     since = None
+    prev = None
     for d in dates:
-        if since is None or d - prev > PRESS_CLUSTER_GAP:
+        boundary = prev is not None and (
+            (d - prev > PRESS_CLUSTER_GAP and not open_structural)
+            or any(prev < r < d for r in reopen_dates)
+        )
+        if since is None or boundary:
             since = d
         prev = d
+    # El inicio del episodio es la evidencia MÁS ANTIGUA disponible:
+    # si una incidencia oficial cubre la ventana, su opened_at manda
+    # sobre la primera cobertura de prensa (El Socorro: Náyade dice
+    # 21-sep aunque los titulares lleguen el 23 — la prensa llegó
+    # tarde). Si la prensa se adelanta, vale su fecha
+    if since is not None and beach is not None:
+        for inc in beach.incidents:
+            if is_ungraded_note(inc.observations):
+                continue
+            if _in_window(
+                since.date(), inc.opened_at, inc.closed_at, date.today()
+            ):
+                opened = datetime.combine(
+                    inc.opened_at, datetime.min.time(), tzinfo=timezone.utc
+                )
+                if opened < since:
+                    since = opened
     # closed_since: el propio texto puede afirmar un inicio real muy
     # anterior a la cobertura (Benijo: "cerrada desde julio de 2024"
     # aunque el titular sea de 2026). Si el episodio sigue abierto la
@@ -704,42 +833,86 @@ def beach_news(
     # ya se resolvió, solo el último clúster (el episodio del banner)
     closed_since = None
     if dominant == "closure":
-        beach = db.get(Beach, beach_id)
-        evs = synthesize_events(beach) if beach else []
         still_open = any(
             e.via == "press" and e.closed_at is None for e in evs
         )
-        pool = [
-            r
-            for r in rows
-            if r.event_type == "closure"
-            and (
-                still_open
-                or (
-                    since is not None
-                    and r.published_at
-                    and r.published_at >= since
+        if still_open:
+            # Solo los cierres posteriores a la última reapertura: una
+            # playa que reabrió de verdad no puede "seguir cerrada
+            # desde" antes de ella — Jardín reabrió en jun-2025 y un
+            # cierre de sep-2026 no arrastra el "2024-07" del episodio
+            # viejo. Sin reaperturas vale todo (Benijo)
+            pool = [
+                r
+                for r in rows
+                if r.event_type == "closure"
+                and r.published_at
+                and (
+                    last_reopen is None or r.published_at > last_reopen
                 )
-            )
-        ]
+            ]
+        else:
+            pool = [
+                r
+                for r in rows
+                if r.event_type == "closure"
+                and since is not None
+                and r.published_at
+                and r.published_at >= since
+            ]
         closed_since = _min_closed_since(
             r.closed_since for r in pool
         )
     # Titulares del ÚLTIMO episodio de cobertura: clúster encadenado
     # por fecha (hueco >PRESS_CLUSTER_GAP rompe), con cualquier tipo
     # de evento — la reapertura forma parte del episodio que cierra.
-    # El banner de la ficha despliega solo estos, no el saco de 30
+    # El banner de la ficha despliega solo estos, no el saco de 30.
+    # Si hay un evento nuevo DESPUÉS de la última reapertura, el
+    # episodio actual empieza ahí — el clúster anterior ya se resolvió
+    # La frontera del último episodio es la última reapertura ANTES
+    # del último cierre/aviso: Puertito cerró 5-jun tras reabrir el
+    # 9-may → su episodio actual son los titulares de junio; las
+    # reaperturas del 6-jun que lo resolvieron también forman parte
+    ep_pool = rows
+    last_adverse = max(
+        (
+            r.published_at
+            for r in rows
+            if r.published_at
+            and (
+                r.event_type in ("warning", "pollution")
+                or (
+                    r.event_type == "closure" and _is_new_episode_closure(r)
+                )
+            )
+        ),
+        default=None,
+    )
+    if last_adverse is not None:
+        ep_boundary = max(
+            (r for r in reopen_dates if r < last_adverse), default=None
+        )
+        if ep_boundary is not None:
+            ep_pool = [
+                r
+                for r in rows
+                if r.published_at and r.published_at > ep_boundary
+            ]
     ep_start = None
     prev_d = None
-    for d in sorted(r.published_at for r in rows if r.published_at):
-        if prev_d is not None and d - prev_d > PRESS_CLUSTER_GAP:
+    for d in sorted(r.published_at for r in ep_pool if r.published_at):
+        if (
+            prev_d is not None
+            and d - prev_d > PRESS_CLUSTER_GAP
+            and not open_structural
+        ):
             ep_start = d
         elif ep_start is None:
             ep_start = d
         prev_d = d
     episode_items = [
         r
-        for r in rows
+        for r in ep_pool
         if r.published_at and ep_start is not None
         and r.published_at >= ep_start
     ]

@@ -1,4 +1,3 @@
-import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
 
@@ -57,42 +56,92 @@ _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 # El LLM y Náyade escriben texto libre ("exceso de enterococos",
 # "contaminación fecal", "riesgo de desprendimientos en la ladera"...);
 # la lista de alertas solo quiere distinguir el tipo de problema.
+# Pirámide de especificidad: la causa nombrada (parámetro, fuente o
+# proceso concreto) manda; "calidad del agua"/"contaminación" a secas
+# es el fondo genérico — solo se usa si no hay nada más específico.
+# El orden del array fija la precedencia dentro de un mismo texto.
 _CAUSE_RULES = [
     (
+        # El mar socavando el terreno bajo el paseo (Punta Larga:
+        # caverna bajo la avenida) no es un desprendimiento ni un
+        # problema de agua — categoría propia, también estructural
         (
-            "coli", "enterococo", "contamin", "fecal", "bacteria",
-            "vertido", "residual", "gasoil", "calidad del agua",
-            "alga", "medusa",
+            "socav", "colaps", "cavern", "cavidad", "cueva",
+            "hundim", "horad", "erosion",
         ),
-        "Contaminación",
+        "Colapso del terreno",
     ),
     (
         ("desprend", "talud", "ladera", "derrumbe", "corrimiento"),
         "Desprendimientos",
     ),
+    (
+        # Parámetro medido nombrado explícitamente: nivel máximo de
+        # especificidad — "E. coli >800 UFC" informa más que
+        # "contaminación fecal" (variantes: e. coli, ecoli,
+        # escherichia coli… el "coli" las cubre todas)
+        ("coli", "escherichia"),
+        "E. coli",
+    ),
+    (("enterococo", "enterococcus"), "Enterococos"),
+    (
+        # Familia fecal sin parámetro nombrado: mejor que
+        # "Contaminación" a secas pero menos que el parámetro
+        ("fecal", "residual", "bacteria", "depuradora"),
+        "Contaminación fecal",
+    ),
+    (("gasoil", "hidrocarbur", "diesel", "fuel"), "Hidrocarburos"),
+    (("alga",), "Algas"),
     (("obra",), "Obras"),
     (
-        ("corriente", "oleaje", "temporal", "mar de fondo", "resaca"),
-        "Mar agitado",
+        ("contamin", "vertido", "calidad del agua", "medusa"),
+        "Contaminación",
     ),
 ]
-# Sin categoría "Acceso": "acceso prohibido"/"cierre de acceso"/"vallado"
-# describen el mecanismo del cierre, no su razón → no computan como causa.
-#
-# Claves que se comparan como PALABRA ENTERA, no substring: "temporal"
-# casa dentro de "temporalmente" (= de duración limitada) y falsaba
-# todas las observaciones de Náyade ("prohibido el baño temporalmente"
-# → Mar agitado, cuando Sanidad solo cierra por agua)
-_CAUSE_WORD_KEYS = {"temporal"}
+# Sin categoría "Acceso" ni "Mar agitado": "acceso prohibido",
+# "vallado", "oleaje", "temporal", "avance del mar"... describen el
+# mecanismo o el desencadenante, no la razón → no computan como causa.
+
+# Jerarquía entre categorías cuando un episodio tiene varias: gana la
+# más específica; la mayoría solo desempata dentro del mismo nivel y
+# el genérico ("Contaminación" por mala calidad del agua) va el último
+_CAUSE_RANK = {
+    "E. coli y enterococos": 0,
+    "E. coli": 0,
+    "Enterococos": 0,
+    "Colapso del terreno": 0,
+    "Desprendimientos": 0,
+    "Hidrocarburos": 0,
+    "Algas": 0,
+    "Contaminación fecal": 1,
+    "Obras": 1,
+    "Contaminación": 2,
+}
+
+# Parámetros de laboratorio: cuando un episodio cita ambos (típico —
+# la analítica mide los dos) la etiqueta los muestra juntos
+_WATER_PARAMS = {
+    "E. coli": ("coli", "escherichia"),
+    "Enterococos": ("enterococo", "enterococcus"),
+}
 
 # Causas estructurales: no se resuelven solas (hace falta obra civil o
 # el fin de una obra en marcha) → un cierre de prensa por esta causa
 # sigue vigente aunque no se vuelva a hablar de la playa (Benijo:
 # desprendimientos, ~2 años sin reapertura cubierta). El resto
-# (contaminación, mar agitado, sin causa) es transitorio: se resuelve
-# con el tiempo y el silencio de prensa sí es indicio de que ya pasó
-# (Puertito: bacterias fecales de 2025, sin seguimiento en 15 meses).
-_STRUCTURAL_CAUSES = {"Desprendimientos", "Obras"}
+# (contaminación, sin causa) es transitorio: se resuelve con el tiempo
+# y el silencio de prensa sí es indicio de que ya pasó (Puertito:
+# bacterias fecales de 2025, sin seguimiento en 15 meses).
+_STRUCTURAL_CAUSES = {"Desprendimientos", "Obras", "Colapso del terreno"}
+
+# Familia "agua": todo lo que Sanidad mide — para contar episodios de
+# contaminación en /beaches/stats
+CONTAMINATION_CAUSES = {
+    "Contaminación",
+    "Contaminación fecal",
+    "Hidrocarburos",
+    "Algas",
+}
 
 
 def _short_cause(text: str | None) -> str | None:
@@ -105,10 +154,7 @@ def _short_cause(text: str | None) -> str | None:
         if unicodedata.category(c) != "Mn"
     )
     for keys, label in _CAUSE_RULES:
-        if any(
-            re.search(rf"\b{k}\b", t) if k in _CAUSE_WORD_KEYS else k in t
-            for k in keys
-        ):
+        if any(k in t for k in keys):
             return label
     return None
 
@@ -129,9 +175,61 @@ def is_ungraded_note(obs: str | None) -> bool:
     return "sin calificar" in t and "prohib" not in t
 
 
+def _params_in_text(text: str | None) -> set[str]:
+    """Parámetros de laboratorio citados en un texto libre: una frase
+    que dice "E. coli y enterococos" aporta AMBOS."""
+    if not text:
+        return set()
+    t = "".join(
+        c
+        for c in unicodedata.normalize("NFD", text.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+    return {
+        label
+        for label, keys in _WATER_PARAMS.items()
+        if any(k in t for k in keys)
+    }
+
+
+def _episode_params(its: list[NewsItem]) -> set[str]:
+    """Parámetros citados por los titulares que cambian estado."""
+    found: set[str] = set()
+    for i in its:
+        if i.event_type not in ("closure", "warning", "pollution"):
+            continue
+        found |= _params_in_text(i.cause)
+    return found
+
+
 def _press_cause(its: list[NewsItem]) -> str | None:
-    """Causa dominante (categoría) entre los titulares que cambian
-    estado; en empate gana el más reciente (items ordenados desc)."""
+    """Causa ganadora (categoría) entre los titulares que cambian
+    estado. Especificidad primero (_CAUSE_RANK): la mayoría solo
+    desempata dentro del mismo nivel y, tras ella, el titular más
+    reciente (items ordenados desc). Si el episodio cita los dos
+    parámetros fecales se muestran juntos: "E. coli y enterococos"."""
+    counts: dict[str, int] = {}
+    for i in its:
+        if i.event_type not in ("closure", "warning", "pollution"):
+            continue
+        c = _short_cause(i.cause)
+        if c:
+            counts[c] = counts.get(c, 0) + 1
+    if not counts:
+        return None
+    if _episode_params(its) == {"E. coli", "Enterococos"}:
+        return "E. coli y enterococos"
+    return min(
+        counts,
+        key=lambda c: (_CAUSE_RANK.get(c, 9), -counts[c]),
+    )
+
+
+def _majority_cause(its: list[NewsItem]) -> str | None:
+    """Categoría más citada entre los titulares que cambian estado.
+    Distinto de _press_cause: aquí la MAYORÍA decide porque alimenta
+    la persistencia estructural — una mención minoritaria de "obras"
+    no debe eternizar un episodio de contaminación (Candelaria)."""
     counts: dict[str, int] = {}
     for i in its:
         if i.event_type not in ("closure", "warning", "pollution"):
@@ -304,7 +402,7 @@ def effective_states(db: Session) -> dict[int, dict]:
         persists = (
             ev is not None
             and ev.event_type == "closure"
-            and cause in _STRUCTURAL_CAUSES
+            and _majority_cause(its) in _STRUCTURAL_CAUSES
         )
         if not persists and newest < cutoff:
             continue
@@ -392,8 +490,13 @@ def effective_states(db: Session) -> dict[int, dict]:
             continue
         # Sanidad solo mide calidad de agua: un 'open' oficial no
         # contradice un cierre por causa estructural (no es su ámbito,
-        # p.ej. desprendimientos) — la excepción de abajo no aplica
-        structural = press_cause.get(beach_id) in _STRUCTURAL_CAUSES
+        # p.ej. desprendimientos) — la excepción de abajo no aplica.
+        # La persistencia la decide la causa mayoritaria, no la
+        # ganadora por especificidad: una mención suelta de "obras"
+        # no eterniza un episodio
+        structural = _majority_cause(by_beach[beach_id]) in (
+            _STRUCTURAL_CAUSES
+        )
         if official.get(beach_id) == BeachState.open.value and not structural:
             # Sanidad dice abierta: gana salvo ventana de gracia, y
             # siempre que haya prueba oficial de reapertura posterior a

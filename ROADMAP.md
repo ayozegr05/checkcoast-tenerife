@@ -449,7 +449,21 @@ cuerpo de las noticias, no en su fecha de publicación.
 | 10.10 | **CD — deploy automático**: job en `.github/workflows/` sobre `main` que despliega por SSH a la VM (clave en GitHub Secrets, rsync + restart del contenedor). Elimina el deploy manual por scp+docker cp — evita olvidos tipo `events.py` | Pendiente | 🟡 Medio |
 | 10.11 | **Landing más viva de lo que parece**: ya sirve datos en tiempo real (192 dots + alertas vivas por petición), pero los cierres estructurales largos leen como dato rancio ("hace 212 días" en "Alertas activas") y los 3 dots de alerta se pierden entre 192. Mejoras: dots de alerta destacados/pulsantes, "cerrada desde sep-2025" para cierres largos, y opcional mapa interactivo MapLibre | Pendiente | 🟢 Trivial / 🟡 Medio |
 
+## Hito 11 — Ficha de emisario enriquecida ⬜ *(propuesta 2026-09-30, aplazada: primero arreglar episodios de playas)*
+
+La ficha de emisario hoy solo muestra tipo + municipio + playas cercanas.
+El shapefile del Censo de Vertidos Tierra-Mar 2025 trae ~25 campos que
+`ingest_outfalls.py` descarta. Tres niveles, en orden de coste/impacto:
+
+| # | Tarea | Detalle | Esfuerzo |
+|---|-------|---------|----------|
+| 11.1 | **Ficha técnica del censo** (gratis, oficial) | Migración + ingesta de campos ya existentes: `NatVert` (agua residual urbana / salmuera…), `ContinVert` (Habitual vs excedencia-emergencia — un aliviadero solo vierte en episodios), `EstadoGral`/`EstadoFunc`, `TratPrev`/`TipoTrat`/`Desinfec`, `LongDifus`/`CotaVert`/`DiamFinal`, `ActivAfect` ("Zona de baño"), `EspProtDet` (ZEC/LIC), `Entidad`/`GestSan`, `DescrZona`, `NumAutoriz`. Sección "Ficha técnica" en `FeatureSheet` | 🟡 Medio |
+| 11.2 | **Noticias de vertidos cercanos** | Endpoint `/outfalls/{id}/news`: news_items de playas a <2 km cuyo título menciona emisario/vertido/aliviadero/depuradora/saneamiento. Reutiliza el pipeline de prensa. Etiqueta honesta en UI — sin afirmar que es *ese* emisario concreto | 🟡 Medio |
+| 11.3 | **Estado de vertido en el tiempo** | Correlación episodios de cierre por contaminación fecal en playas próximas ↔ emisario de aguas residuales habitual → anotación "episodios de contaminación en playas próximas" SIN acusar causalidad. Opcional: re-ingesta anual del censo SITCAN (snapshot por años). Disclaimer fuerte obligatorio | 🔴 Alto |
+
 ---
+
+
 
 ### Estado actual
 **Hito activo:** 9 — Portfolio (quedan capturas/vídeo del APK, repo
@@ -480,3 +494,7 @@ cerradas Gaviotas/Benijo/Garachico (desprendimientos, estructural).
 APK release local regenerada con toda la UI final (leyenda corregida).
 Pendiente: 9.2 capturas del APK → 9.5 GitHub → 9.6 vídeo → 9.7 LinkedIn;
 8.8 verificación App Links E2E (requiere build firmada por EAS)
+**2026-09-30:** documentado Hito 11 (ficha de emisario: censo completo →
+noticias cercanas → correlación vertido↔cierre). Antes: arreglar
+episodios de prensa en playas (Puertito: faltan reaperturas 9-may y
+6-jun; ficha unmonitored no pide /incidents; item 485 mal casado)

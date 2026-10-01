@@ -27,10 +27,12 @@ from app.config import settings
 from app.db import SessionLocal
 from app.models import Beach, BeachState, BeachStatus, NewsItem
 from app.news_llm import EventExtraction, GeminiExtractor, extract_event
-from app.news_matching import match_beaches
+from app.news_matching import _MIN_NAME_LEN, _press_key, match_beaches
 from app.news_resolve import resolve_and_fetch
 from app.news_sources import (
     GUIA_SOURCE,
+    MEDIA_FEEDS,
+    MUNICIPAL_FEEDS,
     RawArticle,
     fetch_guia_page,
     fetch_guia_sitemap,
@@ -40,6 +42,10 @@ from app.news_sources import (
 from app.queries import _short_cause
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def _norm_key(s: str | None) -> str:
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
 # Solo estos eventos de prensa despiertan el móvil; el resto queda como
 # contexto en la ficha
@@ -109,9 +115,12 @@ def _press_push_candidate(
 
 
 # Causas ya específicas (parámetro medido, sustancia o fenómeno físico
-# nombrado): con ellas el cuerpo no añadiría nada al porqué.
+# nombrado): con ellas el cuerpo no añadiría nada al porqué. OJO:
+# "fecal" NO es terminal — es la familia; el parámetro real (E. coli /
+# enterococos) suele vivir solo en el cuerpo, así que "contaminación
+# fecal" a secas SÍ dispara la descarga.
 _SPECIFIC_CAUSE_KEYS = (
-    "enterococo", "coli", "fecal", "gasoil", "hidrocarburo", "fuel",
+    "enterococo", "coli", "gasoil", "hidrocarburo", "fuel",
     "alga", "medusa", "desprend", "talud", "derrumbe", "corrimiento",
     "colapso", "socav",
 )
@@ -132,6 +141,28 @@ def _cause_is_generic(cause: str | None) -> bool:
     return not any(k in t for k in _SPECIFIC_CAUSE_KEYS)
 
 
+def _name_is_ambiguous(
+    ext: EventExtraction, hits: list[Beach], beaches: list[Beach]
+) -> bool:
+    """El nombre extraído también es parte del nombre de otra playa
+    distinta a las casadas — el titular pudo nombrar la localidad y
+    no la playa ("una playa de El Médano" siendo en realidad Leocadio
+    Machado). Merece el cuerpo para desambiguar."""
+    target = _press_key(ext.beach_name or "")
+    if len(target) < _MIN_NAME_LEN:
+        return False
+    hit_ids = {b.id for b in hits}
+    for b in beaches:
+        if b.id in hit_ids:
+            continue
+        keys = [_press_key(b.name)] + [
+            _press_key(a) for a in (getattr(b, "press_aliases", None) or [])
+        ]
+        if any(target in k and k != target for k in keys):
+            return True
+    return False
+
+
 def _enrich_with_body(
     art: RawArticle,
     ext: EventExtraction,
@@ -139,7 +170,11 @@ def _enrich_with_body(
     beaches: list[Beach],
     extractor,
     rescue: bool = False,
-) -> tuple[EventExtraction | None, list[Beach], bool]:
+) -> tuple[EventExtraction | None, list[Beach], bool, bool]:
+    """Devuelve (ext, hits, consumió_descarga, verificado_por_cuerpo).
+    `verificado_por_cuerpo` es True cuando la extracción devuelta se
+    obtuvo del cuerpo completo — distinto de la mera descarga, que
+    también ocurre cuando el fetch del cuerpo falla."""
     """Segunda pasada híbrida: titular → cuerpo del artículo.
 
     Se dispara cuando el titular no basta: noticia relevante que no casó
@@ -151,7 +186,12 @@ def _enrich_with_body(
     titular que habla de "materiales de obra"/"obras de emergencia" suele
     describir el mecanismo y el cuerpo revela el vertido o el
     desprendimiento real (Candelaria: "obstrucción por materiales de
-    obra" era un vertido). Devuelve (ext, hits, consumió_descarga).
+    obra" era un vertido).
+
+    Las reaperturas SIEMPRE pasan por cuerpo: es el evento más caro de
+    equivocar (marcaría abierta una playa cerrada) y un titular ambiguo
+    tipo "agilizan las obras para reabrir" se desmonta leyendo el texto
+    — un medio con cuerpo verificado vale como corroboración de episodio.
 
     `rescue=True` (re-extracción): un ítem guardado como relevante cuya
     nueva lectura del titular dice no-relevante se contrasta con el
@@ -160,35 +200,37 @@ def _enrich_with_body(
     "sin evidencia nueva: conservar la fila como estaba"."""
     if not ext.relevant:
         if not rescue:
-            return ext, hits, False
+            return ext, hits, False, False
         body = resolve_and_fetch(art.url)
         if not body:
-            return None, hits, True
+            return None, hits, True, False
         ext2 = extract_event(replace(art, body=body), extractor)
         time.sleep(2)
         if ext2 is not None and ext2.relevant:
-            return ext2, match_beaches(ext2, beaches, title=art.title), True
+            return ext2, match_beaches(ext2, beaches, title=art.title), True, True
         if ext2 is None:
-            return None, hits, True
-        return ext, hits, True  # el cuerpo confirma: no relevante
+            return None, hits, True, False
+        return ext, hits, True, False  # el cuerpo confirma: no relevante
     cause = _short_cause(ext.cause)
     if (
         hits
+        and ext.event_type != "reopening"
         and cause is not None
         and cause != "Obras"
         and not _cause_is_generic(ext.cause)
+        and not _name_is_ambiguous(ext, hits, beaches)
     ):
-        return ext, hits, False
+        return ext, hits, False, False
     body = resolve_and_fetch(art.url)
     if not body:
-        return ext, hits, True
+        return ext, hits, True, False
     ext2 = extract_event(replace(art, body=body), extractor)
     time.sleep(2)  # segunda llamada LLM: respirar igual que la primera
     if ext2 is None or not ext2.relevant:
         # el titular parecía relevante: no degradar por un cuerpo quizá
         # truncado o de paywall
-        return ext, hits, True
-    return ext2, match_beaches(ext2, beaches, title=art.title), True
+        return ext, hits, True, False
+    return ext2, match_beaches(ext2, beaches, title=art.title), True, True
 
 
 def _push_key(beach: Beach, event_type: str) -> tuple[str, str, str]:
@@ -219,8 +261,21 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
         hits = match_beaches(ext, beaches, title=item.title)
         if not hits:
             continue
-        item.beach_id = hits[0].id
-        for b in hits[1:]:  # misma playa, otro PM: replica la noticia
+        # La URL puede tener ya réplicas casadas a algunos de los hits
+        # — solo se asignan playas sin fila, o revienta el unique
+        # (url, beach_id)
+        existing = {
+            r
+            for (r,) in db.query(NewsItem.beach_id).filter(
+                NewsItem.url == item.url,
+                NewsItem.beach_id.isnot(None),
+            )
+        }
+        free_hits = [b for b in hits if b.id not in existing]
+        if not free_hits:
+            continue
+        item.beach_id = free_hits[0].id
+        for b in free_hits[1:]:  # misma playa, otro PM: replica la noticia
             db.add(
                 NewsItem(
                     url=item.url,
@@ -235,6 +290,7 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
                     extracted_beach=item.extracted_beach,
                     extracted_municipality=item.extracted_municipality,
                     confidence=item.confidence,
+                    body_verified=item.body_verified,
                 )
             )
         rematched += 1
@@ -391,13 +447,30 @@ def run() -> tuple[int, int, int]:
     ] = {}
     try:
         seen = {url for (url,) in db.query(NewsItem.url).all()}
-        fresh = [
-            a
-            for a in articles
-            if a.url
-            and a.url not in seen
-            and not source_excluded(a.source)
-        ]
+        # Mismo artículo por dos vías (redirect Google News + URL directa
+        # del feed del medio): dedup extra por (título, medio, día). El
+        # source se compara por contención normalizada — Google guarda
+        # "diariodeavisos.elespanol.com" y el feed "Diario de Avisos"
+        feed_labels = set(MUNICIPAL_FEEDS) | set(MEDIA_FEEDS)
+        seen_triples = {
+            (_norm_key(t), _norm_key(s), p.date() if p else None)
+            for t, s, p in db.query(
+                NewsItem.title, NewsItem.source, NewsItem.published_at
+            )
+        }
+        fresh = []
+        for a in articles:
+            if not a.url or a.url in seen or source_excluded(a.source):
+                continue
+            if a.source in feed_labels:
+                tk, sk = _norm_key(a.title), _norm_key(a.source)
+                day = a.published_at.date() if a.published_at else None
+                if any(
+                    et == tk and ed == day and (ek in sk or sk in ek)
+                    for et, ek, ed in seen_triples
+                ):
+                    continue
+            fresh.append(a)
         fresh.sort(key=lambda a: a.published_at or _EPOCH, reverse=True)
         beaches = db.query(Beach).all()
         body_left = settings.news_max_body_fetches
@@ -411,8 +484,9 @@ def run() -> tuple[int, int, int]:
                 match_beaches(ext, beaches, title=art.title)
                 if ext.relevant else []
             )
+            verified = False
             if body_left > 0:
-                ext, hits, used = _enrich_with_body(
+                ext, hits, used, verified = _enrich_with_body(
                     art, ext, hits, beaches, extractor
                 )
                 body_left -= used
@@ -430,6 +504,7 @@ def run() -> tuple[int, int, int]:
                     extracted_beach=ext.beach_name,
                     extracted_municipality=ext.municipality,
                     confidence=ext.confidence,
+                    body_verified=verified,
                 )
                 if beach and _press_push_candidate(
                     db, beach, ext.event_type, art.published_at

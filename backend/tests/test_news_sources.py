@@ -104,6 +104,7 @@ def test_municipal_feeds_prefilter(monkeypatch):
         "MUNICIPAL_FEEDS",
         {"Ayto. Prueba": "https://ejemplo.es/feed/"},
     )
+    monkeypatch.setattr(news_sources, "MEDIA_FEEDS", {})
     monkeypatch.setattr(requests, "get", lambda *a, **k: FakeMuniResp())
     arts = fetch_municipal_feeds()
     assert len(arts) == 1
@@ -122,6 +123,7 @@ def test_municipal_feeds_dead_feed_no_abort(monkeypatch):
             "Vivo": "https://ejemplo.es/feed/",
         },
     )
+    monkeypatch.setattr(news_sources, "MEDIA_FEEDS", {})
 
     def fake_get(url, *a, **k):
         if "caido" in url:

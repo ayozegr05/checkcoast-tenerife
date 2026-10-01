@@ -100,6 +100,13 @@ Si relevant=true extrae:
   La causa es el evento, no el origen upstream de la avería que lo
   provocó: "obstrucción de la red de saneamiento que causó un vertido"
   → "vertido"; "rotura de tubería que vertió al mar" → "vertido".
+  Si el texto nombra el parámetro o la sustancia concreta medida
+  (E. coli, Escherichia coli, enterococos, gasoil, microalgas...),
+  nómbrala en la causa — "niveles de E. coli" y no "bacterias
+  fecales"; la etiqueta visible debe ser lo más específica que el
+  texto permita. Si el texto da la cifra medida, inclúyela:
+  "E. coli >800 UFC/100 mL", "enterococos 410 UFC/100 mL". Si cita
+  varios parámetros, nómbralos TODOS: "E. coli y enterococos".
   NO son causa:
   · el propio cierre y su mecanismo ("acceso prohibido", "cierre de
     acceso", "vallado", "multas", "desalojo") — eso ES el cierre → null
@@ -112,7 +119,9 @@ Si relevant=true extrae:
   playa — distinto de cuándo se publica la noticia. Ejemplos:
   "cerrada desde julio de 2024" → "2024-07"; "clausurada en 2024" →
   "2024"; "lleva cerrada desde el lunes 15" → "YYYY-MM-DD" si la
-  fecha es deducible. ISO parcial: YYYY, YYYY-MM o YYYY-MM-DD según
+  fecha es deducible. Relativos ("este miércoles", "ayer", "la semana
+  pasada") se resuelven contra la FECHA DE PUBLICACIÓN — nunca
+  inventes el año. ISO parcial: YYYY, YYYY-MM o YYYY-MM-DD según
   la precisión que afirme el texto. Si el cierre ya quedó en el
   pasado ("estuvo cerrada en 2024 pero reabrió") no uses
   closed_since: marca event_type según el estado actual del texto
@@ -179,6 +188,13 @@ class GeminiExtractor:
         text = PROMPT + (
             f'\nTitular: "{article.title}"\nMedio: "{article.source or ""}"'
         )
+        if article.published_at:
+            # Ancla temporal: "este miércoles"/"ayer" se resuelven con
+            # la fecha real de la noticia — sin ella el modelo inventa
+            # el año en closed_since
+            text += (
+                f'\nFecha de publicación: {article.published_at:%Y-%m-%d}'
+            )
         if article.body:
             text += f'\nTexto de la noticia (extracto):\n"{article.body[:3000]}"'
         resp = self._post(text)

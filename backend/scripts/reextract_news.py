@@ -60,8 +60,19 @@ def main() -> None:
             q = q.join(Beach, NewsItem.beach_id == Beach.id).filter(
                 Beach.name.ilike(f"%{args.beach}%")
             )
+        # El filtro por playa elige QUÉ URLs se procesan, pero cada
+        # URL se actualiza con TODAS sus réplicas (la misma noticia
+        # casada a varios PMs/playas) — si solo cargáramos las filas
+        # filtradas, el re-match pisaría réplicas ajenas y violaría
+        # el unique (url, beach_id)
+        sel = q.all()
+        urls = {it.url for it in sel}
         by_url: dict[str, list[NewsItem]] = {}
-        for it in q.all():
+        for it in (
+            db.query(NewsItem).filter(NewsItem.url.in_(urls)).all()
+            if urls
+            else []
+        ):
             by_url.setdefault(it.url, []).append(it)
         beaches = db.query(Beach).all()
 
@@ -77,7 +88,7 @@ def main() -> None:
                 match_beaches(ext, beaches, title=art.title)
                 if ext.relevant else []
             )
-            ext, hits, used = _enrich_with_body(
+            ext, hits, used, verified = _enrich_with_body(
                 art,
                 ext,
                 hits,
@@ -100,6 +111,45 @@ def main() -> None:
                 row.extracted_beach = ext.beach_name
                 row.extracted_municipality = ext.municipality
                 row.confidence = ext.confidence
+                row.body_verified = verified
+            # Re-casar filas ya casadas: el cuerpo puede corregir la
+            # playa ("una playa de El Médano" era Leocadio Machado) —
+            # extracted_beach nuevo sin beach_id nuevo es el bug que
+            # dejaba la noticia en la playa equivocada
+            if ext.relevant:
+                hit_ids = {b.id for b in hits}
+                if hit_ids != {r.beach_id for r in rows}:
+                    # Reasignar sin violar (url, beach_id): las filas ya
+                    # bien casadas se quedan; solo las que perdieron su
+                    # playa se mueven a hits sin fila o quedan libres
+                    free_rows = [
+                        r for r in rows if r.beach_id not in hit_ids
+                    ]
+                    for beach in hits:
+                        if any(r.beach_id == beach.id for r in rows):
+                            continue
+                        if free_rows:
+                            free_rows.pop(0).beach_id = beach.id
+                        else:
+                            db.add(
+                                NewsItem(
+                                    url=url,
+                                    title=rows[0].title,
+                                    source=rows[0].source,
+                                    published_at=rows[0].published_at,
+                                    relevant=True,
+                                    beach_id=beach.id,
+                                    event_type=ext.event_type,
+                                    cause=ext.cause,
+                                    closed_since=ext.closed_since,
+                                    extracted_beach=ext.beach_name,
+                                    extracted_municipality=ext.municipality,
+                                    confidence=ext.confidence,
+                                    body_verified=verified,
+                                )
+                            )
+                    for row in free_rows:
+                        row.beach_id = None
             db.commit()
             updated += 1
             print(

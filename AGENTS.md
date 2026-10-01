@@ -44,12 +44,25 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     `fetch_guia_sitemap`/`fetch_guia_page`: fichas evergreen de Guía
     Islas Canarias (sitio Astro, sin RSS → sitemap-0.xml con
     `lastmod`; ~50 fichas de playa de Tenerife) +
-    `fetch_municipal_feeds`: RSS de webs de ayuntamientos (Tacoronte,
-    Candelaria, La Laguna Ahora — Pto. de la Cruz tiene feeds
-    desactivados, Adeje anuncia solo en redes) con prefiltro léxico de
+    `fetch_municipal_feeds`: RSS de webs municipales/oficiales
+    (Tacoronte, Candelaria, La Laguna Ahora, Granadilla, Icod,
+    Santa Úrsula, San Miguel, Buenavista, Fasnia, La Victoria,
+    Güímar ayto, Santiago del Teide, El Sauzal, La Orotava,
+    noticias Gobierno de Canarias, Valle de Güímar — Pto. de la
+    Cruz tiene feeds desactivados, Adeje anuncia solo en redes;
+    sin feed localizado: Arona, Los Realejos, Garachico,
+    Guía de Isora, Arafo, Arico, La Matanza) con prefiltro léxico de
     titular (playa/baño/vertido/costero…) para no gastar Gemini en
     fiestas y deportes; fuente primaria hacia adelante — el feed solo
-    trae los últimos ~10-20 posts
+    trae los últimos ~10-20 posts. El parser tolera BOM/líneas y
+    comentarios HTML antes del `<?xml` (El Sauzal, La Orotava) y
+    reintenta sin verificación TLS ante cert autofirmado
+    (Buenavista, Fasnia) + `MEDIA_FEEDS`: feeds directos de medios
+    serios (Diario de Avisos Tenerife, Canarias7 Tenerife, Europa
+    Press Islas Canarias ch=287) — quita la dependencia de que Google
+    priorice la pieza (Puertito: reaperturas del 9-may y 6-jun 2025
+    cubiertas por 3-4 medios nunca entraron por RSS de Google).
+    Dedup feed↔Google por (título, medio, día) en la ingesta
   - `app/news_llm.py` — `extract_event(article)` detrás de interfaz
     `NewsExtractor`; `GeminiExtractor` (REST, JSON por esquema,
     thinking off, retries); `cause` = razón de fondo, nunca mecanismo
@@ -74,14 +87,22 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
   - `scripts/` — `ingest_outfalls.py`, `ingest_beaches.py` (censo MITECO
     + solver ALTCHA), `ingest_beach_status.py` (scraper Náyade),
     `ingest_osm_beaches.py` (Overpass), `ingest_news.py` (prensa → LLM
-    → `news_items`, con segunda pasada cuerpo si el titular no aclara
-    o la causa es genérica ("mala calidad del agua", "vertido" a secas
-    — el cuerpo suele nombrar el parámetro o la sustancia real);
+    → `news_items`, con segunda pasada cuerpo si el titular no aclara,
+    la causa es genérica ("mala calidad del agua", "vertido" a secas
+    — el cuerpo suele nombrar el parámetro o la sustancia real) o el
+    nombre extraído es ambiguo (clave contenida en una playa hermana:
+    "El Médano" ⊂ "El Médano-Leocadio Machado" — `_name_is_ambiguous`
+    fuerza el cuerpo aunque la causa ya sea específica); tras la
+    pasada de cuerpo se vuelve a llamar a `match_beaches` con el
+    `beach_name` corregido — el match del titular NO se conserva si el
+    cuerpo identifica otra playa (caso jul-2026: "una playa de El
+    Médano" casada a PM3 siendo Leocadio Machado);
     `_sync_guia` re-extrae fichas de la Guía solo cuando cambia su
     `lastmod`, tope `news_max_guia_fetches`=10/pasada, nunca push),
     `reextract_news.py` (refresca extracciones guardadas: `--beach`,
-    `--max`, `--all`; NO toca filas de la Guía — solo-titular las
-    degradaría)
+    `--max`, `--all`; re-casa `beach_id` si la nueva extracción
+    identifica otra playa, creando/limpiando réplicas por PM; NO toca
+    filas de la Guía — solo-titular las degradaría)
   - `alembic/` — migraciones (`alembic upgrade head`)
   - `tests/` — pytest: `test_api.py`, `test_nayade_parser.py`,
     `test_osm_ingest.py`, `test_news_matching.py`, `test_news_llm.py`.
@@ -199,7 +220,15 @@ npx tsc --noEmit                                        # typecheck
   de Abona"); sin municipio solo casa clave exacta y única en toda la
   isla
 - **Episodios de prensa** (`events.py`): clústeres de cierres separados
-  por >45 d (`PRESS_CLUSTER_GAP`) son episodios distintos — la
+  por >45 d (`PRESS_CLUSTER_GAP`) son episodios distintos — pero el
+  hueco NO parte un episodio ESTRUCTURAL abierto (Gaviotas: un
+  titular 90 d después sobre la misma obra es el mismo episodio; solo
+  una reapertura lo cierra). Un cierre publicado DESPUÉS de una
+  reapertura es retrospectiva del episodio resuelto salvo que afirme
+  suceso nuevo (closed_since posterior) o sea ola de ≥2 medios;
+  pasada la ventana RETRO_WINDOW (7 d) un cierre de 1 medio sí abre
+  episodio (El Socorro: pieza de análisis del 25-sep sobre el cierre
+  del 23 no resucita el episodio que reabrió el 24). La
   pertenencia se mide por cobertura (`last_closure`), porque
   `closed_since` puede retroceder el inicio años atrás (Benijo: la
   guía afirma "cerrada desde julio de 2024" → el episodio abre en
@@ -209,13 +238,37 @@ npx tsc --noEmit                                        # typecheck
   reciente a ≤GAP de la reapertura, o el único abierto (un cierre
   estructural puede durar años). Con varios abiertos, la reapertura
   lejana no resucita episodios caducados (Médano: la reapertura del
-  25/09 resuelve el cierre del 23/09, no el de julio). Misma regla de
+  25/09 resuelve el cierre del 23/09, no el de julio). La prensa se
+  recorre en orden cronológico, cierres y reaperturas entremezclados:
+  una reapertura hace de FRONTERA — los cierres posteriores son otro
+  episodio aunque el hueco sea <GAP (Jardín reabrió el 14-ago y el
+  4-sep entre cierres). Al fusionar episodios contiguos (playa que
+  sigue cerrada), la frontera solo se respeta si la reapertura quedó
+  corroborada: muestra apta o incidencia oficial cerrada entre ella y
+  el cierre siguiente, o ≥2 medios la recogieron — sin corroboración
+  era ruido ("agilizan las obras") y los clústeres se funden (Benijo).
+  Misma regla de
   causa que /alerts: un episodio estructural abierto NUNCA caduca por
   silencio (sin `end_estimated` — sigue `closed_at=None` hasta
   reapertura); los transitorios sí (`fin aprox = última mención`).
   `/beaches/{id}/news` ancla `summary.since` al inicio del último
   clúster de cobertura, no al titular más viejo de la lista, y expone
-  `summary.closed_since` (el frontend lo prefiere: "desde jul-2024")
+  `summary.closed_since` (el frontend lo prefiere: "desde jul-2024").
+  El `since` se retrotrae a la incidencia oficial solapada si es más
+  antigua (evidencia más temprana manda: Socorro muestra 21-sep,
+  no el 23 de la primera noticia)
+- **Causas** (`_CAUSE_RULES`/`_CAUSE_RANK`): las categorías van de lo
+  específico a lo genérico — parámetro medido ("E. coli",
+  "Enterococos") > familia ("Contaminación fecal") > genérico
+  ("Contaminación"); un episodio que cita ambos parámetros muestra la
+  etiqueta compuesta "E. coli y enterococos". "fecal" NO está en
+  `_SPECIFIC_CAUSE_KEYS` de la ingesta: una causa "aguas fecales" sin
+  parámetro dispara la descarga del cuerpo para encontrar el
+  parámetro real y su cifra ("E. coli >800 UFC/100 mL").
+  Una reapertura real también rompe la cadena: si hay cierres tras la
+  última reapertura, `since`/`episode_items` solo miran los ítems
+  posteriores (Jardín: cierre 30-sep no arrastra titulares de ago/sep
+  de episodios ya reabiertos)
 - **Guía Islas Canarias** (`_sync_guia` en ingest): fichas evergreen por
   playa del sitemap (sin RSS); `lastmod` evita re-descargas de fichas
   sin cambios; cada ficha se descarga entera (trafilatura) y se extrae
@@ -231,17 +284,25 @@ npx tsc --noEmit                                        # typecheck
   = mismo episodio publicado tarde → efectivo `open`; evidencia
   posterior = evento nuevo → `closed`+push. Una incidencia ABIERTA
   solo la suprime una reapertura corroborada por ≥2 medios distintos
+  o un medio con extracción verificada contra el cuerpo
+  (`news_items.body_verified` — las reaperturas siempre pasan por la
+  segunda pasada con texto completo: el "agilizan las obras para
+  reabrir" se desmonta leyendo, y en playas sin Náyade no existe
+  prueba oficial posible)
   (caso Gaviotas: un titular "obras PARA reabrir" mal clasificado no
   puede abrir una prohibición vigente). **Caducidad de la prensa por
   naturaleza de la causa**: un `closure` por causa estructural
-  (`_STRUCTURAL_CAUSES`: Desprendimientos, Obras) persiste sin límite
-  hasta reapertura explícita — nadie repite la misma noticia cada mes
-  mientras dura (Benijo ~2 años cerrada solo con prensa administrativa)
-  — y un `open` oficial tampoco lo contradice (Sanidad solo mide agua,
-  no taludes); el resto (Contaminación, Mar agitado, avisos sin cierre
-  confirmado, sin causa) caduca a los 21 d sin seguimiento, sea o no
-  monitorizada (Puertito: bacterias fecales de 2025 sin reapertura
-  cubierta)
+  (`_STRUCTURAL_CAUSES`: Desprendimientos, Obras, Colapso del terreno)
+  persiste sin límite hasta reapertura explícita — nadie repite la
+  misma noticia cada mes mientras dura (Benijo ~2 años cerrada solo
+  con prensa administrativa) — y un `open` oficial tampoco lo
+  contradice (Sanidad solo mide agua, no taludes); el resto
+  (Contaminación, avisos sin cierre confirmado, sin causa) caduca a
+  los 21 d sin seguimiento, sea o no monitorizada (Puertito: bacterias
+  fecales de 2025 sin reapertura cubierta). La persistencia la decide
+  la causa MAYORITARIA (`_majority_cause`), no la ganadora por
+  especificidad: una mención suelta de "obras" no eterniza un episodio
+  de contaminación (Candelaria)
 - **Umbrales calidad** (RD 1341/2007, costeras): E. coli ≤250/≤500/>500,
   enterococo ≤100/≤200/>200 → Excelente/Buena/Insuficiente
 - **Manual**: `POST /beaches/{id}/status` {"status": open|closed|warning}
@@ -312,9 +373,10 @@ Reglas de precedencia aprobadas por el usuario:
 - **Parámetro nombrado gana a causa-fuente**: si cualquier titular del
   episodio nombra enterococos/E. coli, la etiqueta es bacteriana aunque
   la mayoría diga "contaminación fecal" o "vertido" (E. coli > fecal).
-  Pendiente: el ganador actual es por mayoría de citas — hay que
-  cambiarlo a "la causa más específica presente gana" (params >
-  fuente > genérico); entre el mismo nivel, la más citada/reciente.
+  Implementado (30-sep): `NEWS_TOPIC_PATTERNS` lleva `family`+`rank` —
+  gana el menor rank presente por familia; la mayoría de citas solo
+  desempata al mismo nivel (y tras ella, el más reciente). Familias
+  distintas combinan ("E. coli y vertido de hidrocarburos").
 - Enterococos + E. coli conviviendo → frase combinada
   `niveles elevados de enterococos y E. coli`.
 - En un mismo titular: `desprendimientos` gana a `obras` (la obra es la
@@ -330,10 +392,19 @@ Reglas de precedencia aprobadas por el usuario:
 - **Reapertura**: etiqueta fija `REAPERTURA · MEJORA LA CALIDAD DEL
   AGUA` — nunca hereda la causa extraída (suele ser eco del cierre:
   "bacterias fecales" en una reapertura).
-- **"Mar agitado"/"avance del mar" no son causas** (son desencadenante
-  o mala extracción): nunca se muestran. Punta Larga = mar socavando
-  el terreno bajo el paseo → `riesgo de colapso del terreno`
-  (patrón socav/cavidad/cueva/erosión/hundimiento/colapso).
+- **"Mar agitado"/"avance del mar"/"oleaje"/"temporal" no son causas**
+  (son desencadenante o mala extracción): nunca se muestran y en el
+  backend `_short_cause` devuelve `None` (30-sep: categoría "Mar
+  agitado" eliminada de `_CAUSE_RULES`). Punta Larga = mar socavando
+  el terreno bajo el paseo → `riesgo de colapso del terreno` (patrón
+  socav/cavidad/cueva/erosión/hundimiento/colapso/horad; categoría
+  backend `Colapso del terreno`, estructural).
+- **Pirámide backend** (`_CAUSE_RANK`): categorías específicas
+  (Colapso del terreno, Desprendimientos, Contaminación fecal,
+  Hidrocarburos, Algas) > Obras > Contaminación genérica ("mala
+  calidad del agua" va la última). `_press_cause`/`_dominant_cause`
+  etiquetan por especificidad; `_majority_cause` decide persistencia
+  por mayoría.
 
 Matching: `press_aliases` (columna Beach) para nombres de prensa
 ("Bajamar" → PISCINAS NATURALES DE BAJAMAR PM1/PM2; "Los Guanches" →
@@ -382,16 +453,15 @@ UPDATE `relevant`/`press_aliases`/`closed_since` + `_rematch_pending`
 
 ## Pendiente inmediato
 
-- **Reparar datos de prod tras la re-extracción de 2026-09-30**: Jardín
-  puede mostrarse cerrada estando abierta (reaperturas degradadas a
-  `relevant=false` + cierre fantasma de la pieza PSOE con
-  `closed_since=2025-06-23`). Auditar `relevant`/`closed_since` de
-  todas las URLs procesadas ese día; restaurar lo degradado injusto y
-  anular `closed_since` históricos inventados
-- **Frontend `groupNewsItems`**: el ganador de etiqueta pasa de mayoría
-  de citas a "la más específica presente" (parámetro nombrado >
-  causa-fuente > genérico) — queja del usuario: episodios con E. coli
-  etiquetaban "vertido de aguas fecales"
+- **Reparado el 30-sep**: datos de prod saneados tras la re-extracción
+  (backup en VM `/tmp/news_items_pre_repair_20260930.sql`): restaurados
+  ~20 `relevant` injustos (Bandera roja Médano/Socorro, reapertura
+  404 recasada a mano, Benijo enforcement), degradada la pieza PSOE
+  fantasma (58-60) y anulados `closed_since` falsos (88-94, 375, 394,
+  8-9, 177 — deslices de año). El cierre de Jardín del 30-sep es REAL
+  (3 medios). Fix backend desplegado: `closed_since` del summary solo
+  mira cierres tras la última reapertura. `groupNewsItems` ya usa
+  especificidad (family+rank)
 - Hito 9 (portfolio): capturas/vídeo del APK, repo público en GitHub
   (activa CI), post LinkedIn; opcional ficha Google Play
 - Verificación E2E de App Links con build firmada por EAS (8.8)

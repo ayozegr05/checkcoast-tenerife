@@ -175,3 +175,21 @@ def test_unknown_beach_returns_none():
 
 def test_short_generic_name_never_matches():
     assert ids(ext("Playa", "Adeje")) == []
+
+
+def test_ambiguous_name_flags_body_fetch():
+    """Caso real El Médano jul-2026: el titular dice "una playa de El
+    Médano" y casa PM3 por clave exacta, pero el cuerpo nombra Leocadio
+    Machado — el nombre extraído es prefijo de una playa hermana, así
+    que se considera ambiguo y se pide el cuerpo para desambiguar."""
+    from scripts.ingest_news import _name_is_ambiguous
+
+    e = ext("El Médano")
+    hits = match_beaches(e, BEACHES)
+    assert _name_is_ambiguous(e, hits, BEACHES) is True
+    # "Leocadio Machado" con municipio ya casa la sub-playa exacta →
+    # ninguna hermana queda por aclarar, no es ambiguo
+    e2 = ext("Playa Leocadio Machado", "Granadilla de Abona")
+    hits2 = match_beaches(e2, BEACHES)
+    assert [b.id for b in hits2] == [32]
+    assert _name_is_ambiguous(e2, hits2, BEACHES) is False

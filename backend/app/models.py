@@ -209,6 +209,10 @@ class NewsItem(Base):
     extracted_beach: Mapped[str | None] = mapped_column(String(255))
     extracted_municipality: Mapped[str | None] = mapped_column(String(120))
     confidence: Mapped[float | None] = mapped_column(Float)
+    # La extracción se verificó contra el cuerpo del artículo (segunda
+    # pasada con texto completo): una reapertura de 1 solo medio con
+    # cuerpo confirmado vale como corroboración de episodio
+    body_verified: Mapped[bool] = mapped_column(default=False)
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

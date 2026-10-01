@@ -35,6 +35,7 @@ def news(
     source: str = "eldia",
     cause: str | None = None,
     closed_since: str | None = None,
+    body_verified: bool = False,
 ):
     return SimpleNamespace(
         published_at=datetime(
@@ -45,6 +46,7 @@ def news(
         source=source,
         cause=cause,
         closed_since=closed_since,
+        body_verified=body_verified,
     )
 
 
@@ -268,6 +270,106 @@ def test_still_closed_press_merges_all_clusters():
     assert ev.press_count == 5
 
 
+def test_body_verified_reopening_splits_single_medium():
+    """Una reapertura de UN solo medio corrobora el corte si su
+    extracción se verificó contra el cuerpo del artículo — la barrera
+    contra "agilizan las obras" mal clasificadas es el texto completo,
+    no el número de medios (Puertito: playas sin Náyade no tienen
+    prueba oficial posible)."""
+    b = beach(
+        items=[
+            news(date(2025, 5, 8), "closure"),
+            news(date(2025, 5, 9), "reopening", body_verified=True),
+            news(TODAY - timedelta(days=3), "closure"),  # fresco
+        ]
+    )
+    evs = synthesize_events(b, today=TODAY)
+    assert len(evs) == 2
+    old = next(e for e in evs if e.opened_at == date(2025, 5, 8))
+    new = next(e for e in evs if e.closed_at is None)
+    assert old.closed_at == date(2025, 5, 9)
+
+
+def test_unverified_single_reopening_does_not_split():
+    """La misma reapertura de 1 medio SIN verificación de cuerpo se
+    funde: el episodio sigue siendo uno solo."""
+    b = beach(
+        items=[
+            news(date(2025, 5, 8), "closure"),
+            news(date(2025, 5, 9), "reopening"),  # body_verified=False
+            news(TODAY - timedelta(days=3), "closure"),
+        ]
+    )
+    (ev,) = synthesize_events(b, today=TODAY)
+    assert ev.opened_at == date(2025, 5, 8)
+    assert ev.closed_at is None
+
+
+def test_retro_closure_after_reopening_is_same_episode():
+    """El Socorro: pieza de análisis publicada tras la ola de
+    reaperturas, 1 medio solo, relata el cierre ya resuelto — es
+    evidencia del episodio cerrado, no un clúster fantasma nuevo."""
+    b = beach(
+        items=[
+            news(date(2026, 9, 23), "closure"),
+            news(date(2026, 9, 23), "closure", source="rtvc"),
+            news(date(2026, 9, 25), "reopening"),
+            news(date(2026, 9, 25), "reopening", source="rtvc"),
+            # estenerife.com, publicado tras la reapertura, relata el
+            # cierre del miércoles — retrospectiva sin corroborar
+            news(date(2026, 9, 25), "closure", source="estenerife"),
+        ]
+    )
+    (ev,) = synthesize_events(b, today=date(2026, 9, 26))
+    assert ev.opened_at == date(2026, 9, 23)
+    assert ev.closed_at == date(2026, 9, 25)
+    assert ev.press_count == 5  # la retrospectiva suma al episodio
+
+
+def test_post_reopen_single_closure_is_new_after_window():
+    """Pasada la ventana retrospectiva (7 d), un cierre de 1 solo
+    medio SÍ abre episodio nuevo — Punta Larga demostró que una
+    fuente seria basta."""
+    b = beach(
+        items=[
+            news(date(2025, 3, 1), "closure"),
+            news(date(2025, 3, 10), "reopening"),
+            news(date(2025, 3, 20), "closure", source="solo-medio"),
+        ]
+    )
+    evs = synthesize_events(b, today=TODAY)
+    assert len(evs) == 2
+    assert evs[0].opened_at == date(2025, 3, 20)
+
+
+def test_open_structural_cluster_absorbs_late_mentions():
+    """Gaviotas: cierre por desprendimientos jun-2026, sin reapertura.
+    Un titular de sep sobre la misma obra es el MISMO episodio vivo —
+    un episodio estructural solo muere por reapertura, el hueco >45 d
+    de silencio de prensa no lo parte."""
+    b = beach(
+        items=[
+            news(date(2026, 6, 3), "closure", cause="desprendimientos"),
+            news(
+                date(2026, 6, 4),
+                "closure",
+                source="rtvc",
+                cause="riesgo de desprendimientos",
+            ),
+            news(
+                date(2026, 9, 14),
+                "closure",
+                source="gaceta",
+                cause="desprendimientos",
+            ),
+        ]
+    )
+    (ev,) = synthesize_events(b, today=date(2026, 9, 30))
+    assert ev.opened_at == date(2026, 6, 3)
+    assert ev.closed_at is None
+    assert ev.press_count == 3
+
+
 def test_reopening_wave_closes_only_its_episode():
     """El Médano real: cierres de julio (caducaron sin cobertura) +
     cierres del 23-sep + 8 titulares de reapertura del 25-sep. La ola
@@ -295,6 +397,37 @@ def test_reopening_wave_closes_only_its_episode():
     # última mención, no en la reapertura de septiembre
     assert july.closed_at == date(2026, 7, 8)
     assert july.end_estimated
+
+
+def test_reopening_in_official_window_ignores_stale_press_cluster():
+    """El Médano real: clúster de prensa de julio huérfano (nunca tuvo
+    reapertura cubierta) + incidencia oficial 21→24-sep con su prensa.
+    La ola de reaperturas del 25-sep resuelve el episodio OFICIAL —
+    no debe cerrar el clúster de julio, que caduca con fin estimado."""
+    b = beach(
+        incidents=[inc(date(2026, 9, 21), date(2026, 9, 24))],
+        items=[
+            news(date(2026, 7, 7), "closure"),
+            news(date(2026, 7, 7), "closure", source="diario"),
+            # Cobertura del cierre oficial: queda absorbida, no forma
+            # clúster propio
+            news(date(2026, 9, 23), "closure"),
+            news(date(2026, 9, 23), "closure", source="cope"),
+            # La ola: reapertura del episodio oficial
+            news(date(2026, 9, 25), "reopening"),
+            news(date(2026, 9, 25), "reopening", source="cope"),
+        ],
+    )
+    evs = synthesize_events(b, today=date(2026, 9, 30))
+    assert len(evs) == 1
+    (july,) = evs
+    assert july.via == "press"
+    assert july.opened_at == date(2026, 7, 7)
+    # Sin reapertura propia: fin estimado en su última mención,
+    # no el 25-sep del episodio oficial
+    assert july.closed_at == date(2026, 7, 7)
+    assert july.end_estimated
+    assert july.press_count == 2
 
 
 def test_lone_old_cluster_still_closed_by_late_reopening():

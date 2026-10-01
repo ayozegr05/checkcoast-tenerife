@@ -46,6 +46,12 @@ QUERIES = [
 # variantes ("Teneriffa News", "teneriffa-news.com")
 EXCLUDED_SOURCES = {
     "teneriffa",  # SEO-farm: ficha templada diaria por playa
+    # auditado 2026-09-30 — ajenos al dominio playas/baño
+    "radio europa",      # radio en alemán para residentes
+    "caribbean news",    # revista de turismo
+    "seguritecnia",      # revista del sector seguridad
+    "canarias-semanal",  # semanario político
+    "san borondon",      # hiperlocal de La Palma
 }
 
 
@@ -54,19 +60,45 @@ def source_excluded(source: str | None) -> bool:
     return any(x in s for x in EXCLUDED_SOURCES)
 
 
-# Webs municipales: fuente primaria — muchos avisos de playa solo se
-# publican ahí y nunca los agrega Google News (El Pris, El Bobo...).
-# Puerto de la Cruz tiene los feeds desactivados a propósito
-# ("No feed available") y adeje.es anuncia cierres solo en redes.
+# Webs municipales y oficiales: fuente primaria — muchos avisos de
+# playa solo se publican ahí y nunca los agrega Google News (El Pris,
+# El Bobo...). Puerto de la Cruz tiene los feeds desactivados a
+# propósito ("No feed available") y adeje.es anuncia cierres solo en
+# redes. Sin feed localizado (sondeado 2026-09-30): Arona,
+# Los Realejos, Garachico, Guía de Isora, Arafo, Arico, La Matanza.
 MUNICIPAL_FEEDS = {
     "Ayto. Tacoronte": "https://www.tacoronte.es/feed/",
     "Ayto. Candelaria": "https://www.candelaria.es/feed/",
     "Ayto. La Laguna": "https://lalagunaahora.com/feed/",
+    "Ayto. Granadilla": "https://www.granadilladeabona.org/feed/",
+    "Ayto. Icod": "https://www.icoddelosvinos.es/feed/",
+    "Ayto. Santa Úrsula": "https://www.santaursula.es/feed/",
+    "Ayto. San Miguel": "https://www.sanmigueldeabona.es/feed/",
+    "Ayto. Buenavista": "https://www.buenavistadelnorte.es/feed/",
+    "Ayto. Fasnia": "https://www.fasnia.com/feed/",
+    "Ayto. La Victoria": "https://www.lavictoriadeacentejo.es/feed/",
+    "Ayto. Güímar": "https://www.guimar.es/rss.xml",
+    "Ayto. Santiago del Teide": "https://www.santiagodelteide.es/feed/",
+    "Ayto. El Sauzal": "https://www.elsauzal.es/feed/",
+    "Ayto. La Orotava": "https://www.laorotava.es/rss.xml",
+    # Notas de prensa del Gobierno de Canarias (~50 ítems, insular) —
+    # el prefiltro léxico deja pasar solo lo de costa/baño
+    "Gobierno de Canarias": "https://www.gobiernodecanarias.org/noticias/feed/",
     # Prensa hiperlocal del Valle de Güímar (Candelaria, Arafo, Güímar,
     # Fasnia): cubre avisos que no indexa Google News (sus artículos ni
     # siquiera nombran "Tenerife") — caso Punta Larga, cierre por
     # socavón bajo el paseo (may-2026) que la ingesta perdió
     "Valle de Güímar": "https://valledeguimar.es/feed/",
+}
+
+# Feeds directos de medios serios: quita la dependencia de que Google
+# News priorice la pieza (caso Puertito: reaperturas del 9-may y 6-jun
+# 2025 cubiertas por 3-4 medios que nunca entraron en el RSS de Google).
+# Mismo prefiltro léxico que los municipales — son feeds de sección.
+MEDIA_FEEDS = {
+    "Diario de Avisos": "https://diariodeavisos.elespanol.com/tenerife/feed/",
+    "Canarias7": "https://canarias7.es/rss/2.0/?section=/canarias/tenerife",
+    "Europa Press": "https://www.europapress.es/rss/rss.aspx?ch=287",
 }
 
 # Prefiltro por titular: el feed municipal es ~95% fiestas, deportes y
@@ -191,27 +223,36 @@ def fetch_news() -> list[RawArticle]:
 
 
 def fetch_municipal_feeds() -> list[RawArticle]:
-    """Entradas de playa de los RSS de webs municipales.
+    """Entradas de playa de los RSS municipales/oficiales y de medios.
 
     Los feeds traen los últimos ~10-20 posts: cobertura hacia adelante,
     no histórico. El titular pasa un prefiltro léxico — sin él cada
     pasada gastaría cuota de Gemini en fiestas y deportes. Un feed
     caído no aborta el resto."""
     articles = []
-    for source, feed_url in MUNICIPAL_FEEDS.items():
+    feeds = {**MUNICIPAL_FEEDS, **MEDIA_FEEDS}
+    for source, feed_url in feeds.items():
         try:
-            resp = requests.get(
-                feed_url, headers={"User-Agent": USER_AGENT}, timeout=30
-            )
+            try:
+                resp = requests.get(
+                    feed_url, headers={"User-Agent": USER_AGENT}, timeout=30
+                )
+            except requests.exceptions.SSLError:
+                # cert autofirmado o cadena incompleta (Buenavista, Fasnia)
+                resp = requests.get(
+                    feed_url, headers={"User-Agent": USER_AGENT},
+                    timeout=30, verify=False,
+                )
             resp.raise_for_status()
             raw = resp.content
-            root = ET.fromstring(
-                _fix_named_entities(
-                    raw.decode("utf-8", "replace")
-                    if isinstance(raw, bytes)
-                    else raw
-                )
-            )
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8-sig", "replace")
+            # algunos feeds llevan BOM, líneas en blanco o comentarios
+            # HTML de debug antes del <?xml (El Sauzal, La Orotava)
+            start = re.search(r"<\?xml|<rss|<feed", raw)
+            if start is None:
+                continue
+            root = ET.fromstring(_fix_named_entities(raw[start.start():]))
         except Exception:
             continue
         for item in root.findall(".//item"):
