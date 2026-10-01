@@ -10,6 +10,18 @@ export type GeoFeature = {
     monitored?: boolean;
     kind?: string | null;
     status?: string | null;
+    // Detalle del censo de vertidos (emisarios): naturaleza, régimen,
+    // estado físico, procedencia, responsable y ubicación legible
+    nature?: string | null;
+    continuity?: string | null;
+    is_active?: boolean | null;
+    condition?: string | null;
+    origin?: string | null;
+    entity?: string | null;
+    protected_area?: string | null;
+    settlement?: string | null;
+    location?: string | null;
+    zone_desc?: string | null;
     status_via?: 'official' | 'press' | null;
     // Causa corta de la alerta viva ("Contaminación", "Desprendimientos")
     // y su procedencia — solo presentes con alerta activa

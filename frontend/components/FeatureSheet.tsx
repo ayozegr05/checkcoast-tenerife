@@ -38,6 +38,24 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS = colors.outfall;
 
+// Estado físico de la conducción: mismo semáforo que la legalidad
+const CONDITION_COLORS: Record<string, string> = {
+  Bueno: colors.outfall.legal,
+  Precario: colors.outfall.unknown,
+  Malo: colors.outfall.illegal,
+};
+
+// Siglas del censo traducidas a lenguaje de ficha
+const ORIGIN_LABELS: Record<string, string> = {
+  EBAR: 'Bombeo de aguas residuales (EBAR)',
+  ETAR: 'Depuradora (ETAR)',
+};
+
+// "ZEC Franja marina Teno - Rasca. núm ZEC 103_TF. Ref. ES7020017"
+// → solo el nombre del espacio protegido
+const protectedAreaName = (s: string) =>
+  s.split(/\.\s*(?:n[úu]m|Ref\.)/i)[0].trim();
+
 // Estado de playa para el selector de puntos de muestreo
 const beachStatusKey = (f: GeoFeature) =>
   f.properties.monitored === false && f.properties.alert !== true
@@ -459,22 +477,110 @@ export default function FeatureSheet({
               onPress={handleViewOnMap}
               startLevel={1}
             />
-            <View
-              style={[
-                styles.chip,
-                {
-                  backgroundColor:
-                    STATUS_COLORS[statusKey] ?? colors.status.unknown,
-                },
-              ]}
-            >
-              <Text style={styles.chipText}>
-                {STATUS_LABELS[statusKey] ?? 'En trámite / sin datos'}
-              </Text>
+            {/* Fila de chips: legalidad + activo + régimen — el mismo
+                lenguaje visual que los badges de estado de playa */}
+            <View style={styles.chipsRow}>
+              <View
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor:
+                      STATUS_COLORS[statusKey] ?? colors.status.unknown,
+                  },
+                ]}
+              >
+                <Text style={styles.chipText}>
+                  {STATUS_LABELS[statusKey] ?? 'En trámite / sin datos'}
+                </Text>
+              </View>
+              {p.is_active != null && (
+                <View
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: p.is_active
+                        ? colors.outfall.unknown
+                        : colors.status.unmonitored,
+                    },
+                  ]}
+                >
+                  <Text style={styles.chipText}>
+                    {p.is_active ? 'Activo' : 'No activo'}
+                  </Text>
+                </View>
+              )}
+              {p.continuity ? (
+                <View
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor:
+                        p.continuity === 'Habitual'
+                          ? colors.outfall.unknown
+                          : colors.textFaint,
+                    },
+                  ]}
+                >
+                  <Text style={styles.chipText}>
+                    {p.continuity === 'Habitual'
+                      ? 'Vertido habitual'
+                      : 'Solo en emergencias'}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             {p.kind ? <Text style={styles.row}>Tipo: {p.kind}</Text> : null}
+            {p.nature ? (
+              <Text style={styles.row}>
+                Qué se vierte:{' '}
+                <Text style={styles.rowStrong}>{p.nature}</Text>
+              </Text>
+            ) : null}
+            {p.origin ? (
+              <Text style={styles.row}>
+                Procedencia: {ORIGIN_LABELS[p.origin] ?? p.origin}
+              </Text>
+            ) : null}
+            {p.condition ? (
+              <Text style={styles.row}>
+                Estado de la conducción:{' '}
+                <Text
+                  style={[
+                    styles.rowStrong,
+                    {
+                      color:
+                        CONDITION_COLORS[p.condition] ?? colors.text,
+                    },
+                  ]}
+                >
+                  {p.condition}
+                </Text>
+              </Text>
+            ) : null}
+            {p.entity ? (
+              <Text style={styles.row}>Responsable: {p.entity}</Text>
+            ) : null}
             {p.municipality ? (
               <Text style={styles.row}>Municipio: {p.municipality}</Text>
+            ) : null}
+            {p.settlement ? (
+              <Text style={styles.row}>Núcleo: {p.settlement}</Text>
+            ) : null}
+            {p.location ? (
+              <Text style={styles.row}>Ubicación: {p.location}</Text>
+            ) : null}
+            {p.zone_desc ? (
+              <Text style={styles.zoneDesc}>{p.zone_desc}</Text>
+            ) : null}
+            {p.protected_area ? (
+              <View style={styles.protectedBox}>
+                <Text style={styles.protectedTitle}>
+                  Espacio protegido
+                </Text>
+                <Text style={styles.protectedName}>
+                  {protectedAreaName(p.protected_area)}
+                </Text>
+              </View>
             ) : null}
             {nearby.length > 0 ? (
               <>
@@ -677,8 +783,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 28,
   },
+  // Los chips del emisario van en fila (legalidad + activo + régimen):
+  // el chip solo pierde el centrado cuando hay hermanos
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+  },
   chip: {
-    alignSelf: 'center',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -695,6 +808,39 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.text,
     marginTop: 4,
+  },
+  rowStrong: {
+    fontFamily: fonts.semibold,
+  },
+  zoneDesc: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 4,
+  },
+  // Espacio protegido (ZEC…): caja tintada verde — es contexto
+  // ambiental, no parte de la lista de datos
+  protectedBox: {
+    marginTop: 8,
+    marginBottom: 4,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.outfall.legal,
+    backgroundColor: colors.background,
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  protectedTitle: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+    color: colors.outfall.legal,
+    textTransform: 'uppercase',
+  },
+  protectedName: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.text,
+    marginTop: 1,
   },
   nearestBox: {
     marginBottom: 6,

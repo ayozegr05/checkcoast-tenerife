@@ -38,6 +38,12 @@ _STATUS_MAP = {
 }
 
 
+def _clean(v) -> str | None:
+    """El censo usa '-' como vacío y rellena los 180 registros."""
+    s = (v or "").strip()
+    return s if s and s != "-" else None
+
+
 def _read_zip(url: str) -> zipfile.ZipFile:
     resp = requests.get(url, timeout=120)
     resp.raise_for_status()
@@ -77,6 +83,19 @@ def main() -> None:
             obj.municipality = rec["Municipio"] or None
             obj.kind = rec["TipoCond"]
             obj.status = _STATUS_MAP.get(rec["EstExpVC"], OutfallStatus.unknown)
+            obj.nature = _clean(rec["NatVert"])
+            obj.continuity = _clean(rec["ContinVert"])
+            estado_func = _clean(rec["EstadoFunc"])
+            obj.is_active = (
+                None if estado_func is None else estado_func == "Activo"
+            )
+            obj.condition = _clean(rec["EstadoGral"])
+            obj.origin = _clean(rec["ProcedVert"])
+            obj.entity = _clean(rec["Entidad"])
+            obj.protected_area = _clean(rec["EspProtDet"])
+            obj.settlement = _clean(rec["NucleoUrb"])
+            obj.location = _clean(rec["Localiz"])
+            obj.zone_desc = _clean(rec["DescrZona"])
             obj.geom = f"SRID=4326;POINT({lon} {lat})"
             obj.source_url = DATASET_URL
             db.add(obj)

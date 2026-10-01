@@ -46,6 +46,18 @@ class Outfall(Base):
     status: Mapped[OutfallStatus] = mapped_column(
         Enum(OutfallStatus), default=OutfallStatus.unknown
     )
+    # Detalle del censo para la ficha: qué se vierte, cómo y quién
+    nature: Mapped[str | None] = mapped_column(String(120))
+    continuity: Mapped[str | None] = mapped_column(String(60))
+    is_active: Mapped[bool | None] = mapped_column()
+    condition: Mapped[str | None] = mapped_column(String(40))
+    origin: Mapped[str | None] = mapped_column(String(160))
+    entity: Mapped[str | None] = mapped_column(String(160))
+    protected_area: Mapped[str | None] = mapped_column(Text)
+    # Ubicación legible: núcleo urbano + lugar + descripción de la zona
+    settlement: Mapped[str | None] = mapped_column(String(160))
+    location: Mapped[str | None] = mapped_column(String(255))
+    zone_desc: Mapped[str | None] = mapped_column(Text)
     geom: Mapped[WKBElement] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326), nullable=False
     )
