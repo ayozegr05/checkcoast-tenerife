@@ -45,10 +45,12 @@ const CONDITION_COLORS: Record<string, string> = {
   Malo: colors.outfall.illegal,
 };
 
-// Siglas del censo traducidas a lenguaje de ficha
-const ORIGIN_LABELS: Record<string, string> = {
-  EBAR: 'Bombeo de aguas residuales (EBAR)',
-  ETAR: 'Depuradora (ETAR)',
+// Siglas del censo traducidas a lenguaje de ficha — el campo trae
+// el nombre propio ("EBAR Callao Salvaje"), no solo la sigla
+const originLabel = (s: string) => {
+  if (s.startsWith('EBAR')) return `Bombeo de aguas residuales · ${s}`;
+  if (s.startsWith('ETAR')) return `Depuradora · ${s}`;
+  return s;
 };
 
 // "ZEC Franja marina Teno - Rasca. núm ZEC 103_TF. Ref. ES7020017"
@@ -538,7 +540,7 @@ export default function FeatureSheet({
             ) : null}
             {p.origin ? (
               <Text style={styles.row}>
-                Procedencia: {ORIGIN_LABELS[p.origin] ?? p.origin}
+                Procedencia: {originLabel(p.origin)}
               </Text>
             ) : null}
             {p.condition ? (
