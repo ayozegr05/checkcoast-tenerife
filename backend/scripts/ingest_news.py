@@ -271,7 +271,9 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
                 NewsItem.beach_id.isnot(None),
             )
         }
-        free_hits = [b for b in hits if b.id not in existing]
+        free_hits = list(
+            {b.id: b for b in hits if b.id not in existing}.values()
+        )
         if not free_hits:
             continue
         item.beach_id = free_hits[0].id

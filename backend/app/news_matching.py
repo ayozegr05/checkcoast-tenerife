@@ -126,8 +126,12 @@ def _title_key_hits(
             _press_key(a) for a in (getattr(b, "press_aliases", None) or [])
         ]
         for k in keys:
+            # Un mismo beach puede aportar la misma clave por nombre y
+            # alias ("Playa de Tabaiba" + alias "Tabaiba") — una vez
             if len(k) >= _MIN_NAME_LEN:
-                groups.setdefault(k, []).append(b)
+                members = groups.setdefault(k, [])
+                if all(m.id != b.id for m in members):
+                    members.append(b)
     return {
         k: members
         for k, members in groups.items()
