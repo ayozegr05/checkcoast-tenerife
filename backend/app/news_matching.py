@@ -40,6 +40,7 @@ Ante la duda devuelve []: una noticia sin casar no se muestra.
 """
 
 import re
+from dataclasses import replace
 
 from app.models import Beach
 from app.news_llm import EventExtraction
@@ -188,6 +189,21 @@ def match_beaches(
     if len(target) < _MIN_NAME_LEN:
         return _merge([])
     muni = _norm_muni(ext.municipality)
+
+    # Extracción multi-playa ("El Socorro y El Médano"): cada parte se
+    # casa por separado — "EL SOCORRO" no es substring contiguo del
+    # conjunto y se perdería. Titulares genéricos ("Se cierran dos
+    # playas") dependen de esta vía porque el titular no nombra.
+    parts = re.split(r"\s+[YE]\s+", target)
+    if len(parts) > 1 and all(len(p) >= _MIN_NAME_LEN for p in parts):
+        out: list[Beach] = []
+        seen_ids: set[int] = set()
+        for p in parts:
+            for b in match_beaches(replace(ext, beach_name=p), beaches, title=title):
+                if b.id not in seen_ids:
+                    seen_ids.add(b.id)
+                    out.append(b)
+        return _merge(out)
 
     candidates = []
     for b in beaches:

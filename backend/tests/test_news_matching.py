@@ -70,6 +70,10 @@ BEACHES = [
     SimpleNamespace(
         id=85, name="Playa Grande", municipality="Arico",
     ),
+    # "El Charcón" real en otro municipio (homónimo del PM5 de Jardín)
+    SimpleNamespace(
+        id=86, name="PLAYA CHARCON (EL) PM1", municipality="La Guancha",
+    ),
 ]
 
 
@@ -179,8 +183,18 @@ def test_multi_beach_headline_matches_each():
         ext("El Médano y El Socorro"),
         title="El Médano y El Socorro cierran temporalmente al baño",
     ) == [30, 40]
-    # Sin el nombre literal en el titular no hay match
-    assert ids(ext("El Médano y El Socorro"), title="") == []
+    # La extracción nombra las dos playas: casan aunque el titular
+    # sea genérico (caso real: "Se cierran dos playas en Tenerife")
+    assert ids(
+        ext("El Socorro y El Médano"),
+        title="Se cierran dos playas en Tenerife por contaminación "
+              "fecal",
+    ) == [30, 40]
+    # Una parte ambigua entre municipios se descarta, la otra casa
+    assert ids(
+        ext("El Cabezo y El Médano"),
+        title="Se cierran dos playas en Tenerife",
+    ) == [30]
 
 
 def test_title_scan_rescues_second_beach():
