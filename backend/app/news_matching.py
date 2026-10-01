@@ -24,7 +24,14 @@ Guanches" para Candelaria).
   la noticia se sirve en cada ficha.
 - Titulares multi-playa ("El Médano y El Socorro cierran"): cada
   clave candidata casa si aparece literal en el titular y no es
-  homónima entre municipios.
+  homónima entre municipios. Además el titular se escanea contra
+  TODAS las claves (nombre + alias), no solo las candidatas del
+  nombre extraído — el LLM a veces devuelve solo una playa o un
+  nombre popular ("Playa Grande en Playa Jardín") y el otro nombre
+  real está literal en el titular.
+- Si las candidatas del nombre extraído son todas la misma playa
+  base en un municipio (alias distintos del mismo complejo, p. ej.
+  "Playa Grande y Charcón" → PM4+PM5 de Playa Jardín), casan todas.
 - Sin municipio: casa solo si el grupo final comparte clave y
   municipio — la contención sin municipio y los nombres repetidos
   entre zonas se rechazan.
@@ -98,6 +105,49 @@ def _multi_beach_hits(
     return ok
 
 
+def _base_key(b: Beach) -> tuple[str, str | None]:
+    """Nombre base de la playa (sin sufijo PM) + municipio: los PMs
+    de un mismo complejo comparten base."""
+    return (
+        re.sub(r"\s+PM\d+$", "", b.name),
+        _norm_muni(b.municipality),
+    )
+
+
+def _title_key_hits(
+    beaches: list[Beach], title_norm: str
+) -> dict[str, list[Beach]]:
+    """Claves de playa (nombre + alias) presentes literales en el
+    titular. Una clave solo cuenta si todas sus candidatas están en
+    un único municipio (los homónimos entre municipios se rechazan)."""
+    groups: dict[str, list[Beach]] = {}
+    for b in beaches:
+        keys = [_press_key(b.name)] + [
+            _press_key(a) for a in (getattr(b, "press_aliases", None) or [])
+        ]
+        for k in keys:
+            if len(k) >= _MIN_NAME_LEN:
+                groups.setdefault(k, []).append(b)
+    return {
+        k: members
+        for k, members in groups.items()
+        if len({_norm_muni(b.municipality) for b in members}) == 1
+        and _name_in_title(k, title_norm)
+    }
+
+
+def _conjoined(key: str, title_norm: str) -> bool:
+    """El nombre va en enumeración multi-playa ("X y El Socorro",
+    "El Médano, La Tejita"): precedido de 'y'/'e'/','. Así no se
+    confunde con referencias locativas ("El Cabezo, en El Médano")."""
+    return bool(
+        re.search(
+            rf"(?:\b[YE]\s+|,\s*){re.escape(key)}(?![A-Z0-9])",
+            title_norm,
+        )
+    )
+
+
 def match_beaches(
     ext: EventExtraction, beaches: list[Beach], title: str | None = None
 ) -> list[Beach]:
@@ -105,11 +155,34 @@ def match_beaches(
     (misma clave + municipio) devuelven todos sus registros."""
     if title is None:
         title = getattr(ext, "title", None) or ""
+    title_norm = _normalize(title)
+    title_map = _title_key_hits(beaches, title_norm)
+
+    def _merge(found: list[Beach]) -> list[Beach]:
+        """Añade playas nombradas en el titular que la extracción no
+        devolvió. Si la extracción no casó nada vale cualquier nombre
+        literal (rescate: "Playa Grande en Playa Jardín"); si ya casó,
+        solo suma nombres en enumeración ("X y El Socorro") o la clave
+        canónica del propio complejo (alias → nombre real)."""
+        seen = {b.id for b in found}
+        found_bases = {_base_key(b) for b in found}
+        out = list(found)
+        for key, members in title_map.items():
+            k_bases = {_base_key(b) for b in members}
+            if (
+                not found
+                or _conjoined(key, title_norm)
+                or k_bases <= found_bases
+            ):
+                out.extend(b for b in members if b.id not in seen)
+                seen.update(b.id for b in members)
+        return out
+
     if not ext.beach_name:
-        return []
+        return _merge([])
     target = _press_key(ext.beach_name)
     if len(target) < _MIN_NAME_LEN:
-        return []
+        return _merge([])
     muni = _norm_muni(ext.municipality)
 
     candidates = []
@@ -151,8 +224,8 @@ def match_beaches(
         munis = {_norm_muni(b.municipality) for b, _ in pool}
         if len(pool) >= 1 and len(keys) == 1 and len(munis) == 1:
             if any(k == target for k in keys):
-                return [b for b, _ in pool]
-        return _multi_beach_hits(pool, _normalize(title))
+                return _merge([b for b, _ in pool])
+        return _merge(_multi_beach_hits(pool, _normalize(title)))
 
     hits = [
         (b, k) for b, k in candidates if _norm_muni(b.municipality) == muni
@@ -174,11 +247,20 @@ def match_beaches(
             )
         )
         if not muni_in_title:
-            return []
+            return _merge([])
     # Dentro del municipio el exacto también gana a las contenciones
     exact = [(b, k) for b, k in hits if k == target]
     pool = exact or hits
     keys = {k for _, k in pool}
     if len(pool) >= 1 and len(keys) == 1:
-        return [b for b, _ in pool]
-    return _multi_beach_hits(pool, _normalize(title))
+        return _merge([b for b, _ in pool])
+    # Alias distintos del mismo complejo ("Playa Grande y Charcón" →
+    # PM4+PM5 de Playa Jardín): mismo nombre base + municipio = misma
+    # playa aunque casen claves distintas
+    bases = {
+        (re.sub(r"\s+PM\d+$", "", b.name), _norm_muni(b.municipality))
+        for b, _ in pool
+    }
+    if len(pool) >= 1 and len(bases) == 1:
+        return _merge([b for b, _ in pool])
+    return _merge(_multi_beach_hits(pool, _normalize(title)))

@@ -564,6 +564,7 @@ def run() -> tuple[int, int, int]:
             if sent:
                 for it in items:
                     it.pushed_at = now
+                    it.push_pending = False
                 db.commit()
         return inserted, processed, rematched
     except Exception:

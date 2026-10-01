@@ -53,6 +53,23 @@ BEACHES = [
         id=40, name="PLAYA SOCORRO (EL) PM1",
         municipality="Los Realejos",
     ),
+    # Playa Jardín PM4/PM5 con aliases de prensa (caso real: "Playa
+    # Grande" = PM4 y "El Charcón" = PM5 son puntos de muestreo del
+    # complejo Jardín); y una "Playa Grande" real en OTRO municipio
+    # para mantener la ambigüedad homónima
+    SimpleNamespace(
+        id=41, name="PLAYA JARDIN PM4",
+        municipality="Puerto de la Cruz",
+        press_aliases=["Playa Grande"],
+    ),
+    SimpleNamespace(
+        id=42, name="PLAYA JARDIN PM5",
+        municipality="Puerto de la Cruz",
+        press_aliases=["Charcón"],
+    ),
+    SimpleNamespace(
+        id=85, name="Playa Grande", municipality="Arico",
+    ),
 ]
 
 
@@ -74,7 +91,8 @@ def ids(ext_obj, beaches=BEACHES, title=""):
 
 
 def test_exact_name_match_without_municipality():
-    assert ids(ext("Playa Jardín")) == [1]
+    # Jardín tiene 3 PMs en el mismo municipio: todos casan
+    assert ids(ext("Playa Jardín")) == [1, 41, 42]
 
 
 def test_containment_requires_municipality():
@@ -163,6 +181,39 @@ def test_multi_beach_headline_matches_each():
     ) == [30, 40]
     # Sin el nombre literal en el titular no hay match
     assert ids(ext("El Médano y El Socorro"), title="") == []
+
+
+def test_title_scan_rescues_second_beach():
+    # Caso real sep-2026: el LLM extrajo solo "El Médano" pero el
+    # titular nombra también "El Socorro" — el escaneo de titular
+    # contra todas las claves recupera la segunda playa
+    assert ids(
+        ext("El Médano", "Granadilla de Abona"),
+        title="El Médano y El Socorro cierran temporalmente al baño",
+    ) == [30, 40]
+
+
+def test_alias_same_base_complex_matches_all_pms():
+    # "Playa Grande y Charcón" en Puerto de la Cruz: dos alias
+    # distintos del mismo complejo Jardín (PM4 y PM5) → casa ambos
+    assert ids(
+        ext("Playa Grande y Charcón", "Puerto de la Cruz"),
+        title="Puerto de la Cruz vuelve a cerrar dos de sus playas "
+              "por contaminación",
+    ) == [41, 42]
+    # Sin municipio la "Playa Grande" de Arico mantiene la
+    # ambigüedad homónima → no casa
+    assert ids(ext("Playa Grande y Charcón")) == []
+
+
+def test_title_scan_rescues_real_name_inside_title():
+    # "Playa Grande en Playa Jardín": el nombre popular no casa pero
+    # el titular lleva el nombre real literal
+    assert ids(
+        ext("Playa Grande", "Puerto de la Cruz"),
+        title="Cierre temporal al baño de Playa Grande en Playa "
+              "Jardín, en Puerto de la Cruz",
+    ) == [1, 41, 42]
 
 
 def test_no_beach_name_returns_none():
