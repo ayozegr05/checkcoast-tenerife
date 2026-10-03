@@ -177,11 +177,9 @@ const natureParts = (
       note:
         'el concentrado de sal que devuelve la desaladora — no lleva fecales, pero es más densa que el mar y puede formar una capa sobre el fondo que daña praderas y bentos.' +
         (shallow
-          ? ` Y aquí sale ${
-              depth! >= 0
-                ? 'desde sobre el mar, sobre fondos someros,'
-                : `a solo ${Math.abs(depth!)} m de profundidad,`
-            } así que esa capa llega casi sin diluirse.`
+          ? depth! >= 0
+            ? ' Y aquí el vertido cae sobre la superficie del mar, así que esa capa salada llega al fondo casi sin diluirse.'
+            : ` Y aquí vierte a solo ${Math.abs(depth!)} m de profundidad, así que esa capa salada llega al fondo casi sin diluirse.`
           : '') +
         ' El bañista apenas lo nota.',
     });

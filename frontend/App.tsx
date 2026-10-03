@@ -530,32 +530,39 @@ export default function App() {
         </View>
       )}
 
-      {/* Intro como Modal real: bloquea topbar/banner/pins — solo se
-          sale por sus botones. Sin Modal, los botones del mapa ganan
-          el hit-test por elevation y las secciones se apilaban encima
-          sin cerrarla */}
-      {introVisible && !loading && !error && fontsLoaded && (
-        <Modal
-          transparent
-          animationType="fade"
-          statusBarTranslucent
-          onRequestClose={() => {
-            // Atrás hardware con la intro abierta: como la ✕ — en
-            // revisit vuelve a la Guía
-            setIntroVisible(false);
-            if (introRevisit) setHelpOpen(true);
-          }}
-        >
+      {/* Intro de primer arranque como Modal real: bloquea
+          topbar/banner/pins — solo se sale por sus botones. En
+          revisit (desde la Guía) va como overlay plano, igual que
+          HelpHub: la topbar (elev 40) queda por encima y cualquier
+          navegación la cierra vía closeAllOverlays, como el resto
+          de secciones de la guía */}
+      {introVisible && !loading && !error && fontsLoaded ? (
+        introRevisit ? (
           <IntroCard
-            revisit={introRevisit}
+            revisit
             onClose={closeIntro}
             onBack={() => {
               setIntroVisible(false);
               setHelpOpen(true);
             }}
           />
-        </Modal>
-      )}
+        ) : (
+          <Modal
+            transparent
+            animationType="fade"
+            statusBarTranslucent
+            onRequestClose={() => setIntroVisible(false)}
+          >
+            <IntroCard
+              onClose={closeIntro}
+              onBack={() => {
+                setIntroVisible(false);
+                setHelpOpen(true);
+              }}
+            />
+          </Modal>
+        )
+      ) : null}
 
       {helpOpen && (
         <HelpHub
