@@ -205,12 +205,18 @@ const natureParts = (
           : /ebar|bombeo|saneamiento|aliviadero|red/.test(o)
             ? 'Red de saneamiento'
             : null,
-      name: n.includes('industrial')
-        ? 'aguas fecales, domésticas e industriales'
-        : 'aguas fecales y domésticas',
-      note: pretreated
-        ? 'solo filtra lo grueso (sólidos, arenas y grasas) — el agua sale sin depurar.'
-        : 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
+      name:
+        n.includes('industrial') && !n.includes('urbana')
+          ? 'agua de procesos industriales'
+          : n.includes('industrial')
+            ? 'aguas fecales, domésticas e industriales'
+            : 'aguas fecales y domésticas',
+      note:
+        n.includes('industrial') && !n.includes('urbana')
+          ? 'restos de la actividad de la planta — químicos, hidrocarburos o metales según la instalación; el impacto depende de la industria y su tratamiento.'
+          : pretreated
+            ? 'solo filtra lo grueso (sólidos, arenas y grasas) — el agua sale sin depurar.'
+            : 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
     });
   if (n.includes('salmuera')) {
     // La profundidad solo se convierte en aviso cuando es contundente:

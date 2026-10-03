@@ -24,33 +24,47 @@ export function outfallRisk(
   // (EDAR/ETAR) no es lo mismo que en bruto (EBAR/aliviadero/red)
   let substance = 0;
   if (n.includes('residual')) {
-    // El censo delata el pretratamiento en la descripción: filtrar
-    // sólidos NO es depurar — puntúa como en bruto y se dice claro
-    const pretreated = /pretratamiento/.test(
-      `${o} ${(p.zone_desc ?? '').toLowerCase()}`,
-    );
-    const treated =
-      !pretreated &&
-      /e[dt]a[rs]|depuradora|tratamiento/.test(o) &&
-      !/ebar|bombeo|aliviadero|saneamiento|red/.test(o);
-    substance = (treated ? 1 : 2) + (n.includes('industrial') ? 0.5 : 0);
-    weighted.push([
-      substance,
-      pretreated
-        ? 'solo pretratada (sin depurar)'
-        : treated
-          ? 'vierte depurada'
-          : 'vierte con potencial fecal',
-    ]);
+    const urban = n.includes('urbana') || n.includes('doméstica');
+    const industrial = n.includes('industrial');
+    if (industrial && !urban) {
+      // Industrial pura (refinería, separador de hidrocarburos):
+      // tóxicos, no fecales — no decir "potencial fecal"
+      substance = 2;
+      weighted.push([2, 'vertido industrial (químicos o hidrocarburos)']);
+    } else {
+      // El censo delata el pretratamiento en la descripción: filtrar
+      // sólidos NO es depurar — puntúa como en bruto y se dice claro
+      const pretreated = /pretratamiento/.test(
+        `${o} ${(p.zone_desc ?? '').toLowerCase()}`,
+      );
+      const treated =
+        !pretreated &&
+        /e[dt]a[rs]|depuradora|tratamiento/.test(o) &&
+        !/ebar|bombeo|aliviadero|saneamiento|red/.test(o);
+      substance =
+        (treated ? 1 : 2) + (industrial ? 0.5 : 0);
+      weighted.push([
+        substance,
+        pretreated
+          ? 'solo pretratada (sin depurar)'
+          : treated
+            ? 'vierte depurada'
+            : 'vierte con potencial fecal',
+      ]);
+    }
   } else if (n.includes('salmuera')) {
     substance = 1;
     weighted.push([1, 'salmuera (afecta al fondo marino)']);
   } else if (n.includes('pluvial')) {
     substance = 1;
     weighted.push([1, 'riada urbana cargada']);
-  } else if (n.includes('piscina') || n.includes('refrigeración')) {
+  } else if (n.includes('piscina')) {
     substance = 0.5;
-    weighted.push([0.5, 'vertido leve (cloro, sal o temperatura)']);
+    weighted.push([0.5, 'cloro y sal de piscina']);
+  } else if (n.includes('refrigeración')) {
+    // Agua usada para enfriar la planta: sale más caliente que el mar
+    substance = 0.5;
+    weighted.push([0.5, 'vierte agua caliente']);
   }
 
   // Régimen: verter a diario solo pesa si lo que cae importa
