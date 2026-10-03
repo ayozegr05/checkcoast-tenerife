@@ -13,20 +13,24 @@ import { colors, fonts } from '../lib/theme';
 
 const HINTS: [ImageSourcePropType, string][] = [
   [
-    require('../assets/icons/beach.png'),
-    'Playas: estado oficial, calidad del agua e incidencias · toca un punto para su ficha',
+    require('../assets/icons/pin-open.png'),
+    '¿Puedo bañarme? Verde apta, naranja con aviso, roja cerrada: decide de un vistazo al mapa',
+  ],
+  [
+    require('../assets/icons/icon-book.png'),
+    'Tu playa cuenta su historia: toca un punto y verás por qué cerró, cuándo y qué dice la prensa',
   ],
   [
     require('../assets/icons/icon-faucet.png'),
-    'Emisarios: puntos de vertido autorizados, en trámite o no autorizados',
+    '¿Qué se vierte cerca? Emisarios del censo oficial: qué vierten, en qué estado están y quién responde',
   ],
   [
     require('../assets/icons/icon-bell.png'),
-    'Avisos: recibe una notificación si una playa cierra o reabre',
+    'No te enteres tarde: aviso al móvil si una playa cierra o reabre',
   ],
   [
     require('../assets/icons/icon-townhall.png'),
-    'Municipios: ranking de afectación por municipio',
+    '¿Dónde se concentra el problema? Ranking de municipios por incidencias',
   ],
 ];
 
@@ -96,8 +100,8 @@ export default function IntroCard({
             )}
           </View>
           <Text style={styles.subtitle}>
-            Estado de las playas y emisarios de la isla, con datos
-            oficiales actualizados
+            ¿Puedo bañarme hoy? La respuesta con datos oficiales y
+            prensa, en un mapa
           </Text>
         </ImageBackground>
 
@@ -108,6 +112,14 @@ export default function IntroCard({
               <Text style={styles.hintText}>{text}</Text>
             </View>
           ))}
+          {/* Honestidad primero: "abierta" no promete seguridad — es
+              ausencia de incidencia conocida. Decirlo aquí construye
+              la confianza que nos diferencia */}
+          <Text style={styles.note}>
+            Verde significa «sin incidencias oficiales activas», no
+            una garantía. Si hay duda, cada ficha muestra la última
+            analítica y su fecha.
+          </Text>
         </View>
 
         {!revisit && (
@@ -282,6 +294,18 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.text,
     lineHeight: 18,
+  },
+  note: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    lineHeight: 15,
+    marginTop: 4,
+    marginBottom: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    textAlign: 'center',
   },
   footer: {
     flexDirection: 'row',
