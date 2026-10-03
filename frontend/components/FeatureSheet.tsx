@@ -961,16 +961,22 @@ export default function FeatureSheet({
                   const beachTarget = (beaches ?? []).find(
                     (b) => b.id === n.beach_id,
                   );
+                  // La barra codifica exposición a ESTE emisario por
+                  // distancia (todas las filas son del mismo punto,
+                  // el color legal no variaría): rojo pegado, ámbar
+                  // al alcance de la pluma, verde suave ya diluido
+                  const distColor =
+                    n.distance_m < 500
+                      ? colors.outfall.illegal
+                      : n.distance_m < 1000
+                        ? colors.status.warning
+                        : colors.status.open;
                   return (
                     <Pressable
                       key={n.beach_id}
                       style={({ pressed }) => [
                         styles.nearestBox,
-                        {
-                          borderLeftColor:
-                            STATUS_COLORS[statusKey] ??
-                            colors.status.unknown,
-                        },
+                        { borderLeftColor: distColor },
                         pressed && styles.pressFx,
                       ]}
                       onPress={
@@ -1000,11 +1006,7 @@ export default function FeatureSheet({
                       <Text
                         style={[
                           styles.nearestDist,
-                          {
-                            color:
-                              STATUS_COLORS[statusKey] ??
-                              colors.status.unknown,
-                          },
+                          { color: distColor },
                         ]}
                       >
                         {fmtDistance(n.distance_m)}
