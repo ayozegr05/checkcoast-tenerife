@@ -139,23 +139,27 @@ const operationText = (
   continuity: string | null | undefined,
 ): string | null => {
   const habitual = continuity === 'Habitual';
+  // "De excedencia-emergencia" del censo = válvula de escape que solo
+  // abre cuando el sistema se desborda: lluvia fuerte, avería o
+  // mantenimiento — no "emergencia" en sentido de catástrofe
+  const overflow = 'cuando el sistema se desborda (avería o lluvia fuerte)';
   if (active === true)
     return continuity == null
       ? 'En funcionamiento actualmente.'
       : habitual
         ? 'Funciona hoy: vierte de forma continua en uso normal.'
-        : 'Funciona hoy, pero solo debería verter en emergencias o desbordamientos.';
+        : `Funciona hoy, pero solo debería verter ${overflow}.`;
   if (active === false)
     return continuity == null
       ? 'No opera ahora mismo.'
       : habitual
         ? 'No opera ahora mismo, aunque está pensado para verter a diario.'
-        : 'No opera ahora mismo; está pensado solo para emergencias.';
+        : `No opera ahora mismo; está pensado para abrir solo ${overflow}.`;
   return continuity == null
     ? null
     : habitual
       ? 'Pensado para vertido habitual.'
-      : 'Pensado solo para verter en emergencias.';
+      : `Pensado para abrir solo ${overflow}.`;
 };
 
 // Card flotante arrastrable: peek (~42% alto) -> expandida (~86%) ->
@@ -1109,12 +1113,14 @@ const styles = StyleSheet.create({
   },
   // Espacio protegido (ZEC…): caja tintada verde — es contexto
   // ambiental, no parte de la lista de datos
+  // ZEC en ámbar (aviso), no verde: verter dentro de una zona
+  // protegida hace al emisario más delicado, no más "correcto"
   protectedBox: {
     marginTop: 8,
     marginBottom: 4,
     borderLeftWidth: 3,
-    borderLeftColor: colors.outfall.legal,
-    backgroundColor: colors.background,
+    borderLeftColor: colors.status.warning,
+    backgroundColor: `${colors.status.warning}14`,
     borderRadius: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -1122,7 +1128,7 @@ const styles = StyleSheet.create({
   protectedTitle: {
     fontSize: 11,
     fontFamily: fonts.bold,
-    color: colors.outfall.legal,
+    color: colors.status.warning,
     textTransform: 'uppercase',
   },
   protectedName: {
