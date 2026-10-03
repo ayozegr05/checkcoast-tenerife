@@ -186,7 +186,7 @@ const natureParts = (
   origin: string | null | undefined,
   depth: number | null | undefined,
   zoneDesc: string | null | undefined,
-): { label: string; note: string }[] => {
+): { label: string; desc: string | null; note: string }[] => {
   const n = nature.toLowerCase();
   const o = (origin ?? '').toLowerCase();
   const zd = (zoneDesc ?? '').toLowerCase();
@@ -194,8 +194,16 @@ const natureParts = (
   // de una estación de PRETRATAMIENTO (Punta Blanca): solo filtra
   // sólidos y grasas — no es depuración, hay que decirlo claro
   const pretreated = /pretratamiento/.test(o) || /pretratamiento/.test(zd);
-  const parts: { src: string | null; name: string; note: string }[] =
-    [];
+  const parts: {
+    src: string | null;
+    name: string;
+    // El "qué lleva" en una frase corta — va en negrita tras la
+    // etiqueta ("Piscinas: con cloro y sal — impacto leve…")
+    desc: string | null;
+    note: string;
+  }[] = [];
+  const industrialOnly =
+    n.includes('industrial') && !n.includes('urbana');
   if (n.includes('residual'))
     parts.push({
       src: pretreated
@@ -205,18 +213,19 @@ const natureParts = (
           : /ebar|bombeo|saneamiento|aliviadero|red/.test(o)
             ? 'Red de saneamiento'
             : null,
-      name:
-        n.includes('industrial') && !n.includes('urbana')
-          ? 'agua de procesos industriales'
-          : n.includes('industrial')
-            ? 'aguas fecales, domésticas e industriales'
-            : 'aguas fecales y domésticas',
-      note:
-        n.includes('industrial') && !n.includes('urbana')
-          ? 'restos de la actividad de la planta — químicos, hidrocarburos o metales según la instalación; el impacto depende de la industria y su tratamiento.'
-          : pretreated
-            ? 'solo filtra lo grueso (sólidos, arenas y grasas) — el agua sale sin depurar.'
-            : 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
+      name: industrialOnly
+        ? 'agua de procesos industriales'
+        : n.includes('industrial')
+          ? 'aguas fecales, domésticas e industriales'
+          : 'aguas fecales y domésticas',
+      desc: industrialOnly
+        ? 'químicos, hidrocarburos o metales'
+        : null,
+      note: industrialOnly
+        ? 'restos de la actividad de la planta — el impacto depende de la industria y su tratamiento.'
+        : pretreated
+          ? 'solo filtra lo grueso (sólidos, arenas y grasas) — el agua sale sin depurar.'
+          : 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
     });
   if (n.includes('salmuera')) {
     // La profundidad solo se convierte en aviso cuando es contundente:
@@ -228,8 +237,9 @@ const natureParts = (
     parts.push({
       src: /edam|desaladora|salina/.test(o) ? 'Desaladora' : null,
       name: 'salmuera',
+      desc: 'concentrado de sal',
       note:
-        'el concentrado de sal que devuelve la desaladora — no lleva fecales, pero es más densa que el mar y puede formar una capa sobre el fondo que daña praderas y bentos.' +
+        'no lleva fecales, pero es más densa que el mar y puede formar una capa sobre el fondo que daña praderas y bentos.' +
         (shallow
           ? depth! >= 0
             ? ' Y aquí el vertido cae sobre la superficie del mar, así que esa capa salada llega al fondo casi sin diluirse.'
@@ -242,19 +252,23 @@ const natureParts = (
     parts.push({
       src: /piscina|n[aá]utico|club/.test(o) ? 'Piscinas' : null,
       name: 'agua de piscinas',
-      note: 'con cloro y sal — impacto leve y puntual.',
+      desc: 'con cloro y sal',
+      note: 'impacto leve y puntual.',
     });
   if (n.includes('refrigeración'))
     parts.push({
       src: null,
       name: 'agua de refrigeración',
-      note: 'sale a otra temperatura — impacto térmico puntual.',
+      // Agua de mar usada para enfriar la planta: vuelve más caliente
+      desc: 'sale más caliente que el mar',
+      note: 'impacto leve y puntual.',
     });
   if (n.includes('pluvial'))
     parts.push({
       src: /pluvial/.test(o) ? 'Red de pluviales' : null,
       name: 'agua de lluvia',
-      note: 'arrastra aceites, metales y suciedad de las calles — no es fecal, pero tras la sequía sale cargada.',
+      desc: 'arrastra aceites, metales y suciedad de las calles',
+      note: 'no es fecal, pero tras la sequía sale cargada.',
     });
   // Con varias sustancias la etiqueta nombra cada una
   // ("Depuradora — aguas fecales…" / "Desaladora — salmuera…");
@@ -264,6 +278,7 @@ const natureParts = (
     label: multi
       ? [p.src, p.name].filter(Boolean).join(' — ')
       : (p.src ?? p.name),
+    desc: p.desc,
     note: p.note,
   }));
 };
@@ -807,7 +822,7 @@ export default function FeatureSheet({
                 <View style={styles.heroText}>
                   {p.nature ? (
                     <>
-                      <Text style={styles.heroKicker}>
+                      <Text style={styles.secCardTitle}>
                         Qué se vierte
                       </Text>
                       <Text style={styles.heroValue}>{p.nature}</Text>
@@ -827,7 +842,13 @@ export default function FeatureSheet({
                             <Text style={styles.heroRespStrong}>
                               {pt.label[0].toUpperCase() +
                                 pt.label.slice(1)}
+                              {pt.desc ? ':' : ''}
                             </Text>
+                            {pt.desc ? (
+                              <Text style={styles.heroRespStrong}>
+                                {` ${pt.desc}`}
+                              </Text>
+                            ) : null}
                             {` — ${pt.note}`}
                           </Text>
                         ),
@@ -947,7 +968,7 @@ export default function FeatureSheet({
                       { tintColor: colors.accent },
                     ]}
                   />
-                  <Text style={styles.nearCardTitle}>
+                  <Text style={styles.secCardTitle}>
                     Playas cercanas
                   </Text>
                 </View>
@@ -1243,12 +1264,6 @@ const styles = StyleSheet.create({
   heroText: {
     flex: 1,
   },
-  heroKicker: {
-    fontSize: 11,
-    fontFamily: fonts.bold,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-  },
   heroValue: {
     fontSize: 15,
     fontFamily: fonts.extrabold,
@@ -1256,20 +1271,20 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   heroSub: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 2,
   },
   heroNote: {
-    fontSize: 11,
+    fontSize: 13,
     fontFamily: fonts.regular,
     color: colors.textMuted,
-    lineHeight: 15,
+    lineHeight: 18,
     marginTop: 4,
   },
   heroResp: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 4,
@@ -1307,16 +1322,17 @@ const styles = StyleSheet.create({
     gap: 7,
     marginBottom: 2,
   },
+  // Icono de cabecera de card — mismo tamaño que el grifo del hero
   secIcon: {
-    width: 15,
-    height: 15,
+    width: 22,
+    height: 22,
   },
+  // Título de card único: "Qué se vierte", "Dónde y cómo" y
+  // "Playas cercanas" comparten tamaño, peso y color
   secCardTitle: {
-    fontSize: 11,
+    fontSize: 15,
     fontFamily: fonts.extrabold,
     color: colors.primaryDark,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
   },
   // Espacio protegido (ZEC…): caja tintada verde — es contexto
   // ambiental, no parte de la lista de datos
@@ -1379,13 +1395,6 @@ const styles = StyleSheet.create({
     marginRight: 6,
     minWidth: 46,
     textAlign: 'right',
-  },
-  // Título de la card de playas: más grande y con más vida que los
-  // kickers de sección — es el cierre de la ficha, no una etiqueta
-  nearCardTitle: {
-    fontSize: 15,
-    fontFamily: fonts.extrabold,
-    color: colors.primaryDark,
   },
   nearSub: {
     fontSize: 11,
