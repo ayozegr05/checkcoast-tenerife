@@ -139,19 +139,26 @@ const conduitText = (
 // dice explícito en vez de dejar el dato colgado
 const natureNote = (nature: string): string | null => {
   const n = nature.toLowerCase();
-  if (n.includes('industrial'))
-    return 'Aguas fecales, domésticas e industriales — el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.';
-  if (n.includes('residual urbana'))
-    return 'Aguas fecales y domésticas — el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.';
+  // La naturaleza puede combinar ("Agua residual y salmuera"): se
+  // acumulan las notas de cada componente
+  const notes: string[] = [];
+  if (n.includes('residual'))
+    notes.push(
+      n.includes('industrial')
+        ? 'Aguas fecales, domésticas e industriales — el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.'
+        : 'Aguas fecales y domésticas — el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
+    );
   if (n.includes('salmuera'))
-    return 'Sal concentrada que se hunde al fondo — daña praderas y bentos; el bañista apenas lo nota.';
+    notes.push(
+      'La salmuera es sal concentrada que se hunde al fondo — daña praderas y bentos; el bañista apenas lo nota.',
+    );
   if (n.includes('piscina'))
-    return 'Agua con cloro y sal — impacto leve y puntual.';
+    notes.push('Agua con cloro y sal — impacto leve y puntual.');
   if (n.includes('refrigeración'))
-    return 'Agua a otra temperatura — impacto térmico puntual.';
+    notes.push('Agua a otra temperatura — impacto térmico puntual.');
   if (n.includes('pluvial'))
-    return 'Agua de lluvia con lo que arrastra la calle — impacto leve.';
-  return null;
+    notes.push('Agua de lluvia con lo que arrastra la calle — impacto leve.');
+  return notes.length ? notes.join(' ') : null;
 };
 
 const operationText = (
