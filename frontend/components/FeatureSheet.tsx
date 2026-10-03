@@ -81,6 +81,33 @@ const BEACH_STATUS_TEXT: Record<string, string> = {
 const fmtDistance = (m: number) =>
   m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
 
+// EstadoFunc (¿opera hoy?) + ContinVert (régimen de DISEÑO) en una
+// sola frase legible — evita la aparente contradicción "no activo
+// pero vertido habitual"
+const operationText = (
+  active: boolean | null | undefined,
+  continuity: string | null | undefined,
+): string | null => {
+  const habitual = continuity === 'Habitual';
+  if (active === true)
+    return continuity == null
+      ? 'En funcionamiento actualmente.'
+      : habitual
+        ? 'Funciona hoy: vierte de forma continua en uso normal.'
+        : 'Funciona hoy, pero solo debería verter en emergencias o desbordamientos.';
+  if (active === false)
+    return continuity == null
+      ? 'No opera ahora mismo.'
+      : habitual
+        ? 'No opera ahora mismo, aunque está pensado para verter a diario.'
+        : 'No opera ahora mismo; está pensado solo para emergencias.';
+  return continuity == null
+    ? null
+    : habitual
+      ? 'Pensado para vertido habitual.'
+      : 'Pensado solo para verter en emergencias.';
+};
+
 // Card flotante arrastrable: peek (~42% alto) -> expandida (~86%) ->
 // cerrada (deslizar abajo). Anima la ALTURA (no translateY) para que la
 // card termine dentro de pantalla y se vea el mar debajo.
@@ -113,6 +140,9 @@ export default function FeatureSheet({
   const p = feature.properties;
   const isBeach = selection.type === 'beach';
   const statusKey = p.status ?? 'unknown';
+  const operationLine = isBeach
+    ? null
+    : operationText(p.is_active, p.continuity);
 
   // Selector de PMs: si la playa agrupada tiene varios puntos de
   // muestreo, la card muestra primero la lista y el usuario elige
@@ -493,8 +523,9 @@ export default function FeatureSheet({
               onPress={handleViewOnMap}
               startLevel={1}
             />
-            {/* Fila de chips: legalidad + activo + régimen — el mismo
-                lenguaje visual que los badges de estado de playa */}
+            {/* Chip único de legalidad + frase fluida de
+                funcionamiento: "Activo + habitual" como lectura
+                continua, no como etiquetas apiladas */}
             <View style={styles.chipsRow}>
               <View
                 style={[
@@ -509,49 +540,10 @@ export default function FeatureSheet({
                   {STATUS_LABELS[statusKey] ?? 'En trámite / sin datos'}
                 </Text>
               </View>
-              {p.is_active != null && (
-                <View
-                  style={[
-                    styles.chip,
-                    {
-                      backgroundColor: p.is_active
-                        ? colors.outfall.unknown
-                        : colors.status.unmonitored,
-                    },
-                  ]}
-                >
-                  <Text style={styles.chipText}>
-                    {p.is_active ? 'Activo' : 'No activo'}
-                  </Text>
-                </View>
-              )}
-              {p.continuity ? (
-                <View
-                  style={[
-                    styles.chip,
-                    {
-                      backgroundColor:
-                        p.continuity === 'Habitual'
-                          ? colors.outfall.unknown
-                          : colors.textFaint,
-                    },
-                  ]}
-                >
-                  <Text style={styles.chipText}>
-                    {/* ContinVert es el régimen de DISEÑO — si el
-                        vertido no opera, "habitual" confunde: se
-                        muestra como previsión */}
-                    {p.is_active === false
-                      ? p.continuity === 'Habitual'
-                        ? 'Previsto: vertido habitual'
-                        : 'Previsto: emergencias'
-                      : p.continuity === 'Habitual'
-                        ? 'Vertido habitual'
-                        : 'Solo en emergencias'}
-                  </Text>
-                </View>
-              ) : null}
             </View>
+            {operationLine ? (
+              <Text style={styles.opLine}>{operationLine}</Text>
+            ) : null}
             {/* El vertido: la respuesta protagonista — qué cae al mar
                 y de dónde viene. Es la pregunta que abre la ficha */}
             {p.nature ? (
@@ -869,6 +861,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontFamily: fonts.bold,
+  },
+  // Frase de funcionamiento bajo el chip legal: lectura continua en
+  // vez de chips apilados ("Funciona hoy, pero solo en emergencias")
+  opLine: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: 2,
+    marginBottom: 6,
   },
   row: {
     fontSize: 13,
