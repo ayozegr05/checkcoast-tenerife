@@ -144,6 +144,7 @@ const conduitText = (
 const natureParts = (
   nature: string,
   origin: string | null | undefined,
+  depth: number | null | undefined,
 ): { label: string; note: string }[] => {
   const n = nature.toLowerCase();
   const o = (origin ?? '').toLowerCase();
@@ -165,13 +166,31 @@ const natureParts = (
       note: 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
     });
   }
-  if (n.includes('salmuera'))
+  if (n.includes('salmuera')) {
+    // La profundidad del vertido es el mejor proxy que tenemos del
+    // daño a fondos: a mayor profundidad, más dilución antes de que
+    // la capa salada toque el bentos (no sabemos caudal ni difusor)
+    const d = depth != null ? Math.abs(depth) : null;
+    const depthNote =
+      d == null
+        ? ''
+        : depth! >= 0
+          ? ' Y al caer desde sobre el mar sobre fondos someros, la capa salada llega casi sin diluirse.'
+          : d >= 25
+            ? ` Al verter a ${d} m de profundidad la dilución inicial es buena en principio.`
+            : d >= 8
+              ? ` A ${d} m de profundidad la dilución es moderada.`
+              : ` A solo ${d} m de profundidad la capa salada llega al fondo casi sin diluirse.`;
     parts.push({
       label:
         (/edam|desaladora|salina/.test(o) ? 'Desaladora — ' : '') +
         'salmuera',
-      note: 'el concentrado de sal que devuelve la desaladora — no lleva fecales, pero es más densa que el mar y puede formar una capa sobre el fondo que daña praderas y bentos; el daño real depende de la profundidad y la dilución del vertido. El bañista apenas lo nota.',
+      note:
+        'el concentrado de sal que devuelve la desaladora — no lleva fecales, pero es más densa que el mar y puede formar una capa sobre el fondo que daña praderas y bentos.' +
+        depthNote +
+        ' El bañista apenas lo nota.',
     });
+  }
   if (n.includes('piscina'))
     parts.push({
       label: 'agua de piscinas',
@@ -518,20 +537,20 @@ export default function FeatureSheet({
           <Text style={styles.title} numberOfLines={2}>
             {title}
           </Text>
-          <Pressable
-            onPress={() => dismiss()}
-            hitSlop={12}
-            style={({ pressed }) => [
-              styles.closeBtn,
-              { backgroundColor: accent },
-              pressed && styles.pressFx,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Cerrar ficha"
-          >
-            <Text style={styles.close}>✕</Text>
-          </Pressable>
         </View>
+        <Pressable
+          onPress={() => dismiss()}
+          hitSlop={12}
+          style={({ pressed }) => [
+            styles.closeBtn,
+            { backgroundColor: accent },
+            pressed && styles.pressFx,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar ficha"
+        >
+          <Text style={styles.close}>✕</Text>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -722,7 +741,11 @@ export default function FeatureSheet({
                           {originLabel(p.origin)}
                         </Text>
                       ) : null}
-                      {natureParts(p.nature, p.origin).map(
+                      {natureParts(
+                        p.nature,
+                        p.origin,
+                        p.outfall_depth,
+                      ).map(
                         (pt, i) => (
                           <Text key={i} style={styles.heroNote}>
                             <Text style={styles.heroRespStrong}>
@@ -1001,17 +1024,19 @@ const styles = StyleSheet.create({
     fontFamily: fonts.extrabold,
     color: '#fff',
   },
-  // ✕ fija en la esquina superior derecha del header, con el color
-  // de estado de la ficha — no se mueve aunque el título crezca
+  // ✕ fija en la esquina superior derecha de la zona tintada (al
+  // lado del asa), con el color de estado — no se mueve aunque el
+  // título crezca
   closeBtn: {
     position: 'absolute',
-    top: 0,
-    right: 16,
+    top: 6,
+    right: 10,
     width: 30,
     height: 30,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 2,
   },
   body: {
     flex: 1,
