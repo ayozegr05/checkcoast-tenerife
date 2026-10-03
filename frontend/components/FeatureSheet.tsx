@@ -165,15 +165,38 @@ const conduitSegs = (
   return segs;
 };
 
-// La descripción del censo suele empezar repitiendo el tipo que la
-// frase de conducción ya dice ("El emisario submarino arranca…")
-// — se recorta ese sujeto redundante
+// La descripción del censo mezcla frases completas ("El vertido se
+// produce bajo el muro del paseo…") con fragmentos secos
+// ("Escollera de protección."). Las frases se limpian del sujeto
+// redundante ("El emisario submarino arranca…" → "Arranca…") y los
+// fragmentos se convierten en frase: "El punto de vertido está en
+// la escollera del paseo marítimo de Playa San Juan."
 const zoneText = (zd: string) => {
-  const s = zd.replace(
-    /^(?:el|la|los|las)\s+(?:emisario(?:\s+submarino)?|conducci[oó]n(?:\s+de\s+(?:desag[üu]e|vertido))?|canal|tuber[ií]a|instalaci[oó]n(?:\s+de\s+vertido)?)\s+/i,
-    '',
-  );
-  return s[0].toUpperCase() + s.slice(1);
+  let s = zd.trim().replace(/\s+/g, ' ').replace(/\.$/, '').trim();
+  if (/^(?:el|la|los|las|se|este|esta)\b/i.test(s)) {
+    s = s.replace(
+      /^(?:el|la|los|las)\s+(?:emisario(?:\s+submarino)?|conducci[oó]n(?:\s+(?:submarina|de\s+(?:desag[üu]e|vertido)))?|canal|tuber[ií]a|instalaci[oó]n(?:\s+de\s+vertido)?)\s+/i,
+      '',
+    );
+    return s[0].toUpperCase() + s.slice(1) + '.';
+  }
+  // "Situado en el lado oeste…" → el participio ya trae la "en"
+  s = s.replace(/^situad[oa]\s+/i, '');
+  if (/^en\b/i.test(s)) return `El punto de vertido está ${s}.`;
+  const fem =
+    /^(escollera|rasa|playa|zona|parte|trasera|urbanizaci[oó]n|costa|peque[ñn]a|plaza|piscina|d[aá]rsena|desembocadura|proximidades|explanada|ensenada|caleta|colada)/i.test(
+      s,
+    );
+  const masc =
+    /^(paseo|muelle|muellito|puerto|entorno|acantilado|barranco|extremo|final|interior|espald[oó]n|dique|pozo|parque|lado)/i.test(
+      s,
+    );
+  const body = fem
+    ? `la ${s[0].toLowerCase() + s.slice(1)}`
+    : masc
+      ? `el ${s[0].toLowerCase() + s.slice(1)}`
+      : s;
+  return `El punto de vertido está en ${body}.`;
 };
 
 // Filas crudas del censo para "Datos del censo" — transparencia
@@ -1300,9 +1323,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
   },
   zoneDesc: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fonts.regular,
-    color: colors.textMuted,
+    color: colors.text,
     marginTop: 4,
   },
   // Respuesta protagonista del emisario: "qué se vierte" con icono —
