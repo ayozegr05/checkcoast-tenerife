@@ -21,6 +21,13 @@
         "buildType": "apk"
       }
     },
-    "production": {}
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://checkcoast.duckdns.org"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
   }
 }
