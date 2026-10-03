@@ -44,6 +44,16 @@ def _clean(v) -> str | None:
     return s if s and s != "-" else None
 
 
+def _num(v) -> float | None:
+    """Campos numéricos del censo: '-' o vacío → None."""
+    if v is None or v == "-":
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def _read_zip(url: str) -> zipfile.ZipFile:
     resp = requests.get(url, timeout=120)
     resp.raise_for_status()
@@ -96,6 +106,14 @@ def main() -> None:
             obj.settlement = _clean(rec["NucleoUrb"])
             obj.location = _clean(rec["Localiz"])
             obj.zone_desc = _clean(rec["DescrZona"])
+            obj.manager = _clean(rec["GestSan"])
+            obj.length_m = _num(rec["Longitud"])
+            obj.outfall_depth = _num(rec["CotaVert"])
+            xa, ya = _num(rec["XArranque"]), _num(rec["YArranque"])
+            if xa is not None and ya is not None:
+                obj.start_lon, obj.start_lat = _to_wgs84.transform(xa, ya)
+            else:
+                obj.start_lon = obj.start_lat = None
             obj.geom = f"SRID=4326;POINT({lon} {lat})"
             obj.source_url = DATASET_URL
             db.add(obj)

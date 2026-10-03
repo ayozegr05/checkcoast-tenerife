@@ -6,6 +6,7 @@ import {
   NativeSyntheticEvent,
   PanResponder,
   Platform,
+  Image,
   ImageBackground,
   Pressable,
   ScrollView,
@@ -171,6 +172,9 @@ export default function FeatureSheet({
   const closing = useRef(false);
   // Estado espejo de expanded para re-render (el ref no dispara render)
   const [isExpanded, setIsExpanded] = useState(false);
+  // "Detalles técnicos" de la ficha de emisario: plegado por defecto
+  const [techOpen, setTechOpen] = useState(false);
+  useEffect(() => setTechOpen(false), [feature.id]);
   // Scroll del cuerpo: BeachDetail lo usa para bajar a "Ver titulares"
   const bodyRef = useRef<ScrollView>(null);
   // "Ver más" visible mientras quede contenido por debajo del viewport.
@@ -476,6 +480,14 @@ export default function FeatureSheet({
               }
               centerIcon={require('../assets/icons/icon-faucet-sil.png')}
               markers={shotMarkers}
+              line={
+                p.start_lon != null && p.start_lat != null
+                  ? {
+                      from: [p.start_lon, p.start_lat],
+                      color: colors.primary,
+                    }
+                  : undefined
+              }
               onPress={handleViewOnMap}
               startLevel={1}
             />
@@ -531,17 +543,24 @@ export default function FeatureSheet({
                 </View>
               ) : null}
             </View>
-            {p.kind ? <Text style={styles.row}>Tipo: {p.kind}</Text> : null}
+            {/* El vertido: la respuesta protagonista — qué cae al mar
+                y de dónde viene. Es la pregunta que abre la ficha */}
             {p.nature ? (
-              <Text style={styles.row}>
-                Qué se vierte:{' '}
-                <Text style={styles.rowStrong}>{p.nature}</Text>
-              </Text>
-            ) : null}
-            {p.origin ? (
-              <Text style={styles.row}>
-                Procedencia: {originLabel(p.origin)}
-              </Text>
+              <View style={styles.heroBox}>
+                <Image
+                  source={require('../assets/icons/icon-faucet.png')}
+                  style={styles.heroIcon}
+                />
+                <View style={styles.heroText}>
+                  <Text style={styles.heroKicker}>Qué se vierte</Text>
+                  <Text style={styles.heroValue}>{p.nature}</Text>
+                  {p.origin ? (
+                    <Text style={styles.heroSub}>
+                      {originLabel(p.origin)}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
             ) : null}
             {p.condition ? (
               <Text style={styles.row}>
@@ -559,20 +578,76 @@ export default function FeatureSheet({
                 </Text>
               </Text>
             ) : null}
-            {p.entity ? (
-              <Text style={styles.row}>Responsable: {p.entity}</Text>
-            ) : null}
-            {p.municipality ? (
-              <Text style={styles.row}>Municipio: {p.municipality}</Text>
-            ) : null}
+
+            {/* Dónde y quién: contexto geográfico + responsabilidad */}
+            <Text style={styles.secTitle}>Dónde y quién</Text>
             {p.settlement ? (
               <Text style={styles.row}>Núcleo: {p.settlement}</Text>
             ) : null}
             {p.location ? (
               <Text style={styles.row}>Ubicación: {p.location}</Text>
             ) : null}
+            {p.municipality ? (
+              <Text style={styles.row}>Municipio: {p.municipality}</Text>
+            ) : null}
             {p.zone_desc ? (
               <Text style={styles.zoneDesc}>{p.zone_desc}</Text>
+            ) : null}
+            {p.entity ? (
+              <Text style={styles.row}>
+                Responsable: {p.entity}
+                {/* Operador distinto del titular (GestSan ≠ Entidad):
+                    "del ayuntamiento pero lo opera Aqualia" */}
+                {p.manager && p.manager !== p.entity
+                  ? ` · operado por ${p.manager}`
+                  : null}
+              </Text>
+            ) : p.manager ? (
+              <Text style={styles.row}>Operador: {p.manager}</Text>
+            ) : null}
+
+            {/* Detalles técnicos plegables: dato de censo para el
+                curioso, no la respuesta del bañista */}
+            {p.kind || p.length_m != null || p.outfall_depth != null ? (
+              <View>
+                <Pressable
+                  onPress={() => setTechOpen((o) => !o)}
+                  hitSlop={6}
+                  style={({ pressed }) => [
+                    styles.techToggle,
+                    pressed && styles.pressFx,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Detalles técnicos de la conducción"
+                  accessibilityState={{ expanded: techOpen }}
+                >
+                  <Text style={styles.techToggleText}>
+                    {techOpen ? '▾' : '▸'} Detalles técnicos
+                  </Text>
+                </Pressable>
+                {techOpen && (
+                  <View style={styles.techBody}>
+                    {p.kind ? (
+                      <Text style={styles.row}>Tipo: {p.kind}</Text>
+                    ) : null}
+                    {p.length_m != null ? (
+                      <Text style={styles.row}>
+                        Longitud: {Math.round(p.length_m)} m
+                      </Text>
+                    ) : null}
+                    {p.outfall_depth != null ? (
+                      <Text style={styles.row}>
+                        Cota del vertido:{' '}
+                        {p.outfall_depth < 0
+                          ? `${Math.abs(p.outfall_depth)} m bajo el nivel del mar`
+                          : p.outfall_depth > 0
+                            ? `${p.outfall_depth} m sobre el nivel del mar`
+                            : 'a nivel del mar'}
+                      </Text>
+                    ) : null}
+                  </View>
+                )}
+              </View>
             ) : null}
             {p.protected_area ? (
               <View style={styles.protectedBox}>
@@ -819,6 +894,68 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 4,
+  },
+  // Respuesta protagonista del emisario: "qué se vierte" con icono —
+  // no una fila más, es la pregunta que abre la ficha
+  heroBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+    backgroundColor: colors.background,
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  heroIcon: {
+    width: 22,
+    height: 22,
+    tintColor: colors.primary,
+  },
+  heroText: {
+    flex: 1,
+  },
+  heroKicker: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+  },
+  heroValue: {
+    fontSize: 15,
+    fontFamily: fonts.extrabold,
+    color: colors.text,
+    marginTop: 1,
+  },
+  heroSub: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  // Mini-cabecera de sección — rompe el "muro de filas" en bloques
+  secTitle: {
+    fontSize: 11,
+    fontFamily: fonts.extrabold,
+    color: colors.textFaint,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: 12,
+    marginBottom: 2,
+  },
+  techToggle: {
+    marginTop: 12,
+  },
+  techToggleText: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    color: colors.primary,
+  },
+  techBody: {
+    marginTop: 4,
+    paddingLeft: 10,
   },
   // Espacio protegido (ZEC…): caja tintada verde — es contexto
   // ambiental, no parte de la lista de datos

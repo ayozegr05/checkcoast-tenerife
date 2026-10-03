@@ -19,6 +19,13 @@ export type ShotMarker = {
   icon?: ImageSourcePropType;
 };
 
+// Trazado arranque → punto de vertido (emisarios): línea discontinua
+// desde el punto de tierra hasta el centro del encuadre
+export type ShotLine = {
+  from: [number, number];
+  color: string;
+};
+
 // Foto satélite estática del punto (Esri World Imagery, mismo servicio
 // que la vista satélite del mapa). Tres encuadres: muy cerca (x0,25 —
 // ~300 m, detalle de la arena/el espigón), cerca (~1,2 km x 750 m) y
@@ -51,6 +58,7 @@ export default function SatelliteShot({
   centerColor,
   centerIcon,
   markers,
+  line,
   onPress,
   startLevel = START_LEVEL,
 }: {
@@ -58,6 +66,7 @@ export default function SatelliteShot({
   centerColor: string;
   centerIcon?: ImageSourcePropType;
   markers: ShotMarker[];
+  line?: ShotLine;
   onPress?: () => void;
   // Nivel inicial: 0 máximo (playas), 1 medio (emisarios — el punto
   // solo no dice nada, interesa el entorno)
@@ -100,10 +109,38 @@ export default function SatelliteShot({
       .slice(0, MAX_MARKERS);
   }, [markers, lon, lat, dLon, dLat]);
 
+  // Tamaño real del contenedor: el trazado se dibuja en píxeles
+  // (rotar una View con % no funciona — la rotación es sobre su
+  // propio centro, así que colocamos el centro en el punto medio)
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const seg = useMemo(() => {
+    if (!line || !size.w || !size.h) return null;
+    const fx = ((line.from[0] - (lon - dLon)) / (2 * dLon)) * size.w;
+    const fy = ((lat + dLat - line.from[1]) / (2 * dLat)) * size.h;
+    const cx = size.w / 2;
+    const cy = size.h / 2;
+    return {
+      len: Math.hypot(cx - fx, cy - fy),
+      ang: Math.atan2(cy - fy, cx - fx),
+      mx: (fx + cx) / 2,
+      my: (fy + cy) / 2,
+      fx,
+      fy,
+    };
+  }, [line, size, lon, lat, dLon, dLat]);
+
   const loading = loadedUri !== uri;
 
   return (
-    <View style={styles.wrap}>
+    <View
+      style={styles.wrap}
+      onLayout={(e) =>
+        setSize({
+          w: e.nativeEvent.layout.width,
+          h: e.nativeEvent.layout.height,
+        })
+      }
+    >
       {loading && <Skeleton style={styles.skeleton} />}
       {loading && <Text style={styles.loading}>Cargando vista satélite…</Text>}
       <Image
@@ -121,6 +158,37 @@ export default function SatelliteShot({
         }}
       />
 
+      {/* Trazado tierra → mar: la línea sale del punto de arranque
+          y llega al centro (el vertido). Si el arranque cae fuera del
+          encuadre la línea se recorta sola — sigue apuntando bien */}
+      {seg && line && (
+        <>
+          <View
+            pointerEvents="none"
+            style={[
+              styles.trace,
+              {
+                left: seg.mx - seg.len / 2,
+                top: seg.my - 1.5,
+                width: seg.len,
+                borderTopColor: line.color,
+                transform: [{ rotate: `${seg.ang}rad` }],
+              },
+            ]}
+          />
+          <View
+            pointerEvents="none"
+            style={[
+              styles.traceStart,
+              {
+                left: seg.fx - 6,
+                top: seg.fy - 6,
+                borderColor: line.color,
+              },
+            ]}
+          />
+        </>
+      )}
       {visible.map((m) => (
         <View
           key={m.id}
@@ -281,6 +349,27 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     tintColor: '#fff',
+  },
+  // Trazado de la conducción: línea discontinua con halo claro para
+  // leerse sobre satélite (el borde blanco va por debajo vía sombra)
+  trace: {
+    position: 'absolute',
+    height: 0,
+    borderTopWidth: 3,
+    borderStyle: 'dashed',
+    opacity: 0.95,
+    shadowColor: '#fff',
+    shadowOpacity: 0.9,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  traceStart: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2.5,
+    backgroundColor: '#fff',
   },
   zoomCol: {
     position: 'absolute',

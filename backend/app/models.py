@@ -58,6 +58,17 @@ class Outfall(Base):
     settlement: Mapped[str | None] = mapped_column(String(160))
     location: Mapped[str | None] = mapped_column(String(255))
     zone_desc: Mapped[str | None] = mapped_column(Text)
+    # Operador del saneamiento (GestSan): distinto del titular — un
+    # aliviadero del ayuntamiento puede operarlo Aqualia o EMMASA
+    manager: Mapped[str | None] = mapped_column(String(160))
+    # Ingeniería: largo de la conducción y cota del punto de vertido
+    # (negativo = bajo el nivel del mar)
+    length_m: Mapped[float | None] = mapped_column(Float)
+    outfall_depth: Mapped[float | None] = mapped_column(Float)
+    # Punto de arranque en tierra (XArranque/YArranque ya a WGS84):
+    # permite dibujar el trazado tierra → mar en la ficha
+    start_lon: Mapped[float | None] = mapped_column(Float)
+    start_lat: Mapped[float | None] = mapped_column(Float)
     geom: Mapped[WKBElement] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326), nullable=False
     )

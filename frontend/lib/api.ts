@@ -22,6 +22,13 @@ export type GeoFeature = {
     settlement?: string | null;
     location?: string | null;
     zone_desc?: string | null;
+    // Operador del saneamiento (GestSan) + ingeniería de la conducción
+    manager?: string | null;
+    length_m?: number | null;
+    outfall_depth?: number | null;
+    // Punto de arranque en tierra: trazado tierra → mar en la ficha
+    start_lon?: number | null;
+    start_lat?: number | null;
     status_via?: 'official' | 'press' | null;
     // Causa corta de la alerta viva ("Contaminación", "Desprendimientos")
     // y su procedencia — solo presentes con alerta activa
