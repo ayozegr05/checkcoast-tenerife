@@ -199,23 +199,6 @@ const zoneText = (zd: string) => {
   return `El punto de vertido está en ${body}.`;
 };
 
-// Filas crudas del censo para "Datos del censo" — transparencia
-// para el friki. Solo lo que las cards NO han narrado ya: la
-// naturaleza, régimen, funcionamiento, procedencia y localización
-// viven arriba en "Qué se vierte" y "Dónde y cómo"
-const censusRows = (p: GeoFeature['properties']) =>
-  [
-    ['Tipo de conducción', p.kind],
-    ['Estado físico', p.condition],
-    ['Titular', p.entity],
-    ['Operador', p.manager],
-    ['Núcleo urbano', p.settlement],
-    [
-      'Longitud de conducción',
-      p.length_m != null ? `${Math.round(p.length_m)} m` : null,
-    ],
-  ].filter(([, v]) => v != null) as [string, string][];
-
 // Qué significa cada sustancia para el ciudadano: la naturaleza
 // puede combinar ("Agua residual y salmuera") y el origen dice de
 // qué instalación sale cada parte → una línea por apartado
@@ -1121,37 +1104,27 @@ export default function FeatureSheet({
               </View>
             ) : null}
 
-            {/* Pie del censo: datos brutos y fuente oficial en
-                discreto — la letra pequeña para quien quiera
-                comprobar, sin competir con las cards */}
-            <View style={styles.censusFoot}>
-              <Text style={styles.censusFootTitle}>
-                Datos del censo
-              </Text>
-              {censusRows(p).map(([k, v]) => (
-                <View key={k} style={styles.censusTableRow}>
-                  <Text style={styles.censusLab}>{k}</Text>
-                  <Text style={styles.censusVal}>{v}</Text>
-                </View>
-              ))}
-              {p.source_url ? (
-                <Pressable
-                  onPress={() =>
-                    p.source_url && Linking.openURL(p.source_url)
-                  }
-                  accessibilityRole="link"
-                  accessibilityLabel="Abrir el censo oficial de vertidos"
-                  style={({ pressed }) => [
-                    styles.censusSrcWrap,
-                    pressed && styles.pressFx,
-                  ]}
-                >
-                  <Text style={styles.censusSrc}>
-                    Fuente: Censo Vertidos Tierra-Mar 2025 ↗
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
+            {/* Fuente oficial como pie discreto — la tabla cruda se
+                fue: cada dato relevante ya está narrado en las cards
+                y el resto no le dice nada al bañista. Queda el
+                enlace por transparencia */}
+            {p.source_url ? (
+              <Pressable
+                onPress={() =>
+                  p.source_url && Linking.openURL(p.source_url)
+                }
+                accessibilityRole="link"
+                accessibilityLabel="Abrir el censo oficial de vertidos"
+                style={({ pressed }) => [
+                  styles.censusSrcWrap,
+                  pressed && styles.pressFx,
+                ]}
+              >
+                <Text style={styles.censusSrc}>
+                  Fuente: Censo Vertidos Tierra-Mar 2025 ↗
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
       </ScrollView>
@@ -1546,43 +1519,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     opacity: 0.7,
   },
-  // Pie del censo: discreto — divisor fino, título mini y tabla
-  // clave→valor; sin cromo de card porque es el metadato
-  censusFoot: {
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 8,
-  },
-  censusFootTitle: {
-    fontSize: 11,
-    fontFamily: fonts.extrabold,
-    color: colors.textFaint,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 2,
-  },
-  censusTableRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 10,
-    paddingVertical: 3,
-  },
-  censusLab: {
-    fontSize: 11,
-    fontFamily: fonts.semibold,
-    color: colors.textFaint,
-  },
-  censusVal: {
-    flex: 1,
-    fontSize: 12,
-    fontFamily: fonts.regular,
-    color: colors.text,
-    textAlign: 'right',
-  },
+  // Pie: solo el enlace a la fuente oficial, discreto
   censusSrcWrap: {
-    marginTop: 6,
+    marginTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: 6,
