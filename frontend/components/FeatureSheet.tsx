@@ -148,65 +148,72 @@ const natureParts = (
 ): { label: string; note: string }[] => {
   const n = nature.toLowerCase();
   const o = (origin ?? '').toLowerCase();
-  const parts: { label: string; note: string }[] = [];
-  if (n.includes('residual')) {
-    const src = /e[dt]a[rs]|depuradora|tratamiento/.test(o)
-      ? 'Depuradora — '
-      : /ebar|bombeo|pretratamiento|saneamiento|aliviadero|red/.test(
-            o,
-          )
-        ? 'Red de saneamiento — '
-        : '';
+  const parts: { src: string | null; name: string; note: string }[] =
+    [];
+  if (n.includes('residual'))
     parts.push({
-      label:
-        src +
-        (n.includes('industrial')
-          ? 'aguas fecales, domésticas e industriales'
-          : 'aguas fecales y domésticas'),
+      src: /e[dt]a[rs]|depuradora|tratamiento/.test(o)
+        ? 'Depuradora'
+        : /ebar|bombeo|pretratamiento|saneamiento|aliviadero|red/.test(
+              o,
+            )
+          ? 'Red de saneamiento'
+          : null,
+      name: n.includes('industrial')
+        ? 'aguas fecales, domésticas e industriales'
+        : 'aguas fecales y domésticas',
       note: 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
     });
-  }
   if (n.includes('salmuera')) {
-    // La profundidad del vertido es el mejor proxy que tenemos del
-    // daño a fondos: a mayor profundidad, más dilución antes de que
-    // la capa salada toque el bentos (no sabemos caudal ni difusor)
-    const d = depth != null ? Math.abs(depth) : null;
-    const depthNote =
-      d == null
-        ? ''
-        : depth! >= 0
-          ? ' Y al caer desde sobre el mar sobre fondos someros, la capa salada llega casi sin diluirse.'
-          : d >= 25
-            ? ` Al verter a ${d} m de profundidad la dilución inicial es buena en principio.`
-            : d >= 8
-              ? ` A ${d} m de profundidad la dilución es moderada.`
-              : ` A solo ${d} m de profundidad la capa salada llega al fondo casi sin diluirse.`;
+    // La profundidad solo se convierte en aviso cuando es contundente:
+    // un vertido somero llega al fondo casi sin diluir pase lo que
+    // pase; uno profundo NO garantiza buen diseño (caudal y difusor
+    // mandan también) → silencio antes que falsa tranquilidad
+    const shallow =
+      depth != null && (depth >= 0 || Math.abs(depth) < 8);
     parts.push({
-      label:
-        (/edam|desaladora|salina/.test(o) ? 'Desaladora — ' : '') +
-        'salmuera',
+      src: /edam|desaladora|salina/.test(o) ? 'Desaladora' : null,
+      name: 'salmuera',
       note:
         'el concentrado de sal que devuelve la desaladora — no lleva fecales, pero es más densa que el mar y puede formar una capa sobre el fondo que daña praderas y bentos.' +
-        depthNote +
+        (shallow
+          ? ` Y aquí sale ${
+              depth! >= 0
+                ? 'desde sobre el mar, sobre fondos someros,'
+                : `a solo ${Math.abs(depth!)} m de profundidad,`
+            } así que esa capa llega casi sin diluirse.`
+          : '') +
         ' El bañista apenas lo nota.',
     });
   }
   if (n.includes('piscina'))
     parts.push({
-      label: 'agua de piscinas',
-      note: 'agua con cloro y sal — impacto leve y puntual.',
+      src: /piscina|n[aá]utico|club/.test(o) ? 'Piscinas' : null,
+      name: 'agua de piscinas',
+      note: 'con cloro y sal — impacto leve y puntual.',
     });
   if (n.includes('refrigeración'))
     parts.push({
-      label: 'agua de refrigeración',
-      note: 'agua a otra temperatura — impacto térmico puntual.',
+      src: null,
+      name: 'agua de refrigeración',
+      note: 'sale a otra temperatura — impacto térmico puntual.',
     });
   if (n.includes('pluvial'))
     parts.push({
-      label: 'agua de lluvia',
+      src: /pluvial/.test(o) ? 'Red de pluviales' : null,
+      name: 'agua de lluvia',
       note: 'arrastra aceites, metales y suciedad de las calles — no es fecal, pero tras la sequía sale cargada.',
     });
-  return parts;
+  // Con varias sustancias la etiqueta nombra cada una
+  // ("Depuradora — aguas fecales…" / "Desaladora — salmuera…");
+  // con una sola basta la instalación para no repetir el heroValue
+  const multi = parts.length > 1;
+  return parts.map((p) => ({
+    label: multi
+      ? [p.src, p.name].filter(Boolean).join(' — ')
+      : (p.src ?? p.name),
+    note: p.note,
+  }));
 };
 
 const operationText = (
