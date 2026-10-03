@@ -1368,6 +1368,7 @@ const styles = StyleSheet.create({
   secHead: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 7,
     marginBottom: 2,
   },
