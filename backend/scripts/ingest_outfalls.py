@@ -111,7 +111,14 @@ def main() -> None:
             obj.outfall_depth = _num(rec["CotaVert"])
             xa, ya = _num(rec["XArranque"]), _num(rec["YArranque"])
             if xa is not None and ya is not None:
-                obj.start_lon, obj.start_lat = _to_wgs84.transform(xa, ya)
+                slon, slat = _to_wgs84.transform(xa, ya)
+                # El censo rellena con (0,0) los vertidos sin arranque
+                # catalogado — transformado cae en el golfo de Guinea,
+                # así que se valida contra el bbox canario
+                if 27.0 < slat < 29.7 and -19.5 < slon < -15.0:
+                    obj.start_lon, obj.start_lat = slon, slat
+                else:
+                    obj.start_lon = obj.start_lat = None
             else:
                 obj.start_lon = obj.start_lat = None
             obj.geom = f"SRID=4326;POINT({lon} {lat})"
