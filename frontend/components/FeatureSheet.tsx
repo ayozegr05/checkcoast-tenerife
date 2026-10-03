@@ -496,6 +496,7 @@ export default function FeatureSheet({
             hitSlop={12}
             style={({ pressed }) => [
               styles.closeBtn,
+              { backgroundColor: accent },
               pressed && styles.pressFx,
             ]}
             accessibilityRole="button"
@@ -658,6 +659,22 @@ export default function FeatureSheet({
                 <Text style={styles.opText}>{operationLine}</Text>
               </View>
             ) : null}
+
+            {/* ZEC justo tras el funcionamiento: que vierta en zona
+                protegida es contexto de máxima prioridad */}
+            {p.protected_area ? (
+              <View style={styles.protectedBox}>
+                <Text style={styles.protectedTitle}>
+                  Emisario en espacio protegido
+                </Text>
+                <Text style={styles.protectedName}>
+                  Este emisario está dentro de la{' '}
+                  {protectedAreaName(p.protected_area)}, una Zona
+                  Especial de Conservación de la red Natura 2000
+                  {protectedAreaNote(p.protected_area)}.
+                </Text>
+              </View>
+            ) : null}
             {/* El vertido: la respuesta protagonista — qué cae al mar
                 y de dónde viene. Es la pregunta que abre la ficha */}
             {p.nature || p.entity || p.manager ? (
@@ -709,10 +726,12 @@ export default function FeatureSheet({
                 </View>
               </View>
             ) : null}
-            {/* Dónde: una sola línea de ubicación (punto concreto
-                · núcleo urbano) + municipio + descripción de la zona.
-                El responsable vive en el hero — aquí solo geografía */}
-            {p.location || p.settlement || p.municipality || p.zone_desc ? (
+            {/* Dónde + conducción en una sola card: son pocos datos
+                y juntos narran "está aquí, sale así". El responsable
+                vive en el hero; la profundidad va visible */}
+            {p.location || p.settlement || p.municipality || p.zone_desc ||
+            p.kind || p.length_m != null || p.outfall_depth != null ||
+            p.condition ? (
               <View
                 style={[
                   styles.secCard,
@@ -727,7 +746,9 @@ export default function FeatureSheet({
                       { tintColor: colors.accent },
                     ]}
                   />
-                  <Text style={styles.secCardTitle}>Dónde</Text>
+                  <Text style={styles.secCardTitle}>
+                    Dónde y cómo
+                  </Text>
                 </View>
                 {whereLabel || p.municipality ? (
                   <Text style={styles.row}>
@@ -741,31 +762,6 @@ export default function FeatureSheet({
                 {p.zone_desc ? (
                   <Text style={styles.zoneDesc}>{p.zone_desc}</Text>
                 ) : null}
-              </View>
-            ) : null}
-
-            {/* Ingeniería de la conducción: la profundidad interesa
-                al ciudadano — va visible, no plegada */}
-            {p.kind ||
-            p.length_m != null ||
-            p.outfall_depth != null ||
-            p.condition ? (
-              <View
-                style={[
-                  styles.secCard,
-                  { borderLeftColor: colors.primary },
-                ]}
-              >
-                <View style={styles.secHead}>
-                  <Image
-                    source={require('../assets/icons/icon-layers.png')}
-                    style={[
-                      styles.secIcon,
-                      { tintColor: colors.primary },
-                    ]}
-                  />
-                  <Text style={styles.secCardTitle}>La conducción</Text>
-                </View>
                 {conduitText(p.kind, p.length_m, p.outfall_depth) ? (
                   <Text style={styles.row}>
                     {conduitText(p.kind, p.length_m, p.outfall_depth)}
@@ -789,19 +785,6 @@ export default function FeatureSheet({
                     .
                   </Text>
                 ) : null}
-              </View>
-            ) : null}
-            {p.protected_area ? (
-              <View style={styles.protectedBox}>
-                <Text style={styles.protectedTitle}>
-                  Emisario en espacio protegido
-                </Text>
-                <Text style={styles.protectedName}>
-                  Este emisario está dentro de la{' '}
-                  {protectedAreaName(p.protected_area)}, una Zona
-                  Especial de Conservación de la red Natura 2000
-                  {protectedAreaNote(p.protected_area)}.
-                </Text>
               </View>
             ) : null}
             {nearby.length > 0 ? (
@@ -986,7 +969,7 @@ const styles = StyleSheet.create({
   close: {
     fontSize: 18,
     fontFamily: fonts.extrabold,
-    color: colors.textMuted,
+    color: '#fff',
   },
   // Botón ✕ cuadrado-redondeado: la cabecera de la ficha va tintada
   // con el color de estado, así que el fondo es una sombra suave
