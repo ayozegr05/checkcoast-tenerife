@@ -76,7 +76,11 @@ export function outfallRisk(
   }
 
   if (p.status === 'illegal') weighted.push([1, 'sin autorización']);
-  if (p.protected_area) weighted.push([1, 'en zona protegida']);
+  // ZEC solo pesa si la sustancia puede dañar el espacio — cloro de
+  // piscina o agua caliente apenas cambian dentro de una zona
+  // protegida; fecal, salmuera o riada sucia sí
+  if (p.protected_area && substance >= 1)
+    weighted.push([1, 'en zona protegida']);
 
   // En la orilla / somero: sin columna de agua que diluya. Pero el
   // sitio solo pesa si la sustancia puede hacer daño ahí — fecal

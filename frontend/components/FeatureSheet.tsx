@@ -210,7 +210,12 @@ const natureParts = (
   origin: string | null | undefined,
   depth: number | null | undefined,
   zoneDesc: string | null | undefined,
-): { label: string; desc: string | null; note: string }[] => {
+): {
+  label: string;
+  desc: string | null;
+  note: string;
+  colon: boolean;
+}[] => {
   const n = nature.toLowerCase();
   const o = (origin ?? '').toLowerCase();
   const zd = (zoneDesc ?? '').toLowerCase();
@@ -294,16 +299,16 @@ const natureParts = (
       desc: 'arrastra aceites, metales y suciedad de las calles',
       note: 'no es fecal, pero tras la sequía sale cargada.',
     });
-  // Con varias sustancias la etiqueta nombra cada una
-  // ("Depuradora — aguas fecales…" / "Desaladora — salmuera…");
-  // con una sola basta la instalación para no repetir el heroValue
+  // Con varias sustancias la etiqueta nombra cada una entre
+  // paréntesis ("Depuradora (aguas fecales…): el riesgo…"); con
+  // una sola basta la instalación para no repetir el heroValue
   const multi = parts.length > 1;
   return parts.map((p) => ({
-    label: multi
-      ? [p.src, p.name].filter(Boolean).join(' — ')
-      : (p.src ?? p.name),
+    label:
+      multi && p.src ? `${p.src} (${p.name})` : (p.src ?? p.name),
     desc: p.desc,
     note: p.note,
+    colon: multi || !!p.desc,
   }));
 };
 
@@ -885,7 +890,7 @@ export default function FeatureSheet({
                               <Text style={styles.heroRespStrong}>
                                 {pt.label[0].toUpperCase() +
                                   pt.label.slice(1)}
-                                {pt.desc ? ':' : ''}
+                                {pt.colon ? ':' : ''}
                               </Text>
                             )}
                             {desc ? (
@@ -896,7 +901,9 @@ export default function FeatureSheet({
                             {dup && !desc
                               ? pt.note[0].toUpperCase() +
                                 pt.note.slice(1)
-                              : ` — ${pt.note}`}
+                              : pt.colon
+                                ? ` ${pt.note}`
+                                : ` — ${pt.note}`}
                           </Text>
                         );
                       })}
@@ -1318,12 +1325,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.extrabold,
     color: colors.text,
     marginTop: 1,
+    textAlign: 'center',
   },
   heroSub: {
     fontSize: 13,
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 2,
+    textAlign: 'center',
   },
   heroNote: {
     fontSize: 13,
