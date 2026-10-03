@@ -1102,38 +1102,59 @@ export default function FeatureSheet({
               </View>
             ) : null}
 
-            {/* Datos brutos del censo al final: lo menos interesante
-                para el bañista, pero transparencia completa para el
-                que quiera comprobar */}
-            <Text style={styles.censusToggleText}>Datos del censo</Text>
-            {censusRows(p).map(([k, v]) => (
-              <Text key={k} style={styles.censusRow}>
-                <Text style={styles.censusKey}>{k}: </Text>
-                {v}
-              </Text>
-            ))}
+            {/* Anexo del censo: los datos brutos y la fuente oficial
+                viajan juntos al final de la card — metadato para
+                quien quiera comprobar */}
+            <View
+              style={[
+                styles.secCard,
+                { borderLeftColor: colors.textFaint },
+              ]}
+            >
+              <View style={styles.secHead}>
+                <Image
+                  source={require('../assets/icons/icon-book.png')}
+                  style={[
+                    styles.secIcon,
+                    { tintColor: colors.textMuted },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.secCardTitle,
+                    { color: colors.textMuted },
+                  ]}
+                >
+                  Datos del censo
+                </Text>
+              </View>
+              {censusRows(p).map(([k, v]) => (
+                <View key={k} style={styles.censusTableRow}>
+                  <Text style={styles.censusLab}>{k}</Text>
+                  <Text style={styles.censusVal}>{v}</Text>
+                </View>
+              ))}
+              {p.source_url ? (
+                <Pressable
+                  onPress={() =>
+                    p.source_url && Linking.openURL(p.source_url)
+                  }
+                  accessibilityRole="link"
+                  accessibilityLabel="Abrir el censo oficial de vertidos"
+                  style={({ pressed }) => [
+                    styles.censusSrcWrap,
+                    pressed && styles.pressFx,
+                  ]}
+                >
+                  <Text style={styles.censusSrc}>
+                    Fuente: Censo Vertidos Tierra-Mar 2025 ↗
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         )}
       </ScrollView>
-
-      {/* Pie de la ficha: la fuente del dato va fija abajo con
-          separador — es metadato, no parte del contenido */}
-      {!isBeach && (
-        <View style={styles.footer}>
-          <Pressable
-            onPress={() =>
-              p.source_url && Linking.openURL(p.source_url)
-            }
-            disabled={!p.source_url}
-            accessibilityRole="link"
-            accessibilityLabel="Abrir el censo oficial de vertidos"
-          >
-            <Text style={[styles.footerText, styles.footerLink]}>
-              Fuente: Censo de Vertidos 2025 (Gob. Canarias) ↗
-            </Text>
-          </Pressable>
-        </View>
-      )}
 
       {/* "Ver más": insinúa que hay contenido debajo. Aparece cuando el
           contenido no cabe en el viewport actual del ScrollView (aunque
@@ -1145,9 +1166,6 @@ export default function FeatureSheet({
         <Pressable
           style={({ pressed }) => [
             styles.moreBtn,
-            // Con footer fijo (ficha de emisario) el botón sube por
-            // encima de él para no pisarlo
-            !isBeach && styles.moreBtnRaised,
             pressed && styles.pressFx,
           ]}
           onPress={() => {
@@ -1527,38 +1545,37 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     opacity: 0.7,
   },
-  // Sobre el footer fijo de la ficha de emisario (~34px alto)
-  moreBtnRaised: {
-    bottom: 44,
+  // Anexo del censo: mini-tabla etiqueta→valor y enlace a la fuente
+  censusTableRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 3,
   },
-  footer: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
+  censusLab: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.textFaint,
   },
-  censusToggleText: {
+  censusVal: {
+    flex: 1,
     fontSize: 12,
-    fontFamily: fonts.semibold,
-    color: colors.textMuted,
+    fontFamily: fonts.regular,
+    color: colors.text,
+    textAlign: 'right',
+  },
+  censusSrcWrap: {
     marginTop: 6,
-    marginBottom: 2,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 6,
   },
-  censusRow: {
+  censusSrc: {
     fontSize: 11,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
-    lineHeight: 16,
-  },
-  censusKey: {
     fontFamily: fonts.semibold,
-    color: colors.textFaint,
-  },
-  footerText: {
-    fontSize: 11,
-    fontFamily: fonts.regular,
-    color: colors.textFaint,
-  },
-  footerLink: {
     color: colors.primary,
+    textAlign: 'center',
   },
   moreText: {
     fontSize: 12,
