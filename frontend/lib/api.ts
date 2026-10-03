@@ -29,6 +29,8 @@ export type GeoFeature = {
     // Punto de arranque en tierra: trazado tierra → mar en la ficha
     start_lon?: number | null;
     start_lat?: number | null;
+    // Distancia en recta a la costa (derivada, línea de costa OSM)
+    shore_m?: number | null;
     status_via?: 'official' | 'press' | null;
     // Causa corta de la alerta viva ("Contaminación", "Desprendimientos")
     // y su procedencia — solo presentes con alerta activa

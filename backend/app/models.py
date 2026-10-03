@@ -69,6 +69,10 @@ class Outfall(Base):
     # permite dibujar el trazado tierra → mar en la ficha
     start_lon: Mapped[float | None] = mapped_column(Float)
     start_lat: Mapped[float | None] = mapped_column(Float)
+    # Distancia en recta del punto de vertido a la costa más cercana —
+    # derivada (línea de costa OSM), no dato del censo. Es lo que el
+    # ciudadano pregunta: "¿a cuánto de la orilla cae?"
+    shore_m: Mapped[float | None] = mapped_column(Float)
     geom: Mapped[WKBElement] = mapped_column(
         Geometry(geometry_type="POINT", srid=4326), nullable=False
     )

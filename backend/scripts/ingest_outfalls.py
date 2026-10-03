@@ -8,11 +8,15 @@ Uso: python -m scripts.ingest_outfalls
 """
 
 import io
+import json
 import zipfile
+from pathlib import Path
 
 import requests
 import shapefile
 from pyproj import Transformer
+from shapely.geometry import LineString, Point
+from shapely.ops import unary_union
 
 from app.db import SessionLocal
 from app.models import Outfall, OutfallStatus
@@ -29,6 +33,29 @@ SHP_URL = (
 
 # El shapefile viene en WGS84 / UTM zona 28N (EPSG:32628)
 _to_wgs84 = Transformer.from_crs("EPSG:32628", "EPSG:4326", always_xy=True)
+_to_utm28 = Transformer.from_crs("EPSG:4326", "EPSG:32628", always_xy=True)
+
+# Línea de costa OSM de Tenerife (backend/data, descargada una vez vía
+# Overpass natural=coastline): sirve para derivar shore_m — a cuántos
+# metros de la orilla cae cada punto de vertido
+COASTLINE_GEOJSON = Path(__file__).parent.parent / "data" / "tenerife_coastline.geojson"
+
+
+def _load_coastline_utm() -> "LineString | None":
+    """Costa de Tenerife en EPSG:32628 (metros), unida en una sola
+    geometría para medir distancias. None si falta el fichero — la
+    ingesta sigue y shore_m queda a null."""
+    if not COASTLINE_GEOJSON.exists():
+        print(f"Aviso: no existe {COASTLINE_GEOJSON} — shore_m a null")
+        return None
+    feats = json.loads(COASTLINE_GEOJSON.read_text(encoding="utf-8"))[
+        "features"
+    ]
+    lines = [
+        LineString([_to_utm28.transform(x, y) for x, y in f["geometry"]["coordinates"]])
+        for f in feats
+    ]
+    return unary_union(lines)
 
 _STATUS_MAP = {
     "Autorizado": OutfallStatus.legal,
@@ -69,6 +96,7 @@ def main() -> None:
         encoding="utf-8",
     )
     fields = [f[0] for f in reader.fields[1:]]
+    coast = _load_coastline_utm()
 
     db = SessionLocal()
     created = updated = skipped = 0
@@ -121,6 +149,11 @@ def main() -> None:
                     obj.start_lon = obj.start_lat = None
             else:
                 obj.start_lon = obj.start_lat = None
+            # Distancia en recta a la costa: calculada en UTM28N
+            # (metros) sobre los segmentos OSM — deriva shore_m
+            obj.shore_m = (
+                float(Point(x, y).distance(coast)) if coast is not None else None
+            )
             obj.geom = f"SRID=4326;POINT({lon} {lat})"
             obj.source_url = DATASET_URL
             db.add(obj)

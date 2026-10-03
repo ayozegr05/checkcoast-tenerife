@@ -16,6 +16,7 @@ import {
 import ScrollChips from './ScrollChips';
 import { GeoFeature } from '../lib/api';
 import { searchNorm } from '../lib/format';
+import { outfallRisk, RISK_LABEL } from '../lib/outfallRisk';
 import { colors, fonts } from '../lib/theme';
 
 // El censo de vertidos clasifica por situación administrativa:
@@ -39,6 +40,37 @@ const STATUS_PLURALS: Record<string, string> = {
 };
 
 const STATUS_COLORS = colors.outfall;
+
+// Nivel de preocupación → color de la píldora de la fila
+const RISK_COLORS: Record<string, string> = {
+  alto: '#d84315',
+  medio: '#f9a825',
+  bajo: '#0d9488',
+};
+
+// Grupo de sustancia para los chips de filtro — el censo junta
+// "residual urbana e industrial" y "residual industrial" aparte
+const natureGroup = (n?: string | null) => {
+  const s = (n ?? '').toLowerCase();
+  if (s.includes('residual') && s.includes('industrial'))
+    return 'industrial';
+  if (s.includes('residual')) return 'fecal';
+  if (s.includes('salmuera')) return 'salmuera';
+  if (s.includes('pluvial')) return 'pluvial';
+  if (s.includes('piscina')) return 'piscinas';
+  if (s.includes('refrigeración')) return 'refrigeración';
+  return 'otra';
+};
+
+const NATURE_FILTERS: { key: string; label: string }[] = [
+  { key: 'fecal', label: 'Fecales' },
+  { key: 'industrial', label: 'Industrial' },
+  { key: 'salmuera', label: 'Salmuera' },
+  { key: 'pluvial', label: 'Lluvia' },
+  { key: 'piscinas', label: 'Piscinas' },
+  { key: 'zec', label: 'En zona protegida' },
+  { key: 'orilla', label: 'En la orilla' },
+];
 
 const capName = (name: string) =>
   name
@@ -66,6 +98,9 @@ export default function OutfallList({
   const [municipality, setMunicipality] = useState<string | undefined>(
     undefined,
   );
+  const [natureF, setNatureF] = useState<string | undefined>(undefined);
+  // Orden por defecto: los que más deberían preocupar arriba
+  const [sortMode, setSortMode] = useState<'risk' | 'status'>('risk');
 
   const municipalities = useMemo(
     () =>
@@ -105,27 +140,56 @@ export default function OutfallList({
   const scopedTotal =
     (counts.illegal ?? 0) + (counts.legal ?? 0) + (counts.unknown ?? 0);
 
+  // Resumen de cabecera: cuántos en zona protegida y de alta
+  // preocupación (índice compartido con la ficha)
+  const { zecTotal, highTotal } = useMemo(() => {
+    let z = 0,
+      h = 0;
+    for (const f of outfalls) {
+      if (f.properties.protected_area) z += 1;
+      if (outfallRisk(f.properties).level === 'alto') h += 1;
+    }
+    return { zecTotal: z, highTotal: h };
+  }, [outfalls]);
+
   const rows = useMemo(() => {
     const q = searchNorm(query);
     return outfalls
-      .filter(
-        (f) =>
-          (!q || searchNorm(f.properties.name).includes(q)) &&
-          (status === undefined ||
-            (f.properties.status ?? 'unknown') === status) &&
-          (municipality === undefined ||
-            f.properties.municipality === municipality),
-      )
-      .sort(
-        (a, b) =>
-          (STATUS_ORDER[a.properties.status ?? 'unknown'] ?? 9) -
-            (STATUS_ORDER[b.properties.status ?? 'unknown'] ?? 9) ||
-          (a.properties.municipality ?? '').localeCompare(
-            b.properties.municipality ?? '',
-          ) ||
-          a.properties.name.localeCompare(b.properties.name),
+      .filter((f) => {
+        if (q && !searchNorm(f.properties.name).includes(q))
+          return false;
+        if (
+          status !== undefined &&
+          (f.properties.status ?? 'unknown') !== status
+        )
+          return false;
+        if (
+          municipality !== undefined &&
+          f.properties.municipality !== municipality
+        )
+          return false;
+        if (natureF === 'zec') return !!f.properties.protected_area;
+        if (natureF === 'orilla') {
+          const s = f.properties.shore_m;
+          return s != null && s < 50;
+        }
+        if (natureF !== undefined)
+          return natureGroup(f.properties.nature) === natureF;
+        return true;
+      })
+      .sort((a, b) =>
+        sortMode === 'risk'
+          ? outfallRisk(b.properties).score -
+              outfallRisk(a.properties).score ||
+            a.properties.name.localeCompare(b.properties.name)
+          : (STATUS_ORDER[a.properties.status ?? 'unknown'] ?? 9) -
+              (STATUS_ORDER[b.properties.status ?? 'unknown'] ?? 9) ||
+            (a.properties.municipality ?? '').localeCompare(
+              b.properties.municipality ?? '',
+            ) ||
+            a.properties.name.localeCompare(b.properties.name),
       );
-  }, [outfalls, query, status, municipality]);
+  }, [outfalls, query, status, municipality, natureF, sortMode]);
 
   return (
     <Modal
@@ -159,7 +223,7 @@ export default function OutfallList({
               ? `${municipality} · ${counts.illegal ?? 0} no autorizados · ${counts.legal ?? 0} autorizados · ${counts.unknown ?? 0} en trámite`
               : `${outfalls.length} puntos de vertido · ${
                   (counts.illegal ?? 0) + (counts.unknown ?? 0)
-                } sin autorizar`}
+                } sin autorizar · ${zecTotal} en zona protegida · ${highTotal} de alta preocupación`}
           </Text>
           {!municipality && (
             <Text style={styles.source}>Censo Tierra-Mar 2025 (Gob. Canarias)</Text>
@@ -279,6 +343,54 @@ export default function OutfallList({
             </Pressable>
           ))}
         </ScrollChips>
+        <View style={styles.filterBarDivider} />
+        {/* Tercera fila: qué se vierte + cómo ordenar (preocupación
+            por defecto — los vertidos que importan arriba) */}
+        <ScrollChips
+          style={styles.chips}
+          contentContainerStyle={styles.chipsContent}
+          fadeRgbLeft="140,216,230"
+          fadeRgbRight="242,251,253"
+        >
+          {NATURE_FILTERS.map((nf) => (
+            <Pressable
+              key={nf.key}
+              style={({ pressed }) => [
+                styles.chip,
+                natureF === nf.key && styles.chipActive,
+                pressed && styles.pressFx,
+              ]}
+              onPress={() =>
+                setNatureF(natureF === nf.key ? undefined : nf.key)
+              }
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  natureF === nf.key && styles.chipTextActive,
+                ]}
+              >
+                {nf.label}
+              </Text>
+            </Pressable>
+          ))}
+          <Pressable
+            style={({ pressed }) => [
+              styles.chip,
+              styles.chipSort,
+              pressed && styles.pressFx,
+            ]}
+            onPress={() =>
+              setSortMode((m) => (m === 'risk' ? 'status' : 'risk'))
+            }
+          >
+            <Text style={styles.chipText}>
+              {sortMode === 'risk'
+                ? 'Orden: preocupación ↓'
+                : 'Orden: estado legal'}
+            </Text>
+          </Pressable>
+        </ScrollChips>
         </ImageBackground>
 
         <FlatList
@@ -288,6 +400,8 @@ export default function OutfallList({
           contentContainerStyle={styles.listContent}
           renderItem={({ item: f }) => {
             const s = f.properties.status ?? 'unknown';
+            const risk = outfallRisk(f.properties);
+            const p = f.properties;
             return (
               <Pressable
                 style={({ pressed }) => [
@@ -302,16 +416,59 @@ export default function OutfallList({
                   </Text>
                   <Text style={styles.rowSub}>
                     {f.properties.municipality ?? 'Sin municipio'}
-                    {f.properties.kind ? ` · ${f.properties.kind}` : ''}
+                    {f.properties.nature
+                      ? ` · ${f.properties.nature}`
+                      : ''}
                   </Text>
+                  {/* Minibadges escaneables: avisos sin abrir la
+                      ficha */}
+                  <View style={styles.rowBadges}>
+                    {p.protected_area ? (
+                      <Text style={styles.miniBadge}>🛡 ZEC</Text>
+                    ) : null}
+                    {p.condition === 'Malo' ||
+                    p.condition === 'Precario' ? (
+                      <Text
+                        style={[
+                          styles.miniBadge,
+                          {
+                            color:
+                              p.condition === 'Malo'
+                                ? colors.outfall.illegal
+                                : colors.status.warning,
+                          },
+                        ]}
+                      >
+                        ⚠ {p.condition.toLowerCase()}
+                      </Text>
+                    ) : null}
+                    {p.start_lat != null ? (
+                      <Text style={styles.miniBadge}>⤴ trazado</Text>
+                    ) : null}
+                  </View>
                 </View>
-                <View
-                  style={[
-                    styles.badge,
-                    { backgroundColor: STATUS_COLORS[s] },
-                  ]}
-                >
-                  <Text style={styles.badgeText}>{STATUS_LABELS[s]}</Text>
+                <View style={styles.rowBadgeCol}>
+                  <View
+                    style={[
+                      styles.badge,
+                      { backgroundColor: STATUS_COLORS[s] },
+                    ]}
+                  >
+                    <Text style={styles.badgeText}>
+                      {STATUS_LABELS[s]}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.badge,
+                      styles.riskBadge,
+                      { backgroundColor: RISK_COLORS[risk.level] },
+                    ]}
+                  >
+                    <Text style={styles.badgeText}>
+                      {RISK_LABEL[risk.level]}
+                    </Text>
+                  </View>
                 </View>
               </Pressable>
             );
@@ -481,6 +638,32 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
+  },
+  rowBadgeCol: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  // Píldora de preocupación bajo el badge legal — mismo tamaño para
+  // que la columna quede ordenada
+  riskBadge: {
+    opacity: 0.92,
+  },
+  rowBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  miniBadge: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+  },
+  chipSort: {
+    marginLeft: 8,
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(8,107,150,0.18)',
+    borderRadius: 0,
   },
   badgeText: {
     fontSize: 11,

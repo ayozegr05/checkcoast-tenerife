@@ -51,6 +51,7 @@ def list_outfalls(
         Outfall.outfall_depth,
         Outfall.start_lon,
         Outfall.start_lat,
+        Outfall.shore_m,
         func.ST_X(Outfall.geom).label("lon"),
         func.ST_Y(Outfall.geom).label("lat"),
     )
@@ -83,6 +84,7 @@ def list_outfalls(
                 "outfall_depth": row.outfall_depth,
                 "start_lon": row.start_lon,
                 "start_lat": row.start_lat,
+                "shore_m": row.shore_m,
                 "source_url": row.source_url,
                 "fetched_at": row.fetched_at.isoformat() if row.fetched_at else None,
             },

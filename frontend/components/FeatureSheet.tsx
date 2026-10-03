@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   BackHandler,
+  Linking,
   NativeScrollEvent,
   NativeSyntheticEvent,
   PanResponder,
@@ -29,6 +30,7 @@ import {
   pointLongLabel,
   displayBeachName,
 } from '../lib/format';
+import { outfallRisk, RISK_LABEL } from '../lib/outfallRisk';
 import { colors, fonts } from '../lib/theme';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -38,6 +40,13 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS = colors.outfall;
+
+// Nivel de preocupación → tinte de la banda "Para el bañista"
+const RISK_COLORS: Record<string, string> = {
+  alto: '#d84315',
+  medio: '#f9a825',
+  bajo: '#0d9488',
+};
 
 // Estado físico de la conducción: semáforo de 3 niveles — "Precario"
 // es naranja fuerte (aviso), el rojo se reserva para "Malo"
@@ -114,28 +123,66 @@ const fmtDistance = (m: number) =>
 // EstadoFunc (¿opera hoy?) + ContinVert (régimen de DISEÑO) en una
 // sola frase legible — evita la aparente contradicción "no activo
 // pero vertido habitual"
-// La conducción como frase: "Emisario submarino de 785 m que vierte
-// a 24 m de profundidad" — comunica, no enumera
+// La conducción como frase: "Emisario submarino que vierte a 646 m
+// de la orilla y a 24 m de profundidad". La distancia a la orilla
+// (shore_m, derivada) es lo que importa — el largo del tubo puede
+// empezar tierra adentro y despistar
 const conduitText = (
   kind: string | null | undefined,
+  shore: number | null | undefined,
   length: number | null | undefined,
   depth: number | null | undefined,
 ): string | null => {
   const parts: string[] = [];
   if (kind) parts.push(kind[0].toUpperCase() + kind.slice(1));
-  else if (length != null || depth != null) parts.push('La conducción');
+  else if (shore != null || length != null || depth != null)
+    parts.push('La conducción');
   if (!parts.length) return null;
   let s = parts[0];
-  if (length != null) s += ` de ${Math.round(length)} m`;
+  if (shore != null)
+    s += ` que vierte a ${Math.round(shore)} m de la orilla`;
+  else if (length != null) s += ` de ${Math.round(length)} m`;
   if (depth != null)
     s +=
       depth < 0
-        ? ` que vierte a ${Math.abs(depth)} m de profundidad`
+        ? ` y a ${Math.abs(depth)} m de profundidad`
         : depth > 0
-          ? ` que sale a ${depth} m sobre el nivel del mar`
-          : ' que sale a ras de mar';
+          ? ' y cae sobre la superficie del mar'
+          : ' y sale a ras de mar';
   return `${s}.`;
 };
+
+// Filas crudas del censo para el plegable "Datos del censo" — la
+// narrativa ya las cuenta, esto es la transparencia para el friki
+const censusRows = (p: GeoFeature['properties']) =>
+  [
+    ['Tipo de conducción', p.kind],
+    ['Naturaleza', p.nature],
+    ['Régimen', p.continuity],
+    [
+      'Funcionamiento',
+      p.is_active == null ? null : p.is_active ? 'Activo' : 'No activo',
+    ],
+    ['Estado físico', p.condition],
+    ['Procedencia', p.origin],
+    ['Titular (Entidad)', p.entity],
+    ['Operador (GestSan)', p.manager],
+    ['Núcleo urbano', p.settlement],
+    ['Localización', p.location],
+    ['Espacio protegido', p.protected_area],
+    [
+      'Longitud de conducción',
+      p.length_m != null ? `${Math.round(p.length_m)} m` : null,
+    ],
+    [
+      'Cota del punto de vertido',
+      p.outfall_depth != null ? `${p.outfall_depth} m` : null,
+    ],
+    [
+      'Distancia a la orilla (calculada)',
+      p.shore_m != null ? `${Math.round(p.shore_m)} m` : null,
+    ],
+  ].filter(([, v]) => v != null) as [string, string][];
 
 // Qué significa cada sustancia para el ciudadano: la naturaleza
 // puede combinar ("Agua residual y salmuera") y el origen dice de
@@ -278,6 +325,8 @@ export default function FeatureSheet({
   const operationLine = isBeach
     ? null
     : operationText(p.is_active, p.continuity);
+  const risk = isBeach ? null : outfallRisk(p);
+  const [censusOpen, setCensusOpen] = useState(false);
   // Tono de la caja de funcionamiento: ámbar si opera a diario (el
   // combo que importa al bañista), verde si solo en emergencias,
   // gris si está parado
@@ -823,9 +872,19 @@ export default function FeatureSheet({
                 {p.zone_desc ? (
                   <Text style={styles.zoneDesc}>{p.zone_desc}</Text>
                 ) : null}
-                {conduitText(p.kind, p.length_m, p.outfall_depth) ? (
+                {conduitText(
+                  p.kind,
+                  p.shore_m,
+                  p.length_m,
+                  p.outfall_depth,
+                ) ? (
                   <Text style={styles.row}>
-                    {conduitText(p.kind, p.length_m, p.outfall_depth)}
+                    {conduitText(
+                      p.kind,
+                      p.shore_m,
+                      p.length_m,
+                      p.outfall_depth,
+                    )}
                   </Text>
                 ) : null}
                 {p.condition ? (
@@ -848,6 +907,67 @@ export default function FeatureSheet({
                 ) : null}
               </View>
             ) : null}
+            {/* Síntesis: la respuesta a "y a mí qué" — el mismo
+                índice que ordena la lista de emisarios */}
+            {risk ? (
+              <View
+                style={[
+                  styles.opBox,
+                  {
+                    borderLeftColor: RISK_COLORS[risk.level],
+                    backgroundColor: `${RISK_COLORS[risk.level]}14`,
+                  },
+                ]}
+              >
+                <Text style={styles.opText}>
+                  Para el bañista:{' '}
+                  <Text
+                    style={[
+                      styles.opText,
+                      {
+                        color: RISK_COLORS[risk.level],
+                        fontFamily: fonts.extrabold,
+                      },
+                    ]}
+                  >
+                    {RISK_LABEL[risk.level].toLowerCase()}
+                  </Text>
+                  {risk.reasons.length
+                    ? ` — ${risk.reasons.join(', ')}`
+                    : ''}
+                  .
+                </Text>
+              </View>
+            ) : null}
+
+            {/* Datos brutos del censo, plegados: la narrativa ya lo
+                cuenta, esto es la transparencia completa */}
+            <Pressable
+              onPress={() => setCensusOpen((v) => !v)}
+              style={({ pressed }) => [
+                styles.censusToggle,
+                pressed && styles.pressFx,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={
+                censusOpen
+                  ? 'Ocultar datos del censo'
+                  : 'Ver datos del censo'
+              }
+            >
+              <Text style={styles.censusToggleText}>
+                {censusOpen ? '▾' : '▸'} Datos del censo
+              </Text>
+            </Pressable>
+            {censusOpen
+              ? censusRows(p).map(([k, v]) => (
+                  <Text key={k} style={styles.censusRow}>
+                    <Text style={styles.censusKey}>{k}: </Text>
+                    {v}
+                  </Text>
+                ))
+              : null}
+
             {nearby.length > 0 ? (
               <>
                 <Text style={styles.nearTitle}>
@@ -924,9 +1044,18 @@ export default function FeatureSheet({
           separador — es metadato, no parte del contenido */}
       {!isBeach && (
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Fuente: Censo de Vertidos 2025 (Gob. Canarias)
-          </Text>
+          <Pressable
+            onPress={() =>
+              p.source_url && Linking.openURL(p.source_url)
+            }
+            disabled={!p.source_url}
+            accessibilityRole="link"
+            accessibilityLabel="Abrir el censo oficial de vertidos"
+          >
+            <Text style={[styles.footerText, styles.footerLink]}>
+              Fuente: Censo de Vertidos 2025 (Gob. Canarias) ↗
+            </Text>
+          </Pressable>
         </View>
       )}
 
@@ -1346,10 +1475,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 7,
   },
+  censusToggle: {
+    marginTop: 2,
+    marginBottom: 4,
+    paddingVertical: 4,
+  },
+  censusToggleText: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+  },
+  censusRow: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    lineHeight: 16,
+  },
+  censusKey: {
+    fontFamily: fonts.semibold,
+    color: colors.textFaint,
+  },
   footerText: {
     fontSize: 11,
     fontFamily: fonts.regular,
     color: colors.textFaint,
+  },
+  footerLink: {
+    color: colors.primary,
   },
   moreText: {
     fontSize: 12,
