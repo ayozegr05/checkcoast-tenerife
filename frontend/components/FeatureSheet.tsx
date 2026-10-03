@@ -185,24 +185,32 @@ const natureParts = (
   nature: string,
   origin: string | null | undefined,
   depth: number | null | undefined,
+  zoneDesc: string | null | undefined,
 ): { label: string; note: string }[] => {
   const n = nature.toLowerCase();
   const o = (origin ?? '').toLowerCase();
+  const zd = (zoneDesc ?? '').toLowerCase();
+  // El censo delata a veces en la descripción que el emisario sale
+  // de una estación de PRETRATAMIENTO (Punta Blanca): solo filtra
+  // sólidos y grasas — no es depuración, hay que decirlo claro
+  const pretreated = /pretratamiento/.test(o) || /pretratamiento/.test(zd);
   const parts: { src: string | null; name: string; note: string }[] =
     [];
   if (n.includes('residual'))
     parts.push({
-      src: /e[dt]a[rs]|depuradora|tratamiento/.test(o)
-        ? 'Depuradora'
-        : /ebar|bombeo|pretratamiento|saneamiento|aliviadero|red/.test(
-              o,
-            )
-          ? 'Red de saneamiento'
-          : null,
+      src: pretreated
+        ? 'Estación de pretratamiento'
+        : /e[dt]a[rs]|depuradora|tratamiento/.test(o)
+          ? 'Depuradora'
+          : /ebar|bombeo|saneamiento|aliviadero|red/.test(o)
+            ? 'Red de saneamiento'
+            : null,
       name: n.includes('industrial')
         ? 'aguas fecales, domésticas e industriales'
         : 'aguas fecales y domésticas',
-      note: 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
+      note: pretreated
+        ? 'solo filtra lo grueso (sólidos, arenas y grasas) — el agua sale sin depurar.'
+        : 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
     });
   if (n.includes('salmuera')) {
     // La profundidad solo se convierte en aviso cuando es contundente:
@@ -806,6 +814,7 @@ export default function FeatureSheet({
                         p.nature,
                         p.origin,
                         p.outfall_depth,
+                        p.zone_desc,
                       ).map(
                         (pt, i) => (
                           <Text key={i} style={styles.heroNote}>
@@ -949,10 +958,10 @@ export default function FeatureSheet({
                   // al alcance de la pluma, amarillo ya diluido
                   const distColor =
                     n.distance_m < 500
-                      ? colors.outfall.illegal
+                      ? colors.outfall.illegal // #c62828 rojo
                       : n.distance_m < 1000
-                        ? '#ef6c00'
-                        : colors.status.warning;
+                        ? colors.status.warning // #e65100 naranja
+                        : colors.outfall.unknown; // #f9a825 amarillo
                   return (
                     <Pressable
                       key={n.beach_id}

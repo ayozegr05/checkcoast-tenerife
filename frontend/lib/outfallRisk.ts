@@ -24,13 +24,23 @@ export function outfallRisk(
   // (EDAR/ETAR) no es lo mismo que en bruto (EBAR/aliviadero/red)
   let substance = 0;
   if (n.includes('residual')) {
+    // El censo delata el pretratamiento en la descripción: filtrar
+    // sólidos NO es depurar — puntúa como en bruto y se dice claro
+    const pretreated = /pretratamiento/.test(
+      `${o} ${(p.zone_desc ?? '').toLowerCase()}`,
+    );
     const treated =
+      !pretreated &&
       /e[dt]a[rs]|depuradora|tratamiento/.test(o) &&
       !/ebar|bombeo|aliviadero|saneamiento|red/.test(o);
     substance = (treated ? 1 : 2) + (n.includes('industrial') ? 0.5 : 0);
     weighted.push([
       substance,
-      treated ? 'vierte depurada' : 'vierte con potencial fecal',
+      pretreated
+        ? 'solo pretratada (sin depurar)'
+        : treated
+          ? 'vierte depurada'
+          : 'vierte con potencial fecal',
     ]);
   } else if (n.includes('salmuera')) {
     substance = 1;
