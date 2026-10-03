@@ -50,10 +50,12 @@ const CONDITION_COLORS: Record<string, string> = {
 // Siglas del censo traducidas a lenguaje de ficha — el campo trae
 // el nombre propio ("EBAR Callao Salvaje"), no solo la sigla.
 // EBAR = estación de bombeo (vierte sin tratar al desbordarse);
-// EDAR/EDAM/ETAR = depuradoras (vierten ya tratadas)
+// EDAR/EDAS/ETAR = depuradoras (vierten ya tratadas);
+// EDAM = desaladora (vierte salmuera)
 const originLabel = (s: string) => {
   if (s.startsWith('EBAR')) return `Bombeo de aguas residuales · ${s}`;
-  if (/^E[DT]A[RM]/.test(s)) return `Depuradora · ${s}`;
+  if (s.startsWith('EDAM')) return `Desaladora · ${s}`;
+  if (/^E[DT]A[RS]/.test(s)) return `Depuradora · ${s}`;
   return s;
 };
 
