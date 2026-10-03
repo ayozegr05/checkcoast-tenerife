@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   BackHandler,
   Linking,
+  Modal,
   NativeModules,
   Pressable,
   StyleSheet,
@@ -215,6 +216,11 @@ export default function App() {
   const openBeachById = (id: number) => {
     const f = beachesRef.current.features.find((x) => x.id === id);
     if (!f) return;
+    // Deep-link/push durante la intro o la guía: el contenido pedido
+    // manda — la intro se oculta sin marcar "vista"
+    setIntroVisible(false);
+    setIntroRevisit(false);
+    setHelpOpen(false);
     setListOpen(false);
     setMuniOpen(false);
     setOutfallListOpen(false);
@@ -357,6 +363,24 @@ export default function App() {
     setSheetHidden(false);
   };
 
+  // Exclusión mutua de overlays: cualquier entrada de navegación
+  // (topbar, lupa, banner, push, deep-link) cierra TODO lo demás —
+  // intro, guía, listas y ficha — antes de abrir lo suyo. La intro se
+  // cierra SIN marcar "vista": reaparece en el próximo arranque hasta
+  // que el usuario marque "No mostrar al inicio". Las navegaciones
+  // padre→hija (Municipios→lista filtrada, lista→ficha de emisario)
+  // no pasan por aquí: conservan su contexto de retorno a propósito
+  const closeAllOverlays = () => {
+    setIntroVisible(false);
+    setIntroRevisit(false);
+    setHelpOpen(false);
+    setListOpen(false);
+    setMuniOpen(false);
+    setOutfallListOpen(false);
+    setListMunicipality(undefined);
+    closeSheet();
+  };
+
   // Atrás hardware: retrocede por donde viniste — si la ficha se abrió
   // desde otra (emisario desde playa) su card se restaura; si venía de
   // una lista (emisarios, municipios) esa lista se reabre
@@ -454,35 +478,32 @@ export default function App() {
           setReturnToMuni(false);
           setReturnToOutfalls(false);
         }}
-        // Buscar/Ayuda pisan la ficha: cierra directo (no retrocede)
-        onDismissSelection={() => {
-          setReturnToMuni(false);
-          setReturnToOutfalls(false);
-          closeSheet();
-        }}
+        // Buscar/Ayuda pisan todo lo demás: cierra directo (no
+        // retrocede por la cadena)
+        onDismissSelection={closeAllOverlays}
         onOpenList={() => {
-          closeSheet();
+          closeAllOverlays();
           setListOpen(true);
         }}
         onOpenMunicipalities={() => {
-          closeSheet();
+          closeAllOverlays();
           setMuniView('ranking');
           setMuniCause(null);
           setMuniOpen(true);
         }}
         onOpenTemporada={() => {
-          closeSheet();
+          closeAllOverlays();
           setMuniView('temporada');
           setMuniCause(null);
           setMuniOpen(true);
         }}
         episodes={episodes}
         onOpenOutfalls={() => {
-          closeSheet();
+          closeAllOverlays();
           setOutfallListOpen(true);
         }}
         onOpenHelp={() => {
-          closeSheet();
+          closeAllOverlays();
           setHelpOpen(true);
         }}
       />
@@ -509,15 +530,31 @@ export default function App() {
         </View>
       )}
 
+      {/* Intro como Modal real: bloquea topbar/banner/pins — solo se
+          sale por sus botones. Sin Modal, los botones del mapa ganan
+          el hit-test por elevation y las secciones se apilaban encima
+          sin cerrarla */}
       {introVisible && !loading && !error && fontsLoaded && (
-        <IntroCard
-          revisit={introRevisit}
-          onClose={closeIntro}
-          onBack={() => {
+        <Modal
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => {
+            // Atrás hardware con la intro abierta: como la ✕ — en
+            // revisit vuelve a la Guía
             setIntroVisible(false);
-            setHelpOpen(true);
+            if (introRevisit) setHelpOpen(true);
           }}
-        />
+        >
+          <IntroCard
+            revisit={introRevisit}
+            onClose={closeIntro}
+            onBack={() => {
+              setIntroVisible(false);
+              setHelpOpen(true);
+            }}
+          />
+        </Modal>
       )}
 
       {helpOpen && (
