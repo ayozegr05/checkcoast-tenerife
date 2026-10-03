@@ -64,13 +64,18 @@ export function outfallRisk(
   if (p.status === 'illegal') weighted.push([1, 'sin autorización']);
   if (p.protected_area) weighted.push([1, 'en zona protegida']);
 
-  // En la orilla / somero: sin columna de agua que diluya
+  // En la orilla / somero: sin columna de agua que diluya. Pero el
+  // sitio solo pesa si la sustancia puede hacer daño ahí — fecal
+  // (patógenos al bañista), salmuera (capa sobre el fondo), pluvial
+  // (riada sucia a la playa). Cloro o temperatura se disipan en
+  // nada: una piscina en la orilla no es más riesgo que en el mar
   const d = p.outfall_depth;
   const shallow =
     (d != null && (d >= 0 || Math.abs(d) < 8)) ||
     (p.kind ?? '').includes('DPMT') ||
     (p.shore_m != null && p.shore_m < 50);
-  if (shallow) weighted.push([1, 'vierte en la orilla']);
+  if (shallow && substance >= 1)
+    weighted.push([1, 'vierte en la orilla']);
 
   if (p.condition === 'Malo') weighted.push([1, 'estado malo']);
   else if (p.condition === 'Precario')
