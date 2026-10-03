@@ -194,7 +194,6 @@ const censusRows = (p: GeoFeature['properties']) =>
     ['Operador', p.manager],
     ['Núcleo urbano', p.settlement],
     ['Localización', p.location],
-    ['Espacio protegido', p.protected_area],
     [
       'Longitud de conducción',
       p.length_m != null ? `${Math.round(p.length_m)} m` : null,
@@ -852,7 +851,7 @@ export default function FeatureSheet({
                           source={require('../assets/icons/icon-faucet.png')}
                           style={[
                             styles.secIcon,
-                            { tintColor: colors.primary },
+                            { tintColor: colors.accent },
                           ]}
                         />
                         <Text style={styles.secCardTitle}>
@@ -1102,32 +1101,13 @@ export default function FeatureSheet({
               </View>
             ) : null}
 
-            {/* Anexo del censo: los datos brutos y la fuente oficial
-                viajan juntos al final de la card — metadato para
-                quien quiera comprobar */}
-            <View
-              style={[
-                styles.secCard,
-                { borderLeftColor: colors.textFaint },
-              ]}
-            >
-              <View style={styles.secHead}>
-                <Image
-                  source={require('../assets/icons/icon-book.png')}
-                  style={[
-                    styles.secIcon,
-                    { tintColor: colors.textMuted },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.secCardTitle,
-                    { color: colors.textMuted },
-                  ]}
-                >
-                  Datos del censo
-                </Text>
-              </View>
+            {/* Pie del censo: datos brutos y fuente oficial en
+                discreto — la letra pequeña para quien quiera
+                comprobar, sin competir con las cards */}
+            <View style={styles.censusFoot}>
+              <Text style={styles.censusFootTitle}>
+                Datos del censo
+              </Text>
               {censusRows(p).map(([k, v]) => (
                 <View key={k} style={styles.censusTableRow}>
                   <Text style={styles.censusLab}>{k}</Text>
@@ -1155,6 +1135,7 @@ export default function FeatureSheet({
           </View>
         )}
       </ScrollView>
+
 
       {/* "Ver más": insinúa que hay contenido debajo. Aparece cuando el
           contenido no cabe en el viewport actual del ScrollView (aunque
@@ -1329,7 +1310,7 @@ const styles = StyleSheet.create({
   heroBox: {
     marginTop: 8,
     borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
+    borderLeftColor: colors.accent,
     backgroundColor: colors.background,
     borderRadius: 4,
     paddingHorizontal: 10,
@@ -1545,7 +1526,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     opacity: 0.7,
   },
-  // Anexo del censo: mini-tabla etiqueta→valor y enlace a la fuente
+  // Pie del censo: discreto — divisor fino, título mini y tabla
+  // clave→valor; sin cromo de card porque es el metadato
+  censusFoot: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 8,
+  },
+  censusFootTitle: {
+    fontSize: 11,
+    fontFamily: fonts.extrabold,
+    color: colors.textFaint,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 2,
+  },
   censusTableRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
