@@ -124,32 +124,56 @@ const fmtDistance = (m: number) =>
 // sola frase legible — evita la aparente contradicción "no activo
 // pero vertido habitual"
 // La conducción como frase: "Emisario submarino que vierte a 646 m
-// de la orilla y a 24 m de profundidad". La distancia a la orilla
-// (shore_m, derivada) es lo que importa — el largo del tubo puede
-// empezar tierra adentro y despistar
-const conduitText = (
+// de la orilla y a 24 m de profundidad" — los números van marcados
+// (b) para la negrita. La distancia a la orilla (shore_m, derivada)
+// es lo que importa — el largo del tubo puede empezar tierra
+// adentro y despistar
+const conduitSegs = (
   kind: string | null | undefined,
   shore: number | null | undefined,
   length: number | null | undefined,
   depth: number | null | undefined,
-): string | null => {
-  const parts: string[] = [];
-  if (kind) parts.push(kind[0].toUpperCase() + kind.slice(1));
+): { t: string; b?: boolean }[] | null => {
+  const segs: { t: string; b?: boolean }[] = [];
+  if (kind) segs.push({ t: kind[0].toUpperCase() + kind.slice(1) });
   else if (shore != null || length != null || depth != null)
-    parts.push('La conducción');
-  if (!parts.length) return null;
-  let s = parts[0];
+    segs.push({ t: 'La conducción' });
+  if (!segs.length) return null;
   if (shore != null)
-    s += ` que vierte a ${Math.round(shore)} m de la orilla`;
-  else if (length != null) s += ` de ${Math.round(length)} m`;
+    segs.push(
+      { t: ' que vierte a ' },
+      { t: `${Math.round(shore)} m`, b: true },
+      { t: ' de la orilla' },
+    );
+  else if (length != null)
+    segs.push({ t: ' de ' }, { t: `${Math.round(length)} m`, b: true });
   if (depth != null)
-    s +=
-      depth < 0
-        ? ` y a ${Math.abs(depth)} m de profundidad`
-        : depth > 0
-          ? ' y cae sobre la superficie del mar'
-          : ' y sale a ras de mar';
-  return `${s}.`;
+    if (depth < 0)
+      segs.push(
+        { t: ' y a ' },
+        { t: `${Math.abs(depth)} m`, b: true },
+        { t: ' de profundidad' },
+      );
+    else
+      segs.push({
+        t:
+          depth > 0
+            ? ' y cae sobre la superficie del mar'
+            : ' y sale a ras de mar',
+      });
+  segs.push({ t: '.' });
+  return segs;
+};
+
+// La descripción del censo suele empezar repitiendo el tipo que la
+// frase de conducción ya dice ("El emisario submarino arranca…")
+// — se recorta ese sujeto redundante
+const zoneText = (zd: string) => {
+  const s = zd.replace(
+    /^(?:el|la|los|las)\s+(?:emisario(?:\s+submarino)?|conducci[oó]n(?:\s+de\s+(?:desag[üu]e|vertido))?|canal|tuber[ií]a|instalaci[oó]n(?:\s+de\s+vertido)?)\s+/i,
+    '',
+  );
+  return s[0].toUpperCase() + s.slice(1);
 };
 
 // Filas crudas del censo para "Datos del censo" — transparencia
@@ -815,16 +839,21 @@ export default function FeatureSheet({
                 y de dónde viene. Es la pregunta que abre la ficha */}
             {p.nature || p.entity || p.manager ? (
               <View style={styles.heroBox}>
-                <Image
-                  source={require('../assets/icons/icon-faucet.png')}
-                  style={styles.heroIcon}
-                />
                 <View style={styles.heroText}>
                   {p.nature ? (
                     <>
-                      <Text style={styles.secCardTitle}>
-                        Qué se vierte
-                      </Text>
+                      <View style={styles.secHead}>
+                        <Image
+                          source={require('../assets/icons/icon-faucet.png')}
+                          style={[
+                            styles.secIcon,
+                            { tintColor: colors.primary },
+                          ]}
+                        />
+                        <Text style={styles.secCardTitle}>
+                          Qué se vierte
+                        </Text>
+                      </View>
                       <Text style={styles.heroValue}>{p.nature}</Text>
                       {p.origin ? (
                         <Text style={styles.heroSub}>
@@ -836,23 +865,41 @@ export default function FeatureSheet({
                         p.origin,
                         p.outfall_depth,
                         p.zone_desc,
-                      ).map(
-                        (pt, i) => (
+                      ).map((pt, i) => {
+                        // Si la etiqueta repite el subtítulo
+                        // ("Desaladora" bajo "Desaladora") no se
+                        // pinta: queda solo la frase explicativa
+                        const dup =
+                          !!p.origin &&
+                          pt.label.toLowerCase() ===
+                            originLabel(p.origin).toLowerCase();
+                        const desc = pt.desc
+                          ? dup
+                            ? pt.desc[0].toUpperCase() +
+                              pt.desc.slice(1)
+                            : pt.desc
+                          : null;
+                        return (
                           <Text key={i} style={styles.heroNote}>
-                            <Text style={styles.heroRespStrong}>
-                              {pt.label[0].toUpperCase() +
-                                pt.label.slice(1)}
-                              {pt.desc ? ':' : ''}
-                            </Text>
-                            {pt.desc ? (
+                            {dup ? null : (
                               <Text style={styles.heroRespStrong}>
-                                {` ${pt.desc}`}
+                                {pt.label[0].toUpperCase() +
+                                  pt.label.slice(1)}
+                                {pt.desc ? ':' : ''}
+                              </Text>
+                            )}
+                            {desc ? (
+                              <Text style={styles.heroRespStrong}>
+                                {dup ? desc : ` ${desc}`}
                               </Text>
                             ) : null}
-                            {` — ${pt.note}`}
+                            {dup && !desc
+                              ? pt.note[0].toUpperCase() +
+                                pt.note.slice(1)
+                              : ` — ${pt.note}`}
                           </Text>
-                        ),
-                      )}
+                        );
+                      })}
                     </>
                   ) : null}
                   {/* Quién responde legalmente (Entidad) y quién lo
@@ -913,20 +960,30 @@ export default function FeatureSheet({
                   </Text>
                 ) : null}
                 {p.zone_desc ? (
-                  <Text style={styles.zoneDesc}>{p.zone_desc}</Text>
+                  <Text style={styles.zoneDesc}>
+                    {zoneText(p.zone_desc)}
+                  </Text>
                 ) : null}
-                {conduitText(
+                {conduitSegs(
                   p.kind,
                   p.shore_m,
                   p.length_m,
                   p.outfall_depth,
                 ) ? (
                   <Text style={styles.row}>
-                    {conduitText(
+                    {conduitSegs(
                       p.kind,
                       p.shore_m,
                       p.length_m,
                       p.outfall_depth,
+                    )!.map((s, i) =>
+                      s.b ? (
+                        <Text key={i} style={styles.rowStrong}>
+                          {s.t}
+                        </Text>
+                      ) : (
+                        s.t
+                      ),
                     )}
                   </Text>
                 ) : null}
@@ -1245,9 +1302,6 @@ const styles = StyleSheet.create({
   // Respuesta protagonista del emisario: "qué se vierte" con icono —
   // no una fila más, es la pregunta que abre la ficha
   heroBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
     marginTop: 8,
     borderLeftWidth: 3,
     borderLeftColor: colors.primary,
@@ -1255,11 +1309,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     paddingHorizontal: 10,
     paddingVertical: 8,
-  },
-  heroIcon: {
-    width: 22,
-    height: 22,
-    tintColor: colors.primary,
   },
   heroText: {
     flex: 1,
