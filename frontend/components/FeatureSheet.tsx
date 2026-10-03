@@ -157,7 +157,9 @@ const natureNote = (nature: string): string | null => {
   if (n.includes('refrigeración'))
     notes.push('Agua a otra temperatura — impacto térmico puntual.');
   if (n.includes('pluvial'))
-    notes.push('Agua de lluvia con lo que arrastra la calle — impacto leve.');
+    notes.push(
+      'Agua de lluvia que arrastra aceites, metales y suciedad de las calles — no es fecal, pero tras la sequía sale cargada.',
+    );
   return notes.length ? notes.join(' ') : null;
 };
 
