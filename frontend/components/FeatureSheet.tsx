@@ -319,16 +319,7 @@ export default function FeatureSheet({
     ? null
     : operationText(p.is_active, p.continuity);
   const risk = isBeach ? null : outfallRisk(p);
-  // Tono de la caja de funcionamiento: ámbar si vierte a diario
-  // (el combo que importa al bañista), azul neutro si solo abre en
-  // desbordes — verde leería "todo bien" en un punto conflictivo —,
-  // gris si está parado
-  const opColor =
-    p.is_active === true
-      ? p.continuity === 'Habitual'
-        ? colors.status.warning
-        : colors.accent
-      : colors.status.unmonitored;
+
   // Ubicación en una línea: punto concreto · núcleo urbano, sin
   // repetir el municipio ni valores duplicados ("Barranco de Troya
   // · Playa de Las Américas" y luego Municipio: Adeje)
@@ -736,20 +727,43 @@ export default function FeatureSheet({
                 </Text>
               </View>
             </View>
-            {/* Funcionamiento como caja tintada, mismo lenguaje que
-                las cajas de prensa/ZEC: el fondo ya cuenta la
-                situación antes de leer la frase */}
-            {operationLine ? (
+            {/* Funcionamiento + riesgo en una sola caja: qué hace
+                hoy y cuánto debería importar — el tinte lo marca el
+                nivel de riesgo, que es la conclusión */}
+            {operationLine || risk ? (
               <View
                 style={[
                   styles.opBox,
                   {
-                    borderLeftColor: opColor,
-                    backgroundColor: `${opColor}14`,
+                    borderLeftColor: RISK_COLORS[risk!.level],
+                    backgroundColor: `${RISK_COLORS[risk!.level]}14`,
                   },
                 ]}
               >
-                <Text style={styles.opText}>{operationLine}</Text>
+                {operationLine ? (
+                  <Text style={styles.opText}>{operationLine}</Text>
+                ) : null}
+                {risk ? (
+                  <Text
+                    style={[
+                      styles.opText,
+                      operationLine ? { marginTop: 4 } : null,
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: RISK_COLORS[risk.level],
+                        fontFamily: fonts.extrabold,
+                      }}
+                    >
+                      {RISK_LABEL[risk.level]}
+                    </Text>
+                    {risk.reasons.length
+                      ? ` — ${risk.reasons.join(', ')}`
+                      : ''}
+                    .
+                  </Text>
+                ) : null}
               </View>
             ) : null}
 
@@ -900,38 +914,6 @@ export default function FeatureSheet({
                 ) : null}
               </View>
             ) : null}
-            {/* Síntesis: la respuesta a "y a mí qué" — el mismo
-                índice que ordena la lista de emisarios */}
-            {risk ? (
-              <View
-                style={[
-                  styles.opBox,
-                  {
-                    borderLeftColor: RISK_COLORS[risk.level],
-                    backgroundColor: `${RISK_COLORS[risk.level]}14`,
-                  },
-                ]}
-              >
-                <Text style={styles.opText}>
-                  <Text
-                    style={[
-                      styles.opText,
-                      {
-                        color: RISK_COLORS[risk.level],
-                        fontFamily: fonts.extrabold,
-                      },
-                    ]}
-                  >
-                    {RISK_LABEL[risk.level]}
-                  </Text>
-                  {risk.reasons.length
-                    ? ` — ${risk.reasons.join(', ')}`
-                    : ''}
-                  .
-                </Text>
-              </View>
-            ) : null}
-
             {/* Playas cercanas como card: es la respuesta a
                 "¿dónde me afecta?" — las filas abren la playa en el
                 mapa */}
@@ -963,14 +945,14 @@ export default function FeatureSheet({
                   );
                   // La barra codifica exposición a ESTE emisario por
                   // distancia (todas las filas son del mismo punto,
-                  // el color legal no variaría): rojo pegado, ámbar
-                  // al alcance de la pluma, verde suave ya diluido
+                  // el color legal no variaría): rojo pegado, naranja
+                  // al alcance de la pluma, amarillo ya diluido
                   const distColor =
                     n.distance_m < 500
                       ? colors.outfall.illegal
                       : n.distance_m < 1000
-                        ? colors.status.warning
-                        : colors.status.open;
+                        ? '#ef6c00'
+                        : colors.status.warning;
                   return (
                     <Pressable
                       key={n.beach_id}
