@@ -82,6 +82,15 @@ const originLabel = (s: string) => {
 const protectedAreaName = (s: string) =>
   s.split(/\.\s*(?:n[úu]m|Ref\.)/i)[0].trim();
 
+// Por qué importa cada espacio protegido: nota ecológica breve para
+// la caja ZEC (solo hay dos ZEC en el censo de Tenerife)
+const protectedAreaNote = (s: string) =>
+  /Teno\s*-\s*Rasca/i.test(s)
+    ? ' — hogar de calderones tropicales y delfines mulares, con cachalotes y tortugas de paso'
+    : /Sebadales/i.test(s)
+      ? ' — protege praderas de sebada, fanerógamas marinas que sirven de criadero de peces'
+      : '';
+
 // Estado de playa para el selector de puntos de muestreo
 const beachStatusKey = (f: GeoFeature) =>
   f.properties.monitored === false && f.properties.alert !== true
@@ -184,6 +193,15 @@ export default function FeatureSheet({
   const operationLine = isBeach
     ? null
     : operationText(p.is_active, p.continuity);
+  // Tono de la caja de funcionamiento: ámbar si opera a diario (el
+  // combo que importa al bañista), verde si solo en emergencias,
+  // gris si está parado
+  const opColor =
+    p.is_active === true
+      ? p.continuity === 'Habitual'
+        ? colors.status.warning
+        : colors.status.open
+      : colors.status.unmonitored;
   // Ubicación en una línea: punto concreto · núcleo urbano, sin
   // repetir el municipio ni valores duplicados ("Barranco de Troya
   // · Playa de Las Américas" y luego Municipio: Adeje)
@@ -590,20 +608,20 @@ export default function FeatureSheet({
                 </Text>
               </View>
             </View>
+            {/* Funcionamiento como caja tintada, mismo lenguaje que
+                las cajas de prensa/ZEC: el fondo ya cuenta la
+                situación antes de leer la frase */}
             {operationLine ? (
-              <View style={styles.opRow}>
-                <View
-                  style={[
-                    styles.opDot,
-                    {
-                      backgroundColor:
-                        p.is_active === true
-                          ? colors.status.open
-                          : colors.status.unmonitored,
-                    },
-                  ]}
-                />
-                <Text style={styles.opLine}>{operationLine}</Text>
+              <View
+                style={[
+                  styles.opBox,
+                  {
+                    borderLeftColor: opColor,
+                    backgroundColor: `${opColor}14`,
+                  },
+                ]}
+              >
+                <Text style={styles.opText}>{operationLine}</Text>
               </View>
             ) : null}
             {/* El vertido: la respuesta protagonista — qué cae al mar
@@ -740,9 +758,10 @@ export default function FeatureSheet({
                   Emisario en espacio protegido
                 </Text>
                 <Text style={styles.protectedName}>
-                  Vierte dentro de la{' '}
+                  Este emisario está dentro de la{' '}
                   {protectedAreaName(p.protected_area)}, una Zona
-                  Especial de Conservación de la red Natura 2000.
+                  Especial de Conservación de la red Natura 2000
+                  {protectedAreaNote(p.protected_area)}.
                 </Text>
               </View>
             ) : null}
@@ -967,28 +986,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.bold,
   },
-  // Frase de funcionamiento bajo el chip legal: punto de estado
-  // (verde=opera, gris=parado) + texto semibold, no apagado
-  opRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 2,
+  // Caja de funcionamiento (activo/régimen): barra + fondo tintado
+  // del color de escenario, como las cajas de prensa o la ZEC
+  opBox: {
+    marginTop: 6,
     marginBottom: 8,
-    paddingHorizontal: 10,
-  },
-  opDot: {
-    width: 8,
-    height: 8,
+    borderLeftWidth: 3,
     borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
-  opLine: {
+  opText: {
     fontSize: 12,
     fontFamily: fonts.semibold,
     color: colors.text,
-    textAlign: 'center',
-    flexShrink: 1,
+    lineHeight: 17,
   },
   row: {
     fontSize: 13,
