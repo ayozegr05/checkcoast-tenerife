@@ -665,7 +665,12 @@ export default function FeatureSheet({
       <ScrollView
         ref={bodyRef}
         style={styles.body}
-        contentContainerStyle={styles.bodyContent}
+        contentContainerStyle={[
+          styles.bodyContent,
+          // El emisario acaba en el enlace a la fuente: menos aire
+          // de cola que la ficha de playa (que cierra con cards)
+          !isBeach && { paddingBottom: 10 },
+        ]}
         showsVerticalScrollIndicator={false}
         onLayout={(e) => {
           scrollMetrics.current.vh = e.nativeEvent.layout.height;
@@ -1521,10 +1526,11 @@ const styles = StyleSheet.create({
   },
   // Pie: solo el enlace a la fuente oficial, discreto
   censusSrcWrap: {
-    marginTop: 12,
+    marginTop: 16,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingTop: 6,
+    paddingTop: 10,
+    paddingBottom: 4,
   },
   censusSrc: {
     fontSize: 11,
