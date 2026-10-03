@@ -76,11 +76,14 @@ const originLabel = (s: string) => {
   return l ? cap(l) : s;
 };
 
-// "ZEC Franja marina Teno - Rasca. núm ZEC 103_TF. Ref. ES7020017"
+// "ZEC Franja marina Teno - Rasca. nº ZEC 103_TF. Ref. ES7020017"
 // → solo el nombre del espacio protegido (los códigos 103_TF /
 // ES7020017 son identificadores de registro, no info de ficha)
 const protectedAreaName = (s: string) =>
-  s.split(/\.\s*(?:n[úu]m|Ref\.)/i)[0].trim();
+  s
+    .split(/\.\s*(?:n[ºú]|Ref\.?|ES\d)/i)[0]
+    .trim()
+    .replace(/\.$/, '');
 
 // Por qué importa cada espacio protegido: nota ecológica breve para
 // la caja ZEC (solo hay dos ZEC en el censo de Tenerife)
@@ -134,33 +137,57 @@ const conduitText = (
   return `${s}.`;
 };
 
-// Qué significa cada naturaleza de vertido para el ciudadano: la
-// misma sustancia es leve depurada y grave en bruto — la nota lo
-// dice explícito en vez de dejar el dato colgado
-const natureNote = (nature: string): string | null => {
+// Qué significa cada sustancia para el ciudadano: la naturaleza
+// puede combinar ("Agua residual y salmuera") y el origen dice de
+// qué instalación sale cada parte → una línea por apartado
+// ("Depuradora — aguas fecales…", "Desaladora — salmuera…")
+const natureParts = (
+  nature: string,
+  origin: string | null | undefined,
+): { label: string; note: string }[] => {
   const n = nature.toLowerCase();
-  // La naturaleza puede combinar ("Agua residual y salmuera"): se
-  // acumulan las notas de cada componente
-  const notes: string[] = [];
-  if (n.includes('residual'))
-    notes.push(
-      n.includes('industrial')
-        ? 'Aguas fecales, domésticas e industriales — el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.'
-        : 'Aguas fecales y domésticas — el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
-    );
+  const o = (origin ?? '').toLowerCase();
+  const parts: { label: string; note: string }[] = [];
+  if (n.includes('residual')) {
+    const src = /e[dt]a[rs]|depuradora|tratamiento/.test(o)
+      ? 'Depuradora — '
+      : /ebar|bombeo|pretratamiento|saneamiento|aliviadero|red/.test(
+            o,
+          )
+        ? 'Red de saneamiento — '
+        : '';
+    parts.push({
+      label:
+        src +
+        (n.includes('industrial')
+          ? 'aguas fecales, domésticas e industriales'
+          : 'aguas fecales y domésticas'),
+      note: 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
+    });
+  }
   if (n.includes('salmuera'))
-    notes.push(
-      'La salmuera es sal concentrada que se hunde al fondo — daña praderas y bentos; el bañista apenas lo nota.',
-    );
+    parts.push({
+      label:
+        (/edam|desaladora|salina/.test(o) ? 'Desaladora — ' : '') +
+        'salmuera',
+      note: 'el concentrado de sal que devuelve la desaladora — no lleva fecales, pero es más densa que el mar y puede formar una capa sobre el fondo que daña praderas y bentos; el daño real depende de la profundidad y la dilución del vertido. El bañista apenas lo nota.',
+    });
   if (n.includes('piscina'))
-    notes.push('Agua con cloro y sal — impacto leve y puntual.');
+    parts.push({
+      label: 'agua de piscinas',
+      note: 'agua con cloro y sal — impacto leve y puntual.',
+    });
   if (n.includes('refrigeración'))
-    notes.push('Agua a otra temperatura — impacto térmico puntual.');
+    parts.push({
+      label: 'agua de refrigeración',
+      note: 'agua a otra temperatura — impacto térmico puntual.',
+    });
   if (n.includes('pluvial'))
-    notes.push(
-      'Agua de lluvia que arrastra aceites, metales y suciedad de las calles — no es fecal, pero tras la sequía sale cargada.',
-    );
-  return notes.length ? notes.join(' ') : null;
+    parts.push({
+      label: 'agua de lluvia',
+      note: 'arrastra aceites, metales y suciedad de las calles — no es fecal, pero tras la sequía sale cargada.',
+    });
+  return parts;
 };
 
 const operationText = (
@@ -695,11 +722,17 @@ export default function FeatureSheet({
                           {originLabel(p.origin)}
                         </Text>
                       ) : null}
-                      {p.nature && natureNote(p.nature) ? (
-                        <Text style={styles.heroNote}>
-                          {natureNote(p.nature)}
-                        </Text>
-                      ) : null}
+                      {natureParts(p.nature, p.origin).map(
+                        (pt, i) => (
+                          <Text key={i} style={styles.heroNote}>
+                            <Text style={styles.heroRespStrong}>
+                              {pt.label[0].toUpperCase() +
+                                pt.label.slice(1)}
+                            </Text>
+                            {` — ${pt.note}`}
+                          </Text>
+                        ),
+                      )}
                     </>
                   ) : null}
                   {/* Quién responde legalmente (Entidad) y quién lo
@@ -952,34 +985,33 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 8,
-    paddingHorizontal: 16,
     paddingBottom: 6,
   },
   title: {
-    flex: 1,
     fontSize: 16,
     fontFamily: fonts.bold,
     color: colors.text,
     textAlign: 'center',
+    // margen simétrico: la ✕ va absoluta a la esquina y el título
+    // queda centrado sin chocar con ella aunque ocupe 2 líneas
+    marginHorizontal: 40,
   },
   close: {
     fontSize: 18,
     fontFamily: fonts.extrabold,
     color: '#fff',
   },
-  // Botón ✕ cuadrado-redondeado: la cabecera de la ficha va tintada
-  // con el color de estado, así que el fondo es una sombra suave
+  // ✕ fija en la esquina superior derecha del header, con el color
+  // de estado de la ficha — no se mueve aunque el título crezca
   closeBtn: {
+    position: 'absolute',
+    top: 0,
+    right: 16,
     width: 30,
     height: 30,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(7,82,118,0.10)',
   },
   body: {
     flex: 1,
