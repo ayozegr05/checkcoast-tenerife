@@ -200,23 +200,16 @@ const zoneText = (zd: string) => {
 };
 
 // Filas crudas del censo para "Datos del censo" — transparencia
-// para el friki. La cota y la distancia a la orilla ya van dichas
-// en la narrativa de "Dónde y cómo": no se repiten
+// para el friki. Solo lo que las cards NO han narrado ya: la
+// naturaleza, régimen, funcionamiento, procedencia y localización
+// viven arriba en "Qué se vierte" y "Dónde y cómo"
 const censusRows = (p: GeoFeature['properties']) =>
   [
     ['Tipo de conducción', p.kind],
-    ['Naturaleza', p.nature],
-    ['Régimen', p.continuity],
-    [
-      'Funcionamiento',
-      p.is_active == null ? null : p.is_active ? 'Activo' : 'No activo',
-    ],
     ['Estado físico', p.condition],
-    ['Procedencia', p.origin],
     ['Titular', p.entity],
     ['Operador', p.manager],
     ['Núcleo urbano', p.settlement],
-    ['Localización', p.location],
     [
       'Longitud de conducción',
       p.length_m != null ? `${Math.round(p.length_m)} m` : null,
@@ -403,11 +396,26 @@ export default function FeatureSheet({
   // Ubicación en una línea: punto concreto · núcleo urbano, sin
   // repetir el municipio ni valores duplicados ("Barranco de Troya
   // · Playa de Las Américas" y luego Municipio: Adeje)
-  const whereLabel = isBeach
-    ? null
-    : [p.location, p.settlement]
-          .filter((v, i, a) => v && a.indexOf(v) === i && v !== p.municipality)
-          .join(' · ') || null;
+  // Lugar en una sola línea: la descripción del censo es la frase
+  // principal y solo se le añade ubicación/núcleo/municipio si no
+  // los nombra ya — evita "paseo marítimo de Playa San Juan" dos
+  // veces seguidas
+  const zoneLine = !isBeach && p.zone_desc ? zoneText(p.zone_desc) : null;
+  const whereExtra = isBeach
+    ? []
+    : [p.location, p.settlement, p.municipality]
+        .filter((v): v is string => !!v)
+        .filter(
+          (v) => !zoneLine || !zoneLine.toLowerCase().includes(v.toLowerCase()),
+        )
+        .filter((v, i, a) => a.indexOf(v) === i);
+  const placeText = zoneLine
+    ? whereExtra.length
+      ? `${zoneLine.slice(0, -1)} — ${whereExtra.join(', ')}.`
+      : zoneLine
+    : whereExtra.length
+      ? `Está en ${whereExtra.join(', ')}.`
+      : null;
 
   // Selector de PMs: si la playa agrupada tiene varios puntos de
   // muestreo, la card muestra primero la lista y el usuario elige
@@ -979,19 +987,8 @@ export default function FeatureSheet({
                     Dónde y cómo
                   </Text>
                 </View>
-                {whereLabel || p.municipality ? (
-                  <Text style={styles.row}>
-                    Está en{' '}
-                    {[whereLabel, p.municipality]
-                      .filter(Boolean)
-                      .join(', ')}
-                    .
-                  </Text>
-                ) : null}
-                {p.zone_desc ? (
-                  <Text style={styles.zoneDesc}>
-                    {zoneText(p.zone_desc)}
-                  </Text>
+                {placeText ? (
+                  <Text style={styles.zoneDesc}>{placeText}</Text>
                 ) : null}
                 {conduitSegs(
                   p.kind,
