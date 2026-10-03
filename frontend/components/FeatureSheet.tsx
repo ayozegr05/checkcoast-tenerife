@@ -49,14 +49,29 @@ const CONDITION_COLORS: Record<string, string> = {
 
 // Siglas del censo traducidas a lenguaje de ficha — el campo trae
 // el nombre propio ("EBAR Callao Salvaje"), no solo la sigla.
-// EBAR = estación de bombeo (vierte sin tratar al desbordarse);
-// EDAR/EDAS/ETAR = depuradoras (vierten ya tratadas);
-// EDAM = desaladora (vierte salmuera)
+// Siglas del censo traducidas — el campo puede combinar instalaciones
+// ("EDAR + EDAM Adeje Arona"): se traduce cada una
+// EBAR = bombeo de residuales (vierte sin tratar al desbordarse);
+// EDAR/EDAS/ETAR = depuradoras (ya tratadas); EDAM = desaladora
+// (vierte salmuera)
+const originKindLabel = (t: string) =>
+  t.startsWith('EBAR')
+    ? 'bombeo de aguas residuales'
+    : t.startsWith('EDAM')
+      ? 'desaladora'
+      : /^E[DT]A[RS]/.test(t)
+        ? 'depuradora'
+        : null;
+
 const originLabel = (s: string) => {
-  if (s.startsWith('EBAR')) return `Bombeo de aguas residuales · ${s}`;
-  if (s.startsWith('EDAM')) return `Desaladora · ${s}`;
-  if (/^E[DT]A[RS]/.test(s)) return `Depuradora · ${s}`;
-  return s;
+  const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
+  if (s.includes('+')) {
+    const labels = s.split('+').map((t) => originKindLabel(t.trim()));
+    if (labels.every(Boolean))
+      return `${cap([...new Set(labels)].join(' + '))} · ${s}`;
+  }
+  const l = originKindLabel(s.trim());
+  return l ? `${cap(l)} · ${s}` : s;
 };
 
 // "ZEC Franja marina Teno - Rasca. núm ZEC 103_TF. Ref. ES7020017"
@@ -563,55 +578,75 @@ export default function FeatureSheet({
                 </View>
               </View>
             ) : null}
-            {p.condition ? (
-              <Text style={styles.row}>
-                Estado de la conducción:{' '}
-                <Text
+            {/* Dónde y quién: contexto geográfico + responsabilidad
+                como mini-card con barra de color, mismo lenguaje que
+                el hero y la caja ZEC */}
+            <View
+              style={[
+                styles.secCard,
+                { borderLeftColor: colors.accent },
+              ]}
+            >
+              <View style={styles.secHead}>
+                <Image
+                  source={require('../assets/icons/icon-map.png')}
                   style={[
-                    styles.rowStrong,
-                    {
-                      color:
-                        CONDITION_COLORS[p.condition] ?? colors.text,
-                    },
+                    styles.secIcon,
+                    { tintColor: colors.accent },
                   ]}
-                >
-                  {p.condition}
+                />
+                <Text style={styles.secCardTitle}>Dónde y quién</Text>
+              </View>
+              {p.settlement ? (
+                <Text style={styles.row}>Núcleo: {p.settlement}</Text>
+              ) : null}
+              {p.location ? (
+                <Text style={styles.row}>Ubicación: {p.location}</Text>
+              ) : null}
+              {p.municipality ? (
+                <Text style={styles.row}>
+                  Municipio: {p.municipality}
                 </Text>
-              </Text>
-            ) : null}
-
-            {/* Dónde y quién: contexto geográfico + responsabilidad */}
-            <Text style={styles.secTitle}>Dónde y quién</Text>
-            {p.settlement ? (
-              <Text style={styles.row}>Núcleo: {p.settlement}</Text>
-            ) : null}
-            {p.location ? (
-              <Text style={styles.row}>Ubicación: {p.location}</Text>
-            ) : null}
-            {p.municipality ? (
-              <Text style={styles.row}>Municipio: {p.municipality}</Text>
-            ) : null}
-            {p.zone_desc ? (
-              <Text style={styles.zoneDesc}>{p.zone_desc}</Text>
-            ) : null}
-            {p.entity ? (
-              <Text style={styles.row}>
-                Responsable: {p.entity}
-                {/* Operador distinto del titular (GestSan ≠ Entidad):
-                    "del ayuntamiento pero lo opera Aqualia" */}
-                {p.manager && p.manager !== p.entity
-                  ? ` · operado por ${p.manager}`
-                  : null}
-              </Text>
-            ) : p.manager ? (
-              <Text style={styles.row}>Operador: {p.manager}</Text>
-            ) : null}
+              ) : null}
+              {p.zone_desc ? (
+                <Text style={styles.zoneDesc}>{p.zone_desc}</Text>
+              ) : null}
+              {p.entity ? (
+                <Text style={styles.row}>
+                  Responsable: {p.entity}
+                  {/* Operador distinto del titular (GestSan ≠ Entidad):
+                      "del ayuntamiento pero lo opera Aqualia" */}
+                  {p.manager && p.manager !== p.entity
+                    ? ` · operado por ${p.manager}`
+                    : null}
+                </Text>
+              ) : p.manager ? (
+                <Text style={styles.row}>Operador: {p.manager}</Text>
+              ) : null}
+            </View>
 
             {/* Ingeniería de la conducción: la profundidad interesa
                 al ciudadano — va visible, no plegada */}
-            {p.kind || p.length_m != null || p.outfall_depth != null ? (
-              <>
-                <Text style={styles.secTitle}>La conducción</Text>
+            {p.kind ||
+            p.length_m != null ||
+            p.outfall_depth != null ||
+            p.condition ? (
+              <View
+                style={[
+                  styles.secCard,
+                  { borderLeftColor: colors.primary },
+                ]}
+              >
+                <View style={styles.secHead}>
+                  <Image
+                    source={require('../assets/icons/icon-layers.png')}
+                    style={[
+                      styles.secIcon,
+                      { tintColor: colors.primary },
+                    ]}
+                  />
+                  <Text style={styles.secCardTitle}>La conducción</Text>
+                </View>
                 {p.kind ? (
                   <Text style={styles.row}>Tipo: {p.kind}</Text>
                 ) : null}
@@ -629,7 +664,24 @@ export default function FeatureSheet({
                         : 'Sale a ras de mar'}
                   </Text>
                 ) : null}
-              </>
+                {p.condition ? (
+                  <Text style={styles.row}>
+                    Estado:{' '}
+                    <Text
+                      style={[
+                        styles.rowStrong,
+                        {
+                          color:
+                            CONDITION_COLORS[p.condition] ??
+                            colors.text,
+                        },
+                      ]}
+                    >
+                      {p.condition}
+                    </Text>
+                  </Text>
+                ) : null}
+              </View>
             ) : null}
             {p.protected_area ? (
               <View style={styles.protectedBox}>
@@ -936,6 +988,33 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     marginTop: 12,
     marginBottom: 2,
+  },
+  // Sección como mini-card: barra de color + icono + título, mismo
+  // lenguaje que heroBox y la caja de espacio protegido
+  secCard: {
+    marginTop: 10,
+    borderLeftWidth: 3,
+    backgroundColor: colors.background,
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  secHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 2,
+  },
+  secIcon: {
+    width: 15,
+    height: 15,
+  },
+  secCardTitle: {
+    fontSize: 11,
+    fontFamily: fonts.extrabold,
+    color: colors.primaryDark,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   // Espacio protegido (ZEC…): caja tintada verde — es contexto
   // ambiental, no parte de la lista de datos
