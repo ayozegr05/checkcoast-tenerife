@@ -63,15 +63,17 @@ const originKindLabel = (t: string) =>
         ? 'depuradora'
         : null;
 
+// El nombre propio ("EDAR + EDAM Adeje Arona") ya lo dice la
+// cabecera de la card — la traducción devuelve solo el tipo
 const originLabel = (s: string) => {
   const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
   if (s.includes('+')) {
     const labels = s.split('+').map((t) => originKindLabel(t.trim()));
     if (labels.every(Boolean))
-      return `${cap([...new Set(labels)].join(' + '))} · ${s}`;
+      return cap([...new Set(labels)].join(' + '));
   }
   const l = originKindLabel(s.trim());
-  return l ? `${cap(l)} · ${s}` : s;
+  return l ? cap(l) : s;
 };
 
 // "ZEC Franja marina Teno - Rasca. núm ZEC 103_TF. Ref. ES7020017"
@@ -158,6 +160,14 @@ export default function FeatureSheet({
   const operationLine = isBeach
     ? null
     : operationText(p.is_active, p.continuity);
+  // Ubicación en una línea: punto concreto · núcleo urbano, sin
+  // repetir el municipio ni valores duplicados ("Barranco de Troya
+  // · Playa de Las Américas" y luego Municipio: Adeje)
+  const whereLabel = isBeach
+    ? null
+    : [p.location, p.settlement]
+          .filter((v, i, a) => v && a.indexOf(v) === i && v !== p.municipality)
+          .join(' · ') || null;
 
   // Selector de PMs: si la playa agrupada tiene varios puntos de
   // muestreo, la card muestra primero la lista y el usuario elige
@@ -557,73 +567,100 @@ export default function FeatureSheet({
               </View>
             </View>
             {operationLine ? (
-              <Text style={styles.opLine}>{operationLine}</Text>
+              <View style={styles.opRow}>
+                <View
+                  style={[
+                    styles.opDot,
+                    {
+                      backgroundColor:
+                        p.is_active === true
+                          ? colors.status.open
+                          : colors.status.unmonitored,
+                    },
+                  ]}
+                />
+                <Text style={styles.opLine}>{operationLine}</Text>
+              </View>
             ) : null}
             {/* El vertido: la respuesta protagonista — qué cae al mar
                 y de dónde viene. Es la pregunta que abre la ficha */}
-            {p.nature ? (
+            {p.nature || p.entity || p.manager ? (
               <View style={styles.heroBox}>
                 <Image
                   source={require('../assets/icons/icon-faucet.png')}
                   style={styles.heroIcon}
                 />
                 <View style={styles.heroText}>
-                  <Text style={styles.heroKicker}>Qué se vierte</Text>
-                  <Text style={styles.heroValue}>{p.nature}</Text>
-                  {p.origin ? (
-                    <Text style={styles.heroSub}>
-                      {originLabel(p.origin)}
+                  {p.nature ? (
+                    <>
+                      <Text style={styles.heroKicker}>
+                        Qué se vierte
+                      </Text>
+                      <Text style={styles.heroValue}>{p.nature}</Text>
+                      {p.origin ? (
+                        <Text style={styles.heroSub}>
+                          {originLabel(p.origin)}
+                        </Text>
+                      ) : null}
+                    </>
+                  ) : null}
+                  {/* Quién responde legalmente (Entidad) y quién lo
+                      opera (GestSan) — la responsabilidad es del
+                      titular siempre */}
+                  {p.entity ? (
+                    <Text style={styles.heroResp}>
+                      Responsable:{' '}
+                      <Text style={styles.heroRespStrong}>
+                        {p.entity}
+                      </Text>
+                      {p.manager && p.manager !== p.entity
+                        ? ` · operado por ${p.manager}`
+                        : null}
+                    </Text>
+                  ) : p.manager ? (
+                    <Text style={styles.heroResp}>
+                      Operador:{' '}
+                      <Text style={styles.heroRespStrong}>
+                        {p.manager}
+                      </Text>
                     </Text>
                   ) : null}
                 </View>
               </View>
             ) : null}
-            {/* Dónde y quién: contexto geográfico + responsabilidad
-                como mini-card con barra de color, mismo lenguaje que
-                el hero y la caja ZEC */}
-            <View
-              style={[
-                styles.secCard,
-                { borderLeftColor: colors.accent },
-              ]}
-            >
-              <View style={styles.secHead}>
-                <Image
-                  source={require('../assets/icons/icon-map.png')}
-                  style={[
-                    styles.secIcon,
-                    { tintColor: colors.accent },
-                  ]}
-                />
-                <Text style={styles.secCardTitle}>Dónde y quién</Text>
+            {/* Dónde: una sola línea de ubicación (punto concreto
+                · núcleo urbano) + municipio + descripción de la zona.
+                El responsable vive en el hero — aquí solo geografía */}
+            {p.location || p.settlement || p.municipality || p.zone_desc ? (
+              <View
+                style={[
+                  styles.secCard,
+                  { borderLeftColor: colors.accent },
+                ]}
+              >
+                <View style={styles.secHead}>
+                  <Image
+                    source={require('../assets/icons/icon-map.png')}
+                    style={[
+                      styles.secIcon,
+                      { tintColor: colors.accent },
+                    ]}
+                  />
+                  <Text style={styles.secCardTitle}>Dónde</Text>
+                </View>
+                {whereLabel ? (
+                  <Text style={styles.row}>Ubicación: {whereLabel}</Text>
+                ) : null}
+                {p.municipality ? (
+                  <Text style={styles.row}>
+                    Municipio: {p.municipality}
+                  </Text>
+                ) : null}
+                {p.zone_desc ? (
+                  <Text style={styles.zoneDesc}>{p.zone_desc}</Text>
+                ) : null}
               </View>
-              {p.settlement ? (
-                <Text style={styles.row}>Núcleo: {p.settlement}</Text>
-              ) : null}
-              {p.location ? (
-                <Text style={styles.row}>Ubicación: {p.location}</Text>
-              ) : null}
-              {p.municipality ? (
-                <Text style={styles.row}>
-                  Municipio: {p.municipality}
-                </Text>
-              ) : null}
-              {p.zone_desc ? (
-                <Text style={styles.zoneDesc}>{p.zone_desc}</Text>
-              ) : null}
-              {p.entity ? (
-                <Text style={styles.row}>
-                  Responsable: {p.entity}
-                  {/* Operador distinto del titular (GestSan ≠ Entidad):
-                      "del ayuntamiento pero lo opera Aqualia" */}
-                  {p.manager && p.manager !== p.entity
-                    ? ` · operado por ${p.manager}`
-                    : null}
-                </Text>
-              ) : p.manager ? (
-                <Text style={styles.row}>Operador: {p.manager}</Text>
-              ) : null}
-            </View>
+            ) : null}
 
             {/* Ingeniería de la conducción: la profundidad interesa
                 al ciudadano — va visible, no plegada */}
@@ -690,6 +727,9 @@ export default function FeatureSheet({
                 </Text>
                 <Text style={styles.protectedName}>
                   {protectedAreaName(p.protected_area)}
+                </Text>
+                <Text style={styles.protectedNote}>
+                  El vertido cae dentro de esta zona protegida
                 </Text>
               </View>
             ) : null}
@@ -914,15 +954,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.bold,
   },
-  // Frase de funcionamiento bajo el chip legal: lectura continua en
-  // vez de chips apilados ("Funciona hoy, pero solo en emergencias")
+  // Frase de funcionamiento bajo el chip legal: punto de estado
+  // (verde=opera, gris=parado) + texto semibold, no apagado
+  opRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 2,
+    marginBottom: 8,
+    paddingHorizontal: 10,
+  },
+  opDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   opLine: {
     fontSize: 12,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
+    fontFamily: fonts.semibold,
+    color: colors.text,
     textAlign: 'center',
-    marginTop: 2,
-    marginBottom: 6,
+    flexShrink: 1,
   },
   row: {
     fontSize: 13,
@@ -978,6 +1031,19 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  heroResp: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 4,
+  },
+  heroRespStrong: {
+    fontFamily: fonts.semibold,
+    color: colors.text,
   },
   // Mini-cabecera de sección — rompe el "muro de filas" en bloques
   secTitle: {
@@ -1036,9 +1102,15 @@ const styles = StyleSheet.create({
   },
   protectedName: {
     fontSize: 12,
-    fontFamily: fonts.regular,
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginTop: 1,
+  },
+  protectedNote: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   nearestBox: {
     marginBottom: 6,
