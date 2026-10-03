@@ -166,8 +166,8 @@ const censusRows = (p: GeoFeature['properties']) =>
     ],
     ['Estado físico', p.condition],
     ['Procedencia', p.origin],
-    ['Titular (Entidad)', p.entity],
-    ['Operador (GestSan)', p.manager],
+    ['Titular', p.entity],
+    ['Operador', p.manager],
     ['Núcleo urbano', p.settlement],
     ['Localización', p.location],
     ['Espacio protegido', p.protected_area],
@@ -932,23 +932,30 @@ export default function FeatureSheet({
               </View>
             ) : null}
 
-            {/* Datos brutos del censo, a la vista: la narrativa ya
-                lo cuenta, esto es la transparencia completa */}
-            <Text style={styles.censusToggleText}>Datos del censo</Text>
-            {censusRows(p).map(([k, v]) => (
-              <Text key={k} style={styles.censusRow}>
-                <Text style={styles.censusKey}>{k}: </Text>
-                {v}
-              </Text>
-            ))}
-
+            {/* Playas cercanas como card: es la respuesta a
+                "¿dónde me afecta?" — las filas abren la playa en el
+                mapa */}
             {nearby.length > 0 ? (
-              <>
-                <Text style={styles.nearTitle}>
-                  Playas cercanas{' '}
-                  <Text style={styles.nearSub}>
-                    · si no las ves, aleja el zoom
+              <View
+                style={[
+                  styles.secCard,
+                  { borderLeftColor: colors.accent },
+                ]}
+              >
+                <View style={styles.secHead}>
+                  <Image
+                    source={require('../assets/icons/icon-wave.png')}
+                    style={[
+                      styles.secIcon,
+                      { tintColor: colors.accent },
+                    ]}
+                  />
+                  <Text style={styles.nearCardTitle}>
+                    Playas cercanas
                   </Text>
+                </View>
+                <Text style={styles.nearSub}>
+                  Si no las ves en el mapa, aleja el zoom
                 </Text>
                 {nearby.map((n) => {
                   const beachTarget = (beaches ?? []).find(
@@ -1008,8 +1015,19 @@ export default function FeatureSheet({
                     </Pressable>
                   );
                 })}
-              </>
+              </View>
             ) : null}
+
+            {/* Datos brutos del censo al final: lo menos interesante
+                para el bañista, pero transparencia completa para el
+                que quiera comprobar */}
+            <Text style={styles.censusToggleText}>Datos del censo</Text>
+            {censusRows(p).map(([k, v]) => (
+              <Text key={k} style={styles.censusRow}>
+                <Text style={styles.censusKey}>{k}: </Text>
+                {v}
+              </Text>
+            ))}
           </View>
         )}
       </ScrollView>
@@ -1363,17 +1381,18 @@ const styles = StyleSheet.create({
     minWidth: 46,
     textAlign: 'right',
   },
-  nearTitle: {
-    fontSize: 13,
-    fontFamily: fonts.bold,
-    color: colors.text,
-    marginTop: 8,
-    marginBottom: 8,
+  // Título de la card de playas: más grande y con más vida que los
+  // kickers de sección — es el cierre de la ficha, no una etiqueta
+  nearCardTitle: {
+    fontSize: 15,
+    fontFamily: fonts.extrabold,
+    color: colors.primaryDark,
   },
   nearSub: {
     fontSize: 11,
     fontFamily: fonts.regular,
     color: colors.textFaint,
+    marginBottom: 6,
   },
   nearestName: {
     fontSize: 12,
