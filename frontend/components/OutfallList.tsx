@@ -19,14 +19,6 @@ import { searchNorm } from '../lib/format';
 import { outfallRisk, RISK_LABEL } from '../lib/outfallRisk';
 import { colors, fonts } from '../lib/theme';
 
-// El censo de vertidos clasifica por situación administrativa:
-// los no autorizados primero — son los que interesa ver al bañista
-const STATUS_ORDER: Record<string, number> = {
-  illegal: 0,
-  unknown: 1,
-  legal: 2,
-};
-
 const STATUS_LABELS: Record<string, string> = {
   illegal: 'No autorizado',
   unknown: 'En trámite',
@@ -101,8 +93,6 @@ export default function OutfallList({
     undefined,
   );
   const [natureF, setNatureF] = useState<string | undefined>(undefined);
-  // Orden por defecto: los que más deberían preocupar arriba
-  const [sortMode, setSortMode] = useState<'risk' | 'status'>('risk');
 
   const municipalities = useMemo(
     () =>
@@ -198,19 +188,14 @@ export default function OutfallList({
           return natureGroup(f.properties.nature) === natureF;
         return true;
       })
-      .sort((a, b) =>
-        sortMode === 'risk'
-          ? outfallRisk(b.properties).score -
-              outfallRisk(a.properties).score ||
-            a.properties.name.localeCompare(b.properties.name)
-          : (STATUS_ORDER[a.properties.status ?? 'unknown'] ?? 9) -
-              (STATUS_ORDER[b.properties.status ?? 'unknown'] ?? 9) ||
-            (a.properties.municipality ?? '').localeCompare(
-              b.properties.municipality ?? '',
-            ) ||
-            a.properties.name.localeCompare(b.properties.name),
+      // De más preocupante a menos — índice compartido con la ficha
+      .sort(
+        (a, b) =>
+          outfallRisk(b.properties).score -
+            outfallRisk(a.properties).score ||
+          a.properties.name.localeCompare(b.properties.name),
       );
-  }, [outfalls, query, status, municipality, natureF, sortMode]);
+  }, [outfalls, query, status, municipality, natureF]);
 
   return (
     <Modal
@@ -365,8 +350,8 @@ export default function OutfallList({
           ))}
         </ScrollChips>
         <View style={styles.filterBarDivider} />
-        {/* Tercera fila: qué se vierte + cómo ordenar (preocupación
-            por defecto — los vertidos que importan arriba) */}
+        {/* Tercera fila: qué se vierte — la lista sale ya ordenada
+            de más preocupante a menos */}
         <ScrollChips
           style={styles.chips}
           contentContainerStyle={styles.chipsContent}
@@ -395,22 +380,6 @@ export default function OutfallList({
               </Text>
             </Pressable>
           ))}
-          <Pressable
-            style={({ pressed }) => [
-              styles.chip,
-              styles.chipSort,
-              pressed && styles.pressFx,
-            ]}
-            onPress={() =>
-              setSortMode((m) => (m === 'risk' ? 'status' : 'risk'))
-            }
-          >
-            <Text style={styles.chipText}>
-              {sortMode === 'risk'
-                ? 'Orden: preocupación ↓'
-                : 'Orden: estado legal'}
-            </Text>
-          </Pressable>
         </ScrollChips>
         </ImageBackground>
 
@@ -679,12 +648,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fonts.semibold,
     color: colors.textMuted,
-  },
-  chipSort: {
-    marginLeft: 8,
-    borderLeftWidth: 1,
-    borderLeftColor: 'rgba(8,107,150,0.18)',
-    borderRadius: 0,
   },
   badgeText: {
     fontSize: 11,
