@@ -77,7 +77,8 @@ const originLabel = (s: string) => {
 };
 
 // "ZEC Franja marina Teno - Rasca. núm ZEC 103_TF. Ref. ES7020017"
-// → solo el nombre del espacio protegido
+// → solo el nombre del espacio protegido (los códigos 103_TF /
+// ES7020017 son identificadores de registro, no info de ficha)
 const protectedAreaName = (s: string) =>
   s.split(/\.\s*(?:n[úu]m|Ref\.)/i)[0].trim();
 
@@ -101,6 +102,29 @@ const fmtDistance = (m: number) =>
 // EstadoFunc (¿opera hoy?) + ContinVert (régimen de DISEÑO) en una
 // sola frase legible — evita la aparente contradicción "no activo
 // pero vertido habitual"
+// La conducción como frase: "Emisario submarino de 785 m que vierte
+// a 24 m de profundidad" — comunica, no enumera
+const conduitText = (
+  kind: string | null | undefined,
+  length: number | null | undefined,
+  depth: number | null | undefined,
+): string | null => {
+  const parts: string[] = [];
+  if (kind) parts.push(kind[0].toUpperCase() + kind.slice(1));
+  else if (length != null || depth != null) parts.push('La conducción');
+  if (!parts.length) return null;
+  let s = parts[0];
+  if (length != null) s += ` de ${Math.round(length)} m`;
+  if (depth != null)
+    s +=
+      depth < 0
+        ? ` que vierte a ${Math.abs(depth)} m de profundidad`
+        : depth > 0
+          ? ` que sale a ${depth} m sobre el nivel del mar`
+          : ' que sale a ras de mar';
+  return `${s}.`;
+};
+
 const operationText = (
   active: boolean | null | undefined,
   continuity: string | null | undefined,
@@ -648,12 +672,13 @@ export default function FeatureSheet({
                   />
                   <Text style={styles.secCardTitle}>Dónde</Text>
                 </View>
-                {whereLabel ? (
-                  <Text style={styles.row}>Ubicación: {whereLabel}</Text>
-                ) : null}
-                {p.municipality ? (
+                {whereLabel || p.municipality ? (
                   <Text style={styles.row}>
-                    Municipio: {p.municipality}
+                    Está en{' '}
+                    {[whereLabel, p.municipality]
+                      .filter(Boolean)
+                      .join(', ')}
+                    .
                   </Text>
                 ) : null}
                 {p.zone_desc ? (
@@ -684,26 +709,14 @@ export default function FeatureSheet({
                   />
                   <Text style={styles.secCardTitle}>La conducción</Text>
                 </View>
-                {p.kind ? (
-                  <Text style={styles.row}>Tipo: {p.kind}</Text>
-                ) : null}
-                {p.length_m != null ? (
+                {conduitText(p.kind, p.length_m, p.outfall_depth) ? (
                   <Text style={styles.row}>
-                    Longitud: {Math.round(p.length_m)} m
-                  </Text>
-                ) : null}
-                {p.outfall_depth != null ? (
-                  <Text style={styles.row}>
-                    {p.outfall_depth < 0
-                      ? `Profundidad: ${Math.abs(p.outfall_depth)} m`
-                      : p.outfall_depth > 0
-                        ? `Sale a ${p.outfall_depth} m sobre el mar`
-                        : 'Sale a ras de mar'}
+                    {conduitText(p.kind, p.length_m, p.outfall_depth)}
                   </Text>
                 ) : null}
                 {p.condition ? (
                   <Text style={styles.row}>
-                    Estado:{' '}
+                    Su estado es{' '}
                     <Text
                       style={[
                         styles.rowStrong,
@@ -714,8 +727,9 @@ export default function FeatureSheet({
                         },
                       ]}
                     >
-                      {p.condition}
+                      {p.condition.toLowerCase()}
                     </Text>
+                    .
                   </Text>
                 ) : null}
               </View>
@@ -723,14 +737,12 @@ export default function FeatureSheet({
             {p.protected_area ? (
               <View style={styles.protectedBox}>
                 <Text style={styles.protectedTitle}>
-                  Espacio protegido (ZEC)
+                  Emisario en espacio protegido
                 </Text>
                 <Text style={styles.protectedName}>
-                  {protectedAreaName(p.protected_area)}
-                </Text>
-                <Text style={styles.protectedNote}>
-                  Zona Especial de Conservación de la red Natura 2000
-                  — el vertido cae dentro de ella
+                  Vierte dentro de la{' '}
+                  {protectedAreaName(p.protected_area)}, una Zona
+                  Especial de Conservación de la red Natura 2000.
                 </Text>
               </View>
             ) : null}
@@ -1106,12 +1118,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     color: colors.text,
     marginTop: 1,
-  },
-  protectedNote: {
-    fontSize: 11,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
-    marginTop: 2,
   },
   nearestBox: {
     marginBottom: 6,
