@@ -1,8 +1,8 @@
 import { GeoFeature } from './api';
 
-// Índice de preocupación del vertido para bañista y ecosistema —
-// calculado sobre datos del censo, no una opinión. Ordena la lista
-// de emisarios y alimenta la banda "Para el bañista:" de la ficha.
+// Índice de riesgo del vertido (bañista y ecosistema) — calculado
+// sobre datos del censo, no una opinión. Ordena la lista de
+// emisarios y alimenta la banda "Riesgo:" de la ficha.
 
 export type RiskLevel = 'alto' | 'medio' | 'bajo';
 
@@ -77,7 +77,7 @@ export function outfallRisk(
 }
 
 export const RISK_LABEL: Record<RiskLevel, string> = {
-  alto: 'Alta',
-  medio: 'Media',
-  bajo: 'Baja',
+  alto: 'Riesgo alto',
+  medio: 'Riesgo medio',
+  bajo: 'Riesgo bajo',
 };

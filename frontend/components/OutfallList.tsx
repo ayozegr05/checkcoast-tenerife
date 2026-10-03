@@ -229,7 +229,7 @@ export default function OutfallList({
               ? `${municipality} · ${counts.illegal ?? 0} no autorizados · ${counts.legal ?? 0} autorizados · ${counts.unknown ?? 0} en trámite`
               : `${outfalls.length} puntos de vertido · ${
                   (counts.illegal ?? 0) + (counts.unknown ?? 0)
-                } sin autorizar · ${zecTotal} en zona protegida · ${highTotal} de alta preocupación`}
+                } sin autorizar · ${zecTotal} en zona protegida · ${highTotal} de riesgo alto`}
           </Text>
           {!municipality && (
             <Text style={styles.source}>Censo Tierra-Mar 2025 (Gob. Canarias)</Text>
@@ -433,7 +433,9 @@ export default function OutfallList({
                       </Text>
                     ) : null}
                     {p.start_lat != null ? (
-                      <Text style={styles.miniBadge}>⤴ trazado</Text>
+                      <Text style={styles.miniBadge}>
+                        ⤴ con recorrido
+                      </Text>
                     ) : null}
                   </View>
                 </View>

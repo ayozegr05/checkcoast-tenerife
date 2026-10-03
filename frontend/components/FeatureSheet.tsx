@@ -41,7 +41,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS = colors.outfall;
 
-// Nivel de preocupación → tinte de la banda "Para el bañista"
+// Nivel de riesgo → tinte de la banda de síntesis
 const RISK_COLORS: Record<string, string> = {
   alto: '#d84315',
   medio: '#f9a825',
@@ -152,8 +152,9 @@ const conduitText = (
   return `${s}.`;
 };
 
-// Filas crudas del censo para el plegable "Datos del censo" — la
-// narrativa ya las cuenta, esto es la transparencia para el friki
+// Filas crudas del censo para "Datos del censo" — transparencia
+// para el friki. La cota y la distancia a la orilla ya van dichas
+// en la narrativa de "Dónde y cómo": no se repiten
 const censusRows = (p: GeoFeature['properties']) =>
   [
     ['Tipo de conducción', p.kind],
@@ -173,14 +174,6 @@ const censusRows = (p: GeoFeature['properties']) =>
     [
       'Longitud de conducción',
       p.length_m != null ? `${Math.round(p.length_m)} m` : null,
-    ],
-    [
-      'Cota del punto de vertido',
-      p.outfall_depth != null ? `${p.outfall_depth} m` : null,
-    ],
-    [
-      'Distancia a la orilla (calculada)',
-      p.shore_m != null ? `${Math.round(p.shore_m)} m` : null,
     ],
   ].filter(([, v]) => v != null) as [string, string][];
 
@@ -326,15 +319,15 @@ export default function FeatureSheet({
     ? null
     : operationText(p.is_active, p.continuity);
   const risk = isBeach ? null : outfallRisk(p);
-  const [censusOpen, setCensusOpen] = useState(false);
-  // Tono de la caja de funcionamiento: ámbar si opera a diario (el
-  // combo que importa al bañista), verde si solo en emergencias,
+  // Tono de la caja de funcionamiento: ámbar si vierte a diario
+  // (el combo que importa al bañista), azul neutro si solo abre en
+  // desbordes — verde leería "todo bien" en un punto conflictivo —,
   // gris si está parado
   const opColor =
     p.is_active === true
       ? p.continuity === 'Habitual'
         ? colors.status.warning
-        : colors.status.open
+        : colors.accent
       : colors.status.unmonitored;
   // Ubicación en una línea: punto concreto · núcleo urbano, sin
   // repetir el municipio ni valores duplicados ("Barranco de Troya
@@ -920,7 +913,6 @@ export default function FeatureSheet({
                 ]}
               >
                 <Text style={styles.opText}>
-                  Para el bañista:{' '}
                   <Text
                     style={[
                       styles.opText,
@@ -930,7 +922,7 @@ export default function FeatureSheet({
                       },
                     ]}
                   >
-                    {RISK_LABEL[risk.level].toLowerCase()}
+                    {RISK_LABEL[risk.level]}
                   </Text>
                   {risk.reasons.length
                     ? ` — ${risk.reasons.join(', ')}`
@@ -940,33 +932,15 @@ export default function FeatureSheet({
               </View>
             ) : null}
 
-            {/* Datos brutos del censo, plegados: la narrativa ya lo
-                cuenta, esto es la transparencia completa */}
-            <Pressable
-              onPress={() => setCensusOpen((v) => !v)}
-              style={({ pressed }) => [
-                styles.censusToggle,
-                pressed && styles.pressFx,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={
-                censusOpen
-                  ? 'Ocultar datos del censo'
-                  : 'Ver datos del censo'
-              }
-            >
-              <Text style={styles.censusToggleText}>
-                {censusOpen ? '▾' : '▸'} Datos del censo
+            {/* Datos brutos del censo, a la vista: la narrativa ya
+                lo cuenta, esto es la transparencia completa */}
+            <Text style={styles.censusToggleText}>Datos del censo</Text>
+            {censusRows(p).map(([k, v]) => (
+              <Text key={k} style={styles.censusRow}>
+                <Text style={styles.censusKey}>{k}: </Text>
+                {v}
               </Text>
-            </Pressable>
-            {censusOpen
-              ? censusRows(p).map(([k, v]) => (
-                  <Text key={k} style={styles.censusRow}>
-                    <Text style={styles.censusKey}>{k}: </Text>
-                    {v}
-                  </Text>
-                ))
-              : null}
+            ))}
 
             {nearby.length > 0 ? (
               <>
@@ -1475,15 +1449,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 7,
   },
-  censusToggle: {
-    marginTop: 2,
-    marginBottom: 4,
-    paddingVertical: 4,
-  },
   censusToggleText: {
     fontSize: 12,
     fontFamily: fonts.semibold,
     color: colors.textMuted,
+    marginTop: 6,
+    marginBottom: 2,
   },
   censusRow: {
     fontSize: 11,
