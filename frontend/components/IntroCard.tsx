@@ -100,8 +100,8 @@ export default function IntroCard({
             )}
           </View>
           <Text style={styles.subtitle}>
-            ¿Puedo bañarme hoy? La respuesta con datos oficiales y
-            prensa, en un mapa
+            ¿Puedo bañarme hoy? El estado real de las playas de
+            Tenerife
           </Text>
         </ImageBackground>
 
