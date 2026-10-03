@@ -723,13 +723,14 @@ export default function FeatureSheet({
             {p.protected_area ? (
               <View style={styles.protectedBox}>
                 <Text style={styles.protectedTitle}>
-                  Espacio protegido
+                  Espacio protegido (ZEC)
                 </Text>
                 <Text style={styles.protectedName}>
                   {protectedAreaName(p.protected_area)}
                 </Text>
                 <Text style={styles.protectedNote}>
-                  El vertido cae dentro de esta zona protegida
+                  Zona Especial de Conservación de la red Natura 2000
+                  — el vertido cae dentro de ella
                 </Text>
               </View>
             ) : null}
