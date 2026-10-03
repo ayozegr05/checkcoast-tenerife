@@ -62,14 +62,16 @@ const natureGroup = (n?: string | null) => {
   return 'otra';
 };
 
+// Orden de izquierda a derecha por preocupación: lo que más importa
+// al bañista primero; la lluvia (impacto más leve) cierra la fila
 const NATURE_FILTERS: { key: string; label: string }[] = [
   { key: 'fecal', label: 'Fecales' },
-  { key: 'industrial', label: 'Industrial' },
-  { key: 'salmuera', label: 'Salmuera' },
-  { key: 'pluvial', label: 'Lluvia' },
-  { key: 'piscinas', label: 'Piscinas' },
   { key: 'zec', label: 'En zona protegida' },
   { key: 'orilla', label: 'En la orilla' },
+  { key: 'industrial', label: 'Industrial' },
+  { key: 'salmuera', label: 'Salmuera' },
+  { key: 'piscinas', label: 'Piscinas' },
+  { key: 'pluvial', label: 'Lluvia' },
 ];
 
 const capName = (name: string) =>
@@ -136,6 +138,25 @@ export default function OutfallList({
     }
     return c;
   }, [outfalls]);
+
+  // Conteos de la tercera fila — mismo ámbito que los de estado:
+  // se acotan al municipio activo cuando hay filtro
+  const natureCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const f of outfalls) {
+      if (
+        municipality !== undefined &&
+        f.properties.municipality !== municipality
+      )
+        continue;
+      const g = natureGroup(f.properties.nature);
+      c[g] = (c[g] ?? 0) + 1;
+      if (f.properties.protected_area) c.zec = (c.zec ?? 0) + 1;
+      const s = f.properties.shore_m;
+      if (s != null && s < 50) c.orilla = (c.orilla ?? 0) + 1;
+    }
+    return c;
+  }, [outfalls, municipality]);
 
   const scopedTotal =
     (counts.illegal ?? 0) + (counts.legal ?? 0) + (counts.unknown ?? 0);
@@ -370,7 +391,7 @@ export default function OutfallList({
                   natureF === nf.key && styles.chipTextActive,
                 ]}
               >
-                {nf.label}
+                {nf.label} ({natureCounts[nf.key] ?? 0})
               </Text>
             </Pressable>
           ))}
