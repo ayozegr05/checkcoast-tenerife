@@ -134,6 +134,26 @@ const conduitText = (
   return `${s}.`;
 };
 
+// Qué significa cada naturaleza de vertido para el ciudadano: la
+// misma sustancia es leve depurada y grave en bruto — la nota lo
+// dice explícito en vez de dejar el dato colgado
+const natureNote = (nature: string): string | null => {
+  const n = nature.toLowerCase();
+  if (n.includes('industrial'))
+    return 'Aguas fecales, domésticas e industriales — el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.';
+  if (n.includes('residual urbana'))
+    return 'Aguas fecales y domésticas — el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.';
+  if (n.includes('salmuera'))
+    return 'Sal concentrada que se hunde al fondo — daña praderas y bentos; el bañista apenas lo nota.';
+  if (n.includes('piscina'))
+    return 'Agua con cloro y sal — impacto leve y puntual.';
+  if (n.includes('refrigeración'))
+    return 'Agua a otra temperatura — impacto térmico puntual.';
+  if (n.includes('pluvial'))
+    return 'Agua de lluvia con lo que arrastra la calle — impacto leve.';
+  return null;
+};
+
 const operationText = (
   active: boolean | null | undefined,
   continuity: string | null | undefined,
@@ -142,7 +162,8 @@ const operationText = (
   // "De excedencia-emergencia" del censo = válvula de escape que solo
   // abre cuando el sistema se desborda: lluvia fuerte, avería o
   // mantenimiento — no "emergencia" en sentido de catástrofe
-  const overflow = 'cuando el sistema se desborda (avería o lluvia fuerte)';
+  const overflow =
+    'cuando el sistema se desborda (lluvia fuerte, avería o más caudal del que la depuradora puede tratar)';
   if (active === true)
     return continuity == null
       ? 'En funcionamiento actualmente.'
@@ -648,6 +669,11 @@ export default function FeatureSheet({
                           {originLabel(p.origin)}
                         </Text>
                       ) : null}
+                      {p.nature && natureNote(p.nature) ? (
+                        <Text style={styles.heroNote}>
+                          {natureNote(p.nature)}
+                        </Text>
+                      ) : null}
                     </>
                   ) : null}
                   {/* Quién responde legalmente (Entidad) y quién lo
@@ -1060,6 +1086,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  heroNote: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    lineHeight: 15,
+    marginTop: 4,
   },
   heroResp: {
     fontSize: 12,
