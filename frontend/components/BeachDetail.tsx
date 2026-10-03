@@ -833,7 +833,11 @@ export default function BeachDetail({
   );
 
   return (
-    <View>
+    // flexGrow: en la vista de detalle a pantalla completa el
+    // contenedor llena el alto disponible (el separador elástico
+    // empuja el pie al fondo); en la card del mapa manda el
+    // contenido y crece solo lo que necesita
+    <View style={{ flexGrow: 1 }}>
       {/* Vista satélite del entorno: la playa en el centro y los
           emisarios catalogados situados en su posición real dentro del
           encuadre, coloreados por estado. La foto es clicable → mapa */}
@@ -1272,6 +1276,12 @@ export default function BeachDetail({
           )}
         </View>
       )}
+
+      {/* Separador elástico: en la vista de detalle a pantalla
+          completa (lista de playas) el contenedor estira y este
+          espacio empuja el pie al fondo; en la card del mapa el
+          contenido manda y colapsa a 24 */}
+      <View style={{ flex: 1, minHeight: 24 }} />
 
       {/* Atribución de fuentes + última comprobación: metadatos al pie,
           no contenido */}

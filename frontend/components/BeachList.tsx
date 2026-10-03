@@ -732,6 +732,9 @@ export default function BeachList({
             <ScrollView
               ref={detailScrollRef}
               style={styles.detailScroll}
+              // flexGrow: el contenido corto (playas sin monitorizar)
+              // estira el cuerpo para que el pie quede anclado abajo
+              contentContainerStyle={{ flexGrow: 1 }}
               onLayout={(e) => {
                 scrollMetrics.current.vh =
                   e.nativeEvent.layout.height;
@@ -841,6 +844,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   detailBody: {
+    flex: 1,
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === 'android' ? 44 : 24,
   },
