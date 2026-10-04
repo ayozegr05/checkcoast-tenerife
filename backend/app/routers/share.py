@@ -1481,3 +1481,92 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
         content=page,
         headers={"Cache-Control": "no-cache"},
     )
+
+
+@router.get("/privacy", response_class=HTMLResponse)
+def privacy() -> HTMLResponse:
+    """Política de privacidad — exigida por Play Store (push tokens)."""
+    page = """<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacidad — CheckCoast Tenerife</title>
+<meta name="description" content="Política de privacidad de CheckCoast Tenerife">
+<style>
+  body { margin:0; font-family:'Inter',system-ui,sans-serif;
+         background:linear-gradient(160deg,#0d3a52,#075276);
+         color:#0d3a52; padding:32px 16px; min-height:100vh;
+         box-sizing:border-box; }
+  .card { max-width:640px; margin:0 auto; background:#fff;
+          border-radius:16px; padding:32px 28px;
+          box-shadow:0 8px 32px rgba(0,0,0,.25); }
+  h1 { font-size:24px; color:#075276; margin:0 0 4px; }
+  h2 { font-size:16px; color:#086b96; margin:26px 0 8px; }
+  p, li { font-size:14px; line-height:1.65; color:#33475a; }
+  ul { padding-left:20px; margin:6px 0; }
+  .meta { font-size:12px; color:#5c7a89; margin-bottom:18px; }
+  a { color:#086b96; }
+  .home { display:inline-block; margin-top:22px; font-size:13px;
+          color:#086b96; text-decoration:none; }
+  .home:hover { text-decoration:underline; }
+</style>
+</head><body>
+<div class="card">
+  <h1>Política de privacidad</h1>
+  <div class="meta">CheckCoast Tenerife · última actualización:
+    4 de octubre de 2026</div>
+
+  <p>CheckCoast Tenerife es una app cívica sin ánimo de lucro que
+  informa del estado de las playas de Tenerife (cierres, avisos y
+  calidad del agua) y de los puntos de vertido costeros
+  catalogados. Esta página explica qué datos usa y qué hace con
+  ellos.</p>
+
+  <h2>Qué datos recogemos</h2>
+  <ul>
+    <li><b>Token de notificaciones push</b> (Expo Push Token).
+      Solo si aceptas el permiso de notificaciones: la app registra
+      un identificador anónimo del dispositivo para poder enviarte
+      avisos de cierres y reaperturas de playas.</li>
+  </ul>
+  <p>Nada más. La app <b>no recoge</b> nombre, correo, ubicación,
+  contactos ni ningún otro dato personal. No hay cuentas de
+  usuario, ni analítica, ni publicidad, ni rastreadores.</p>
+
+  <h2>Para qué se usa</h2>
+  <p>El token sirve exclusivamente para enviarte notificaciones
+  sobre el estado de las playas (por ejemplo, «Cierre de baño ·
+  Playa X»). No se usa para publicidad, perfilado ni ningún otro
+  fin.</p>
+
+  <h2>Dónde se guarda y con quién se comparte</h2>
+  <ul>
+    <li>Los tokens se almacenan en el servidor del proyecto,
+      alojado en Oracle Cloud (UE).</li>
+    <li>Para entregar las notificaciones, el token se envía al
+      servicio <b>Expo Push Service</b> (Expo / Expo.dev), que es
+      quien reparte el aviso a tu dispositivo.</li>
+    <li>No se venden ni comparten datos con ningún otro tercero.</li>
+  </ul>
+
+  <h2>Contenido y fuentes</h2>
+  <p>La información de playas procede de fuentes oficiales
+  (Náyade/Ministerio de Sanidad, MITECO, Censo de Vertidos
+  Tierra-Mar del Gobierno de Canarias) y de prensa local — estas
+  consultas no llevan datos tuyos.</p>
+
+  <h2>Cómo dejar de recibir datos / borrar el token</h2>
+  <p>Desactiva las notificaciones en los ajustes de Android o
+  desinstala la app: el token deja de recibir avisos y los tokens
+  inválidos se purgan automáticamente del servidor.</p>
+
+  <h2>Contacto</h2>
+  <p>Es un proyecto personal de código abierto. Para cualquier
+  duda de privacidad puedes abrir un issue en
+  <a href="https://github.com/ayozegr05/checkcoast-tenerife">
+    github.com/ayozegr05/checkcoast-tenerife</a>.</p>
+
+  <a class="home" href="/">← Volver a CheckCoast Tenerife</a>
+</div>
+</body></html>"""
+    return HTMLResponse(content=page)
