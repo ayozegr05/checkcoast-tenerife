@@ -52,7 +52,10 @@
               "pathPrefix": "/b"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "adaptiveIcon": {
@@ -71,6 +74,12 @@
         "projectId": "fd4c0991-27fb-4812-8424-eb7680035566"
       }
     },
-    "owner": "ayozegr"
+    "owner": "ayozegr",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/fd4c0991-27fb-4812-8424-eb7680035566"
+    }
   }
 }
