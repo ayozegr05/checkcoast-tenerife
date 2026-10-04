@@ -1,42 +1,42 @@
 # Textos de la ficha — Google Play
 
-## Descripción corta (máx. 80 caracteres)
+## Descripción corta (máx. 80 caracteres) — ELEGIDA
 
-Candidata 1 (recomendada — gancho + keywords):
-`¿Puedo bañarme hoy? Cierres y calidad del agua en Tenerife` (61)
+`¿Puedo bañarme hoy? Cierres, vertidos y calidad del agua en Tenerife` (71)
 
-Candidata 2 (énfasis emisarios):
-`Estado de baño, cierres y emisarios en las costas de Tenerife` (61)
+Descartadas:
+- ~~`¿Puedo bañarme hoy? Cierres y calidad del agua en Tenerife`~~ (falta "vertidos")
+- ~~`Estado de baño, cierres y emisarios en las costas de Tenerife`~~
+- ~~`Cierres de baño, calidad del agua y vertidos en Tenerife`~~
 
-Candidata 3 (keywords puras):
-`Cierres de baño, calidad del agua y vertidos en Tenerife` (56)
-
-## Descripción larga (máx. 4.000 caracteres)
+## Descripción larga (máx. 4.000 caracteres) — ELEGIDA
 
 ```
 ¿Puedo bañarme hoy? CheckCoast Tenerife te dice cómo está cada
 playa de la isla: cierres al baño, avisos y calidad del agua con
-los datos oficiales del Ministerio de Sanidad — más el porqué que
-los portales oficiales no cuentan.
+los datos oficiales del Ministerio de Sanidad.
 
-LO QUE VERÁS
-• Mapa vivo con todas las playas: abierta, aviso, cerrada o
-  cerrada por causas estructurales
-• La causa de cada cierre con fuentes de prensa verificadas,
-  siempre etiquetadas como "según prensa"
-• Calidad del agua por punto de muestreo con historial de
-  analíticas (E. coli, enterococos)
-• 180 puntos de vertido del censo oficial: qué vierte cada uno,
-  si está autorizado y a qué playas llega
-• Temporada balneario: qué playas fueron las peores del verano
+El aviso oficial dice "cierre al baño". Punto. La app te cuenta
+el resto: la E. coli que disparó la alerta, el emisario que hay
+detrás, cuándo empezó y qué dice la prensa local.
 
-LAS FUENTES
-Náyade (Min. Sanidad) · Censo de Vertidos Tierra-Mar (Gob.
-Canarias) · MITECO · Prensa local verificada
+Con la app puedes:
+• Ver el mapa vivo de todas las playas: abiertas, con aviso o
+  cerradas, y los emisarios cercanos
+• Conocer la causa real de cada cierre y desde cuándo dura
+• Explorar los 180 puntos de vertido oficiales: qué vierte cada
+  uno, si tiene permiso y a qué playas llega
+• Consultar el historial de calidad del agua (E. coli,
+  enterococos) y cómo le fue a cada playa durante el verano
+• Recibir un aviso en tu móvil cuando tu playa cierra o reabre
 
-CheckCoast Tenerife no emite recomendaciones sanitarias: para
-decisiones sobre baño consulta siempre los carteles oficiales en
-la propia playa.
+Los datos vienen de fuentes oficiales: Náyade (Ministerio de
+Sanidad), el Censo de Vertidos Tierra-Mar del Gobierno de
+Canarias y MITECO — más prensa local verificada para el contexto
+que los portales no dan.
+
+CheckCoast no emite recomendaciones sanitarias: antes de bañarte
+consulta siempre los carteles oficiales en la playa.
 ```
 
 ## Notas
