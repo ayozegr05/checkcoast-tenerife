@@ -315,13 +315,14 @@ export default function CoastMap({
     setAlertsOpen(false);
   };
 
-  // Ficha de una zona abierta: paneo puro, SIN tocar el zoom — mover
-  // el centro hacia el sur desplaza el contenido hacia arriba unos
-  // píxeles para que los dots respiren sobre la ficha. Al volver al
-  // selector se restaura el centro previo
-  const LIFT_PX = 20;
+  // Ficha de una zona abierta: paneo al PM concreto, SIN tocar el
+  // zoom. Antes solo se levantaba el encuadre de grupo ~20px, pero el
+  // centro quedaba en el baricentro del grupo — en playas largas ese
+  // punto cae en el mar y al hacer pinch-zoom los puntos salían por
+  // los bordes. Con el centro sobre el PM, el zoom posterior se ancla
+  // a él. Al volver al selector se restaura el centro previo
   const prevZoneFocus = useRef<GeoFeature | null>(null);
-  const preLiftCenter = useRef<[number, number] | null>(null);
+  const preZoneCenter = useRef<[number, number] | null>(null);
   useEffect(() => {
     const prev = prevZoneFocus.current;
     prevZoneFocus.current = zoneFocus;
@@ -340,14 +341,13 @@ export default function CoastMap({
       left: 64,
     };
     if (opening) {
-      preLiftCenter.current = center;
-      // Centro hacia el SUR = los puntos quedan al norte del centro y
-      // el contenido aparece más arriba en pantalla
-      const mpp =
-        (156543.03 * Math.cos((center[1] * Math.PI) / 180)) / 2 ** zoom;
-      const dLat = (LIFT_PX * mpp) / 111320;
+      preZoneCenter.current = center;
+      const [pmLon, pmLat] = zoneFocus!.geometry.coordinates as [
+        number,
+        number,
+      ];
       cameraRef.current?.flyTo({
-        center: [center[0], center[1] - dLat],
+        center: [pmLon, pmLat],
         zoom,
         padding: pad,
         duration: 400,
@@ -358,15 +358,15 @@ export default function CoastMap({
       // playa, zoneFocus llega obsoleto y el encuadre nuevo manda —
       // sin este filtro el mapa volaba de vuelta al grupo anterior
       const sameGroup = pmPoints!.features.some((f) => f.id === prev!.id);
-      if (sameGroup && preLiftCenter.current) {
+      if (sameGroup && preZoneCenter.current) {
         cameraRef.current?.flyTo({
-          center: preLiftCenter.current,
+          center: preZoneCenter.current,
           zoom,
           padding: pad,
           duration: 400,
         });
       }
-      preLiftCenter.current = null;
+      preZoneCenter.current = null;
     }
   }, [zoneFocus, pmShown]);
 

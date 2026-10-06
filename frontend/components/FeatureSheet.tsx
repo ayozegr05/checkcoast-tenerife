@@ -1147,7 +1147,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     // margen simétrico: la ✕ va absoluta a la esquina y el título
     // queda centrado sin chocar con ella aunque ocupe 2 líneas
-    marginHorizontal: 40,
+    marginHorizontal: 54,
   },
   close: {
     fontSize: 18,
