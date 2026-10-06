@@ -20,9 +20,9 @@ temporal de trabajo: se puede borrar cuando estén resueltos los puntos.
 
 | # | Tarea | Estado |
 |---|-------|--------|
-| 1 | **Seguridad**: `POST /beaches/{id}/status` abierto en producción y dispara push a todos los usuarios → exigir `X-Admin-Key` | En curso (PR) — falta poner `ADMIN_API_KEY` en la VM |
+| 1 | **Seguridad**: `POST /beaches/{id}/status` abierto en producción y dispara push a todos los usuarios → exigir `X-Admin-Key` | En curso (PR #2) — tras el merge, poner `ADMIN_API_KEY` en la VM y redesplegar |
 | 2 | **Capturas / GIF / APK en el README** (hay un `TODO`) — es lo primero que mira un reclutador | Ya planificado en ROADMAP 9.2 / 9.6 |
-| 3 | **Linter y formateador en el repo**: Ruff (lint + format) y Prettier están solo en el PC local, sin configuración versionada ni paso en CI. Hoy `ruff format --check` reformatearía 43 de 53 ficheros del backend y `prettier --check` marca 19 del frontend. Añadir `pyproject.toml`/`.prettierrc`, formatear de una vez en un commit aislado y ejecutar `ruff check`, `ruff format --check` y `prettier --check` en CI | Pendiente |
+| 3 | **Linter y formateador en el repo**: Ruff (lint + format) y Prettier están solo en el PC local, sin configuración versionada ni paso en CI. Hoy `ruff format --check` reformatearía 43 de 53 ficheros del backend y `prettier --check` marca 19 del frontend. Añadir `pyproject.toml`/`.prettierrc`, formatear de una vez en un commit aislado y ejecutar `ruff check`, `ruff format --check` y `prettier --check` en CI | En curso (PR #4) |
 | 4 | **Componentes grandes**: `CoastMap.tsx` (~2.260 líneas), `BeachDetail.tsx` (~1.690), `MunicipalityStats.tsx` (~1.600), `share.py` (~1.480, HTML en strings de Python). Trocear 1-2: p. ej. sacar el banner de alertas de `CoastMap` y pasar `share.py` a plantillas Jinja2 | Pendiente |
 | 5a | Quitar el `Alert('Push debug')` de `frontend/lib/notifications.ts` | Pendiente |
 | 5b | `Caddyfile` incluye otro proyecto (`controlpick`) → sacarlo del repo público o dejar solo el bloque de CheckCoast | Pendiente |
