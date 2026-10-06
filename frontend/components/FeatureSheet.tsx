@@ -425,8 +425,12 @@ export default function FeatureSheet({
   // ~55%, así que "Ver más" no expandía de verdad.
   const NAV_INSET = Platform.OS === 'android' ? 30 : 0;
   const CARD_BOTTOM = 14 + NAV_INSET; // flota sobre la barra de gestos
-  // La topbar queda siempre visible: la card ni en expandido la tapa
-  const TOP_MARGIN = 118;
+  // La topbar y la columna de botones flotantes (satélite 112-146,
+  // brújula 152-186, capas 192-226) quedan siempre VISIBLES y
+  // pulsables: con margen 118 la card expandida tapaba la mitad baja
+  // del botón satélite — la ✕ le caía encima y el toque activaba la
+  // vista satélite en vez de cerrar
+  const TOP_MARGIN = 234;
   const CARD_MAX = Math.round(winH - CARD_BOTTOM - TOP_MARGIN);
   const HEADER_H = 64; // asa + titulo aprox
   // Peek tope ~52% de pantalla: fichas con mucha info abren a media
