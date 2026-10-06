@@ -45,7 +45,7 @@ import { colors, fonts } from '../lib/theme';
 import seaStyle from '../assets/mapstyle-sea.json';
 
 // Estilo vectorial tematico (OpenFreeMap/OpenMapTiles retenido con la
-// paleta oceanica por scripts_gen_mapstyle.py). Sin API key.
+// paleta oceanica por scripts/gen_mapstyle.py). Sin API key.
 const SEA_STYLE = seaStyle as unknown as StyleSpecification;
 
 // Estilo raster satélite con PNOA del IGN (ortofoto oficial española,

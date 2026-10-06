@@ -2,6 +2,5 @@ checkcoast.duckdns.org {
 	reverse_proxy api:8000
 }
 
-controlpick.duckdns.org {
-	reverse_proxy controlpick-backend:8000
-}
+# Otros sitios de la VM, fuera del repo (caddy-sites/ está en .gitignore)
+import sites/*.caddy
