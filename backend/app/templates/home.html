@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CheckCoast Tenerife — ¿Puedes bañarte hoy?</title>
+<link rel="icon" type="image/png" href="/icons/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CheckCoast Tenerife">
+<meta property="og:title" content="CheckCoast Tenerife">
+<meta property="og:description" content="El estado oficial de cada playa de Tenerife — y el porqué cuando el parte no lo dice.">
+<meta property="og:image" content="{{ island_url }}">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  body { margin:0; font-family:'Inter',system-ui,sans-serif;
+         min-height:100vh; display:flex; justify-content:center;
+         padding:24px 16px; }
+  body::before { content:''; position:fixed; inset:-70px; z-index:-2;
+         background:url("{{ island_url | safe }}") center/cover no-repeat;
+         filter:blur(30px) brightness(.8) saturate(1.15); }
+  body::after { content:''; position:fixed; inset:0; z-index:-1;
+         background:linear-gradient(160deg,
+           rgba(7,43,62,.62),rgba(7,82,118,.42)); }
+  .page { width:100%; max-width:480px; }
+  @media (min-width:900px) { .page { max-width:880px; } }
+  .brand { display:flex; align-items:center; justify-content:center;
+          gap:10px; color:#fff; font-weight:700; font-size:25px;
+          letter-spacing:.2px; text-shadow:0 1px 4px rgba(0,0,0,.4); }
+  .brand img { width:42px; height:42px; border-radius:10px;
+          box-shadow:0 2px 6px rgba(0,0,0,.3); }
+  .tfe { font-weight:400; color:#a8d4e0; }
+  .hero { color:#fff; margin:18px 0 16px;
+          text-shadow:0 1px 4px rgba(0,0,0,.4); }
+  .hero h1 { margin:0; font-size:19px; line-height:1.3; }
+  .hero p { margin:8px 0 0; font-size:14px; line-height:1.5;
+          color:#dcebf2; }
+  .stat { background:rgba(255,255,255,.92); border-radius:12px;
+          padding:10px 14px; font-size:13px; color:#0d3a52;
+          margin-bottom:14px; }
+  .stat b { color:#075276; }
+  .stat .sl { font-size:11px; color:#6d8b9a; font-weight:600;
+          text-transform:uppercase; letter-spacing:.4px; }
+  .card { background:#fff; border-radius:16px; overflow:hidden;
+          box-shadow:0 18px 60px rgba(7,43,62,.30); }
+  .imap { position:relative; }
+  .imap img { display:block; width:100%; height:auto; }
+  .mdot { position:absolute; width:8px; height:8px; border-radius:50%;
+          border:1.5px solid rgba(255,255,255,.9);
+          transform:translate(-50%,-50%);
+          box-shadow:0 1px 3px rgba(0,0,0,.45); }
+  .mdot.alert { width:11px; height:11px; z-index:2;
+          animation:mpulse 1.7s ease-out infinite; }
+  @keyframes mpulse {
+    0% { box-shadow:0 0 0 0 var(--pc, rgba(198,40,40,.55)); }
+    100% { box-shadow:0 0 0 11px rgba(198,40,40,0); } }
+  .ibody { padding:16px 20px 20px;
+          background:
+            radial-gradient(900px 320px at 15% 0%,
+              rgba(255,255,255,.55), rgba(255,255,255,0) 60%),
+            linear-gradient(180deg,#e2eef6 0%,#d8e9f2 55%,#cfe2ec 100%); }
+  .sec { margin-top:22px; font-size:15px; font-weight:700;
+          color:#0d3a52; }
+  .sec ~ .sec { border-top:1px solid #b9d3e2; padding-top:20px; }
+  .lower { margin-top:22px; border-top:1px solid #b9d3e2;
+          padding-top:20px; }
+  .lower .sec { margin-top:0; }
+  .lcol { display:flex; flex-direction:column; }
+  .lcol .steps { display:flex; flex-direction:column;
+          justify-content:space-between; gap:8px; flex:1; }
+  .rcol { margin-top:16px; display:flex;
+          flex-direction:column; }
+  .rcards { margin-top:10px; display:flex; gap:10px;
+          align-items:stretch; flex-wrap:wrap; flex:1; }
+  .gmain { flex:1; }
+  .gfeats { display:flex; flex-direction:column; gap:4px;
+          margin-top:9px; }
+  .gfeats span { font-size:11.5px; color:#33566b; }
+  .gfeats i { font-style:normal; font-weight:700;
+          color:#0a7a4f; }
+  .gside { display:flex; flex-direction:column; gap:10px;
+          flex:1; min-width:150px; }
+  .gsrow { flex-direction:row; gap:12px; flex:1;
+          padding:10px 14px; }
+  .abox { margin-top:8px; }
+  .sal { display:flex; align-items:center; gap:9px; margin-top:9px;
+          text-decoration:none; border-radius:10px;
+          padding:8px 11px; }
+  .sal.sal-c { background:#fdeceb; border:1px solid #f0c4bd; }
+  .sal.sal-w { background:#fdf1da; border:1px solid #eec27e; }
+  .sal i { flex:none; width:9px; height:9px; border-radius:50%; }
+  .sal b { display:block; font-size:12px; color:#0d3a52;
+          font-weight:600; }
+  .sal:hover b { color:#075276; }
+  .sal span { font-size:10.5px; color:#7a919c; }
+  @media (min-width:900px) {
+    .abox { display:grid; grid-template-columns:1fr 1fr;
+            gap:0 24px; }
+    .bgrid { grid-template-columns:repeat(4,1fr) !important; }
+    .lower { display:grid; grid-template-columns:repeat(4,1fr);
+            gap:10px; }
+    .lcol { grid-column:1/3; }
+    .rcol { grid-column:3/5; margin-top:0; }
+    .rcards { flex-wrap:nowrap; }
+  }
+  .bgrid { display:grid; grid-template-columns:1fr 1fr; gap:10px;
+          margin-top:10px; }
+  .bc { text-decoration:none; border-radius:12px; overflow:hidden;
+          background:#fff; border:1px solid #c9dfea; }
+  .bc:hover { border-color:#17b8ce; }
+  .bimg { position:relative; height:86px; background-size:cover;
+          background-position:center; }
+  .bcchip { position:absolute; left:8px; bottom:8px; color:#fff;
+          font-size:10px; font-weight:700; border-radius:999px;
+          padding:3px 9px; }
+  .bcname { font-size:12.5px; font-weight:700; color:#0d3a52;
+          padding:8px 10px 0; }
+  .bcmuni { font-size:10.5px; color:#7a919c; padding:1px 10px 9px; }
+  .bcvia { color:#8a6d1a; font-weight:600; }
+  .steps { margin-top:16px; }
+  .steps { display:grid; grid-template-columns:1fr 1fr; gap:8px;
+          margin-top:10px; }
+  .step { display:flex; gap:9px; align-items:flex-start;
+          background:#fff; border:1px solid #c9dfea;
+          border-radius:12px; padding:10px 12px; }
+  .stepn { flex:none; width:20px; height:20px; border-radius:50%;
+          background:#075276; color:#fff; font-size:11px;
+          font-weight:700; display:flex; align-items:center;
+          justify-content:center; margin-top:1px; }
+  .step b { font-size:12.5px; color:#0d3a52; }
+  .step span { display:block; font-size:11.5px; color:#5b7a8a;
+          margin-top:1px; }
+  .exnote { font-size:11.5px; color:#7a919c; margin-top:2px; }
+  .gcard { background:#fff; border:1px solid #c9dfea;
+          border-radius:12px; padding:14px 20px; flex:1;
+          display:flex; flex-direction:column; gap:8px;
+          align-items:center; justify-content:center; }
+  .gmain { align-items:flex-start; justify-content:flex-start;
+          min-width:180px; }
+  .gmain .gdl { align-self:center; margin-top:auto;
+          margin-bottom:4px; }
+  .gmain b { font-size:12.5px; color:#0d3a52; }
+  .gtx { font-size:12px; color:#33566b; line-height:1.45; }
+  .gdl { display:inline-block; background:#075276; color:#fff;
+          font-size:13.5px; font-weight:700; padding:10px 16px;
+          border-radius:9px; text-decoration:none; }
+  .gdl:hover { background:#0a628c; }
+  .gsoon { display:none; font-size:11px; color:#e65100;
+          font-weight:600; }
+  .ggh { color:#24292f; text-decoration:none; }
+  .ggh:hover { color:#075276; }
+  .ggh span { font-size:12px; text-align:center; line-height:1.3;
+          color:#33566b; font-weight:600; }
+  .gqr { width:74px; height:74px; background:#fff;
+          padding:4px; border-radius:8px; flex:none; }
+  .gqrbox span, .gsrow span { font-size:11.5px; color:#33566b;
+          font-weight:600; text-align:left; line-height:1.3; }
+  .src { margin-top:14px; font-size:11px; color:#7a919c; }
+  .foot { margin:14px 4px 0; font-size:11px; color:#a8c4d2;
+          text-align:center; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="brand">
+    <img src="/icons/app-icon.png" alt="">CheckCoast
+    <span class="tfe">Tenerife</span>
+  </div>
+  <div class="hero">
+    <h1>¿Puedes bañarte hoy?</h1>
+    <p>El estado oficial de cada playa de Tenerife — y el porqué
+      cuando el parte no lo dice.</p>
+  </div>
+  <div class="stat"><div class="sl">Ahora mismo en Tenerife</div>
+    <b>{{ n_closed }}</b> cerradas ·
+    <b>{{ n_warning }}</b> con aviso ·
+    <b>{{ total_beaches }}</b> playas mapeadas</div>
+  <div class="card">
+    <div class="imap">
+      <img src="{{ island_url }}" alt="Tenerife">
+      {%- for d in map_dots %}
+      <i class="mdot{% if d.alert %} alert{% endif %}" style="left:{{ d.x }}%;
+        top:{{ d.y }}%;background:{{ d.col }};--pc:{{ d.col }}"
+        title="{{ d.name }}"></i>
+      {%- endfor %}
+    </div>
+    <div class="ibody">
+      {%- if alerts %}
+      <div class="sec">Alertas activas en la isla</div>
+      <div class="abox">
+        {%- for a in alerts %}
+        <a class="sal sal-{{ a.cls }}" href="/b/{{ a.beach_id }}">
+          <i style="background:{{ a.color }}"></i><div>
+          <b>{{ a.name }}</b>
+          <span>{{ a.meta }}</span></div></a>
+        {%- endfor %}
+      </div>
+      {%- endif %}
+      {%- if cards %}
+      <div class="sec">Explora una playa</div>
+      <div class="exnote">Ejemplos destacados — la lista completa,
+        con filtros por municipio y estado, está en la app</div>
+      <div class="bgrid">
+        {%- for c in cards %}
+        <a class="bc" href="/b/{{ c.beach_id }}">
+          <div class="bimg" style="background-image:url('{{ c.thumb }}')">
+            <span class="bcchip" style="background:{{ c.color }}">
+              {{- c.label }}</span>
+          </div>
+          <div class="bcname">{{ c.name }}</div>
+          <div class="bcmuni">{{ c.muni }}
+            {%- if c.via_press %} · <span class="bcvia">según prensa</span>
+            {%- endif %}</div>
+        </a>
+        {%- endfor %}
+      </div>
+      {%- endif %}
+      <div class="lower">
+      <div class="lcol">
+      <div class="sec">Cómo funciona</div>
+      <div class="steps">
+        <div class="step"><div class="stepn">1</div><div>
+          <b>Náyade / Sanidad</b>
+          <span>Estado oficial, cierres y analíticas del agua cada hora.</span>
+        </div></div>
+        <div class="step"><div class="stepn">2</div><div>
+          <b>Prensa local</b>
+          <span>El porqué de los cierres, etiquetado «según prensa».</span>
+        </div></div>
+        <div class="step"><div class="stepn">3</div><div>
+          <b>Emisarios</b>
+          <span>Los 180 vertidos del censo costero con su situación legal,
+            junto a cada playa.</span>
+        </div></div>
+        <div class="step"><div class="stepn">4</div><div>
+          <b>Municipios</b>
+          <span>Ranking por ayuntamiento: cierres, avisos y calidad
+            del agua.</span>
+        </div></div>
+      </div>
+      </div>
+      <div class="rcol">
+      <div class="sec">Llévala en el bolsillo</div>
+      <div class="rcards">
+        <div class="gcard gmain">
+          <b>El estado de tu playa al abrir el móvil.</b>
+          <div class="gfeats">
+            <span><i>✓</i> Aviso cuando tu playa cierra o reabre</span>
+            <span><i>✓</i> Las 192 playas — ordena por municipio,
+              estado o calidad</span>
+            <span><i>✓</i> Entérate de todos los incidentes
+              de este verano</span>
+          </div>
+          <a class="gdl" href="#"
+            onclick="document.getElementById('gpsoon').style.display='block';return false;">
+            Descargar para Android</a>
+          <div class="gsoon" id="gpsoon">Próximamente disponible</div>
+        </div>
+        <div class="gside">
+          <div class="gcard gsrow">
+            <img class="gqr" src="/img/qr-github.png"
+              alt="QR a las descargas en GitHub">
+            <span>Descarga la APK<br>en tu móvil</span>
+          </div>
+          <a class="gcard gsrow ggh"
+            href="https://github.com/ayozegr05/checkcoast-tenerife">
+          <svg viewBox="0 0 24 24" width="42" height="42"
+            fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+            <span>Código abierto<br>en GitHub</span>
+          </a>
+        </div>
+      </div>
+      </div>
+      </div>
+      <p class="src">Datos: Náyade / Min. Sanidad · MITECO ·
+        OpenStreetMap · © Esri</p>
+    </div>
+  </div>
+  <p class="foot">CheckCoast Tenerife · proyecto cívico de datos
+    abiertos</p>
+</div>
+</body>
+</html>

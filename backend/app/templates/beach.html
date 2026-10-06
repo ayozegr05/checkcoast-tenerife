@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} — CheckCoast Tenerife</title>
+<link rel="icon" type="image/png" href="/icons/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CheckCoast Tenerife">
+<meta property="og:title" content="{{ title }}">
+<meta property="og:description" content="{{ desc }}">
+<meta property="og:image"
+  content="{{ public_url }}/b/{{ beach_id }}/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  body { margin:0; font-family:'Inter',system-ui,sans-serif;
+         min-height:100vh;
+         background:linear-gradient(160deg,#0d3a52,#075276);
+         display:flex; justify-content:center; padding:24px 16px; }
+  /* Fondo = la misma foto satélite de la card, difuminada: cero
+     peticiones extra (la URL ya está cacheada) y cada playa
+     "ambienta" su landing con su costa real */
+  body::before { content:''; position:fixed; inset:-70px; z-index:-2;
+         background:url("{{ bg_url | safe }}") center/cover no-repeat;
+         filter:blur(30px) brightness(.8) saturate(1.15); }
+  body::after { content:''; position:fixed; inset:0; z-index:-1;
+         background:linear-gradient(160deg,
+           rgba(7,43,62,.62),rgba(7,82,118,.42)); }
+  .page { display:flex; flex-direction:column; align-items:center;
+          width:100%; max-width:420px; }
+  .brand { display:flex; align-items:center; gap:10px;
+          margin-bottom:14px; color:#fff; font-weight:700;
+          font-size:17px; letter-spacing:.2px;
+          text-shadow:0 1px 4px rgba(0,0,0,.4); }
+  .brand img { width:38px; height:38px; border-radius:9px;
+          box-shadow:0 1px 4px rgba(0,0,0,.25); }
+  .tfe { font-weight:400; color:#a8d4e0; }
+  .card { max-width:420px; width:100%; background:#fff; border-radius:16px;
+          overflow:hidden; box-shadow:0 6px 24px rgba(7,43,62,.18);
+          align-self:flex-start; }
+  .side { display:none; }
+  @media (min-width:900px) {
+    body { align-items:center; padding:48px 24px; }
+    .page { flex-direction:row; align-items:flex-start;
+            max-width:none; width:auto; gap:44px; }
+    .brand { display:none; }
+    .card { max-width:520px;
+            box-shadow:0 18px 60px rgba(7,43,62,.30); }
+    .side { display:block; width:300px; padding-top:6px; }
+    .sbrand { display:flex; align-items:center; gap:12px;
+            font-weight:700; font-size:22px; color:#fff;
+            letter-spacing:.2px; text-shadow:0 1px 4px rgba(0,0,0,.4); }
+    .sbrand img { width:50px; height:50px; border-radius:12px;
+            box-shadow:0 2px 8px rgba(0,0,0,.3); }
+    .sstat { margin-top:4px; background:rgba(255,255,255,.9);
+            border:1px solid rgba(255,255,255,.25); border-radius:12px;
+            padding:10px 14px; font-size:13px; color:#0d3a52; }
+    .sstat b { color:#075276; }
+    .sstat .sl { font-size:11px; color:#6d8b9a; font-weight:600;
+            text-transform:uppercase; letter-spacing:.4px; }
+    .stag { font-size:14px; line-height:1.55; color:#dcebf2;
+            margin:16px 0; text-shadow:0 1px 3px rgba(0,0,0,.35); }
+    .sleg { margin-top:12px; background:rgba(255,255,255,.88);
+            border:1px solid rgba(255,255,255,.25); border-radius:12px;
+            padding:12px 14px; font-size:12px; color:#33566b; }
+    .sleg div { display:flex; align-items:center; gap:9px;
+            margin:5px 0; }
+    .sleg img { width:20px; height:20px; }
+    .salerts { margin-top:12px; background:rgba(255,255,255,.88);
+            border:1px solid rgba(255,255,255,.25); border-radius:12px;
+            padding:12px 14px; }
+    .salerts .sl { font-size:11px; color:#6d8b9a; font-weight:600;
+            text-transform:uppercase; letter-spacing:.4px; }
+    .sal { display:flex; align-items:center; gap:9px; margin-top:9px;
+            text-decoration:none; border-radius:10px;
+            padding:8px 11px; }
+    .sal.sal-c { background:#fdeceb; border:1px solid #f0c4bd; }
+    .sal.sal-w { background:#fdf1da; border:1px solid #eec27e; }
+    .sal i { flex:none; width:9px; height:9px; border-radius:50%; }
+    .sal b { display:block; font-size:12px; color:#0d3a52;
+            font-weight:600; }
+    .sal:hover b { color:#075276; }
+    .sal span { font-size:10.5px; color:#7a919c; }
+    .sfoot { margin-top:14px; font-size:11px; color:#a8c4d2; }
+  }
+  .head { background:{{ head_bg }};
+          color:#fff; padding:18px 20px 14px; }
+  .head h1 { margin:0; font-size:20px; }
+  .head p { margin:4px 0 0; font-size:13px; opacity:.9; }
+  .shotwrap { position:relative; }
+  /* Ola divisoria: la cabecera teñida "cae" sobre la foto con curva
+     en vez de corte recto — el fill sigue el color final del header */
+  .wave { position:absolute; top:0; left:0; width:100%; height:22px;
+          z-index:2; display:block; }
+  .shot { display:block; width:100%; height:auto; }
+  .pin { position:absolute; left:50%; top:50%; width:42px;
+          transform:translate(-50%,-92%);
+          filter:drop-shadow(0 2px 5px rgba(0,0,0,.5)); }
+  .odot { position:absolute; width:24px;
+          transform:translate(-50%,-95%);
+          filter:drop-shadow(0 1px 3px rgba(0,0,0,.5)); }
+  .zoom { position:absolute; top:30px; right:8px; display:flex;
+          flex-direction:column; border-radius:8px; overflow:hidden;
+          box-shadow:0 1px 4px rgba(0,0,0,.35); }
+  .zbtn { border:0; background:rgba(255,255,255,.92); color:#0d3a52;
+          font-weight:700; font-size:16px; width:30px; height:28px;
+          cursor:pointer; line-height:1; padding:0; }
+  .zbtn + .zbtn { border-top:1px solid #cddfe8; }
+  .zbtn:disabled { opacity:.45; cursor:default; }
+  .hidden { display:none !important; }
+  .body { padding:16px 20px 20px; }
+  .chip { display:inline-block; background:{{ color }}; color:#fff;
+          font-weight:700; font-size:13px; border-radius:10px;
+          padding:6px 14px; }
+  .chip.ctr { display:table; margin:0 auto; }
+  .secsub { font-weight:400; color:#7a919c; font-size:11px; }
+  .row { display:flex; justify-content:space-between; gap:12px;
+          margin-top:12px; font-size:13px; }
+  .row span { color:#7a919c; white-space:nowrap; }
+  .row b { color:#0d3a52; font-weight:600; text-align:right; }
+  .sec { margin-top:16px; font-size:13px; font-weight:700;
+          color:#0d3a52; }
+  .ofrow { margin-top:8px; padding:8px 12px; border-left:3px solid;
+          background:#f4f9fb; border-radius:0 8px 8px 0;
+          display:flex; justify-content:space-between;
+          align-items:center; gap:10px; }
+  .ofname { font-size:13px; font-weight:600; color:#0d3a52; }
+  .ofmeta { font-size:11px; color:#7a919c; margin-top:1px; }
+  .ofdist { font-size:15px; font-weight:700; color:#075276;
+          white-space:nowrap; }
+  .ofdist.near { color:#e65100; }
+  .radius { font-size:11px; color:#7a919c; margin-top:6px; }
+  .press { margin:16px 0 6px; background:#fff7e8;
+          border:1px solid #f0d9a8;
+          border-radius:10px; padding:10px 12px; }
+  /* El banner de aviso (arriba) se tiñe por estado; el de contexto
+     (abajo, en playas abiertas) queda ámbar neutro */
+  .press.n-closed { background:#fbdeda; border-color:#e8a49c;
+          border-left:4px solid #c62828; }
+  .press.n-warning { background:#fdeed3; border-color:#eec27e;
+          border-left:4px solid #e65100; }
+  .yrow { display:flex; gap:1px; padding:3px 6px 0; }
+  .yrcell { flex:1; font-size:9px; font-weight:600; color:#8fa3ad;
+          white-space:nowrap; overflow:visible; }
+  .chartarea { position:relative; height:{{ chart_h }}px; display:flex;
+          align-items:flex-end; gap:1px; margin-top:8px;
+          background:#f4f9fb; border-radius:8px; padding:0 6px; }
+  .bar { flex:1; border-radius:2px 2px 0 0; }
+  .lim { position:absolute; left:4px; right:4px;
+          border-top:2px dashed #0b6e99; }
+  .inc { position:absolute; top:0; bottom:0; width:2px;
+          background:#c62828; }
+  .ctoggle { display:flex; gap:8px; margin-top:8px; }
+  .tbtn { border:1px solid #cddfe8; background:#fff; color:#0d3a52;
+          font-size:12px; font-weight:700; border-radius:999px;
+          padding:5px 12px; cursor:pointer; }
+  .tbtn.ton { background:#075276; color:#fff; border-color:#075276; }
+  .irow { margin-top:8px; font-size:12px; color:#0d3a52;
+          border-left:3px solid #cddfe8; padding-left:10px; }
+  .irow.iact { border-left-color:#c62828; }
+  .irow.iact b { color:#c62828; }
+  .irow em { font-style:normal; background:#c62828; color:#fff;
+          font-size:10px; font-weight:700; border-radius:999px;
+          padding:2px 8px; }
+  .irow span { display:block; color:#7a919c; font-size:11px; }
+  .psum { font-size:13px; font-weight:600; color:#8a5a00; }
+  .ptag { display:inline-block; margin-top:6px; font-size:10px;
+          font-weight:700; color:#8a6d1a; background:#f6e3b0;
+          border-radius:999px; padding:2px 8px;
+          text-transform:uppercase; }
+  .ptitle { display:block; margin-top:6px; font-size:12px;
+          font-weight:500; color:#0d3a52; text-decoration:none; }
+  .pmeta { font-size:11px; color:#7a919c; margin-top:3px; }
+  .open { display:block; margin-top:16px; text-align:center;
+          background:linear-gradient(90deg,#075276,#17b8ce); color:#fff;
+          text-decoration:none; font-weight:700; border-radius:10px;
+          padding:12px; }
+  .src { margin-top:14px; font-size:11px; color:#7a919c; }
+  .noapp { display:none; margin-top:8px; font-size:12px;
+          color:#8a6d1a; text-align:center; }
+  .homelink { display:block; margin-top:10px; text-align:center;
+          font-size:12px; color:#075276; font-weight:600;
+          text-decoration:none; }
+  .homelink:hover { text-decoration:underline; }
+</style>
+</head>
+<body>
+{# Banner de contexto (prensa o estado oficial): línea + etiqueta +
+   hasta 3 titulares enlazables. Compartido por el notice superior y
+   la caja de prensa inferior #}
+{% macro banner(b) %}
+<div class="{{ b.cls }}"><div class="psum">{{ b.line }}</div>
+  <div class="ptag">{{ b.tag }}</div>
+  {%- for t in b.titles %}
+  <a class="ptitle" href="{{ t.url }}">{{ t.title }}</a>
+  <div class="pmeta">{{ t.meta }}</div>
+  {%- endfor %}
+</div>
+{% endmacro %}
+<div class="page">
+  <div class="brand">
+    <img src="/icons/app-icon.png" alt="">CheckCoast
+    <span class="tfe">Tenerife</span>
+  </div>
+  <div class="card">
+    <div class="head"><h1>{{ name }}</h1><p>{{ muni }}</p></div>
+    <div class="shotwrap">
+      <svg class="wave" viewBox="0 0 420 24" preserveAspectRatio="none"
+        aria-hidden="true"><path fill="{{ wave_c }}"
+        d="M0,0 L420,0 L420,7 C365,20 305,3 215,11 C140,18 70,7 0,15 Z"/>
+      </svg>
+      <img id="shot" class="shot" src="{{ shot_src }}"
+        alt="Vista aérea de {{ name }}">
+      {%- for level in dots_levels %}
+      <span id="dots-{{ loop.index0 }}" class="{% if loop.index0 != start %}hidden{% endif %}">
+        {%- for d in level %}
+        <img class="odot" style="left:{{ d.x }}%;top:{{ d.y }}%"
+          src="/icons/{{ d.pin }}.png" title="{{ d.title }}" alt="">
+        {%- endfor %}
+      </span>
+      {%- endfor %}
+      <img class="pin" src="/icons/{{ pin }}.png"
+        alt="{{ name }}">
+      <div class="zoom">
+        <button class="zbtn" id="zin" onclick="zoom(-1)"
+          aria-label="Acercar">+</button>
+        <button class="zbtn" id="zout" onclick="zoom(1)"
+          aria-label="Alejar">−</button>
+      </div>
+    </div>
+    <div class="body">
+      <span class="chip{% if notice %} ctr{% endif %}">{{ label }}</span>
+      {%- if notice %}{{ banner(notice) }}{% endif %}
+      {%- if latest_line %}
+      <div class="row"><b>{{ latest_line }}</b></div>
+      {%- endif %}
+      {%- if outfalls %}
+      <div class="sec">Emisarios cercanos
+        <span class="secsub">· en un radio de 1 km</span></div>
+      {%- for o in outfalls %}
+      <div class="ofrow" style="border-color:{{ o.color }}">
+        <div><div class="ofname">{{ o.name }}</div>
+        <div class="ofmeta">{{ o.status_label }}</div></div>
+        <div class="ofdist{% if o.near %} near{% endif %}">
+          a {{ o.dist }} m</div></div>
+      {%- endfor %}
+      {%- endif %}
+      {%- if press %}{{ banner(press) }}{% endif %}
+      {%- if chart %}
+      <div class="sec">Evolución del agua</div>
+      <div class="ctoggle">
+        <button id="tb-ecoli" class="tbtn ton" onclick="setChart('ecoli')">E. coli</button>
+        <button id="tb-enterococci" class="tbtn" onclick="setChart('enterococci')">Enterococo</button>
+      </div>
+      {%- for p in chart.panels %}
+      <div id="chart-{{ p.param }}" class="chartarea{% if p.hidden %} hidden{% endif %}">
+        <div class="lim" style="bottom:{{ p.lim_y }}px"></div>
+        {%- for m in chart.inc_marks %}<div class="inc" style="left:{{ m }}%"></div>{% endfor %}
+        {%- for b in p.bars %}<div class="bar" style="height:{{ b.h }}px;background:{{ b.color }}"
+          title="{{ b.title }}"></div>{% endfor %}
+      </div>
+      <div id="yrs-{{ p.param }}" class="yrow{% if p.hidden %} hidden{% endif %}">
+        {%- for c in p.ycells %}<div class="yrcell">{{ c }}</div>{% endfor %}
+      </div>
+      {%- endfor %}
+      <div class="radius">
+        {%- for p in chart.panels %}
+        <span id="foot-{{ p.param }}"{% if p.hidden %} class="hidden"{% endif %}>
+          {{- p.n }} muestreos · cada barra = un análisis oficial
+          · línea azul = límite normativo ({{ p.good }} UFC/100 mL)
+          · línea roja = cierre/aviso</span>
+        {%- endfor %}
+      </div>
+      {%- endif %}
+      {%- if incidents %}
+      <div class="sec">Historial de incidencias</div>
+      {%- for i in incidents %}
+      <div class="irow{% if not i.closed %} iact{% endif %}"><b>
+        {{- i.opened }}
+        {%- if i.closed %} → {{ i.closed }}{% else %} <em>activo</em>{% endif %}
+      </b>
+        {%- if i.obs %}<span>{{ i.obs }}</span>{% endif %}</div>
+      {%- endfor %}
+      {%- endif %}
+      <a class="open" href="{{ deep }}" onclick="openApp(); return false;">
+        Abrir en la app</a>
+      <p id="noapp" class="noapp">Si no se abrió, aún no tienes la app
+        instalada.</p>
+      <a class="homelink" href="/">← Inicio</a>
+      <p class="src">{{ foot }}</p>
+    </div>
+  </div>
+  <aside class="side">
+    <div class="sbrand">
+      <img src="/icons/app-icon.png" alt="">CheckCoast
+      <span class="tfe">Tenerife</span>
+    </div>
+    <p class="stag">¿Puedes bañarte hoy? El estado oficial de cada
+      playa de Tenerife — y el porqué cuando el parte no lo dice.</p>
+    <div class="sstat"><div class="sl">Ahora mismo en Tenerife</div>
+      <b>{{ n_closed }}</b> cerradas ·
+      <b>{{ n_warning }}</b> con aviso ·
+      <b>{{ total_beaches }}</b> playas mapeadas</div>
+    {%- if salerts %}
+    <div class="salerts"><div class="sl">Alertas activas
+      en la isla</div>
+      {%- for a in salerts %}
+      <a class="sal sal-{{ a.cls }}" href="/b/{{ a.beach_id }}">
+        <i style="background:{{ a.color }}"></i><div>
+        <b>{{ a.name }}</b>
+        <span>{{ a.meta }}</span>
+        </div></a>
+      {%- endfor %}
+    </div>
+    {%- endif %}
+    <div class="sleg">
+      <div><img src="/icons/pin-open.png" alt=""> Playa — el color
+        marca su estado</div>
+      <div><img src="/icons/pin-outfall-legal.png" alt=""> Emisario
+        autorizado</div>
+      <div><img src="/icons/pin-outfall-processing.png" alt="">
+        Emisario en trámite</div>
+      <div><img src="/icons/pin-outfall-illegal.png" alt=""> Emisario
+        no autorizado</div>
+    </div>
+    <p class="sfoot">App gratuita para Android · Datos: Náyade /
+      Min. Sanidad · MITECO · OpenStreetMap · © Esri</p>
+  </aside>
+</div>
+</body>
+<script>
+// intent:// es la forma fiable de abrir apps en Chrome/Android: el
+// scheme pelado a veces se ignora en silencio
+function openApp() {
+  var u = navigator.userAgent;
+  if (/Android/i.test(u)) {
+    window.location = 'intent://beach/{{ beach_id }}#Intent;scheme=checkcoast;'
+      + 'package=com.checkcoast.tenerife;end';
+  } else {
+    window.location = 'checkcoast://beach/{{ beach_id }}';
+  }
+  setTimeout(function () {
+    document.getElementById('noapp').style.display = 'block';
+  }, 1400);
+}
+function setChart(p) {
+  document.getElementById('chart-ecoli').className =
+    'chartarea' + (p === 'ecoli' ? '' : ' hidden');
+  document.getElementById('chart-enterococci').className =
+    'chartarea' + (p === 'enterococci' ? '' : ' hidden');
+  document.getElementById('yrs-ecoli').className =
+    'yrow' + (p === 'ecoli' ? '' : ' hidden');
+  document.getElementById('yrs-enterococci').className =
+    'yrow' + (p === 'enterococci' ? '' : ' hidden');
+  document.getElementById('tb-ecoli').className =
+    'tbtn' + (p === 'ecoli' ? ' ton' : '');
+  document.getElementById('tb-enterococci').className =
+    'tbtn' + (p === 'enterococci' ? ' ton' : '');
+  document.getElementById('foot-ecoli').className =
+    p === 'ecoli' ? '' : 'hidden';
+  document.getElementById('foot-enterococci').className =
+    p === 'enterococci' ? '' : 'hidden';
+}
+var urls = {{ urls | tojson }};
+var z = {{ start }};
+function zoom(d) {
+  z = Math.max(0, Math.min(urls.length - 1, z + d));
+  document.getElementById('shot').src = urls[z];
+  for (var i = 0; i < urls.length; i++) {
+    document.getElementById('dots-' + i).className =
+      i === z ? '' : 'hidden';
+  }
+  document.getElementById('zin').disabled = z === 0;
+  document.getElementById('zout').disabled = z === urls.length - 1;
+}
+zoom(0);
+</script>
+</html>
