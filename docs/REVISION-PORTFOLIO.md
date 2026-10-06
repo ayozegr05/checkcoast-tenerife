@@ -29,7 +29,21 @@ temporal de trabajo: se puede borrar cuando estén resueltos los puntos.
 | 5c | Mover `frontend/scripts_gen_icon.py` y `scripts_gen_mapstyle.py` a `frontend/scripts/`; `frontend/LICENSE` era la licencia de la plantilla de Expo | ✅ Hecho |
 | 5d | Mensajes de commit: elegir un estilo (`feat:/fix:` Conventional Commits) y mantenerlo | Pendiente |
 | 5e | ROADMAP 10.6 está desactualizado: la API key de Firebase ya no está restringida por app + SHA-1 (restricción de aplicación = "Ninguna"); falta limitarla por API (Firebase Installations, FCM, FCM Registration) | ✅ Nota actualizada — limitar la key por API sigue pendiente (consola GCP) |
-| 6 | README en inglés (o bilingüe) para optar a remoto internacional | Opcional |
+| 6 | README en inglés (o bilingüe) para optar a remoto internacional | ✅ Hecho — `README.md` (EN) + `README.es.md` |
+
+### Pendiente en producción (lo hace Ayoze en la VM / consolas)
+
+Los PRs ya están en `main`, pero la VM sigue con el código anterior
+hasta el próximo despliegue:
+
+| Tarea | Detalle |
+|-------|---------|
+| Caddy: `caddy-sites/` **antes** del `git pull` | Desde #5 el `Caddyfile` solo trae CheckCoast e importa `sites/*.caddy`. Sin este paso `controlpick.duckdns.org` deja de servirse: `mkdir -p caddy-sites && printf 'controlpick.duckdns.org {\n\treverse_proxy controlpick-backend:8000\n}\n' > caddy-sites/controlpick.caddy` |
+| `ADMIN_API_KEY` en `.env` | Generar con `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`. Hasta desplegar, `POST /beaches/{id}/status` sigue abierto en producción |
+| Desplegar | `git pull && docker compose build api && docker compose up -d api && docker compose --profile prod up -d caddy`. Comprobar: controlpick y checkcoast cargan; el POST sin clave da 401 |
+| Key de Firebase en GCP | Restricciones de API → solo Firebase Installations, Firebase Cloud Messaging y FCM Registration (restricción de aplicación: "Ninguna") |
+| Build EAS | Comprobar en el móvil el banner plegado y que no sale el popup «Push debug» |
+| Opcional: acceso SSH para Devin / CD (ROADMAP 10.10) | Hay una clave `devin-checkcoast-deploy` preparada; sin añadirla a `authorized_keys` no da acceso |
 
 ## Preparación para entrevistas
 

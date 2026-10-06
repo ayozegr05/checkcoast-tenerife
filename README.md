@@ -1,60 +1,65 @@
 # CheckCoast Tenerife
 
-App cívica para bañistas de Tenerife: **¿puedo bañarme hoy en esta playa?**
+**English** | [Español](README.es.md)
 
-El portal oficial (Náyade, Ministerio de Sanidad) dice *qué* playa está
-cerrada — pero no *por qué*. CheckCoast combina el estado oficial con
-prensa local analizada por LLM para responder la pregunta que Náyade no
-contesta, manteniendo ambas fuentes siempre separadas y etiquetadas.
+A civic app for beachgoers in Tenerife (Canary Islands, Spain):
+**can I swim at this beach today?**
 
-**API en producción**: https://checkcoast.duckdns.org — docs
-interactivas en `/docs` y página web pública por playa en
-`/b/{id}` (los enlaces que comparte la app).
+The official portal (Náyade, Spanish Ministry of Health) tells you
+*which* beach is closed — but not *why*. CheckCoast combines the
+official status with local news analysed by an LLM to answer the
+question Náyade doesn't, while always keeping both sources separate and
+labelled.
 
-<!-- TODO: screenshots/GIF de la app cuando esté el build EAS instalado
-     Sugeridas: mapa isla, ficha con "En la prensa", banner de alerta, lista -->
+**Production API**: https://checkcoast.duckdns.org — interactive docs
+at `/docs` and a public web page per beach at `/b/{id}` (the links the
+app shares).
 
-## Qué hace
+<!-- TODO: app screenshots/GIF once the EAS build is installed
+     Suggested: island map, beach sheet with "In the press", alert banner, list -->
 
-- 🗺️ **Mapa de la isla** — 192 puntos de baño (62 monitorizados
-  oficialmente + ~130 de OpenStreetMap) y ~180 puntos de vertido
-  (emisarios submarinos), con alertas pulsantes sobre las playas
-  cerradas
-- 🚩 **Estado oficial en tiempo real** — scraper del portal Náyade con
-  reintentos, sincronizado cada hora: abierta / aviso / cerrada
-- 📰 **"En la prensa"** — pipeline Google News RSS → LLM (Gemini) que
-  extrae playa + evento + causa (vertido, fuel, algas, obras…) y lo
-  muestra etiquetado *"según prensa"* — nunca mezclado con el estado
-  oficial
-- 🔔 **Notificaciones push** — aviso cuando una playa se cierra o reabre
+## Features
+
+- 🗺️ **Island map** — 192 bathing spots (62 officially monitored +
+  ~130 from OpenStreetMap) and ~180 wastewater discharge points
+  (submarine outfalls), with pulsing alerts on closed beaches
+- 🚩 **Real-time official status** — scraper for the Náyade portal with
+  retries, synced every hour: open / warning / closed
+- 📰 **"In the press"** — Google News RSS → LLM (Gemini) pipeline that
+  extracts beach + event + cause (sewage spill, fuel, algae, works…)
+  and shows it labelled *"according to the press"* — never mixed with
+  the official status
+- 🔔 **Push notifications** — alerts when a beach closes or reopens
   (Expo Push Service)
-- 🧪 **Calidad del agua** — histórico de mediciones (E. coli /
-  enterococo, umbrales RD 1341/2007) con evolución y ranking por
-  municipio
-- 🔍 **Lista completa** — buscador, filtros por municipio y por estado,
-  ordenación por estado/cierres/calidad del agua y modo **"Agua siempre
-  apta"** (sin muestras malas ni contaminación oficial o de prensa);
-  agrupa puntos de muestreo por playa
+- 🧪 **Water quality** — measurement history (E. coli / enterococci,
+  thresholds from Spanish Royal Decree 1341/2007) with trends and a
+  ranking by municipality
+- 🔍 **Full list** — search, filters by municipality and status,
+  sorting by status/closures/water quality and an **"Always clean
+  water"** mode (no bad samples and no official or press-reported
+  pollution); groups sampling points by beach
 
-## Arquitectura
+> The app UI is in Spanish — it targets beachgoers in Tenerife.
+
+## Architecture
 
 ```mermaid
 flowchart LR
-    subgraph Fuentes["Fuentes de datos"]
-        N["Náyade / MITECO<br>estado oficial"]
-        C["Gob. Canarias<br>censo vertidos"]
-        O["OpenStreetMap<br>playas"]
-        P["Google News RSS<br>prensa local"]
+    subgraph Sources["Data sources"]
+        N["Náyade / MITECO<br>official status"]
+        C["Canary Islands Gov.<br>discharge census"]
+        O["OpenStreetMap<br>beaches"]
+        P["Google News RSS<br>local press"]
     end
     subgraph Backend["Backend — FastAPI + PostGIS"]
-        S["Scrapers + scheduler<br>cada 1h"]
-        L["Gemini LLM<br>extracción noticias"]
+        S["Scrapers + scheduler<br>every 1h"]
+        L["Gemini LLM<br>news extraction"]
         DB[("PostgreSQL + PostGIS")]
-        API["API REST · GeoJSON"]
+        API["REST API · GeoJSON"]
     end
     subgraph App["App — Expo / React Native"]
-        M["Mapa MapLibre"]
-        LI["Lista + fichas"]
+        M["MapLibre map"]
+        LI["List + beach sheets"]
         PU["Push notifications"]
     end
     N --> S
@@ -71,45 +76,45 @@ flowchart LR
 
 - **Backend**: FastAPI · SQLAlchemy 2 + GeoAlchemy2 · Alembic ·
   APScheduler · Python 3.12
-- **Datos**: PostgreSQL 16 + PostGIS 3.4
+- **Data**: PostgreSQL 16 + PostGIS 3.4
 - **Frontend**: Expo SDK 57 · React Native 0.86 · TypeScript ·
-  MapLibre (basemap OSM + satélite Esri) · Expo Notifications
+  MapLibre (OSM basemap + Esri satellite) · Expo Notifications
 - **Infra**: Docker Compose (DB + API) · GitHub Actions CI · EAS Build
 
-## Puesta en marcha
+## Getting started
 
-### Opción A — todo en Docker
+### Option A — everything in Docker
 
 ```bash
-docker compose up -d        # PostGIS + API (alembic migra solo al arrancar)
+docker compose up -d        # PostGIS + API (Alembic migrates on startup)
 ```
 
-API en `http://localhost:8001` — docs interactivas en `/docs`.
+API at `http://localhost:8001` — interactive docs at `/docs`.
 
-> **Variables de entorno**: crea un `.env` en la raíz con
+> **Environment variables**: create a `.env` in the repo root with
 > `GEMINI_API_KEY=...` ([aistudio.google.com](https://aistudio.google.com),
-> free tier) para activar la extracción LLM de prensa. Sin ella el resto
-> funciona igual — solo las noticias quedan sin procesar.
-> `ADMIN_API_KEY` protege el cambio manual de estado (sin ella ese
-> endpoint queda deshabilitado).
-> `DATABASE_URL` tiene default local; el resto de vars
-> (`NAYADE_SYNC_SECONDS`, `GEMINI_MODEL`…) también
-> — ver `backend/app/config.py`.
+> free tier) to enable LLM extraction of news. Without it everything
+> else works the same — news items just stay unprocessed.
+> `ADMIN_API_KEY` protects the manual status change (without it that
+> endpoint is disabled).
+> `DATABASE_URL` has a local default, and so do the other variables
+> (`NAYADE_SYNC_SECONDS`, `GEMINI_MODEL`…) — see
+> `backend/app/config.py`.
 
-### Opción B — API en local (desarrollo con `--reload`)
+### Option B — local API (development with `--reload`)
 
 ```bash
-docker compose up -d db           # solo PostGIS
+docker compose up -d db           # PostGIS only
 cd backend
 python -m venv .venv
-.venv\Scripts\activate            # Windows PowerShell
+.venv\Scripts\activate            # Windows PowerShell (Linux/macOS: source .venv/bin/activate)
 pip install -r requirements.txt
-copy .env.example .env
+copy .env.example .env            # Linux/macOS: cp .env.example .env
 alembic upgrade head
-python -m scripts.ingest_outfalls     # ~180 puntos de vertido
-python -m scripts.ingest_beaches      # 61 puntos de muestreo oficiales
-python -m scripts.ingest_osm_beaches  # ~106 playas OSM
-python -m scripts.ingest_beach_status # estado Náyade (primera carga)
+python -m scripts.ingest_outfalls     # ~180 discharge points
+python -m scripts.ingest_beaches      # 61 official sampling points
+python -m scripts.ingest_osm_beaches  # ~106 OSM beaches
+python -m scripts.ingest_beach_status # Náyade status (first load)
 uvicorn app.main:app --reload --port 8001
 ```
 
@@ -121,67 +126,73 @@ npm install
 npx expo start --dev-client --port 8082
 ```
 
-> **Nota:** la app usa MapLibre (módulo nativo) → necesita una
-> *development build* instalada en el dispositivo
-> (`eas build --profile development`), no funciona con Expo Go.
-> `EXPO_PUBLIC_API_URL` apunta a la IP local del PC.
+> **Note:** the app uses MapLibre (a native module), so it needs a
+> *development build* installed on the device
+> (`eas build --profile development`) — it doesn't work in Expo Go.
+> `EXPO_PUBLIC_API_URL` points to your computer's local IP.
 
 ## API
 
-| Endpoint | Descripción |
+| Endpoint | Description |
 |---|---|
-| `GET /beaches` | GeoJSON de playas con estado oficial + `reported_at` |
-| `GET /beaches/{id}/quality` | Mediciones de calidad del agua |
-| `GET /beaches/{id}/incidents` | Incidentes oficiales (cierres/aperturas) |
-| `GET /beaches/{id}/news` | Noticias relacionadas (extracción LLM) |
-| `GET /beaches/{id}/nearby-outfalls` | Emisarios cercanos a la playa |
-| `GET /beaches/stats` | Agregados por municipio (ranking) |
-| `GET /outfalls` | GeoJSON de vertidos (`?status=legal\|illegal\|unknown`) |
-| `GET /alerts` | Alertas activas — campo `via`: `official` / `press` |
-| `POST /beaches/{id}/status` | Cambio manual de estado (respaldo del scraper) — requiere cabecera `X-Admin-Key` |
-| `POST /devices` | Registro de Expo push tokens |
+| `GET /beaches` | GeoJSON of beaches with official status + `reported_at` |
+| `GET /beaches/{id}/quality` | Water quality measurements |
+| `GET /beaches/{id}/incidents` | Official incidents (closures/reopenings) |
+| `GET /beaches/{id}/news` | Related news (LLM extraction) |
+| `GET /beaches/{id}/nearby-outfalls` | Outfalls near the beach |
+| `GET /beaches/stats` | Aggregates by municipality (ranking) |
+| `GET /outfalls` | GeoJSON of discharge points (`?status=legal\|illegal\|unknown`) |
+| `GET /alerts` | Active alerts — `via` field: `official` / `press` |
+| `POST /beaches/{id}/status` | Manual status change (scraper fallback) — requires `X-Admin-Key` header |
+| `POST /devices` | Expo push token registration |
 
-## Testing y CI
+## Testing and CI
 
 ```bash
-cd backend && .venv\Scripts\python -m pytest tests/ -q   # 106 tests
-cd frontend && npx tsc --noEmit && npm test              # typecheck + 42 tests
+cd backend && .venv\Scripts\python -m pytest tests/ -q   # 126 tests
+cd frontend && npx tsc --noEmit && npm test              # typecheck + 48 tests
+cd backend && ruff check . && ruff format --check .      # Python lint + format
+cd frontend && npm run format:check                      # Prettier format
 ```
 
-GitHub Actions levanta un PostGIS de servicio, ejecuta
-`alembic upgrade head` y corre ambas suites con fixtures sintéticos
-(sin dependencia de datos reales).
+GitHub Actions spins up a PostGIS service, runs
+`alembic upgrade head`, checks Ruff and Prettier and runs both suites
+against synthetic fixtures (no dependency on real data).
 
-## Fuentes de datos oficiales
+## Official data sources
 
-| Dato | Fuente |
+| Data | Source |
 |---|---|
-| Emisarios y vertidos tierra-mar | Censo de Vertidos 2025 — Gobierno de Canarias ([SITCAN Open Data](https://opendata.sitcan.es/dataset/actualizacion-del-censo-de-vertidos-desde-tierra-al-mar-ano-2025)) |
-| Zonas de baño y calidad del agua | Censo Nacional de Zonas de Aguas de Baño 2025 — MITECO / sistema Náyade |
-| Estado de cierre en tiempo real | Portal Náyade — Ministerio de Sanidad (scraping) |
-| Playas no monitorizadas | OpenStreetMap (`natural=beach`, vía Overpass) |
-| Contexto de cierres | Google News RSS — medios locales de Tenerife |
+| Outfalls and land-to-sea discharges | 2025 Discharge Census — Government of the Canary Islands ([SITCAN Open Data](https://opendata.sitcan.es/dataset/actualizacion-del-censo-de-vertidos-desde-tierra-al-mar-ano-2025)) |
+| Bathing areas and water quality | 2025 National Census of Bathing Waters — MITECO / Náyade system |
+| Real-time closure status | Náyade portal — Spanish Ministry of Health (scraping) |
+| Unmonitored beaches | OpenStreetMap (`natural=beach`, via Overpass) |
+| Context for closures | Google News RSS — Tenerife local media |
 
-## Notas de dominio
+## Domain notes
 
-- **"Abierta" ≠ "segura"**: significa *sin incidencia oficial activa* —
-  la app nunca promete seguridad, solo refleja datos oficiales
-- Las playas OSM (gris) son **no monitorizadas**: el estado oficial no
-  las cubre
-- El contenido de prensa va siempre etiquetado y separado del estado
-  oficial — ver [DECISIONS.md](DECISIONS.md)
+- **"Open" ≠ "safe"**: it means *no active official incident* — the
+  app never promises safety, it only reflects official data
+- OSM beaches (grey) are **unmonitored**: the official status doesn't
+  cover them
+- Press content is always labelled and kept separate from the official
+  status — see [DECISIONS.md](DECISIONS.md) (in Spanish)
 
-## Estructura
+## Project structure
 
 ```
-├── backend/            # FastAPI + ingesta + pipeline de prensa
-│   ├── app/            # routers, modelos, scraper, LLM, notify
-│   ├── alembic/        # migraciones
-│   ├── scripts/        # ingesta de fuentes oficiales
-│   └── tests/          # pytest (fixtures sintéticos)
+├── backend/            # FastAPI + ingestion + press pipeline
+│   ├── app/            # routers, models, scraper, LLM, notify
+│   ├── alembic/        # migrations
+│   ├── scripts/        # official source ingestion
+│   └── tests/          # pytest (synthetic fixtures)
 ├── frontend/           # Expo + React Native + MapLibre
-│   ├── components/     # mapa, lista, ficha, ranking municipal
-│   └── lib/            # api, notificaciones, formato
+│   ├── components/     # map, list, beach sheet, municipal ranking
+│   └── lib/            # api, notifications, formatting
 ├── docker-compose.yml  # PostGIS + API
 └── .github/workflows/  # CI: backend + frontend
 ```
+
+## License
+
+[MIT](LICENSE)
