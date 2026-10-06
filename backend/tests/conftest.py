@@ -13,6 +13,15 @@ def _no_real_push(monkeypatch):
     monkeypatch.setattr(app.notify, "_send", lambda *a, **k: 0)
 
 
+@pytest.fixture
+def admin(monkeypatch):
+    """Configura una ADMIN_API_KEY de test y devuelve la cabecera."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "admin_api_key", "test-admin-key")
+    return {"X-Admin-Key": "test-admin-key"}
+
+
 @pytest.fixture(scope="session", autouse=True)
 def seed_data():
     """Datos sintéticos mínimos para la suite de API.

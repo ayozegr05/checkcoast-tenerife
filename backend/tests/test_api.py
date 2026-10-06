@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -476,7 +477,7 @@ def test_open_incident_needs_corroborated_reopening(seed_data):
         db.close()
 
 
-def test_set_beach_status_flow(seed_data):
+def test_set_beach_status_flow(seed_data, admin):
     from sqlalchemy import func
 
     from app.db import SessionLocal
@@ -488,7 +489,9 @@ def test_set_beach_status_flow(seed_data):
     last_id = db.query(func.max(BeachStatus.id)).scalar() or 0
     try:
         r = client.post(
-            f"/beaches/{beach_id}/status", json={"status": "closed"}
+            f"/beaches/{beach_id}/status",
+            json={"status": "closed"},
+            headers=admin,
         )
         assert r.status_code == 201
         assert r.json()["status"] == "closed"
@@ -498,7 +501,9 @@ def test_set_beach_status_flow(seed_data):
 
         # Restaurar a abierta
         r = client.post(
-            f"/beaches/{beach_id}/status", json={"status": "open"}
+            f"/beaches/{beach_id}/status",
+            json={"status": "open"},
+            headers=admin,
         )
         assert r.status_code == 201
         alerts = client.get("/alerts").json()
@@ -510,17 +515,42 @@ def test_set_beach_status_flow(seed_data):
         db.close()
 
 
-def test_set_beach_status_not_found():
-    r = client.post("/beaches/999999/status", json={"status": "closed"})
+def test_set_beach_status_not_found(admin):
+    r = client.post(
+        "/beaches/999999/status", json={"status": "closed"}, headers=admin
+    )
     assert r.status_code == 404
 
 
-def test_set_beach_status_invalid(seed_data):
+def test_set_beach_status_invalid(seed_data, admin):
     r = client.post(
         f"/beaches/{seed_data['beach_id']}/status",
         json={"status": "bogus"},
+        headers=admin,
     )
     assert r.status_code == 422
+
+
+@pytest.mark.parametrize("headers", [{}, {"X-Admin-Key": "wrong"}])
+def test_set_beach_status_requires_admin_key(seed_data, admin, headers):
+    r = client.post(
+        f"/beaches/{seed_data['beach_id']}/status",
+        json={"status": "closed"},
+        headers=headers,
+    )
+    assert r.status_code == 401
+
+
+def test_set_beach_status_disabled_without_key(seed_data, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "admin_api_key", None)
+    r = client.post(
+        f"/beaches/{seed_data['beach_id']}/status",
+        json={"status": "closed"},
+        headers={"X-Admin-Key": ""},
+    )
+    assert r.status_code == 503
 
 
 def test_register_device_idempotent():
