@@ -98,7 +98,13 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     cuerpo identifica otra playa (caso jul-2026: "una playa de El
     Médano" casada a PM3 siendo Leocadio Machado);
     `_sync_guia` re-extrae fichas de la Guía solo cuando cambia su
-    `lastmod`, tope `news_max_guia_fetches`=10/pasada, nunca push),
+    `lastmod`, tope `news_max_guia_fetches`=10/pasada, nunca push);
+    `--backfill AÑO` (ingesta histórica vía operadores after:/before:
+    de Google News — queries temáticas + una por clave de playa
+    `fetch_backfill` en news_sources, prefiltro local `backfill_geo_terms`
+    + vocabulario de evento para no gastar Gemini en homónimos
+    mundiales; sin topes de llamadas, sin guías, sin rematch y NUNCA
+    push — noticias viejas no despiertan el móvil),
     `reextract_news.py` (refresca extracciones guardadas: `--beach`,
     `--max`, `--all`; re-casa `beach_id` si la nueva extracción
     identifica otra playa, creando/limpiando réplicas por PM; NO toca

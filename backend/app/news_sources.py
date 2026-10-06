@@ -16,6 +16,8 @@ Diario de Avisos `/feed/`, Canarias7 `/rss/2.0/?section=/canarias/tenerife`.
 
 import html
 import re
+import time
+import unicodedata
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
@@ -307,3 +309,170 @@ def fetch_google_news(query: str) -> list[RawArticle]:
             )
         )
     return articles
+
+
+# ---------------------------------------------------------------------------
+# Backfill histórico (`ingest_news --backfill AÑO`)
+#
+# La única vía de histórico: Google News RSS acepta operadores de
+# fecha (after:/before:). Los feeds municipales y de medios traen solo
+# los últimos ~10-20 posts y la Guía se sincroniza por separado con
+# lastmod — ninguno sirve para 2025 y anteriores.
+#
+# La búsqueda por nombre de playa sin geografía trae ~90% de ruido de
+# homónimos mundiales (El Médano de México, Chinchorro de Chile, la
+# famosa "Arenita"...), así que el resultado pasa un prefiltro local:
+# solo gastan Gemini los artículos cuyo titular o cabecera acreditan
+# Tenerife — el filtro real sigue siendo extract_event + el chequeo de
+# municipio de match_beaches, igual que en la ingesta normal.
+
+# Familias de evento para la query por playa: las mismas que QUERIES
+# pero sin exigir "playa tenerife" — la prensa local a veces ni nombra
+# la isla ("Cerrada provisionalmente la playa de Las Gaviotas")
+_BACKFILL_EVENTS = (
+    "(cerrada OR cerrado OR cierre OR prohibido OR prohibida OR "
+    "reabierta OR reapertura OR clausurada OR vertido OR contaminada "
+    'OR "calidad del agua" OR coliformes OR "e. coli" OR e.coli OR '
+    'desprendimiento OR derrumbe OR "bandera roja")'
+)
+
+# Cabeceras insulares/locales: un artículo suyo sobre playa es casi
+# seguro de Canarias aunque el titular no dé geografía
+_LOCAL_SOURCE_HINTS = (
+    "tenerife",
+    "canaria",
+    "eldia",
+    "diario de avisos",
+    "atlantico hoy",
+    "radio television canaria",
+    "rtvc",
+    "canal 4",
+    "la opinion de tenerife",
+    "sol del sur",
+    "valle de guimar",
+    "valledeguimar",
+    "la voz de tenerife",
+    "diario de tenerife",
+    "mirame tv",
+    "el digital sur",
+    "eldigitalsur",
+    "infonorte",
+    "red la isla",
+    "lancelot",  # Lanzarote — su Playa Honda/Famara no es la nuestra,
+    # pero cuesta una llamada y el municipio lo descarta
+)
+
+# Núcleos y zonas que la prensa usa sin nombrar el municipio. Solo
+# sirven para decidir si gastar una llamada de Gemini: un falso
+# positivo ("San Andrés" colombiano) cuesta una extracción, no un
+# dato malo — eso lo filtran extract_event y el municipio
+_LOCALITY_TERMS = (
+    "el medano",
+    "la jaquita",
+    "la tejita",
+    "el cabezo",
+    "los abrigos",
+    "el poris",
+    "poris de abona",
+    "las eras",
+    "sotavento",
+    "la caleta",
+    "callao salvaje",
+    "playa paraiso",
+    "las galletas",
+    "palm-mar",
+    "palm mar",
+    "el puertito",
+    "los cristianos",
+    "las americas",
+    "costa adeje",
+    "costa del silencio",
+    "golf del sur",
+    "playa jardin",
+    "martianez",
+    "san telmo",
+    "punta brava",
+    "el socorro",
+    "los patos",
+    "el bollullo",
+    "la arena",
+    "puerto santiago",
+    "los gigantes",
+    "mesa del mar",
+    "bajamar",
+    "punta del hidalgo",
+    "san andres",
+    "radazul",
+    "tabaiba",
+    "valleseco",
+    "el pris",
+    "la esperanza",
+    "guia de isora",
+)
+
+
+def _geo_norm(s: str | None) -> str:
+    t = unicodedata.normalize("NFD", (s or "").lower())
+    return re.sub(
+        r"\s+",
+        " ",
+        "".join(c for c in t if unicodedata.category(c) != "Mn"),
+    ).strip()
+
+
+def backfill_geo_terms(beaches) -> set[str]:
+    """Términos que acreditan Tenerife en un titular o cabecera:
+    isla + municipios del censo + alias de prensa + núcleos."""
+    terms = {"tenerife", "canarias", "canario", "canaria", "isla baja"}
+    for b in beaches:
+        if getattr(b, "municipality", None):
+            terms.add(_geo_norm(b.municipality))
+    # Grafías de la prensa que difieren del nombre oficial del censo
+    terms |= {"la laguna", "granadilla"}
+    terms |= set(_LOCALITY_TERMS)
+    return {t for t in terms if len(t) >= 5}
+
+
+# Titular con vocabulario de evento de playa: segundo corte del
+# backfill — sin él el filtro geo deja pasar noticias de municipios
+# homónimos ("cierre de la vía Candelaria-Palmira") ajenas al dominio
+_BACKFILL_TITLE_RE = re.compile(
+    r"playa|bañ|piscina|litoral|costa|litoral|mar |mares|"
+    r"cierre|cerrad|prohib|reapert|reabie|vertido|contamin|"
+    r"coliform|fecal|calidad del agua|bandera (roja|amarilla)|"
+    r"desprend|derrumbe|emisario|depuradora|oleaje|sargazo|medusa"
+)
+
+
+def _looks_local(art: RawArticle, geo_terms: set[str]) -> bool:
+    if not _BACKFILL_TITLE_RE.search(_geo_norm(art.title)):
+        return False
+    src = _geo_norm(art.source)
+    if any(h in src for h in _LOCAL_SOURCE_HINTS):
+        return True
+    hay = f"{_geo_norm(art.title)} {src}"
+    return any(g in hay for g in geo_terms)
+
+
+def fetch_backfill(
+    year: int, beach_keys: list[str], geo_terms: set[str]
+) -> list[RawArticle]:
+    """Titulares de un año concreto: QUERIES temáticas + una query por
+    clave de prensa base de cada playa, todo con after:/before: y
+    prefiltro local. Dedup por URL aguas arriba."""
+    rng = f"after:{year - 1}-12-31 before:{year + 1}-01-01"
+    queries = [f"{q} {rng}" for q in QUERIES] + [
+        f'"{key}" {_BACKFILL_EVENTS} {rng}' for key in beach_keys
+    ]
+    seen: set[str] = set()
+    articles = []
+    for q in queries:
+        try:
+            for a in fetch_google_news(q):
+                if a.url and a.url not in seen:
+                    seen.add(a.url)
+                    articles.append(a)
+        except Exception:
+            continue  # una query caída (rate limit) no aborta el barrido
+        time.sleep(0.5)
+    return [a for a in articles if _looks_local(a, geo_terms)]

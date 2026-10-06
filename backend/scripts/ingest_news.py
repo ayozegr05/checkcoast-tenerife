@@ -18,6 +18,7 @@ Uso: python -m scripts.ingest_news
 """
 
 import re
+import sys
 import time
 import unicodedata
 from dataclasses import replace
@@ -34,6 +35,8 @@ from app.news_sources import (
     MEDIA_FEEDS,
     MUNICIPAL_FEEDS,
     RawArticle,
+    backfill_geo_terms,
+    fetch_backfill,
     fetch_guia_page,
     fetch_guia_sitemap,
     fetch_news,
@@ -439,13 +442,37 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
     return synced
 
 
-def run() -> tuple[int, int, int]:
-    """(relevantes insertadas, titulares procesados, recasadas)."""
+def _backfill_keys(beaches: list[Beach]) -> list[str]:
+    """Claves de prensa base (sin sufijo PM) de cada playa nombrada —
+    una query por playa en el backfill."""
+    return sorted(
+        {
+            k
+            for b in beaches
+            for k in (
+                [_press_key(re.sub(r"\s+PM\d+$", "", b.name))]
+                + [
+                    _press_key(a)
+                    for a in (getattr(b, "press_aliases", None) or [])
+                ]
+            )
+            if b.name and len(k) >= _MIN_NAME_LEN
+        }
+    )
+
+
+def run(backfill_year: int | None = None) -> tuple[int, int, int]:
+    """(relevantes insertadas, titulares procesados, recasadas).
+
+    backfill_year: ingesta histórica de un año concreto vía operadores
+    de fecha de Google News. Sin topes de llamadas (el volumen lo acota
+    el prefiltro local), sin sweep de guías, sin rematch y SIN push:
+    noticias de hace un año no despiertan el móvil."""
     if not settings.gemini_api_key:
         print("[news] GEMINI_API_KEY no configurada, se omite la ingesta")
         return 0, 0, 0
 
-    articles = fetch_news()
+    backfill = backfill_year is not None
     extractor = GeminiExtractor(
         api_key=settings.gemini_api_key,
         model=settings.gemini_model,
@@ -458,11 +485,23 @@ def run() -> tuple[int, int, int]:
         tuple[str, str, str], tuple[Beach, str, list[NewsItem]]
     ] = {}
     try:
+        beaches = db.query(Beach).all()
+        if backfill:
+            articles = fetch_backfill(
+                backfill_year,
+                _backfill_keys(beaches),
+                backfill_geo_terms(beaches),
+            )
+        else:
+            articles = fetch_news()
+
         seen = {url for (url,) in db.query(NewsItem.url).all()}
         # Mismo artículo por dos vías (redirect Google News + URL directa
         # del feed del medio): dedup extra por (título, medio, día). El
         # source se compara por contención normalizada — Google guarda
-        # "diariodeavisos.elespanol.com" y el feed "Diario de Avisos"
+        # "diariodeavisos.elespanol.com" y el feed "Diario de Avisos".
+        # En backfill se aplica a TODAS las fuentes: el mismo artículo
+        # viejo pudo entrar ya por el feed del medio con otra URL
         feed_labels = set(MUNICIPAL_FEEDS) | set(MEDIA_FEEDS)
         seen_triples = {
             (_norm_key(t), _norm_key(s), p.date() if p else None)
@@ -474,7 +513,7 @@ def run() -> tuple[int, int, int]:
         for a in articles:
             if not a.url or a.url in seen or source_excluded(a.source):
                 continue
-            if a.source in feed_labels:
+            if backfill or a.source in feed_labels:
                 tk, sk = _norm_key(a.title), _norm_key(a.source)
                 day = a.published_at.date() if a.published_at else None
                 if any(
@@ -484,10 +523,13 @@ def run() -> tuple[int, int, int]:
                     continue
             fresh.append(a)
         fresh.sort(key=lambda a: a.published_at or _EPOCH, reverse=True)
-        beaches = db.query(Beach).all()
-        body_left = settings.news_max_body_fetches
+        # Backfill sin tope de extracciones ni de cuerpos: el prefiltro
+        # local ya recortó el grueso del ruido y un límite cortaría
+        # episodios al azar según el orden de la lista
+        llm_left = len(fresh) if backfill else settings.news_max_llm_calls
+        body_left = len(fresh) if backfill else settings.news_max_body_fetches
 
-        for art in fresh[: settings.news_max_llm_calls]:
+        for art in fresh[:llm_left]:
             processed += 1
             ext = extract_event(art, extractor)
             if ext is None:
@@ -519,8 +561,12 @@ def run() -> tuple[int, int, int]:
                     confidence=ext.confidence,
                     body_verified=verified,
                 )
-                if beach and _press_push_candidate(
-                    db, beach, ext.event_type, art.published_at
+                if (
+                    not backfill
+                    and beach
+                    and _press_push_candidate(
+                        db, beach, ext.event_type, art.published_at
+                    )
                 ):
                     item.push_pending = True
                     key = _push_key(beach, ext.event_type)
@@ -534,50 +580,55 @@ def run() -> tuple[int, int, int]:
                 continue
             inserted += ext.relevant
             time.sleep(2)  # free tier de Gemini: respirar entre llamadas
-        rematched = _rematch_pending(db, beaches, to_notify)
-        guia = _sync_guia(db, beaches, extractor)
-        if guia:
-            print(f"[guia] {guia} fichas de Guía Islas Canarias sincronizadas")
-        # Push de alertas de prensa: tras confirmar todos los inserts
-        from app.notify import notify_press_event
+        rematched = 0
+        if not backfill:
+            rematched = _rematch_pending(db, beaches, to_notify)
+            guia = _sync_guia(db, beaches, extractor)
+            if guia:
+                print(
+                    f"[guia] {guia} fichas de Guía Islas Canarias "
+                    f"sincronizadas"
+                )
+            # Push de alertas de prensa: tras confirmar los inserts
+            from app.notify import notify_press_event
 
-        # Reintento: lo que una pasada anterior quiso notificar y no
-        # salió (red caída, Expo 5xx, proceso muerto) se vuelve a
-        # encolar aquí mientras siga dentro de la ventana de dedup
-        queued = {it.id for v in to_notify.values() for it in v[2]}
-        stale = (
-            db.query(NewsItem)
-            .filter(
-                NewsItem.push_pending.is_(True),
-                NewsItem.pushed_at.is_(None),
-                NewsItem.published_at
-                >= datetime.now(UTC) - timedelta(days=_PRESS_PUSH_DAYS),
+            # Reintento: lo que una pasada anterior quiso notificar y
+            # no salió (red caída, Expo 5xx, proceso muerto) se vuelve
+            # a encolar mientras siga dentro de la ventana de dedup
+            queued = {it.id for v in to_notify.values() for it in v[2]}
+            stale = (
+                db.query(NewsItem)
+                .filter(
+                    NewsItem.push_pending.is_(True),
+                    NewsItem.pushed_at.is_(None),
+                    NewsItem.published_at
+                    >= datetime.now(UTC) - timedelta(days=_PRESS_PUSH_DAYS),
+                )
+                .all()
             )
-            .all()
-        )
-        for it in stale:
-            if it.id in queued:
-                continue
-            b = it.beach
-            if b is None:
-                it.pushed_at = datetime.now(UTC)  # nunca saldrá
-                continue
-            key = _push_key(b, it.event_type)
-            to_notify.setdefault(key, (b, it.event_type, []))
-            to_notify[key][2].append(it)
+            for it in stale:
+                if it.id in queued:
+                    continue
+                b = it.beach
+                if b is None:
+                    it.pushed_at = datetime.now(UTC)  # nunca saldrá
+                    continue
+                key = _push_key(b, it.event_type)
+                to_notify.setdefault(key, (b, it.event_type, []))
+                to_notify[key][2].append(it)
 
-        now = datetime.now(UTC)
-        for beach, ev, items in to_notify.values():
-            try:
-                sent = notify_press_event(db, beach, ev)
-            except Exception as e:
-                print(f"[push] fallo en {beach.name} ({ev}): {e}")
-                sent = 0
-            if sent:
-                for it in items:
-                    it.pushed_at = now
-                    it.push_pending = False
-                db.commit()
+            now = datetime.now(UTC)
+            for beach, ev, items in to_notify.values():
+                try:
+                    sent = notify_press_event(db, beach, ev)
+                except Exception as e:
+                    print(f"[push] fallo en {beach.name} ({ev}): {e}")
+                    sent = 0
+                if sent:
+                    for it in items:
+                        it.pushed_at = now
+                        it.push_pending = False
+                    db.commit()
         return inserted, processed, rematched
     except Exception:
         db.rollback()
@@ -587,7 +638,12 @@ def run() -> tuple[int, int, int]:
 
 
 def main() -> None:
-    inserted, processed, rematched = run()
+    # Uso: python -m scripts.ingest_news [--backfill AÑO]
+    year = None
+    argv = sys.argv[1:]
+    if "--backfill" in argv:
+        year = int(argv[argv.index("--backfill") + 1])
+    inserted, processed, rematched = run(backfill_year=year)
     print(
         f"News: {inserted} relevantes insertadas ({processed} procesados, "
         f"{rematched} recasadas)"
