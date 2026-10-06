@@ -22,10 +22,7 @@ def test_mechanism_is_not_a_cause():
 
 
 def test_reasons_still_map():
-    assert (
-        _short_cause("vertido de aguas residuales")
-        == "Contaminación fecal"
-    )
+    assert _short_cause("vertido de aguas residuales") == "Contaminación fecal"
     assert _short_cause("riesgo de desprendimientos") == "Desprendimientos"
     # mecanismo + razón en la misma frase: gana la razón
     assert _short_cause("vallado por desprendimientos") == "Desprendimientos"
@@ -60,17 +57,14 @@ def test_sea_state_is_not_a_cause():
     assert _short_cause("temporal y mar de fondo") is None
     assert _short_cause("cerrada por temporal") is None
     assert _short_cause("el temporal dañó el acceso") is None
-    assert _short_cause(
-        "Zona donde queda prohibido el baño temporalmente"
-    ) is None
+    assert (
+        _short_cause("Zona donde queda prohibido el baño temporalmente")
+        is None
+    )
     # pero un temporal que revela la causa sí la transmite
-    assert (
-        _short_cause("cierre temporal por vertido") == "Contaminación"
-    )
+    assert _short_cause("cierre temporal por vertido") == "Contaminación"
     # y la jerarquía: la causa nombrada gana a la genérica
-    assert (
-        _short_cause("mala calidad del agua") == "Contaminación"
-    )
+    assert _short_cause("mala calidad del agua") == "Contaminación"
 
 
 def test_specific_cause_beats_generic_majority():
@@ -112,7 +106,7 @@ def test_both_fecal_params_compose():
 
 
 def test_param_beats_fecal_family():
-    """"contaminación fecal" es la FAMILIA — el parámetro nombrado
+    """ "contaminación fecal" es la FAMILIA — el parámetro nombrado
     (E. coli) tiene jerarquía superior aunque sea minoritario."""
     items = [
         _it("closure", "contaminación fecal"),

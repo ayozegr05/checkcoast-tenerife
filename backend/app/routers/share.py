@@ -11,15 +11,15 @@ import io
 import json
 import math
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response
+from geoalchemy2 import Geography, Geometry
 from sqlalchemy import cast, func, literal
 from sqlalchemy.orm import Session
-from geoalchemy2 import Geography, Geometry
 
 from app.config import settings
 from app.db import get_db
@@ -37,8 +37,18 @@ router = APIRouter(tags=["share"])
 _ANDROID_PACKAGE = "com.checkcoast.tenerife"
 
 _MONTHS = [
-    "ene", "feb", "mar", "abr", "may", "jun",
-    "jul", "ago", "sep", "oct", "nov", "dic",
+    "ene",
+    "feb",
+    "mar",
+    "abr",
+    "may",
+    "jun",
+    "jul",
+    "ago",
+    "sep",
+    "oct",
+    "nov",
+    "dic",
 ]
 
 
@@ -59,12 +69,14 @@ def _alert_when(aword: str, rep: datetime | None, now: datetime) -> str:
     cuando el cierre lleva >30 d — 'hace 212 días' en una alerta viva
     se lee como dato rancio, no como cierre en curso."""
     if rep is not None and rep.tzinfo is None:
-        rep = rep.replace(tzinfo=timezone.utc)
+        rep = rep.replace(tzinfo=UTC)
     days = (now - rep).days if rep else 0
     if days <= 30:
         ago = (
-            "hoy" if days == 0
-            else "ayer" if days == 1
+            "hoy"
+            if days == 0
+            else "ayer"
+            if days == 1
             else f"hace {days} días"
         )
         return f"{aword} · {ago}"
@@ -89,11 +101,12 @@ def assetlinks() -> list[dict]:
         }
     ]
 
+
 # Encuadres satélite de más cerca a más lejos (dlon, dlat en grados)
 _SHOT_LEVELS = [
-    (0.003, 0.0017),   # muy cerca
-    (0.006, 0.0033),   # cerca
-    (0.015, 0.0083),   # lejos
+    (0.003, 0.0017),  # muy cerca
+    (0.006, 0.0033),  # cerca
+    (0.015, 0.0083),  # lejos
 ]
 
 # Mismos textos que la ficha de la app
@@ -123,12 +136,16 @@ _OUTFALL_PIN = {
     "unknown": "pin-outfall-processing",
 }
 
-_NEARBY_OUTFALL_RADIUS_M = 1000  # mismo radio que /beaches/{id}/nearby-outfalls
+_NEARBY_OUTFALL_RADIUS_M = (
+    1000  # mismo radio que /beaches/{id}/nearby-outfalls
+)
 
 _ICONS = Path(__file__).resolve().parent.parent / "static" / "icons"
 _FONTS = [
-    ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+    (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ),
     # Windows (desarrollo local)
     ("C:/Windows/Fonts/arialbd.ttf", "C:/Windows/Fonts/arial.ttf"),
 ]
@@ -140,8 +157,8 @@ _QUALITY = {
     "ecoli": {"excellent": 250, "good": 500, "label": "E. coli"},
     "enterococci": {"excellent": 100, "good": 200, "label": "Enterococo"},
 }
-_CHART_H = 88          # px, igual que la app
-_LOG_CAP = 100000      # los valores llegan a >24000
+_CHART_H = 88  # px, igual que la app
+_LOG_CAP = 100000  # los valores llegan a >24000
 
 
 def _num(raw: str | None) -> float | None:
@@ -153,7 +170,9 @@ def _num(raw: str | None) -> float | None:
 
 
 def _bar_h(v: float) -> int:
-    return max(3, round(_CHART_H * math.log10(max(v, 1)) / math.log10(_LOG_CAP)))
+    return max(
+        3, round(_CHART_H * math.log10(max(v, 1)) / math.log10(_LOG_CAP))
+    )
 
 
 def _qcolor(param: str, v: float) -> str:
@@ -169,14 +188,19 @@ _CONNECTORS = {"de", "del", "y", "e", "en", "a", "o", "u"}
 _ARTICLES = {"el", "la", "los", "las"}
 _ROMANS = {"i", "ii", "iii", "iv", "v", "vi"}
 _ACCENTS = {
-    "medano": "médano", "guios": "guíos", "guimar": "güímar",
-    "americas": "américas", "camison": "camisón", "jaquita": "jaquita",
-    "almaciga": "almáciga", "amricas": "américas", "camisn": "camisón",
+    "medano": "médano",
+    "guios": "guíos",
+    "guimar": "güímar",
+    "americas": "américas",
+    "camison": "camisón",
+    "jaquita": "jaquita",
+    "almaciga": "almáciga",
+    "amricas": "américas",
+    "camisn": "camisón",
     "gimar": "güímar",
 }
 _ARTICLE_PAREN = re.compile(r"\s*\((EL|LA|LOS|LAS)\)", re.I)
-_DE_FORMS = {"el": "del", "la": "de la", "los": "de los",
-             "las": "de las"}
+_DE_FORMS = {"el": "del", "la": "de la", "los": "de los", "las": "de las"}
 _WORD = re.compile(r"[a-záéíóúñü]+", re.I)
 
 
@@ -227,8 +251,12 @@ def _shot_url(lon: float, lat: float, dlon: float, dlat: float) -> str:
 
 
 def _px(
-    lon: float, lat: float, clon: float, clat: float,
-    dlon: float, dlat: float,
+    lon: float,
+    lat: float,
+    clon: float,
+    clat: float,
+    dlon: float,
+    dlat: float,
 ) -> tuple[float, float]:
     """lon/lat → posición (x%, y%) dentro del recuadro satélite."""
     x = (lon - (clon - dlon)) / (2 * dlon) * 100
@@ -256,23 +284,35 @@ def _effective_state(
     warning->closed y decide en playas sin monitorización."""
     state = official or "unknown"
     press_label: str | None = None
-    cutoff = datetime.now(timezone.utc) - timedelta(days=21)
-    if news_items and news_items[0].published_at and news_items[0].published_at >= cutoff:
+    cutoff = datetime.now(UTC) - timedelta(days=21)
+    if (
+        news_items
+        and news_items[0].published_at
+        and news_items[0].published_at >= cutoff
+    ):
         change = next(
-            (i for i in news_items
-             if i.event_type in ("closure", "reopening")), None,
+            (
+                i
+                for i in news_items
+                if i.event_type in ("closure", "reopening")
+            ),
+            None,
         )
         warn = next(
-            (i for i in news_items
-             if i.event_type in ("warning", "pollution")), None,
+            (
+                i
+                for i in news_items
+                if i.event_type in ("warning", "pollution")
+            ),
+            None,
         )
         press_ev = None
         if change and change.event_type == "closure":
             press_ev = change
         elif warn and (
             change is None
-            or (warn.published_at or datetime.min.replace(tzinfo=timezone.utc))
-            > (change.published_at or datetime.min.replace(tzinfo=timezone.utc))
+            or (warn.published_at or datetime.min.replace(tzinfo=UTC))
+            > (change.published_at or datetime.min.replace(tzinfo=UTC))
         ):
             press_ev = warn
         counts: dict[str, int] = {}
@@ -280,11 +320,13 @@ def _effective_state(
             if i.event_type and i.event_type != "other":
                 counts[i.event_type] = counts.get(i.event_type, 0) + 1
         dominant = (
-            "closure" if counts.get("closure")
+            "closure"
+            if counts.get("closure")
             else (max(counts, key=counts.get) if counts else None)
         )
         pstate = (
-            "closed" if press_ev and press_ev.event_type == "closure"
+            "closed"
+            if press_ev and press_ev.event_type == "closure"
             else ("warning" if press_ev else None)
         )
         if official in ("closed", "warning"):
@@ -292,7 +334,7 @@ def _effective_state(
                 state, press_label = "closed", "según prensa"
         elif official == "open":
             # ventana de gracia 14 días + sin reapertura formal posterior
-            grace = datetime.now(timezone.utc) - timedelta(days=14)
+            grace = datetime.now(UTC) - timedelta(days=14)
             resolved = (
                 db.query(func.max(BeachIncident.closed_at))
                 .filter(
@@ -303,7 +345,9 @@ def _effective_state(
             )
             when = press_ev.published_at if press_ev else None
             if (
-                pstate == "closed" and when and when >= grace
+                pstate == "closed"
+                and when
+                and when >= grace
                 and not (resolved and resolved >= when.date())
             ):
                 state, press_label = "closed", "según prensa"
@@ -312,8 +356,9 @@ def _effective_state(
     return state, press_label
 
 
-def _og_png(beach, lon: float, lat: float, state: str, label: str,
-            color: str) -> bytes:
+def _og_png(
+    beach, lon: float, lat: float, state: str, label: str, color: str
+) -> bytes:
     """Compone la og:image 1200×630: foto satélite Esri + pin de la
     playa + banda inferior con nombre, municipio y chip de estado."""
     from PIL import Image, ImageDraw, ImageFont
@@ -341,8 +386,7 @@ def _og_png(beach, lon: float, lat: float, state: str, label: str,
     band = Image.new("RGBA", (_OG_W, 190), (8, 32, 46, 0))
     bd = ImageDraw.Draw(band)
     for y in range(190):
-        bd.line([(0, y), (_OG_W, y)],
-                fill=(8, 32, 46, int(235 * (y / 190))))
+        bd.line([(0, y), (_OG_W, y)], fill=(8, 32, 46, int(235 * (y / 190))))
     img.alpha_composite(band, (0, _OG_H - 190))
 
     d = ImageDraw.Draw(img)
@@ -437,9 +481,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         .limit(30)
         .all()
     )
-    state, press_label = _effective_state(
-        db, beach, official, news_items
-    )
+    state, press_label = _effective_state(db, beach, official, news_items)
 
     label, color = _STATUS.get(state, _STATUS["unknown"])
 
@@ -465,9 +507,9 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         db.query(
             Outfall.name,
             Outfall.status,
-            func.ST_Distance(
-                beach_geog, Outfall.geom.cast(Geography)
-            ).label("distance_m"),
+            func.ST_Distance(beach_geog, Outfall.geom.cast(Geography)).label(
+                "distance_m"
+            ),
             func.ST_X(Outfall.geom).label("olon"),
             func.ST_Y(Outfall.geom).label("olat"),
         )
@@ -492,9 +534,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     }.get(state, "linear-gradient(180deg,#075276,#17b8ce)")
     # La ola que separa cabecera y foto sigue el color final del
     # degradado del header
-    wave_c = {"closed": "#c62828", "warning": "#e65100"}.get(
-        state, "#17b8ce"
-    )
+    wave_c = {"closed": "#c62828", "warning": "#e65100"}.get(state, "#17b8ce")
     title = f"{name} · {muni}"
     urls = [_shot_url(lon, lat, *d) for d in _SHOT_LEVELS]
     # En atributos HTML & va escapado como &amp;; en el JS va en crudo
@@ -514,7 +554,11 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 
     rows = ""
     if latest:
-        ev = html.escape(latest.evaluation) if latest.evaluation else "sin evaluación"
+        ev = (
+            html.escape(latest.evaluation)
+            if latest.evaluation
+            else "sin evaluación"
+        )
         rows += (
             f'<div class="row"><b>Último análisis: '
             f"{latest.sampled_at.strftime('%d/%m/%Y')} · {ev}</b></div>"
@@ -535,8 +579,9 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     outfalls_block = (
         '<div class="sec">Emisarios cercanos '
         '<span class="secsub">· en un radio de 1 km</span></div>'
-        f'{outfall_rows}'
-        if outfalls else ""
+        f"{outfall_rows}"
+        if outfalls
+        else ""
     )
 
     # Gráfica de evolución (barras log-escala como la app): dos series
@@ -578,7 +623,8 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
                 yr = d.strftime("%Y")
                 ycells += (
                     f'<div class="yrcell">{yr}</div>'
-                    if yr != last_yr else '<div class="yrcell"></div>'
+                    if yr != last_yr
+                    else '<div class="yrcell"></div>'
                 )
                 last_yr = yr
             hid = "" if param == "ecoli" else " hidden"
@@ -610,15 +656,15 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     if incidents:
         items = "".join(
             f'<div class="irow{"" if i.closed_at else " iact"}"><b>'
-            f'{i.opened_at.strftime("%d/%m/%Y")}'
+            f"{i.opened_at.strftime('%d/%m/%Y')}"
             + (
-                f' → {i.closed_at.strftime("%d/%m/%Y")}'
+                f" → {i.closed_at.strftime('%d/%m/%Y')}"
                 if i.closed_at
-                else ' <em>activo</em>'
+                else " <em>activo</em>"
             )
             + "</b>"
             + (
-                f'<span>{html.escape(i.observations[:120])}</span>'
+                f"<span>{html.escape(i.observations[:120])}</span>"
                 if i.observations
                 else ""
             )
@@ -630,8 +676,10 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     # Banner "según prensa" como en la app: evento dominante + causa +
     # desde + nº medios; debajo el último titular enlazable
     press_cls = (
-        "press n-closed" if state == "closed"
-        else "press n-warning" if state == "warning"
+        "press n-closed"
+        if state == "closed"
+        else "press n-warning"
+        if state == "warning"
         else "press"
     )
     press = ""
@@ -640,8 +688,10 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         for it in news_items:
             if it.event_type and it.event_type != "other":
                 counts_ev[it.event_type] = counts_ev.get(it.event_type, 0) + 1
-        dom = "closure" if counts_ev.get("closure") else (
-            max(counts_ev, key=counts_ev.get) if counts_ev else None
+        dom = (
+            "closure"
+            if counts_ev.get("closure")
+            else (max(counts_ev, key=counts_ev.get) if counts_ev else None)
         )
         # Causa = la más frecuente entre los titulares del evento
         # dominante (moda, como el resumen de la app)
@@ -657,8 +707,10 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         )
         outlets = len({it.source for it in news_items if it.source})
         ev_word = {
-            "closure": "Cerrada", "warning": "Aviso en",
-            "pollution": "Contaminación en", "reopening": "Reabierta",
+            "closure": "Cerrada",
+            "warning": "Aviso en",
+            "pollution": "Contaminación en",
+            "reopening": "Reabierta",
         }.get(dom or "", "Mencionada")
         if dom == "closure" and state != "closed":
             ev_word = "Estuvo cerrada" if state == "open" else "Cerrada"
@@ -667,12 +719,17 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
             line += f" · desde el {since.strftime('%d/%m/%Y')}"
         # reapertura oficial probada: incidente cerrado tras el titular
         closed_after = next(
-            (i.closed_at for i in incidents
-             if i.closed_at and since and i.closed_at >= since.date()),
+            (
+                i.closed_at
+                for i in incidents
+                if i.closed_at and since and i.closed_at >= since.date()
+            ),
             None,
         )
         if closed_after:
-            line += f" · Sanidad la reabrió el {closed_after.strftime('%d/%m/%Y')}"
+            line += (
+                f" · Sanidad la reabrió el {closed_after.strftime('%d/%m/%Y')}"
+            )
         # Hasta 3 titulares enlazables, como la caja "En la prensa"
         # de la app — venden el "porqué" mejor que uno solo
         titles = ""
@@ -689,7 +746,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         press = (
             f'<div class="{press_cls}"><div class="psum">{line}</div>'
             f'<div class="ptag">según prensa · {outlets} '
-            f'medio{"s" if outlets != 1 else ""}</div>'
+            f"medio{'s' if outlets != 1 else ''}</div>"
             f"{titles}</div>"
         )
 
@@ -707,12 +764,9 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
             if active_inc:
                 verb = "Cerrada" if state == "closed" else "Aviso activo"
                 obs = (active_inc.observations or "").strip()
-                nline = verb + (
-                    f" — {html.escape(obs[:140])}" if obs else ""
-                )
+                nline = verb + (f" — {html.escape(obs[:140])}" if obs else "")
                 nline += (
-                    f" · desde el "
-                    f"{active_inc.opened_at.strftime('%d/%m/%Y')}"
+                    f" · desde el {active_inc.opened_at.strftime('%d/%m/%Y')}"
                 )
                 notice = (
                     f'<div class="{press_cls}"><div class="psum">{nline}</div>'
@@ -733,7 +787,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         "Playa sin controles sanitarios oficiales. Fuente: OpenStreetMap"
         if not beach.monitored
         else "Estado oficial: Náyade / Min. Sanidad · "
-             "Foto: © Esri, Maxar, Earthstar Geographics"
+        "Foto: © Esri, Maxar, Earthstar Geographics"
     )
 
     # Contadores vivos para el panel lateral desktop
@@ -747,7 +801,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     salerts = ""
     island_alerts = list_alerts(db)[:4]
     if island_alerts:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         rows_a = ""
         for a in island_alerts:
             rep = a.reported_at
@@ -977,7 +1031,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
       <img id="shot" class="shot" src="{imgs[start]}"
         alt="Vista aérea de {name}">
       {dots_spans}
-      <img class="pin" src="/icons/{_PIN.get(state, _PIN['unknown'])}.png"
+      <img class="pin" src="/icons/{_PIN.get(state, _PIN["unknown"])}.png"
         alt="{name}">
       <div class="zoom">
         <button class="zbtn" id="zin" onclick="zoom(-1)"
@@ -987,7 +1041,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
       </div>
     </div>
     <div class="body">
-      <span class="chip{' ctr' if notice else ''}">{label}</span>
+      <span class="chip{" ctr" if notice else ""}">{label}</span>
       {notice}
       {rows}
       {outfalls_block}
@@ -1010,8 +1064,8 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     <p class="stag">¿Puedes bañarte hoy? El estado oficial de cada
       playa de Tenerife — y el porqué cuando el parte no lo dice.</p>
     <div class="sstat"><div class="sl">Ahora mismo en Tenerife</div>
-      <b>{status_counts.get('closed', 0)}</b> cerradas ·
-      <b>{status_counts.get('warning', 0)}</b> con aviso ·
+      <b>{status_counts.get("closed", 0)}</b> cerradas ·
+      <b>{status_counts.get("warning", 0)}</b> con aviso ·
       <b>{total_beaches}</b> playas mapeadas</div>
     {salerts}
     <div class="sleg">
@@ -1089,8 +1143,9 @@ zoom(0);
 _ISLAND = (-16.55, 28.30, 0.44, 0.31)
 
 
-def _shot_url_fit(lon: float, lat: float, dlon: float, dlat: float,
-                  w: int) -> str:
+def _shot_url_fit(
+    lon: float, lat: float, dlon: float, dlat: float, w: int
+) -> str:
     """_shot_url con alto proporcional al bbox. Esri expande el bbox
     cuando su ratio no coincide con size — eso descuadraba los puntos
     del mapa de la isla respecto a la costa."""
@@ -1150,7 +1205,7 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
 
     # Alertas vivas (misma lista que el panel lateral de /b/)
     alert_rows = ""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for a in island_alerts[:5]:
         rep = a.reported_at
         via = "según prensa" if a.via == "press" else "oficial"
@@ -1162,12 +1217,13 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
             f'<i style="background:{acolor}"></i><div>'
             f"<b>{html.escape(_display_name(a.beach_name))}</b>"
             f"<span>{_alert_when(aword, rep, now)} · {via} · "
-            f'{html.escape(a.municipality or "")}</span></div></a>'
+            f"{html.escape(a.municipality or '')}</span></div></a>"
         )
     alerts_block = (
         f'<div class="sec">Alertas activas en la isla</div>'
         f'<div class="abox">{alert_rows}</div>'
-        if alert_rows else ""
+        if alert_rows
+        else ""
     )
 
     # Playas de ejemplo: las alertas actuales + las monitorizadas con
@@ -1199,12 +1255,11 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
         b, st, lon, lat = row
         state = alert_state.get(bid, st.status.value if st else "unknown")
         lbl, col = _STATUS.get(state, _STATUS["unknown"])
-        alert = next(
-            (a for a in island_alerts if a.beach_id == bid), None
-        )
+        alert = next((a for a in island_alerts if a.beach_id == bid), None)
         via = (
             ' · <span class="bcvia">según prensa</span>'
-            if alert and alert.via == "press" else ""
+            if alert and alert.via == "press"
+            else ""
         )
         thumb = _shot_url(lon, lat, 0.006, 0.0033)
         cards += (
@@ -1221,7 +1276,8 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
         '<div class="exnote">Ejemplos destacados — la lista completa, '
         "con filtros por municipio y estado, está en la app</div>"
         f'<div class="bgrid">{cards}</div>'
-        if cards else ""
+        if cards
+        else ""
     )
 
     island_url = _shot_url_fit(clon, clat, dlon, dlat, 920)
@@ -1400,8 +1456,8 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
       cuando el parte no lo dice.</p>
   </div>
   <div class="stat"><div class="sl">Ahora mismo en Tenerife</div>
-    <b>{status_counts.get('closed', 0)}</b> cerradas ·
-    <b>{status_counts.get('warning', 0)}</b> con aviso ·
+    <b>{status_counts.get("closed", 0)}</b> cerradas ·
+    <b>{status_counts.get("warning", 0)}</b> con aviso ·
     <b>{total_beaches}</b> playas mapeadas</div>
   <div class="card">
     <div class="imap">

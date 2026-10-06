@@ -45,16 +45,11 @@ class FakeResp:
 def test_guia_sitemap_filters_tenerife_beach_guides(monkeypatch):
     """Solo entran las fichas de playa de Tenerife; cada una con su
     lastmod parseado (las sin lastmod pasan con None)."""
-    monkeypatch.setattr(
-        requests, "get", lambda *a, **k: FakeResp()
-    )
+    monkeypatch.setattr(requests, "get", lambda *a, **k: FakeResp())
     pages = dict(fetch_guia_sitemap())
     urls = set(pages)
     assert "https://guiaislascanarias.com/tenerife/playa-de-benijo/" in urls
-    assert (
-        "https://guiaislascanarias.com/tenerife/playa-del-socorro/"
-        in urls
-    )
+    assert "https://guiaislascanarias.com/tenerife/playa-del-socorro/" in urls
     # ni otras islas ni páginas que no son fichas de playa
     assert not any("gran-canaria" in u for u in urls)
     assert not any("teide" in u for u in urls)

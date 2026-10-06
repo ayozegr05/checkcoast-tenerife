@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     android_cert_sha256: str | None = None
     # URL pública HTTPS (og:image y canonical de las landings /b/{id})
     public_url: str = "https://checkcoast.duckdns.org"
+    # Clave de los endpoints de escritura administrativos (cabecera
+    # X-Admin-Key). Sin configurar, esos endpoints responden 503
+    admin_api_key: str | None = None
 
 
 settings = Settings()

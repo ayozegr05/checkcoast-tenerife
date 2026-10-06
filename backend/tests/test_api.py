@@ -1,3 +1,6 @@
+from datetime import UTC
+
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -52,7 +55,10 @@ def test_beaches_include_status_and_municipality():
     features = client.get("/beaches").json()["features"]
     for f in features:
         assert f["properties"]["status"] in (
-            "open", "closed", "warning", "unknown"
+            "open",
+            "closed",
+            "warning",
+            "unknown",
         )
     # La ingesta de Náyade rellena municipality en las playas casadas
     assert any(f["properties"]["municipality"] for f in features)
@@ -157,13 +163,13 @@ def test_beach_news_not_found():
 def test_press_closure_enters_alerts(seed_data):
     """Una playa sin alerta oficial pero cerrada según prensa (último
     evento que cambia estado = closure) entra en /alerts con via='press'."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from app.db import SessionLocal
     from app.models import NewsItem
 
     osm_id = seed_data["osm_beach_id"]  # sin estado oficial
-    mon_id = seed_data["beach_id"]      # monitorizada con oficial 'open'
+    mon_id = seed_data["beach_id"]  # monitorizada con oficial 'open'
     db = SessionLocal()
     item = NewsItem(
         url="https://news.google.com/rss/articles/pytest-press-alert",
@@ -173,7 +179,7 @@ def test_press_closure_enters_alerts(seed_data):
         beach_id=osm_id,
         event_type="closure",
         cause="desprendimientos",
-        published_at=datetime.now(timezone.utc),
+        published_at=datetime.now(UTC),
     )
     # Ventana de gracia: playa monitorizada con oficial 'open' + cierre
     # de prensa fresco -> alerta igualmente, porque Náyade tarda en
@@ -186,7 +192,7 @@ def test_press_closure_enters_alerts(seed_data):
         beach_id=mon_id,
         event_type="closure",
         cause="vertido",
-        published_at=datetime.now(timezone.utc),
+        published_at=datetime.now(UTC),
     )
     db.add_all([item, item_open])
     db.commit()
@@ -196,9 +202,7 @@ def test_press_closure_enters_alerts(seed_data):
         assert hit is not None
         assert hit["status"] == "closed"
         assert hit["via"] == "press"
-        hit_open = next(
-            (a for a in alerts if a["beach_id"] == mon_id), None
-        )
+        hit_open = next((a for a in alerts if a["beach_id"] == mon_id), None)
         assert hit_open is not None
         assert hit_open["via"] == "press"
     finally:
@@ -218,15 +222,15 @@ def test_press_closure_persistence_by_cause(seed_data):
       21 días aunque sea un cierre confirmado (caso Puertito: bacterias
       fecales de 2025 sin seguimiento en 15 meses)
     """
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import NewsItem
 
     osm_id = seed_data["osm_beach_id"]  # sin estado oficial
-    mon_id = seed_data["beach_id"]      # monitorizada con oficial 'open'
+    mon_id = seed_data["beach_id"]  # monitorizada con oficial 'open'
     db = SessionLocal()
-    old = datetime.now(timezone.utc) - timedelta(days=30)
+    old = datetime.now(UTC) - timedelta(days=30)
     item_structural = NewsItem(
         url="https://news.google.com/rss/articles/pytest-old-structural",
         title="La playa sigue cerrada por desprendimientos",
@@ -287,7 +291,7 @@ def test_effective_status_suppresses_stale_official(seed_data):
     anterior a una reapertura de prensa (mismo episodio que Náyade
     publica tarde) se muestra como 'open' en mapa y ficha, y no
     alerta. El BeachStatus crudo se conserva."""
-    from datetime import date, datetime, timedelta, timezone
+    from datetime import date, datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import (
@@ -299,7 +303,7 @@ def test_effective_status_suppresses_stale_official(seed_data):
 
     beach_id = seed_data["beach_id"]
     db = SessionLocal()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     status = BeachStatus(
         beach_id=beach_id,
         status=BeachState.closed,
@@ -324,9 +328,7 @@ def test_effective_status_suppresses_stale_official(seed_data):
     try:
         # Mapa: pin efectivo 'open' aunque el último status es 'closed'
         features = client.get("/beaches").json()["features"]
-        feat = next(
-            f for f in features if f["id"] == beach_id
-        )
+        feat = next(f for f in features if f["id"] == beach_id)
         assert feat["properties"]["status"] == "open"
         # Ficha: mismo estado efectivo
         body = client.get(f"/beaches/{beach_id}/status").json()
@@ -334,8 +336,11 @@ def test_effective_status_suppresses_stale_official(seed_data):
         # Alertas: sin alerta oficial para esta playa
         alerts = client.get("/alerts").json()
         hit = next(
-            (a for a in alerts
-             if a["beach_id"] == beach_id and a["via"] == "official"),
+            (
+                a
+                for a in alerts
+                if a["beach_id"] == beach_id and a["via"] == "official"
+            ),
             None,
         )
         assert hit is None
@@ -354,7 +359,7 @@ def test_effective_status_keeps_new_official_closure(seed_data):
     """Si la evidencia oficial (medición) es POSTERIOR a la reapertura
     de prensa, es un evento nuevo: el estado efectivo sigue 'closed'
     y la playa alerta via='official'."""
-    from datetime import date, datetime, timedelta, timezone
+    from datetime import date, datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import (
@@ -366,7 +371,7 @@ def test_effective_status_keeps_new_official_closure(seed_data):
 
     beach_id = seed_data["beach_id"]
     db = SessionLocal()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     status = BeachStatus(
         beach_id=beach_id,
         status=BeachState.closed,
@@ -396,8 +401,11 @@ def test_effective_status_keeps_new_official_closure(seed_data):
         assert body["status"] == "closed"
         alerts = client.get("/alerts").json()
         hit = next(
-            (a for a in alerts
-             if a["beach_id"] == beach_id and a["via"] == "official"),
+            (
+                a
+                for a in alerts
+                if a["beach_id"] == beach_id and a["via"] == "official"
+            ),
             None,
         )
         assert hit is not None
@@ -414,7 +422,7 @@ def test_open_incident_needs_corroborated_reopening(seed_data):
     """Incidencia formal ABIERTA + reapertura de prensa de UNA sola
     fuente: no basta para abrirla (caso Gaviotas). Con >=2 medios
     distintos la reapertura está corroborada y el efectivo es 'open'."""
-    from datetime import date, datetime, timedelta, timezone
+    from datetime import date, datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import (
@@ -426,7 +434,7 @@ def test_open_incident_needs_corroborated_reopening(seed_data):
 
     beach_id = seed_data["beach_id"]
     db = SessionLocal()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     status = BeachStatus(
         beach_id=beach_id,
         status=BeachState.closed,
@@ -476,7 +484,7 @@ def test_open_incident_needs_corroborated_reopening(seed_data):
         db.close()
 
 
-def test_set_beach_status_flow(seed_data):
+def test_set_beach_status_flow(seed_data, admin):
     from sqlalchemy import func
 
     from app.db import SessionLocal
@@ -488,7 +496,9 @@ def test_set_beach_status_flow(seed_data):
     last_id = db.query(func.max(BeachStatus.id)).scalar() or 0
     try:
         r = client.post(
-            f"/beaches/{beach_id}/status", json={"status": "closed"}
+            f"/beaches/{beach_id}/status",
+            json={"status": "closed"},
+            headers=admin,
         )
         assert r.status_code == 201
         assert r.json()["status"] == "closed"
@@ -498,7 +508,9 @@ def test_set_beach_status_flow(seed_data):
 
         # Restaurar a abierta
         r = client.post(
-            f"/beaches/{beach_id}/status", json={"status": "open"}
+            f"/beaches/{beach_id}/status",
+            json={"status": "open"},
+            headers=admin,
         )
         assert r.status_code == 201
         alerts = client.get("/alerts").json()
@@ -510,17 +522,42 @@ def test_set_beach_status_flow(seed_data):
         db.close()
 
 
-def test_set_beach_status_not_found():
-    r = client.post("/beaches/999999/status", json={"status": "closed"})
+def test_set_beach_status_not_found(admin):
+    r = client.post(
+        "/beaches/999999/status", json={"status": "closed"}, headers=admin
+    )
     assert r.status_code == 404
 
 
-def test_set_beach_status_invalid(seed_data):
+def test_set_beach_status_invalid(seed_data, admin):
     r = client.post(
         f"/beaches/{seed_data['beach_id']}/status",
         json={"status": "bogus"},
+        headers=admin,
     )
     assert r.status_code == 422
+
+
+@pytest.mark.parametrize("headers", [{}, {"X-Admin-Key": "wrong"}])
+def test_set_beach_status_requires_admin_key(seed_data, admin, headers):
+    r = client.post(
+        f"/beaches/{seed_data['beach_id']}/status",
+        json={"status": "closed"},
+        headers=headers,
+    )
+    assert r.status_code == 401
+
+
+def test_set_beach_status_disabled_without_key(seed_data, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "admin_api_key", None)
+    r = client.post(
+        f"/beaches/{seed_data['beach_id']}/status",
+        json={"status": "closed"},
+        headers={"X-Admin-Key": ""},
+    )
+    assert r.status_code == 503
 
 
 def test_register_device_idempotent():
@@ -557,14 +594,14 @@ def test_beach_news_since_anchors_latest_cluster(seed_data):
     el titular más viejo — un hueco >45 días separa episodios (caso El
     Médano: cierres de julio + septiembre; el banner debe decir 23/09,
     no 07/07)."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import NewsItem
 
     beach_id = seed_data["beach_id"]
     db = SessionLocal()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     old_ep = NewsItem(
         url="https://news.google.com/rss/articles/pytest-cluster-old",
         title="Cierran la playa por vertido",
@@ -617,14 +654,14 @@ def test_incident_press_items_and_episode_items(seed_data):
     - `/news.episode_items` = último clúster de cobertura, no el saco
       completo (el banner enseña solo el episodio que narra).
     """
-    from datetime import date, datetime, timedelta, timezone
+    from datetime import date, datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import BeachIncident, NewsItem
 
     beach_id = seed_data["beach_id"]
     db = SessionLocal()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today = date.today()
     inc = BeachIncident(
         beach_id=beach_id,
@@ -655,9 +692,7 @@ def test_incident_press_items_and_episode_items(seed_data):
     try:
         rows = client.get(f"/beaches/{beach_id}/incidents").json()
         official = next(r for r in rows if r["via"] == "official")
-        assert [n["title"] for n in official["press_items"]] == [
-            near.title
-        ]
+        assert [n["title"] for n in official["press_items"]] == [near.title]
         press_rows = [r for r in rows if r["via"] == "press"]
         assert len(press_rows) == 1
         assert [n["title"] for n in press_rows[0]["press_items"]] == [
@@ -771,9 +806,7 @@ def test_push_few_changes_stay_individual(monkeypatch):
     db = SessionLocal()
     try:
         b = Beach(name="PLAYA TEST SOLO", municipality="M")
-        notify.notify_beach_states(
-            db, [(b, BeachState.closed)] * 3
-        )
+        notify.notify_beach_states(db, [(b, BeachState.closed)] * 3)
         assert individual == [BeachState.closed] * 3
     finally:
         db.close()
@@ -782,14 +815,14 @@ def test_push_few_changes_stay_individual(monkeypatch):
 def test_island_episodes(seed_data):
     """`/episodes` agrega episodios de toda la isla: incidencias
     oficiales + reconstruidos (prensa), una fila por episodio."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import NewsItem
 
     osm_id = seed_data["osm_beach_id"]
     db = SessionLocal()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     # Episodio solo-prensa resuelto hace 3 días tras 2 cerrada
     item_c = NewsItem(
         url="https://news.google.com/rss/articles/pytest-ep-c",

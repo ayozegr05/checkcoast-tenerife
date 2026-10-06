@@ -305,7 +305,7 @@ npx tsc --noEmit                                        # typecheck
   de contaminación (Candelaria)
 - **Umbrales calidad** (RD 1341/2007, costeras): E. coli ≤250/≤500/>500,
   enterococo ≤100/≤200/>200 → Excelente/Buena/Insuficiente
-- **Manual**: `POST /beaches/{id}/status` {"status": open|closed|warning}
+- **Manual**: `POST /beaches/{id}/status` {"status": open|closed|warning} — exige cabecera `X-Admin-Key` = `ADMIN_API_KEY` (sin ella configurada, 503)
   como respaldo del scraper
 - **Nunca presentar "open" como "segura"**: significa "sin incidencia
   oficial activa". Valleseco PM1 no existe en Náyade → `unknown`

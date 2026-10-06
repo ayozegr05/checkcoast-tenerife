@@ -9,9 +9,7 @@ import {
   yearEpisodes,
 } from '../lib/episodes';
 
-const ep = (
-  e: Partial<MunicipalityIncident>,
-): MunicipalityIncident => ({
+const ep = (e: Partial<MunicipalityIncident>): MunicipalityIncident => ({
   id: 1,
   beach_id: 1,
   beach_name: 'PLAYA X',
@@ -25,17 +23,12 @@ const ep = (
 
 describe('seasonEpisodes — filtro por solape con el verano', () => {
   it('episodio nacido dentro de jun-sep cuenta', () => {
-    expect(
-      seasonEpisodes([ep({})], 2026),
-    ).toHaveLength(1);
+    expect(seasonEpisodes([ep({})], 2026)).toHaveLength(1);
   });
 
   it('episodio abierto de antes que sigue en verano cuenta (Benijo)', () => {
     expect(
-      seasonEpisodes(
-        [ep({ opened_at: '2024-07-01', closed_at: null })],
-        2026,
-      ),
+      seasonEpisodes([ep({ opened_at: '2024-07-01', closed_at: null })], 2026),
     ).toHaveLength(1);
   });
 
@@ -50,10 +43,7 @@ describe('seasonEpisodes — filtro por solape con el verano', () => {
 
   it('episodio abierto en febrero y aún abierto sí cuenta', () => {
     expect(
-      seasonEpisodes(
-        [ep({ opened_at: '2026-02-27', closed_at: null })],
-        2026,
-      ),
+      seasonEpisodes([ep({ opened_at: '2026-02-27', closed_at: null })], 2026),
     ).toHaveLength(1);
   });
 
@@ -103,9 +93,7 @@ describe('closuresThisYear — cabecera del banner', () => {
   });
 
   it('los avisos no cuentan como cierres', () => {
-    expect(
-      closuresThisYear([ep({ kind: 'warning' })], 2026),
-    ).toHaveLength(0);
+    expect(closuresThisYear([ep({ kind: 'warning' })], 2026)).toHaveLength(0);
   });
 });
 
@@ -131,10 +119,7 @@ describe('causeBreakdown — desglose de causas del año', () => {
 
   it('episodios sin causa se agrupan como "sin causa"', () => {
     expect(
-      causeBreakdown([
-        ep({ cause: 'Contaminación' }),
-        ep({ cause: null }),
-      ]),
+      causeBreakdown([ep({ cause: 'Contaminación' }), ep({ cause: null })]),
     ).toBe('1 contaminación · 1 sin causa');
   });
 });

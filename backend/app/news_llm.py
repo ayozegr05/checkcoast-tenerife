@@ -192,11 +192,11 @@ class GeminiExtractor:
             # Ancla temporal: "este miércoles"/"ayer" se resuelven con
             # la fecha real de la noticia — sin ella el modelo inventa
             # el año en closed_since
-            text += (
-                f'\nFecha de publicación: {article.published_at:%Y-%m-%d}'
-            )
+            text += f"\nFecha de publicación: {article.published_at:%Y-%m-%d}"
         if article.body:
-            text += f'\nTexto de la noticia (extracto):\n"{article.body[:3000]}"'
+            text += (
+                f'\nTexto de la noticia (extracto):\n"{article.body[:3000]}"'
+            )
         resp = self._post(text)
         # Cuota diaria del modelo principal agotada → el resto de la
         # pasada va directo al fallback (cuota aparte por modelo)
@@ -235,7 +235,9 @@ class GeminiExtractor:
             # afectación; una reapertura o un "other" que lo traiga es
             # ruido del modelo → se descarta
             if data.get("event_type") not in (
-                "closure", "warning", "pollution",
+                "closure",
+                "warning",
+                "pollution",
             ):
                 closed_since = None
             return EventExtraction(
@@ -247,7 +249,13 @@ class GeminiExtractor:
                 cause=data.get("cause"),
                 closed_since=closed_since,
             )
-        except (json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError):
+        except (
+            json.JSONDecodeError,
+            KeyError,
+            IndexError,
+            TypeError,
+            ValueError,
+        ):
             return None
 
 

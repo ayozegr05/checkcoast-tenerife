@@ -148,16 +148,16 @@ def _overlaps(
     return a_start <= b_e and b_start <= a_e
 
 
-def _in_window(
-    pub: date, start: date, end: date | None, today: date
-) -> bool:
+def _in_window(pub: date, start: date, end: date | None, today: date) -> bool:
     """Fecha de prensa dentro de la ventana ampliada del episodio."""
-    return start - PRESS_FUZZ_BEFORE <= pub <= (
-        end or today
-    ) + PRESS_FUZZ_AFTER
+    return (
+        start - PRESS_FUZZ_BEFORE <= pub <= (end or today) + PRESS_FUZZ_AFTER
+    )
 
 
-def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEvent]:
+def synthesize_events(
+    beach: Beach, today: date | None = None
+) -> list[SynthEvent]:
     """Eventos reconstruidos de una playa (incidencias oficiales
     aparte — estas son las que faltan en Náyade)."""
     today = today or date.today()
@@ -198,15 +198,11 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
             closed_at=e,
             via="measurement",
             sample_gaps=[
-                (a, b)
-                for a, b in zip(rb, rb[1:])
-                if b - a > SAMPLE_GAP_NOTE
+                (a, b) for a, b in zip(rb, rb[1:]) if b - a > SAMPLE_GAP_NOTE
             ],
         )
         for s, e, rb in windows
-        if not any(
-            _overlaps(s, e, o_s, o_e) for o_s, o_e in official
-        )
+        if not any(_overlaps(s, e, o_s, o_e) for o_s, o_e in official)
     ]
 
     # 3-5. Prensa en orden CRONOLÓGICO, cierres y reaperturas
@@ -242,9 +238,9 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
     outlets_by_day: dict[date, set] = {}
     for it0 in items:
         if it0.event_type == "closure" and it0.published_at:
-            outlets_by_day.setdefault(
-                it0.published_at.date(), set()
-            ).add(it0.source or "")
+            outlets_by_day.setdefault(it0.published_at.date(), set()).add(
+                it0.source or ""
+            )
     for n in items:
         pub = n.published_at.date()
         if n.event_type == "closure":
@@ -294,8 +290,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                 ) or (
                     retro_d is None
                     and (
-                        pub - (last_closed.closed_at or pub)
-                        > RETRO_WINDOW
+                        pub - (last_closed.closed_at or pub) > RETRO_WINDOW
                         or len(outlets_by_day.get(pub, set())) >= 2
                     )
                 )
@@ -318,8 +313,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                     pub - (current.last_closure or current.opened_at)
                     > PRESS_CLUSTER_GAP
                     and not (
-                        current.closed_at is None
-                        and _is_structural(current)
+                        current.closed_at is None and _is_structural(current)
                     )
                 )
             ):
@@ -354,9 +348,8 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
             # que sea anterior a la última mención del clúster vigente
             # (noticia que relata una reapertura vieja en medio de la
             # cobertura del cierre)
-            boundary = (
-                current is None
-                or pub > (current.last_closure or current.opened_at)
+            boundary = current is None or pub > (
+                current.last_closure or current.opened_at
             )
             hit = next(
                 (
@@ -376,9 +369,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
             # oficial resuelve ESE episodio: no cierra el clúster de
             # prensa vigente (El Médano: la ola del 25/09 resolvía la
             # incidencia oficial 21→24-sep, no un cierre añejo)
-            if any(
-                _in_window(pub, o_s, o_e, today) for o_s, o_e in official
-            ):
+            if any(_in_window(pub, o_s, o_e, today) for o_s, o_e in official):
                 continue
             if (
                 current is not None
@@ -415,7 +406,8 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
             default=None,
         )
         candidates = [
-            d for d in ev.reopenings_in_window
+            d
+            for d in ev.reopenings_in_window
             if last_bad is None or d > last_bad
         ]
         ev.press_reopening = max(ev.reopenings_in_window)
@@ -472,8 +464,7 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                 len(reopen_press) >= 2
                 or any(i.body_verified for i in reopen_items)
                 or any(
-                    not _bad(m)
-                    and ev.closed_at <= m.sampled_at <= bound
+                    not _bad(m) and ev.closed_at <= m.sampled_at <= bound
                     for m in ms
                 )
                 or any(
@@ -500,13 +491,9 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                 press_confirmed=True,
                 press_count=sum(e.press_count for e in run),
                 sources=sorted({s for e in run for s in e.sources}),
-                closed_since=_min_closed_since(
-                    e.closed_since for e in run
-                ),
+                closed_since=_min_closed_since(e.closed_since for e in run),
                 causes=[c for e in run for c in e.causes],
-                first_pub=min(
-                    e.first_pub or e.opened_at for e in run
-                ),
+                first_pub=min(e.first_pub or e.opened_at for e in run),
                 press_items=[i for e in run for i in e.press_items],
             )
             merged.opened_at = min(
@@ -608,7 +595,9 @@ def merged_episode(g: list[Episode]) -> Episode:
     press_n = sum(e.press_count for e in g)
     if official_obs is not None:
         media = "noticia" if press_n == 1 else "noticias"
-        obs = official_obs + (f" · {press_n} {media} en prensa" if press_n else "")
+        obs = official_obs + (
+            f" · {press_n} {media} en prensa" if press_n else ""
+        )
     else:
         # los eventos sintéticos ya llevan la mención a prensa en su obs
         obs = next((e.obs for e in g if e.obs), None)
@@ -625,17 +614,13 @@ def merged_episode(g: list[Episode]) -> Episode:
         start=min(e.start for e in g),
         end=merged_end,
         via=via,
-        ref_id=next(
-            (e.ref_id for e in g if e.via == "official"), g[0].ref_id
-        ),
+        ref_id=next((e.ref_id for e in g if e.via == "official"), g[0].ref_id),
         obs=obs,
         press_count=press_n,
         # El fin solo es estimado si la fecha que gana vino de la
         # última mención — un cierre oficial posterior lo invalida
         end_estimated=merged_end is not None
-        and any(
-            e.end_estimated and e.end == merged_end for e in g
-        ),
+        and any(e.end_estimated and e.end == merged_end for e in g),
         # Etiqueta del episodio fusionado: la más específica
         # (_CAUSE_RANK); la mayoría solo desempata al mismo nivel —
         # los eventos de analítica inyectan "Contaminación" genérica
@@ -643,9 +628,7 @@ def merged_episode(g: list[Episode]) -> Episode:
         cause=min(
             (
                 (c, n)
-                for c, n in Counter(
-                    e.cause for e in g if e.cause
-                ).items()
+                for c, n in Counter(e.cause for e in g if e.cause).items()
             ),
             key=lambda cn: (_CAUSE_RANK.get(cn[0], 9), -cn[1]),
             default=(None, 0),

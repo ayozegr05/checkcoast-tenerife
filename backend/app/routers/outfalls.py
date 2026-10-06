@@ -86,7 +86,9 @@ def list_outfalls(
                 "start_lat": row.start_lat,
                 "shore_m": row.shore_m,
                 "source_url": row.source_url,
-                "fetched_at": row.fetched_at.isoformat() if row.fetched_at else None,
+                "fetched_at": row.fetched_at.isoformat()
+                if row.fetched_at
+                else None,
             },
         )
         for row in q.all()

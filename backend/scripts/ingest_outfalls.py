@@ -110,7 +110,11 @@ def main() -> None:
             lon, lat = _to_wgs84.transform(x, y)
             external_id = f"censo2025-{rec['ID']}"
 
-            obj = db.query(Outfall).filter_by(external_id=external_id).one_or_none()
+            obj = (
+                db.query(Outfall)
+                .filter_by(external_id=external_id)
+                .one_or_none()
+            )
             if obj is None:
                 obj = Outfall(external_id=external_id)
                 created += 1
@@ -120,7 +124,9 @@ def main() -> None:
             obj.name = rec["Denomina"]
             obj.municipality = rec["Municipio"] or None
             obj.kind = rec["TipoCond"]
-            obj.status = _STATUS_MAP.get(rec["EstExpVC"], OutfallStatus.unknown)
+            obj.status = _STATUS_MAP.get(
+                rec["EstExpVC"], OutfallStatus.unknown
+            )
             obj.nature = _clean(rec["NatVert"])
             obj.continuity = _clean(rec["ContinVert"])
             estado_func = _clean(rec["EstadoFunc"])
@@ -165,7 +171,9 @@ def main() -> None:
     finally:
         db.close()
 
-    print(f"Outfalls: {created} creados, {updated} actualizados, {skipped} omitidos")
+    print(
+        f"Outfalls: {created} creados, {updated} actualizados, {skipped} omitidos"
+    )
 
 
 if __name__ == "__main__":

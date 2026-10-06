@@ -75,10 +75,7 @@ export default function ScrollChips({
   };
 
   const scrollBy = (dir: 1 | -1) => {
-    const x = Math.max(
-      0,
-      dims.current.x + dir * dims.current.w * 0.75,
-    );
+    const x = Math.max(0, dims.current.x + dir * dims.current.w * 0.75);
     scrollRef.current?.scrollTo({ x, animated: true });
   };
 

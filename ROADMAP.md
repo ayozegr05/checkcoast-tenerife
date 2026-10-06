@@ -76,7 +76,7 @@ Tres niveles, en orden de impacto/esfuerzo:
 
 1. [x] **Identidad básica**: `lib/theme.ts` con paleta oceánica (mar
    profundo, turquesa, arena) + Nunito vía `useFonts` + icono/splash
-   check+ola generados (`scripts_gen_icon.py`) + colores de estado
+   check+ola generados (`frontend/scripts/gen_icon.py`) + colores de estado
    unificados mapa/lista/detalle (apta=verde mar)
 2. [x] **UI con carácter**: banner de estado sobre el mapa (pill con
    cierres/avisos vivos, tap → lista), ficha como bottom-sheet
@@ -84,7 +84,7 @@ Tres niveles, en orden de impacto/esfuerzo:
    headers con degradado mar (PNG `gradient-sea.png` — evita
    expo-linear-gradient nativo), halo pulsante en playas con alerta
 3. [x] **Mapa temático**: basemap vectorial OpenFreeMap (OpenMapTiles)
-   retenido con la paleta via `scripts_gen_mapstyle.py` →
+   retenido con la paleta via `frontend/scripts/gen_mapstyle.py` →
    `assets/mapstyle-sea.json` (mar turquesa, tierra arena, etiquetas
    azul pizarra); toggle satélite Esri intacto. Markers: chinchetas
    `pin-{estado}.png` generadas (aro de color + sombrilla navy)
@@ -118,7 +118,7 @@ Tres niveles, en orden de impacto/esfuerzo:
 - [x] **Pins definitivos**: playa = sombrilla Twemoji 🏖️ teñida del
   color de estado; vertido = grifo + gota separada cayendo del caño
 - [x] **Iconos topbar**: mapa/satélite, ayuntamiento (Municipios), grifo
-  (Vertidos), salvavidas (Ayuda) — todos en `scripts_gen_icon.py`
+  (Vertidos), salvavidas (Ayuda) — todos en `frontend/scripts/gen_icon.py`
 - [x] **IntroCard temática**: header degradado mar, hints con iconos
   reales, checkbox "No volver a mostrar" + AsyncStorage (persistencia
   activa tras próxima build), re-apertura desde botón Ayuda
@@ -442,9 +442,9 @@ cuerpo de las noticias, no en su fecha de publicación.
 | 10.3 | Verificar en dispositivo la APK local: banner prensa arriba en cerradas, nombre emisario seleccionado, zoom 15, 3 niveles satélite, push oficial + "según prensa" | ✅ Hecho (2026-09-23) — push E2E verificado | 🟢 Trivial |
 | 10.4 | Build local Windows documentado: `expo prebuild` + `gradlew assembleRelease` (firma debug → desinstalar app EAS antes de instalar) | ✅ Hecho (2026-09-23) | 🟡 Medio |
 | 10.5 | **Alertas con causa**: `effective_states` devuelve `cause` (categoría corta: Contaminación / Desprendimientos / Obras / Acceso / Mar agitado, normalizada de texto libre LLM/observaciones) + `cause_via`; `/beaches` expone `alert_cause`/`cause_via`; la fila del desplegable muestra la causa bajo "Cerrada" | ✅ Hecho (`c8ef3a4`, `f9e7bff`) | 🟡 Medio |
-| 10.6 | **google-services.json commiteado**: API key Firebase visible en repo | ✅ Decidido — se queda (config pública por diseño, va en cada APK; mantiene clone→build). Key restringida en GCP por app `com.checkcoast.tenerife` + SHA-1 (debug + EAS) | 🟢 Trivial |
+| 10.6 | **google-services.json commiteado**: API key Firebase visible en repo | ✅ Decidido — se queda (config pública por diseño, va en cada APK; mantiene clone→build). Restricción de aplicación de la key en GCP = "Ninguna" (la de app + SHA-1 es falsificable y rompía las builds al cambiar de keystore local/EAS: `FIS_AUTH_ERROR`); pendiente limitarla por API a Firebase Installations, FCM y FCM Registration | 🟢 Trivial |
 | 10.7 | **Revisión pre-publicación del repo** (antes de 9.5) | ✅ Hecho — spikes nunca commiteados (.pyc limpiados), `deploy/` solo tenía `__pycache__`, `.gitignore` cubre .env/keystores/credentials/android/, Caddyfile+compose sin secretos, `frontend/.claude/` fuera del tracking. Verificado: puerto 5433 de la VM cerrado desde internet | 🟢 Trivial |
-| 10.8 | **Endpoint `/health` + monitor de uptime**: la API reporta estado interno (DB, última sync Náyade, última sync de prensa, errores LLM 24h) y un monitor externo (UptimeRobot free) pingea y alerta por email si cae o la última sync está rancia — observabilidad real de prod, no solo "está vivo" | Pendiente | 🟡 Medio |
+| 10.8 | **Endpoint `/health` + monitor de uptime**: la API reporta estado interno (DB, última sync Náyade, última sync de prensa, errores LLM 24h) y un monitor externo (UptimeRobot free) pingea y alerta por email si cae o la última sync está rancia — observabilidad real de prod, no solo "está vivo". Incluye detectar fallos de registro push: la app reporta el error al backend y Ayuda muestra «Avisos push: no se pudieron activar · Reintentar» | Pendiente | 🟡 Medio |
 | 10.9 | **Tests de componente** (React Native Testing Library): 2-3 tests sobre `BeachList` — chips renderizan, filtro activo muestra conteo, sort por estado ordena. Cierran el hueco "frontend solo testea lógica pura" | Pendiente | 🟡 Medio |
 | 10.10 | **CD — deploy automático**: job en `.github/workflows/` sobre `main` que despliega por SSH a la VM (clave en GitHub Secrets, rsync + restart del contenedor). Elimina el deploy manual por scp+docker cp — evita olvidos tipo `events.py` | Pendiente | 🟡 Medio |
 | 10.11 | **Landing más viva de lo que parece**: ya sirve datos en tiempo real (192 dots + alertas vivas por petición), pero los cierres estructurales largos leen como dato rancio ("hace 212 días" en "Alertas activas") y los 3 dots de alerta se pierden entre 192. Mejoras: dots de alerta destacados/pulsantes, "cerrada desde sep-2025" para cierres largos, y opcional mapa interactivo MapLibre | Pendiente | 🟢 Trivial / 🟡 Medio |

@@ -97,10 +97,10 @@ describe('pressSummary — ciclo de vida del cierre', () => {
   });
 
   it('sin causa ni fecha: solo el evento', () => {
-    const r = pressSummary(
-      summary({ cause: null, since: null }),
-      { stillClosed: true, reopenedAt: null },
-    );
+    const r = pressSummary(summary({ cause: null, since: null }), {
+      stillClosed: true,
+      reopenedAt: null,
+    });
     expect(r.main).toBe('Cerrada');
   });
 

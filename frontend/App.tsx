@@ -57,8 +57,7 @@ const storage: {
   getItem: (k: string) => Promise<string | null>;
   setItem: (k: string, v: string) => Promise<void>;
 } | null =
-  NativeModules.RNCAsyncStorage ??
-  TurboModuleRegistry.get('RNCAsyncStorage')
+  (NativeModules.RNCAsyncStorage ?? TurboModuleRegistry.get('RNCAsyncStorage'))
     ? require('@react-native-async-storage/async-storage').default
     : null;
 
@@ -80,9 +79,9 @@ export default function App() {
   const [muniOpen, setMuniOpen] = useState(false);
   // Vista inicial del panel de municipios: el enlace del banner de
   // alertas lo abre directamente en "Temporada"
-  const [muniView, setMuniView] = useState<
-    'ranking' | 'temporada' | 'year'
-  >('ranking');
+  const [muniView, setMuniView] = useState<'ranking' | 'temporada' | 'year'>(
+    'ranking',
+  );
   // Causa preseleccionada al abrir la vista "Este año" (drill-down
   // del paréntesis del banner de alertas)
   const [muniCause, setMuniCause] = useState<string | null>(null);
@@ -137,17 +136,20 @@ export default function App() {
 
     // Refresco periódico: alertas + playas (estado/incidencias nuevas
     // sin reiniciar la app — la API las sincroniza con Náyade)
-    const timer = setInterval(() => {
-      fetchAlerts()
-        .then(setAlerts)
-        .catch(() => {});
-      fetchBeaches()
-        .then(setBeaches)
-        .catch(() => {});
-      fetchEpisodes()
-        .then(setEpisodes)
-        .catch(() => {});
-    }, 5 * 60 * 1000);
+    const timer = setInterval(
+      () => {
+        fetchAlerts()
+          .then(setAlerts)
+          .catch(() => {});
+        fetchBeaches()
+          .then(setBeaches)
+          .catch(() => {});
+        fetchEpisodes()
+          .then(setEpisodes)
+          .catch(() => {});
+      },
+      5 * 60 * 1000,
+    );
     return () => clearInterval(timer);
   }, []);
 
@@ -253,8 +255,7 @@ export default function App() {
       (resp) => {
         const id = (
           resp.notification.request.content.data as
-            | { beach_id?: number }
-            | undefined
+            { beach_id?: number } | undefined
         )?.beach_id;
         if (id != null) openBeachRef.current(id);
       },
@@ -271,7 +272,9 @@ export default function App() {
       const m = url?.match(/(?:beach|b)\/(\d+)/);
       if (m) openBeachRef.current(Number(m[1]));
     };
-    Linking.getInitialURL().then(handle).catch(() => {});
+    Linking.getInitialURL()
+      .then(handle)
+      .catch(() => {});
     const sub = Linking.addEventListener('url', (e) => handle(e.url));
     return () => sub.remove();
   }, []);
@@ -346,14 +349,9 @@ export default function App() {
         : [...sel.feature.geometry.coordinates, 15.5],
     );
   };
-  const openOutfall = (
-    feature: GeoFeature,
-    restore: Selection | null,
-  ) => flyToPin({ type: 'outfall', feature }, restore, true);
-  const openBeachPin = (
-    feature: GeoFeature,
-    restore: Selection | null,
-  ) =>
+  const openOutfall = (feature: GeoFeature, restore: Selection | null) =>
+    flyToPin({ type: 'outfall', feature }, restore, true);
+  const openBeachPin = (feature: GeoFeature, restore: Selection | null) =>
     flyToPin(
       {
         type: 'beach',
@@ -400,11 +398,7 @@ export default function App() {
       setRestoreSel(null);
       setSheetHidden(false);
       setSelection(back);
-      setFocus([
-        ...back.feature.geometry.coordinates,
-        15.5,
-        back.type,
-      ]);
+      setFocus([...back.feature.geometry.coordinates, 15.5, back.type]);
       return;
     }
     setSelection(null);
@@ -458,10 +452,7 @@ export default function App() {
         return true;
       }
       lastBackRef.current = Date.now();
-      ToastAndroid.show(
-        'Pulsa atrás otra vez para salir',
-        ToastAndroid.SHORT,
-      );
+      ToastAndroid.show('Pulsa atrás otra vez para salir', ToastAndroid.SHORT);
       return true;
     });
     return () => sub.remove();

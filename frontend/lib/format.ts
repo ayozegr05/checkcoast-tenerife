@@ -45,7 +45,9 @@ export const capName = (name: string) => {
         prev = w;
         return w.toUpperCase();
       }
-      const lower = prev !== '' && (CONNECTORS.has(w) || (ARTICLES.has(w) && prev === 'de'));
+      const lower =
+        prev !== '' &&
+        (CONNECTORS.has(w) || (ARTICLES.has(w) && prev === 'de'));
       const out = lower ? w : w[0].toUpperCase() + w.slice(1);
       prev = w;
       return out;
@@ -76,13 +78,33 @@ export const formatDays = (days: number): string => {
 // "jul-2024", "2024-07-15" -> "15/07/2024". La fuente solo afirma la
 // precisión que dice; no inventamos día ni mes
 const MONTHS_SHORT = [
-  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
 ];
 // Meses en nombre completo ("entre noviembre y enero")
 export const MONTHS_FULL = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
 ];
 export const fmtPartialDate = (iso: string) => {
   const parts = iso.split('-');
@@ -107,7 +129,9 @@ export const displayBeachName = (name: string) => {
   if (!m) return capName(name);
   const base = name.replace(ARTICLE_PAREN, '').replace(/ -(?=\S)/g, '-');
   if (/^PLAYA\s/i.test(base)) {
-    return capName(base.replace(/^PLAYA\s+/i, `PLAYA ${DE_FORMS[m[1].toLowerCase()]} `));
+    return capName(
+      base.replace(/^PLAYA\s+/i, `PLAYA ${DE_FORMS[m[1].toLowerCase()]} `),
+    );
   }
   return capName(`${m[1]} ${base}`);
 };

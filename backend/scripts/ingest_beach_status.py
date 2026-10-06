@@ -27,7 +27,7 @@ import re
 import time
 import unicodedata
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import requests
 from sqlalchemy import text
@@ -72,11 +72,19 @@ RE_MEASURE = re.compile(
     r'<td class="valorCampoI">([^<]*)</td>\s*'
     r'<td class="valorCampoI">([^<]*)</td>'
 )
-RE_FIELD = (
-    lambda label: rf'{label}:</td>\s*'
-    r'<td[^>]*class="valorCampoI"[^>]*>([^<]*)</td>'
+
+
+def RE_FIELD(label: str) -> str:
+    return (
+        rf"{label}:</td>\s*"
+        r'<td[^>]*class="valorCampoI"[^>]*>([^<]*)</td>'
+    )
+
+
+INCIDENT_BLOCK = (
+    "<!--INFORMACION INCIDENCIA -->",
+    "<!--FIN INFORMACION INCIDENCIA -->",
 )
-INCIDENT_BLOCK = ("<!--INFORMACION INCIDENCIA -->", "<!--FIN INFORMACION INCIDENCIA -->")
 MUESTREOS_MARK = '<td class="apartadotabla">Muestreos:</td>'
 
 # Clave arbitraria para el advisory lock de Postgres entre procesos
@@ -162,7 +170,7 @@ def _zone_body(cod_zona: str, pestanya: str) -> dict:
 
 
 def _natural_municipality(name: str) -> str:
-    """"Orotava (La)" → "La Orotava" (grafía natural, no la del censo)."""
+    """ "Orotava (La)" → "La Orotava" (grafía natural, no la del censo)."""
     m = re.match(r"^(.*) \((El|La|Los|Las)\)$", name)
     return f"{m.group(2)} {m.group(1)}" if m else name
 
@@ -337,9 +345,7 @@ def _latest_status_map(db: Session) -> dict[int, BeachState]:
     return result
 
 
-def _find_beach(
-    norm_pm: str, beaches: dict[str, Beach]
-) -> Beach | None:
+def _find_beach(norm_pm: str, beaches: dict[str, Beach]) -> Beach | None:
     """Casa el PM de Náyade con una playa de la BD.
 
     El censo MITECO dejó `?` en algunos nombres (problema de encoding del
@@ -348,7 +354,9 @@ def _find_beach(
     if norm_pm in beaches:
         return beaches[norm_pm]
     for key, beach in beaches.items():
-        if "?" in key and re.fullmatch(re.escape(key).replace(r"\?", "."), norm_pm):
+        if "?" in key and re.fullmatch(
+            re.escape(key).replace(r"\?", "."), norm_pm
+        ):
             return beach
     return None
 
@@ -415,16 +423,14 @@ def _persist(
     state = _derive_state(pm)
     # Muestra rezagada anterior a una reapertura de prensa: mismo
     # evento, no reabrir el cierre (la medición sí se ha grabado arriba)
-    if state is not BeachState.open and _superseded_by_reopening(
-        beach, pm
-    ):
+    if state is not BeachState.open and _superseded_by_reopening(beach, pm):
         return False
     if latest.get(beach.id) != state:
         db.add(
             BeachStatus(
                 beach_id=beach.id,
                 status=state,
-                reported_at=datetime.now(timezone.utc),
+                reported_at=datetime.now(UTC),
                 source_url=SOURCE_URL,
             )
         )

@@ -249,9 +249,7 @@ export default function SatelliteShot({
           {m.label ? (
             <Text style={styles.markerLabel}>{m.label}</Text>
           ) : (
-            m.icon && (
-              <Image source={m.icon} style={styles.markerIcon} />
-            )
+            m.icon && <Image source={m.icon} style={styles.markerIcon} />
           )}
         </View>
       ))}
@@ -266,9 +264,7 @@ export default function SatelliteShot({
         {centerLabel ? (
           <Text style={styles.markerLabel}>{centerLabel}</Text>
         ) : (
-          centerIcon && (
-            <Image source={centerIcon} style={styles.centerIcon} />
-          )
+          centerIcon && <Image source={centerIcon} style={styles.centerIcon} />
         )}
       </View>
 
@@ -286,9 +282,7 @@ export default function SatelliteShot({
           accessibilityLabel="Acercar vista satélite"
           accessibilityState={{ disabled: level === 0 }}
         >
-          <Text
-            style={[styles.zoomText, level === 0 && styles.zoomTextOff]}
-          >
+          <Text style={[styles.zoomText, level === 0 && styles.zoomTextOff]}>
             +
           </Text>
         </Pressable>
@@ -318,10 +312,7 @@ export default function SatelliteShot({
           <Pressable
             onPress={onPress}
             hitSlop={6}
-            style={({ pressed }) => [
-              styles.zoomBtn,
-              pressed && styles.pressFx,
-            ]}
+            style={({ pressed }) => [styles.zoomBtn, pressed && styles.pressFx]}
             accessibilityRole="button"
             accessibilityLabel="Ver en el mapa"
           >

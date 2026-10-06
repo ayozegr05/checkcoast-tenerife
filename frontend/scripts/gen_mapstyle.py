@@ -1,6 +1,6 @@
 # Descarga el estilo "positron" de OpenFreeMap y lo retine con la
 # paleta oceanica de la app -> assets/mapstyle-sea.json
-# Uso: python scripts_gen_mapstyle.py  (desde frontend/)
+# Uso: python scripts/gen_mapstyle.py  (desde frontend/)
 import json
 import urllib.request
 

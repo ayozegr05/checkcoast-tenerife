@@ -23,8 +23,7 @@ from urllib.parse import quote, urlparse
 from curl_cffi import requests as creq
 
 _ARTICLE_PAGE = (
-    "https://news.google.com/rss/articles/{}"
-    "?ucbcb=1&hl=en-US&gl=US&ceid=US:en"
+    "https://news.google.com/rss/articles/{}?ucbcb=1&hl=en-US&gl=US&ceid=US:en"
 )
 _BATCHEXECUTE = "https://news.google.com/_/DotsSplashUi/data/batchexecute"
 _GN_HOST = "news.google.com"
@@ -49,9 +48,36 @@ _META_DESC_RE = (
 # Contexto fijo del RPC garturlreq (campos "X" sin uso real en la
 # respuesta; lo que manda es el id + timestamp + firma)
 _GARTURLREQ_CTX = [
-    ["X", "X", ["X", "X"], None, None, 1, 1, "US:en", None, 1, None,
-     None, None, None, None, 0, 1],
-    "X", "X", 1, [1, 1, 1], 1, 1, None, 0, 0, None, 0,
+    [
+        "X",
+        "X",
+        ["X", "X"],
+        None,
+        None,
+        1,
+        1,
+        "US:en",
+        None,
+        1,
+        None,
+        None,
+        None,
+        None,
+        None,
+        0,
+        1,
+    ],
+    "X",
+    "X",
+    1,
+    [1, 1, 1],
+    1,
+    1,
+    None,
+    0,
+    0,
+    None,
+    0,
 ]
 
 
@@ -118,27 +144,31 @@ def resolve_url(url: str) -> str | None:
     except Exception:
         pass
     try:
-        page = creq.get(_ARTICLE_PAGE.format(art), impersonate="chrome",
-                        timeout=15)
+        page = creq.get(
+            _ARTICLE_PAGE.format(art), impersonate="chrome", timeout=15
+        )
         sig = _SIG_RE.search(page.text)
         ts = _TS_RE.search(page.text)
         if not (sig and ts):
             return None
         inner = json.dumps(
-            ["garturlreq", _GARTURLREQ_CTX, art, int(ts.group(1)),
-             sig.group(1)],
+            [
+                "garturlreq",
+                _GARTURLREQ_CTX,
+                art,
+                int(ts.group(1)),
+                sig.group(1),
+            ],
             separators=(",", ":"),
         )
         body = "f.req=" + quote(
-            json.dumps([[["Fbv4je", inner, None, "0"]]],
-                       separators=(",", ":"))
+            json.dumps([[["Fbv4je", inner, None, "0"]]], separators=(",", ":"))
         )
         r = creq.post(
             _BATCHEXECUTE,
             data=body,
             headers={
-                "Content-Type":
-                "application/x-www-form-urlencoded;charset=UTF-8"
+                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
             },
             impersonate="chrome",
             timeout=15,

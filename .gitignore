@@ -41,3 +41,6 @@ Thumbs.db
 backend/scripts/_*.py
 frontend/assets/sea-mask.json
 frontend/assets/sea-texture.png
+
+# Sitios Caddy de otros proyectos en la VM
+caddy-sites/

@@ -38,16 +38,13 @@ export type BeachGroup = {
 // El grupo solo es seguro dentro del mismo municipio: Náyade repite
 // nombres entre zonas distintas ("Caleta de Negros")
 export const groupKeyOf = (f: GeoFeature) =>
-  `${f.properties.municipality ?? ''}|${beachGroupKey(
-    f.properties.name,
-  )}`;
+  `${f.properties.municipality ?? ''}|${beachGroupKey(f.properties.name)}`;
 
 export const worstStatusOf = (g: BeachGroup) =>
   g.members
     .map(statusOf)
-    .sort(
-      (a, b) => (STATUS_ORDER[a] ?? 9) - (STATUS_ORDER[b] ?? 9),
-    )[0] ?? 'unknown';
+    .sort((a, b) => (STATUS_ORDER[a] ?? 9) - (STATUS_ORDER[b] ?? 9))[0] ??
+  'unknown';
 
 export type SortMode = 'estado' | 'cierres' | 'calidad';
 
@@ -125,13 +122,12 @@ export const buildGroups = (
   const map = new Map<string, BeachGroup>();
   for (const f of filtered) {
     const key = groupKeyOf(f);
-    const g =
-      map.get(key) ?? {
-        key,
-        name: beachBaseName(f.properties.name),
-        municipality: f.properties.municipality ?? null,
-        members: [],
-      };
+    const g = map.get(key) ?? {
+      key,
+      name: beachBaseName(f.properties.name),
+      municipality: f.properties.municipality ?? null,
+      members: [],
+    };
     g.members.push(f);
     map.set(key, g);
   }
@@ -154,8 +150,7 @@ export const buildGroups = (
     sum(g, 'closures') + sum(g, 'reconstructed');
   const worstQuality = (g: BeachGroup) =>
     Math.max(...g.members.map((m) => qualityScore(stats.get(m.id))));
-  const byName = (a: BeachGroup, b: BeachGroup) =>
-    a.name.localeCompare(b.name);
+  const byName = (a: BeachGroup, b: BeachGroup) => a.name.localeCompare(b.name);
   // Suelo común para "Más cierres"/"Peor calidad": un empate a 0 no
   // debe dejar que una playa sin monitorizar (alfabéticamente antes)
   // adelante a una vigilada — solo "Estado" tenía este suelo
@@ -173,9 +168,7 @@ export const buildGroups = (
   } else if (opts.sortMode === 'calidad') {
     arr.sort(
       (a, b) =>
-        byMonitored(a, b) ||
-        worstQuality(b) - worstQuality(a) ||
-        byName(a, b),
+        byMonitored(a, b) || worstQuality(b) - worstQuality(a) || byName(a, b),
     );
   } else {
     arr.sort(
@@ -191,9 +184,7 @@ export const buildGroups = (
   if (opts.statusFilter === 'impecables') {
     return arr.filter(
       (g) =>
-        g.members.some(
-          (m) => (stats.get(m.id)?.total_samples ?? 0) > 0,
-        ) &&
+        g.members.some((m) => (stats.get(m.id)?.total_samples ?? 0) > 0) &&
         g.members.every(
           (m) =>
             (stats.get(m.id)?.non_apta_samples ?? 1) === 0 &&

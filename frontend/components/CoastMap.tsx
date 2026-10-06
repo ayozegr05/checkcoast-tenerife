@@ -3,6 +3,7 @@ import {
   BackHandler,
   Image,
   Keyboard,
+  LayoutAnimation,
   NativeSyntheticEvent,
   Platform,
   Pressable,
@@ -38,13 +39,14 @@ import {
   formatDays,
   searchNorm,
 } from '../lib/format';
+import { foldCount, foldSummary } from '../lib/alertFold';
 import { episodeDays, recentlyResolved } from '../lib/episodes';
 import { groupKeyOf } from '../lib/beachGroups';
 import { colors, fonts } from '../lib/theme';
 import seaStyle from '../assets/mapstyle-sea.json';
 
 // Estilo vectorial tematico (OpenFreeMap/OpenMapTiles retenido con la
-// paleta oceanica por scripts_gen_mapstyle.py). Sin API key.
+// paleta oceanica por scripts/gen_mapstyle.py). Sin API key.
 const SEA_STYLE = seaStyle as unknown as StyleSpecification;
 
 // Estilo raster satélite con PNOA del IGN (ortofoto oficial española,
@@ -139,6 +141,7 @@ type CoastMapProps = {
 };
 
 const OUTFALL_COLORS = colors.outfall;
+const STRUCTURAL_SECTION = 'Cierre estructural';
 const BEACH_COLORS = colors.status;
 
 // Solo un grupo con >=2 puntos de muestreo reales (etiqueta "PM" o
@@ -228,6 +231,11 @@ export default function CoastMap({
   const [searchOpen, setSearchOpen] = useState(false);
   // Lista desplegable de playas en aviso (banner de alertas)
   const [alertsOpen, setAlertsOpen] = useState(false);
+  // "N más" de la sección estructural; vuelve a plegarse al cerrar
+  const [structuralOpen, setStructuralOpen] = useState(false);
+  useEffect(() => {
+    if (!alertsOpen) setStructuralOpen(false);
+  }, [alertsOpen]);
   // Panel de capas por estado (botón flotante junto a la brújula)
   const [layersOpen, setLayersOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -408,8 +416,10 @@ export default function CoastMap({
     const gk = (f.properties as { groupKey?: string }).groupKey;
     const g = gk ? beachGroups.get(gk) : undefined;
     const [lon, lat] = (g?.center ??
-      (f.geometry as { coordinates: [number, number] })
-        .coordinates) as [number, number];
+      (f.geometry as { coordinates: [number, number] }).coordinates) as [
+      number,
+      number,
+    ];
     if (g && g.members.length > 1) {
       fitBeachBounds(g.members, 1200);
     } else {
@@ -424,9 +434,7 @@ export default function CoastMap({
       type: 'beach',
       feature: f,
       hasAlert: true,
-      members: pmMembersOf(
-        gk ? beachGroups.get(gk)?.members : undefined,
-      ),
+      members: pmMembersOf(gk ? beachGroups.get(gk)?.members : undefined),
     });
     setAlertsOpen(false);
   };
@@ -447,7 +455,11 @@ export default function CoastMap({
     >();
     for (const f of beaches.features) {
       const key = groupKeyOf(f);
-      const g = groups.get(key) ?? { members: [], rep: f, center: [0, 0] as [number, number] };
+      const g = groups.get(key) ?? {
+        members: [],
+        rep: f,
+        center: [0, 0] as [number, number],
+      };
       g.members.push(f);
       groups.set(key, g);
     }
@@ -457,8 +469,7 @@ export default function CoastMap({
           ? 'unmonitored'
           : (f.properties.status ?? 'unknown');
       return (
-        { closed: 0, warning: 1, unknown: 2, open: 3, unmonitored: 4 }[s] ??
-        5
+        { closed: 0, warning: 1, unknown: 2, open: 3, unmonitored: 4 }[s] ?? 5
       );
     };
     for (const g of groups.values()) {
@@ -535,8 +546,7 @@ export default function CoastMap({
       // prensa (Benijo) también es una alerta de verdad
       features: groupedBeaches.features.filter(
         (f) =>
-          f.properties.status === 'closed' ||
-          f.properties.status === 'warning',
+          f.properties.status === 'closed' || f.properties.status === 'warning',
       ),
     }),
     [groupedBeaches],
@@ -548,10 +558,9 @@ export default function CoastMap({
   // más antigua por inicio real de la alerta (alerted_at)
   const alertSections = useMemo<[string, GeoFeature[]][]>(() => {
     const byWhen = (a: GeoFeature, b: GeoFeature) =>
-      (b.properties.alerted_at ?? b.properties.reported_at ?? '')
-        .localeCompare(
-          a.properties.alerted_at ?? a.properties.reported_at ?? '',
-        );
+      (b.properties.alerted_at ?? b.properties.reported_at ?? '').localeCompare(
+        a.properties.alerted_at ?? a.properties.reported_at ?? '',
+      );
     const isStructural = (f: GeoFeature) =>
       f.properties.status === 'closed' &&
       !!f.properties.alert_cause &&
@@ -559,15 +568,13 @@ export default function CoastMap({
     const contam = alertBeaches.features
       .filter((f) => f.properties.status === 'closed' && !isStructural(f))
       .sort(byWhen);
-    const structural = alertBeaches.features
-      .filter(isStructural)
-      .sort(byWhen);
+    const structural = alertBeaches.features.filter(isStructural).sort(byWhen);
     const warnings = alertBeaches.features
       .filter((f) => f.properties.status === 'warning')
       .sort(byWhen);
     return [
       ['Contaminación', contam],
-      ['Cierre estructural', structural],
+      [STRUCTURAL_SECTION, structural],
       ['Avisos', warnings],
     ].filter(([, fs]) => fs.length > 0) as [string, GeoFeature[]][];
   }, [alertBeaches]);
@@ -614,8 +621,7 @@ export default function CoastMap({
       type: 'FeatureCollection',
       features: visibleBeaches.features.filter(
         (f) =>
-          f.properties.status === 'closed' ||
-          f.properties.status === 'warning',
+          f.properties.status === 'closed' || f.properties.status === 'warning',
       ),
     }),
     [visibleBeaches],
@@ -662,9 +668,7 @@ export default function CoastMap({
       // centroide: volar ahí, no a las coords del PM
       let cx = focus[0];
       let cy = focus[1];
-      let grp:
-        | { members: GeoFeature[]; center: [number, number] }
-        | undefined;
+      let grp: { members: GeoFeature[]; center: [number, number] } | undefined;
       for (const g of beachGroups.values()) {
         if (
           g.members.some(
@@ -712,9 +716,7 @@ export default function CoastMap({
     // Playas agrupadas como en el mapa: "troya" da UN resultado
     // (casa también por el nombre de cualquiera de sus PMs)
     for (const [key, g] of beachGroups) {
-      const label = displayBeachName(
-        beachBaseName(g.rep.properties.name),
-      );
+      const label = displayBeachName(beachBaseName(g.rep.properties.name));
       const hay = searchNorm(
         [label, ...g.members.map((m) => m.properties.name)].join(' '),
       );
@@ -759,10 +761,8 @@ export default function CoastMap({
           label: m,
           sub: 'Municipio',
           center: [
-            pts.reduce((s, f) => s + f.geometry.coordinates[0], 0) /
-              pts.length,
-            pts.reduce((s, f) => s + f.geometry.coordinates[1], 0) /
-              pts.length,
+            pts.reduce((s, f) => s + f.geometry.coordinates[0], 0) / pts.length,
+            pts.reduce((s, f) => s + f.geometry.coordinates[1], 0) / pts.length,
           ],
         });
       }
@@ -876,9 +876,7 @@ export default function CoastMap({
       >
         {on && <Text style={styles.checkMark}>✓</Text>}
       </View>
-      {!isAll && (
-        <View style={[styles.dot, { backgroundColor: color }]} />
-      )}
+      {!isAll && <View style={[styles.dot, { backgroundColor: color }]} />}
       <Text
         style={[
           styles.layerItemText,
@@ -909,10 +907,7 @@ export default function CoastMap({
           colors.primary,
           allLabel,
           allOn,
-          () =>
-            setSel(
-              allOn ? new Set() : new Set(states.map(([, , k]) => k)),
-            ),
+          () => setSel(allOn ? new Set() : new Set(states.map(([, , k]) => k))),
           true,
         )}
         {states.map(([color, label, key]) =>
@@ -927,8 +922,8 @@ export default function CoastMap({
   const handlePress =
     (type: 'outfall' | 'beach') =>
     (e: NativeSyntheticEvent<PressEventWithFeatures>) => {
-      const candidates = (e.nativeEvent.features ?? []) as unknown as
-        GeoFeature[];
+      const candidates = (e.nativeEvent.features ??
+        []) as unknown as GeoFeature[];
       if (!candidates.length) return;
       // Un tap en pin no es un tap al mapa: sin esto la card se abría
       // debajo del buscador / alertas / panel de capas
@@ -949,12 +944,9 @@ export default function CoastMap({
       // Zoom de detalle; el padding de cámara deja el pin en la franja
       // libre sobre la card. En playas el pin está en el centroide del
       // grupo, no en las coords del PM tocado
-      const groupKey = (feature.properties as { groupKey?: string })
-        .groupKey;
+      const groupKey = (feature.properties as { groupKey?: string }).groupKey;
       const g =
-        type === 'beach' && groupKey
-          ? beachGroups.get(groupKey)
-          : undefined;
+        type === 'beach' && groupKey ? beachGroups.get(groupKey) : undefined;
       const [lon, lat] = (g?.center ??
         (feature.geometry as { coordinates: [number, number] })
           .coordinates) as [number, number];
@@ -1242,23 +1234,13 @@ export default function CoastMap({
               minzoom={12}
               layout={{
                 'text-field': ['get', 'label'],
-                'text-size': [
-                  'case',
-                  ['==', ['get', 'sel'], true],
-                  13,
-                  11,
-                ],
+                'text-size': ['case', ['==', ['get', 'sel'], true], 13, 11],
                 'text-font': ['Noto Sans Bold'],
                 'text-offset': [0, 1.0],
                 'text-anchor': 'top',
                 'text-allow-overlap': false,
                 'text-ignore-placement': false,
-                'symbol-sort-key': [
-                  'case',
-                  ['==', ['get', 'sel'], true],
-                  0,
-                  1,
-                ],
+                'symbol-sort-key': ['case', ['==', ['get', 'sel'], true], 0, 1],
               }}
               paint={{
                 'text-color': colors.text,
@@ -1516,31 +1498,35 @@ export default function CoastMap({
               nestedScrollEnabled
               keyboardShouldPersistTaps="handled"
             >
-            <Text
-              style={[styles.alertSection, styles.alertSectionActive]}
-            >
-              Activas ahora · {alertBeaches.features.length}
-            </Text>
-            {alertSections.map(
-              ([sectionLabel, features]) =>
-                features.length > 0 && (
+              <Text style={[styles.alertSection, styles.alertSectionActive]}>
+                Activas ahora · {alertBeaches.features.length}
+              </Text>
+              {alertSections.map(([sectionLabel, features]) => {
+                if (features.length === 0) return null;
+                const foldable = sectionLabel === STRUCTURAL_SECTION;
+                const preview = foldable
+                  ? foldCount(features.map((f) => f.properties))
+                  : features.length;
+                const hidden = features.slice(preview);
+                const shown =
+                  structuralOpen || !foldable
+                    ? features
+                    : features.slice(0, preview);
+                return (
                   <View key={sectionLabel}>
-                    {alertSections.length > 1 &&
-                      features.length > 0 && (
-                        <Text style={styles.alertSubsection}>
-                          {sectionLabel} · {features.length}
-                        </Text>
-                      )}
-                    {features.map((f) => {
+                    {alertSections.length > 1 && (
+                      <Text style={styles.alertSubsection}>
+                        {sectionLabel} · {features.length}
+                      </Text>
+                    )}
+                    {shown.map((f) => {
                       const s =
-                        f.properties.status === 'closed'
-                          ? 'closed'
-                          : 'warning';
+                        f.properties.status === 'closed' ? 'closed' : 'warning';
                       return (
                         <Pressable
                           key={
-                            (f.properties as { groupKey?: string })
-                              .groupKey ?? f.id
+                            (f.properties as { groupKey?: string }).groupKey ??
+                            f.id
                           }
                           style={({ pressed }) => [
                             styles.alertRow,
@@ -1559,18 +1545,12 @@ export default function CoastMap({
                             ]}
                           />
                           <View style={styles.alertText}>
-                            <Text
-                              style={styles.alertName}
-                              numberOfLines={1}
-                            >
+                            <Text style={styles.alertName} numberOfLines={1}>
                               {displayBeachName(
                                 beachBaseName(f.properties.name),
                               )}
                             </Text>
-                            <Text
-                              style={styles.alertSub}
-                              numberOfLines={1}
-                            >
+                            <Text style={styles.alertSub} numberOfLines={1}>
                               {f.properties.municipality ?? ''}
                             </Text>
                           </View>
@@ -1584,10 +1564,7 @@ export default function CoastMap({
                               {s === 'closed' ? 'Cerrada' : 'Aviso'}
                             </Text>
                             {f.properties.alert_cause ? (
-                              <Text
-                                style={styles.alertCause}
-                                numberOfLines={1}
-                              >
+                              <Text style={styles.alertCause} numberOfLines={1}>
                                 {f.properties.alert_cause}
                               </Text>
                             ) : null}
@@ -1595,59 +1572,114 @@ export default function CoastMap({
                         </Pressable>
                       );
                     })}
+                    {hidden.length > 0 && (
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.alertRow,
+                          pressed && styles.pressFx,
+                        ]}
+                        onPress={() => {
+                          LayoutAnimation.configureNext(
+                            LayoutAnimation.Presets.easeInEaseOut,
+                          );
+                          setStructuralOpen((o) => !o);
+                        }}
+                        accessibilityRole="button"
+                        accessibilityState={{ expanded: structuralOpen }}
+                        accessibilityLabel={
+                          structuralOpen
+                            ? 'Ver menos cierres estructurales'
+                            : `Ver ${hidden.length} cierres estructurales más`
+                        }
+                      >
+                        {structuralOpen ? (
+                          <View style={styles.alertDotsSpacer} />
+                        ) : (
+                          <View style={styles.alertDots}>
+                            {[0, 1, 2].map((i) => (
+                              <View
+                                key={i}
+                                style={[
+                                  styles.alertDotSmall,
+                                  i > 0 && styles.alertDotStacked,
+                                  { zIndex: 3 - i },
+                                ]}
+                              />
+                            ))}
+                          </View>
+                        )}
+                        <View style={styles.alertText}>
+                          <Text style={styles.alertFoldName}>
+                            {structuralOpen
+                              ? 'Ver menos'
+                              : `${hidden.length} más`}
+                          </Text>
+                          {!structuralOpen && (
+                            <Text style={styles.alertSub} numberOfLines={1}>
+                              {foldSummary(
+                                hidden.map((f) => f.properties.municipality),
+                              )}
+                            </Text>
+                          )}
+                        </View>
+                        <Text style={styles.alertFoldChevron}>
+                          {structuralOpen ? '▴' : '▾'}
+                        </Text>
+                      </Pressable>
+                    )}
                   </View>
-                ),
-            )}
-            {resueltas.length > 0 && (
-              <Text
-                style={[styles.alertSection, styles.alertSectionResolved]}
-              >
-                Reabiertas recientemente · {resueltas.length}
-              </Text>
-            )}
-            {resueltas.map((ep) => (
-              <Pressable
-                key={`res-${ep.id}-${ep.beach_id}`}
-                style={({ pressed }) => [
-                  styles.alertRow,
-                  pressed && styles.pressFx,
-                ]}
-                onPress={() => openEpisodeBeach(ep.beach_id)}
-                accessibilityRole="button"
-                accessibilityLabel={`${displayBeachName(
-                  ep.beach_name,
-                )}, reabierta`}
-              >
-                <View
-                  style={[
-                    styles.alertDot,
-                    { backgroundColor: colors.status.open },
+                );
+              })}
+              {resueltas.length > 0 && (
+                <Text
+                  style={[styles.alertSection, styles.alertSectionResolved]}
+                >
+                  Reabiertas recientemente · {resueltas.length}
+                </Text>
+              )}
+              {resueltas.map((ep) => (
+                <Pressable
+                  key={`res-${ep.id}-${ep.beach_id}`}
+                  style={({ pressed }) => [
+                    styles.alertRow,
+                    pressed && styles.pressFx,
                   ]}
-                />
-                <View style={styles.alertText}>
-                  <Text style={styles.alertName} numberOfLines={1}>
-                    {displayBeachName(ep.beach_name)}
-                  </Text>
-                  <Text style={styles.alertSub} numberOfLines={1}>
-                    {ep.municipality ?? ''}
-                  </Text>
-                </View>
-                <View style={styles.alertStateCol}>
-                  <Text
+                  onPress={() => openEpisodeBeach(ep.beach_id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${displayBeachName(
+                    ep.beach_name,
+                  )}, reabierta`}
+                >
+                  <View
                     style={[
-                      styles.alertState,
-                      { color: colors.status.open },
+                      styles.alertDot,
+                      { backgroundColor: colors.status.open },
                     ]}
-                  >
-                    Reabierta
-                  </Text>
-                  <Text style={styles.alertCause} numberOfLines={1}>
-                    {ep.closed_at ? fmtDate(ep.closed_at) : ''} ·{' '}
-                    {formatDays(episodeDays(ep))} cerrada
-                  </Text>
-                </View>
-              </Pressable>
-            ))}
+                  />
+                  <View style={styles.alertText}>
+                    <Text style={styles.alertName} numberOfLines={1}>
+                      {displayBeachName(ep.beach_name)}
+                    </Text>
+                    <Text style={styles.alertSub} numberOfLines={1}>
+                      {ep.municipality ?? ''}
+                    </Text>
+                  </View>
+                  <View style={styles.alertStateCol}>
+                    <Text
+                      style={[
+                        styles.alertState,
+                        { color: colors.status.open },
+                      ]}
+                    >
+                      Reabierta
+                    </Text>
+                    <Text style={styles.alertCause} numberOfLines={1}>
+                      {ep.closed_at ? fmtDate(ep.closed_at) : ''} ·{' '}
+                      {formatDays(episodeDays(ep))} cerrada
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
             </ScrollView>
             {onOpenTemporada && (
               <Pressable
@@ -1680,13 +1712,13 @@ export default function CoastMap({
                 ref={searchInputRef}
                 style={styles.searchInput}
                 placeholder="Buscar playa, emisario o municipio..."
-              placeholderTextColor={colors.textFaint}
-              value={query}
-              onChangeText={setQuery}
-              autoFocus
-              autoCorrect={false}
-              returnKeyType="search"
-              accessibilityLabel="Buscar playa, emisario o municipio"
+                placeholderTextColor={colors.textFaint}
+                value={query}
+                onChangeText={setQuery}
+                autoFocus
+                autoCorrect={false}
+                returnKeyType="search"
+                accessibilityLabel="Buscar playa, emisario o municipio"
               />
             </View>
             {searchResults.length > 0 && (
@@ -1766,10 +1798,7 @@ export default function CoastMap({
 
       {/* Capas: abre el panel de checkboxes por estado */}
       <Pressable
-        style={({ pressed }) => [
-          styles.layersBtn,
-          pressed && styles.pressFx,
-        ]}
+        style={({ pressed }) => [styles.layersBtn, pressed && styles.pressFx]}
         onPress={() => {
           const next = !layersOpen;
           closeSearch();
@@ -1797,13 +1826,7 @@ export default function CoastMap({
             setOutfallSel,
           )}
           <View style={styles.layerDivider} />
-          {layerSection(
-            'Playas',
-            'Todas',
-            BEACH_STATES,
-            beachSel,
-            setBeachSel,
-          )}
+          {layerSection('Playas', 'Todas', BEACH_STATES, beachSel, setBeachSel)}
         </View>
       )}
 
@@ -1825,9 +1848,7 @@ export default function CoastMap({
                     !outfallSel.has(key) && styles.swatchDimmed,
                   ]}
                 >
-                  <View
-                    style={[styles.dot, { backgroundColor: color }]}
-                  />
+                  <View style={[styles.dot, { backgroundColor: color }]} />
                   <Text style={styles.swatchText}>{label}</Text>
                 </View>
               ))}
@@ -1847,9 +1868,7 @@ export default function CoastMap({
                     !beachSel.has(key) && styles.swatchDimmed,
                   ]}
                 >
-                  <View
-                    style={[styles.dot, { backgroundColor: color }]}
-                  />
+                  <View style={[styles.dot, { backgroundColor: color }]} />
                   <Text style={styles.swatchText}>{label}</Text>
                 </View>
               ))}
@@ -1862,7 +1881,6 @@ export default function CoastMap({
           (scroll, pines). Satélite y brújula se deshabilitan vía prop
           mientras haya un panel abierto; los paneles se cierran con su
           botón, un item o Atrás */}
-
     </View>
   );
 }
@@ -1877,7 +1895,7 @@ const styles = StyleSheet.create({
   // Bloque superior: barra de botones + pill de avisos apilados
   topBlock: {
     position: 'absolute',
-    top: (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 8,
+    top: (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 24) + 8,
     left: 12,
     right: 12,
     alignItems: 'center',
@@ -2005,6 +2023,39 @@ const styles = StyleSheet.create({
   },
   alertText: {
     flex: 1,
+  },
+  // Fila "N más": misma rejilla que una playa, con 3 puntos apilados
+  // en el hueco del punto de estado
+  alertDots: {
+    width: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertDotsSpacer: {
+    width: 10,
+  },
+  alertDotSmall: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.status.closed,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  alertDotStacked: {
+    marginLeft: -5,
+    opacity: 0.7,
+  },
+  alertFoldName: {
+    fontSize: 14,
+    fontFamily: fonts.bold,
+    color: colors.primary,
+  },
+  alertFoldChevron: {
+    fontSize: 14,
+    fontFamily: fonts.bold,
+    color: colors.primary,
   },
   alertName: {
     fontSize: 14,

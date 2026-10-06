@@ -38,19 +38,23 @@ BEACHES = [
     # (caso real: la prensa dice "la playa de El Médano" y el cierre
     # municipal cubre la principal)
     SimpleNamespace(
-        id=30, name="PLAYA MEDANO (EL) PM3",
+        id=30,
+        name="PLAYA MEDANO (EL) PM3",
         municipality="Granadilla de Abona",
     ),
     SimpleNamespace(
-        id=31, name="PLAYA MEDANO (EL)-CHICA PM1",
+        id=31,
+        name="PLAYA MEDANO (EL)-CHICA PM1",
         municipality="Granadilla de Abona",
     ),
     SimpleNamespace(
-        id=32, name="PLAYA MEDANO (EL)-LEOCADIO MACHADO PM1",
+        id=32,
+        name="PLAYA MEDANO (EL)-LEOCADIO MACHADO PM1",
         municipality="Granadilla de Abona",
     ),
     SimpleNamespace(
-        id=40, name="PLAYA SOCORRO (EL) PM1",
+        id=40,
+        name="PLAYA SOCORRO (EL) PM1",
         municipality="Los Realejos",
     ),
     # Playa Jardín PM4/PM5 con aliases de prensa (caso real: "Playa
@@ -58,21 +62,27 @@ BEACHES = [
     # complejo Jardín); y una "Playa Grande" real en OTRO municipio
     # para mantener la ambigüedad homónima
     SimpleNamespace(
-        id=41, name="PLAYA JARDIN PM4",
+        id=41,
+        name="PLAYA JARDIN PM4",
         municipality="Puerto de la Cruz",
         press_aliases=["Playa Grande"],
     ),
     SimpleNamespace(
-        id=42, name="PLAYA JARDIN PM5",
+        id=42,
+        name="PLAYA JARDIN PM5",
         municipality="Puerto de la Cruz",
         press_aliases=["Charcón"],
     ),
     SimpleNamespace(
-        id=85, name="Playa Grande", municipality="Arico",
+        id=85,
+        name="Playa Grande",
+        municipality="Arico",
     ),
     # "El Charcón" real en otro municipio (homónimo del PM5 de Jardín)
     SimpleNamespace(
-        id=86, name="PLAYA CHARCON (EL) PM1", municipality="La Guancha",
+        id=86,
+        name="PLAYA CHARCON (EL) PM1",
+        municipality="La Guancha",
     ),
 ]
 
@@ -89,9 +99,7 @@ def ext(beach_name, municipality=None, **kw):
 
 
 def ids(ext_obj, beaches=BEACHES, title=""):
-    return sorted(
-        b.id for b in match_beaches(ext_obj, beaches, title=title)
-    )
+    return sorted(b.id for b in match_beaches(ext_obj, beaches, title=title))
 
 
 def test_exact_name_match_without_municipality():
@@ -116,11 +124,14 @@ def test_llm_wrong_municipality_rejected():
     # Regresión real: "Cierre de Playa del Cabezo y Paseo de las
     # Palmeras por aguas residuales" (Güímar) fue adjudicada a
     # Granadilla por deducción del LLM — el titular no lo nombra
-    assert ids(
-        ext("Playa del Cabezo", "Granadilla de Abona"),
-        title="Cierre de Playa del Cabezo y Paseo de las Palmeras "
-              "por aguas residuales",
-    ) == []
+    assert (
+        ids(
+            ext("Playa del Cabezo", "Granadilla de Abona"),
+            title="Cierre de Playa del Cabezo y Paseo de las Palmeras "
+            "por aguas residuales",
+        )
+        == []
+    )
 
 
 def test_multi_pm_same_beach_returns_all():
@@ -187,8 +198,7 @@ def test_multi_beach_headline_matches_each():
     # sea genérico (caso real: "Se cierran dos playas en Tenerife")
     assert ids(
         ext("El Socorro y El Médano"),
-        title="Se cierran dos playas en Tenerife por contaminación "
-              "fecal",
+        title="Se cierran dos playas en Tenerife por contaminación fecal",
     ) == [30, 40]
     # Una parte ambigua entre municipios se descarta, la otra casa
     assert ids(
@@ -213,7 +223,7 @@ def test_alias_same_base_complex_matches_all_pms():
     assert ids(
         ext("Playa Grande y Charcón", "Puerto de la Cruz"),
         title="Puerto de la Cruz vuelve a cerrar dos de sus playas "
-              "por contaminación",
+        "por contaminación",
     ) == [41, 42]
     # Sin municipio la "Playa Grande" de Arico mantiene la
     # ambigüedad homónima → no casa
@@ -226,7 +236,7 @@ def test_title_scan_rescues_real_name_inside_title():
     assert ids(
         ext("Playa Grande", "Puerto de la Cruz"),
         title="Cierre temporal al baño de Playa Grande en Playa "
-              "Jardín, en Puerto de la Cruz",
+        "Jardín, en Puerto de la Cruz",
     ) == [1, 41, 42]
 
 

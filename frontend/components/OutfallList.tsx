@@ -198,11 +198,7 @@ export default function OutfallList({
   }, [outfalls, query, status, municipality, natureF]);
 
   return (
-    <Modal
-      animationType="slide"
-      visible={visible}
-      onRequestClose={onClose}
-    >
+    <Modal animationType="slide" visible={visible} onRequestClose={onClose}>
       <View style={styles.container}>
         <ImageBackground
           source={require('../assets/gradient-sea.png')}
@@ -232,7 +228,9 @@ export default function OutfallList({
                 } sin autorizar · ${zecTotal} en zona protegida · ${highTotal} de riesgo alto`}
           </Text>
           {!municipality && (
-            <Text style={styles.source}>Censo Tierra-Mar 2025 (Gob. Canarias)</Text>
+            <Text style={styles.source}>
+              Censo Tierra-Mar 2025 (Gob. Canarias)
+            </Text>
           )}
         </ImageBackground>
 
@@ -258,99 +256,99 @@ export default function OutfallList({
           style={styles.filterBar}
           imageStyle={styles.filterBarImg}
         >
-        <ScrollChips
-          style={styles.chips}
-          contentContainerStyle={styles.chipsContent}
-          fadeRgbLeft="140,216,230"
-          fadeRgbRight="242,251,253"
-        >
-          <Pressable
-            style={({ pressed }) => [
-              styles.chip,
-              status === undefined && styles.chipActive,
-              pressed && styles.pressFx,
-            ]}
-            onPress={() => setStatus(undefined)}
+          <ScrollChips
+            style={styles.chips}
+            contentContainerStyle={styles.chipsContent}
+            fadeRgbLeft="140,216,230"
+            fadeRgbRight="242,251,253"
           >
-            <Text
-              style={[
-                styles.chipText,
-                status === undefined && styles.chipTextActive,
-              ]}
-            >
-              Todos ({scopedTotal})
-            </Text>
-          </Pressable>
-          {(['illegal', 'unknown', 'legal'] as const).map((s) => (
             <Pressable
-              key={s}
               style={({ pressed }) => [
                 styles.chip,
-                status === s && styles.chipActive,
+                status === undefined && styles.chipActive,
                 pressed && styles.pressFx,
               ]}
-              onPress={() => setStatus(status === s ? undefined : s)}
+              onPress={() => setStatus(undefined)}
             >
               <Text
                 style={[
                   styles.chipText,
-                  status === s && styles.chipTextActive,
+                  status === undefined && styles.chipTextActive,
                 ]}
               >
-                {STATUS_PLURALS[s]} ({counts[s] ?? 0})
+                Todos ({scopedTotal})
               </Text>
             </Pressable>
-          ))}
-        </ScrollChips>
-        <View style={styles.filterBarDivider} />
-        <ScrollChips
-          style={styles.chips}
-          contentContainerStyle={styles.chipsContent}
-          fadeRgbLeft="140,216,230"
-          fadeRgbRight="242,251,253"
-        >
-          <Pressable
-            style={({ pressed }) => [
-              styles.chip,
-              municipality === undefined && styles.chipActive,
-              pressed && styles.pressFx,
-            ]}
-            onPress={() => setMunicipality(undefined)}
+            {(['illegal', 'unknown', 'legal'] as const).map((s) => (
+              <Pressable
+                key={s}
+                style={({ pressed }) => [
+                  styles.chip,
+                  status === s && styles.chipActive,
+                  pressed && styles.pressFx,
+                ]}
+                onPress={() => setStatus(status === s ? undefined : s)}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    status === s && styles.chipTextActive,
+                  ]}
+                >
+                  {STATUS_PLURALS[s]} ({counts[s] ?? 0})
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollChips>
+          <View style={styles.filterBarDivider} />
+          <ScrollChips
+            style={styles.chips}
+            contentContainerStyle={styles.chipsContent}
+            fadeRgbLeft="140,216,230"
+            fadeRgbRight="242,251,253"
           >
-            <Text
-              style={[
-                styles.chipText,
-                municipality === undefined && styles.chipTextActive,
-              ]}
-            >
-              Todos los municipios
-            </Text>
-          </Pressable>
-          {municipalities.map((m) => (
             <Pressable
-              key={m}
               style={({ pressed }) => [
                 styles.chip,
-                municipality === m && styles.chipActive,
+                municipality === undefined && styles.chipActive,
                 pressed && styles.pressFx,
               ]}
-              onPress={() =>
-                setMunicipality(municipality === m ? undefined : m)
-              }
+              onPress={() => setMunicipality(undefined)}
             >
               <Text
                 style={[
                   styles.chipText,
-                  municipality === m && styles.chipTextActive,
+                  municipality === undefined && styles.chipTextActive,
                 ]}
               >
-                {m} ({muniCounts[m] ?? 0})
+                Todos los municipios
               </Text>
             </Pressable>
-          ))}
-        </ScrollChips>
-        <View style={styles.filterBarDivider} />
-        {/* Tercera fila: qué se vierte — la lista sale ya ordenada
+            {municipalities.map((m) => (
+              <Pressable
+                key={m}
+                style={({ pressed }) => [
+                  styles.chip,
+                  municipality === m && styles.chipActive,
+                  pressed && styles.pressFx,
+                ]}
+                onPress={() =>
+                  setMunicipality(municipality === m ? undefined : m)
+                }
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    municipality === m && styles.chipTextActive,
+                  ]}
+                >
+                  {m} ({muniCounts[m] ?? 0})
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollChips>
+          <View style={styles.filterBarDivider} />
+          {/* Tercera fila: qué se vierte — la lista sale ya ordenada
             de más preocupante a menos */}
         <ScrollChips
           style={styles.chips}
@@ -394,10 +392,7 @@ export default function OutfallList({
             const p = f.properties;
             return (
               <Pressable
-                style={({ pressed }) => [
-                  styles.row,
-                  pressed && styles.pressFx,
-                ]}
+                style={({ pressed }) => [styles.row, pressed && styles.pressFx]}
                 onPress={() => onSelect(f)}
               >
                 <View style={styles.rowText}>
@@ -465,9 +460,7 @@ export default function OutfallList({
               </Pressable>
             );
           }}
-          ListEmptyComponent={
-            <Text style={styles.empty}>Sin resultados</Text>
-          }
+          ListEmptyComponent={<Text style={styles.empty}>Sin resultados</Text>}
         />
       </View>
     </Modal>
@@ -485,8 +478,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop:
-      (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) +
-      10,
+      (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 24) + 10,
     paddingBottom: 12,
   },
   headerRow: {

@@ -100,10 +100,7 @@ const QUALITY_THRESHOLDS: Record<
   enterococci: { excellent: 100, good: 200, label: 'Enterococo' },
 };
 
-const classifyValue = (
-  param: 'ecoli' | 'enterococci',
-  raw: string | null,
-) => {
+const classifyValue = (param: 'ecoli' | 'enterococci', raw: string | null) => {
   const value = parseFloat(raw ?? '');
   if (Number.isNaN(value)) return null;
   const t = QUALITY_THRESHOLDS[param];
@@ -312,10 +309,7 @@ const newsTopicKeys = (cause: string | null) => {
 // titular más reciente (items llegan ordenados desc por fecha).
 // Familias distintas combinan ("E. coli y vertido de hidrocarburos");
 // enterococos + E. coli son parámetros hermanos → frase combinada
-const newsGroupPhrase = (
-  type: string,
-  items: BeachNews[],
-): string | null => {
+const newsGroupPhrase = (type: string, items: BeachNews[]): string | null => {
   if (type === 'reopening') return 'mejora la calidad del agua';
   const fams = new Map<
     string,
@@ -352,8 +346,7 @@ const newsGroupPhrase = (
     const [winner] = [...votes.entries()].reduce((a, b) => {
       const [ta, tb] = [topic(a[0]), topic(b[0])];
       if (ta.rank !== tb.rank) return ta.rank < tb.rank ? a : b;
-      if (a[1].count !== b[1].count)
-        return a[1].count > b[1].count ? a : b;
+      if (a[1].count !== b[1].count) return a[1].count > b[1].count ? a : b;
       return a[1].firstIdx < b[1].firstIdx ? a : b;
     });
     const t = topic(winner);
@@ -370,8 +363,8 @@ const newsGroupPhrase = (
   // Sin tema catalogado: la causa cruda más reciente informa mejor
   // que nada — salvo no-causas ("avance del mar" en Punta Larga)
   return (
-    items.find((n) => n.cause && !NEWS_NON_CAUSE_RE.test(n.cause))
-      ?.cause ?? null
+    items.find((n) => n.cause && !NEWS_NON_CAUSE_RE.test(n.cause))?.cause ??
+    null
   );
 };
 
@@ -404,8 +397,7 @@ function groupNewsItems(items: BeachNews[]): NewsGroup[] {
   }
   return [...byType.entries()]
     .sort(
-      (a, b) =>
-        NEWS_GROUP_ORDER.indexOf(a[0]) - NEWS_GROUP_ORDER.indexOf(b[0]),
+      (a, b) => NEWS_GROUP_ORDER.indexOf(a[0]) - NEWS_GROUP_ORDER.indexOf(b[0]),
     )
     .map(([type, groupItems]) => {
       const phrase = newsGroupPhrase(type, groupItems);
@@ -513,9 +505,7 @@ export default function BeachDetail({
   // Varias filas del historial pueden estar abiertas a la vez — en
   // acordeón, abrir la fila 2 cerraba la 1, el contenido se encogía
   // ~9 titulares por encima del dedo y el scroll saltaba al fondo
-  const [openIncs, setOpenIncs] = useState<ReadonlySet<number>>(
-    new Set(),
-  );
+  const [openIncs, setOpenIncs] = useState<ReadonlySet<number>>(new Set());
   const toggleInc = (id: number) =>
     setOpenIncs((s) => {
       const next = new Set(s);
@@ -527,7 +517,6 @@ export default function BeachDetail({
     'ecoli',
   );
   const [chartW, setChartW] = useState(0);
-
 
   useEffect(() => {
     setIncidents(null);
@@ -582,9 +571,7 @@ export default function BeachDetail({
     const rows = [...quality]
       .reverse()
       .map((m) => ({ date: m.sampled_at, value: numValue(m[chartParam]) }))
-      .filter(
-        (d): d is { date: string; value: number } => d.value !== null,
-      );
+      .filter((d): d is { date: string; value: number } => d.value !== null);
     // Etiqueta de año bajo la primera barra de cada año; yearSpan =
     // barras del año para decidir si la etiqueta cabe sin solaparse
     let lastYear = '';
@@ -630,15 +617,10 @@ export default function BeachDetail({
   } | null>(() => {
     if (!quality || quality.length < 2) return null;
     const dates = quality.map((m) => m.sampled_at).sort();
-    const sampledMonths = new Set(
-      dates.map((d) => Number(d.slice(5, 7))),
-    );
+    const sampledMonths = new Set(dates.map((d) => Number(d.slice(5, 7))));
     const gaps: { a: string; b: string; open: boolean }[] = [];
     for (let i = 1; i < dates.length; i++) {
-      if (
-        (Date.parse(dates[i]) - Date.parse(dates[i - 1])) / 86400000 >
-        45
-      ) {
+      if ((Date.parse(dates[i]) - Date.parse(dates[i - 1])) / 86400000 > 45) {
         gaps.push({ a: dates[i - 1], b: dates[i], open: false });
       }
     }
@@ -677,9 +659,7 @@ export default function BeachDetail({
       const my = (iso: string) =>
         fmtPartialDate(iso.slice(0, 7)).replace('-', ' ');
       const parts = anomalous.map((g) =>
-        g.open
-          ? `desde ${my(g.a)}`
-          : `entre ${my(g.a)} y ${my(g.b)}`,
+        g.open ? `desde ${my(g.a)}` : `entre ${my(g.a)} y ${my(g.b)}`,
       );
       return {
         text: `Anomalía: sin muestras ${parts.join(' · ')}`,
@@ -700,8 +680,6 @@ export default function BeachDetail({
     };
   }, [quality]);
 
-
-
   // Emisarios como marcadores de la foto satélite: su posición real se
   // proyecta al encuadre dentro de SatelliteShot
   const shotMarkers = useMemo(
@@ -711,7 +689,8 @@ export default function BeachDetail({
         return {
           id: o.id,
           coords: o.geometry.coordinates as [number, number],
-          color: colors.outfall[s as keyof typeof colors.outfall] ??
+          color:
+            colors.outfall[s as keyof typeof colors.outfall] ??
             colors.status.unknown,
           icon: require('../assets/icons/icon-faucet-sil.png'),
         };
@@ -793,13 +772,14 @@ export default function BeachDetail({
   // Con cierre activo el "por qué" es lo primero que importa:
   // el banner de prensa sube bajo el chip, como en la landing /b/{id}
   const alertActive = beachKey === 'closed';
-  const press = news !== null && news.items.length > 0
-    ? pressSummary(news.summary, {
-        stillClosed: pressStillClosed || pressEpisodeOpen,
-        reopenedAt: pressReopenedAt,
-        siblingPm: news.summary.attributed_pm,
-      })
-    : null;
+  const press =
+    news !== null && news.items.length > 0
+      ? pressSummary(news.summary, {
+          stillClosed: pressStillClosed || pressEpisodeOpen,
+          reopenedAt: pressReopenedAt,
+          siblingPm: news.summary.attributed_pm,
+        })
+      : null;
   const pressReopened = press?.tone === 'reopened';
   // El banner solo enseña los titulares del episodio que narra
   // (episode_items = último clúster de cobertura): una reapertura
@@ -859,9 +839,7 @@ export default function BeachDetail({
         <>
           <NewsGroupList
             groups={bannerGroups}
-            accentOverride={
-              pressReopened ? colors.status.open : undefined
-            }
+            accentOverride={pressReopened ? colors.status.open : undefined}
           />
           <Text style={styles.chartFoot}>
             Contexto de prensa: no altera el estado oficial (Náyade)
@@ -941,10 +919,7 @@ export default function BeachDetail({
         </View>
         <Pressable
           onPress={share}
-          style={({ pressed }) => [
-            styles.shareBtn,
-            pressed && styles.pressFx,
-          ]}
+          style={({ pressed }) => [styles.shareBtn, pressed && styles.pressFx]}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel="Compartir estado de la playa"
@@ -1060,8 +1035,7 @@ export default function BeachDetail({
                 1,
                 Math.round(
                   (Date.parse(
-                    inc.closed_at ??
-                      new Date().toISOString().slice(0, 10),
+                    inc.closed_at ?? new Date().toISOString().slice(0, 10),
                   ) -
                     Date.parse(inc.opened_at)) /
                     86400000,
@@ -1096,16 +1070,11 @@ export default function BeachDetail({
                           // muestra — solo el día del cierre
                           fmtDate(inc.opened_at)
                         : `${fmtDate(inc.opened_at)} → ${
-                            inc.closed_at
-                              ? fmtDate(inc.closed_at)
-                              : 'hoy'
+                            inc.closed_at ? fmtDate(inc.closed_at) : 'hoy'
                           } · ${formatDays(days)}`}
                     </Text>
                     <View
-                      style={[
-                        styles.incidentTag,
-                        { backgroundColor: accent },
-                      ]}
+                      style={[styles.incidentTag, { backgroundColor: accent }]}
                     >
                       <Text style={styles.incidentTagText}>{tag}</Text>
                     </View>
@@ -1274,9 +1243,7 @@ export default function BeachDetail({
           <Skeleton style={{ width: 150, height: 13 }} />
           <Skeleton style={{ width: '92%', height: 10, marginTop: 10 }} />
           <Skeleton style={{ width: '78%', height: 10, marginTop: 8 }} />
-          <Skeleton
-            style={{ width: '100%', height: CHART_H, marginTop: 12 }}
-          />
+          <Skeleton style={{ width: '100%', height: CHART_H, marginTop: 12 }} />
           <Skeleton style={{ width: '60%', height: 10, marginTop: 14 }} />
         </View>
       )}
@@ -1317,9 +1284,7 @@ export default function BeachDetail({
                           ]}
                         />
                       </View>
-                      <Text
-                        style={[styles.paramClass, { color: info.color }]}
-                      >
+                      <Text style={[styles.paramClass, { color: info.color }]}>
                         {info.cls} · {info.pct}% del límite
                       </Text>
                     </>
@@ -1331,16 +1296,13 @@ export default function BeachDetail({
           {beachKey === 'open' &&
           /prohib|calificar/i.test(quality[0].evaluation ?? '') ? (
             <Text style={styles.staleNote}>
-              El incidente oficial ya está cerrado · pendiente de nueva
-              muestra
+              El incidente oficial ya está cerrado · pendiente de nueva muestra
             </Text>
           ) : null}
           {sampleNote ? (
             <Text
               style={
-                sampleNote.anomalous
-                  ? styles.gapNoteAnomaly
-                  : styles.gapNote
+                sampleNote.anomalous ? styles.gapNoteAnomaly : styles.gapNote
               }
             >
               {sampleNote.text}
