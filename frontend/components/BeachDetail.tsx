@@ -290,7 +290,9 @@ export default function BeachDetail({
         detailCenter={[lon, lat]}
         centerColor={statusColor}
         centerLabel={
-          beachPointLabel(p.name)?.replace(/PM(\d+)/, '$1') ?? undefined
+          (members?.length ?? 0) > 1
+            ? (beachPointLabel(p.name)?.replace(/PM(\d+)/, '$1') ?? undefined)
+            : undefined
         }
         markers={[
           ...shotMarkers,

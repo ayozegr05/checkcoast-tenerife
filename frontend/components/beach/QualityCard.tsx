@@ -33,7 +33,7 @@ export default function QualityCard({
           name="flask"
           size={20}
           color="#00897b"
-          style={[styles.secVectorIcon, { marginBottom: 3 }]}
+          style={[styles.secVectorIcon, { marginBottom: 2.7 }]}
         />
         <Text style={styles.secCardTitle}>
           Calidad del agua · {fmtDate(quality[0].sampled_at)}

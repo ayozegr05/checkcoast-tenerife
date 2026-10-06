@@ -142,6 +142,11 @@ type CoastMapProps = {
   // Abre el panel de municipios en la vista Temporada (enlace del
   // banner de alertas)
   onOpenTemporada?: () => void;
+  // La ficha expandida tapa los botones flotantes (satélite, brújula,
+  // capas): se desactivan para que un toque sobre la ficha — la ✕
+  // queda justo sobre el botón satélite — cierre la card en vez de
+  // pulsar el botón tapado
+  controlsCovered?: boolean;
 };
 
 const OUTFALL_COLORS = colors.outfall;
@@ -164,6 +169,7 @@ export default function CoastMap({
   onOpenHelp,
   episodes = [],
   onOpenTemporada,
+  controlsCovered = false,
 }: CoastMapProps) {
   const [satellite, setSatellite] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1150,12 +1156,14 @@ export default function CoastMap({
           debajo de la topbar — gesto de "capas" tipo Google Maps,
           icono fijo (el propio mapa ya muestra el estado) */}
       <Pressable
+        pointerEvents={controlsCovered ? 'none' : 'auto'}
         style={({ pressed }) => [
           styles.satBtn,
           (alertsOpen || layersOpen) && styles.ctrlBtnDisabled,
+          controlsCovered && styles.ctrlHidden,
           pressed && styles.pressFx,
         ]}
-        disabled={alertsOpen || layersOpen}
+        disabled={alertsOpen || layersOpen || controlsCovered}
         onPress={() => setSatellite((v) => !v)}
         accessibilityRole="button"
         accessibilityLabel={
@@ -1171,12 +1179,14 @@ export default function CoastMap({
 
       {/* Brujula: reorienta el mapa al norte (como en Google Maps) */}
       <Pressable
+        pointerEvents={controlsCovered ? 'none' : 'auto'}
         style={({ pressed }) => [
           styles.compassBtn,
           (alertsOpen || layersOpen) && styles.ctrlBtnDisabled,
+          controlsCovered && styles.ctrlHidden,
           pressed && styles.pressFx,
         ]}
-        disabled={alertsOpen || layersOpen}
+        disabled={alertsOpen || layersOpen || controlsCovered}
         onPress={() =>
           cameraRef.current?.easeTo({
             center: lastView.current.center,
@@ -1195,7 +1205,13 @@ export default function CoastMap({
 
       {/* Capas: abre el panel de checkboxes por estado */}
       <Pressable
-        style={({ pressed }) => [styles.layersBtn, pressed && styles.pressFx]}
+        pointerEvents={controlsCovered ? 'none' : 'auto'}
+        style={({ pressed }) => [
+          styles.layersBtn,
+          controlsCovered && styles.ctrlHidden,
+          pressed && styles.pressFx,
+        ]}
+        disabled={controlsCovered}
         onPress={() => {
           const next = !layersOpen;
           closeSearch();
@@ -1312,5 +1328,10 @@ const styles = StyleSheet.create({
   // (alertas/capas) — se ven muertos, no se pueden pulsar
   ctrlBtnDisabled: {
     opacity: 0.4,
+  },
+  // Cubiertos por la ficha expandida: invisibles y sin toques — un
+  // tap sobre la card no debe llegar al botón oculto debajo
+  ctrlHidden: {
+    opacity: 0,
   },
 });

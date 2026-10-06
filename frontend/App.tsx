@@ -109,6 +109,10 @@ export default function App() {
   // playa simple): el mapa sube un poco el encuadre para que los
   // dots respiren por encima de la ficha
   const [zoneShown, setZoneShown] = useState<GeoFeature | null>(null);
+  // La ficha tapa los botones flotantes del mapa (satélite, brújula,
+  // capas) — se desactivan para que la ✕ no pulse el botón de
+  // satélite que queda debajo
+  const [sheetCoversControls, setSheetCoversControls] = useState(false);
   // Doble atrás para salir: marca temporal del último atrás en el mapa
   const lastBackRef = useRef(0);
 
@@ -473,6 +477,7 @@ export default function App() {
         }
         pmPoints={pmPointsFC}
         zoneFocus={zoneShown}
+        controlsCovered={sheetCoversControls && !!selection && !sheetHidden}
         onSelect={(s) => {
           setSelection(s);
           setSheetHidden(false);
@@ -645,6 +650,7 @@ export default function App() {
           }
           onSelectBeach={(f) => openBeachPin(f, selection)}
           onZoneShown={setZoneShown}
+          onCoverageChange={setSheetCoversControls}
           onViewOnMap={() => {
             // Ocultar la card pero mantener la selección: el pin sigue
             // destacado y el mapa vuela cerca del punto

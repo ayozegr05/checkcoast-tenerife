@@ -32,7 +32,7 @@ export default function NearbyOutfalls({
           source={require('../../assets/icons/icon-faucet.png')}
           style={[
             styles.secIcon,
-            { tintColor: colors.primaryDark, marginBottom: -1 },
+            { tintColor: colors.primaryDark, marginBottom: -0.8 },
           ]}
         />
         <Text style={styles.secCardTitle}>Emisarios cercanos</Text>

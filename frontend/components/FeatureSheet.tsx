@@ -339,6 +339,7 @@ export default function FeatureSheet({
   onSelectOutfall,
   onSelectBeach,
   onZoneShown,
+  onCoverageChange,
 }: {
   selection: Selection;
   onClose: () => void;
@@ -358,6 +359,11 @@ export default function FeatureSheet({
   // el mapa la usa para subir un poco el encuadre y que los dots
   // respiren por encima de la ficha
   onZoneShown?: (zone: GeoFeature | null) => void;
+  // Cuando la ficha tapa los botones flotantes del mapa (satélite,
+  // brújula, capas) el mapa los desactiva para que la ✕ siempre
+  // cierre — se calcula por geometría, no solo por "expandida":
+  // en pantallas bajas la ficha en reposo ya puede cubrirlos
+  onCoverageChange?: (coversControls: boolean) => void;
 }) {
   const { feature } = selection;
   const p = feature.properties;
@@ -425,12 +431,14 @@ export default function FeatureSheet({
   // ~55%, así que "Ver más" no expandía de verdad.
   const NAV_INSET = Platform.OS === 'android' ? 30 : 0;
   const CARD_BOTTOM = 14 + NAV_INSET; // flota sobre la barra de gestos
-  // La topbar y la columna de botones flotantes (satélite 112-146,
-  // brújula 152-186, capas 192-226) quedan siempre VISIBLES y
-  // pulsables: con margen 118 la card expandida tapaba la mitad baja
-  // del botón satélite — la ✕ le caía encima y el toque activaba la
-  // vista satélite en vez de cerrar
-  const TOP_MARGIN = 234;
+  // La topbar queda siempre visible: la card ni en expandido la tapa.
+  // La columna de botones flotantes (satélite/brújula/capas) SÍ queda
+  // tapada al expandir — CoastMap los desactiva vía onExpandChange
+  const TOP_MARGIN = 118;
+  // Borde inferior de la columna de botones flotantes del mapa
+  // (capas: top 192/176 + ~34 de alto): si el borde superior de la
+  // ficha queda por encima, los tapa
+  const CONTROLS_BOTTOM = Platform.OS === 'android' ? 230 : 214;
   const CARD_MAX = Math.round(winH - CARD_BOTTOM - TOP_MARGIN);
   const HEADER_H = 64; // asa + titulo aprox
   // Peek tope ~52% de pantalla: fichas con mucha info abren a media
@@ -460,6 +468,16 @@ export default function FeatureSheet({
   const closing = useRef(false);
   // Estado espejo de expanded para re-render (el ref no dispara render)
   const [isExpanded, setIsExpanded] = useState(false);
+  // La ficha tapa los controles si su borde superior queda por encima
+  // del borde inferior de la columna de botones. Expandida siempre
+  // (top = TOP_MARGIN = 118); en reposo depende del alto de la ficha
+  // — en pantallas bajas el peek del 64% ya puede cubrirlos
+  const coversControls =
+    isExpanded || winH - restBottom - peek < CONTROLS_BOTTOM;
+  useEffect(
+    () => onCoverageChange?.(coversControls),
+    [coversControls, onCoverageChange],
+  );
   // Scroll del cuerpo: BeachDetail lo usa para bajar a "Ver titulares"
   const bodyRef = useRef<ScrollView>(null);
   // "Ver más" visible mientras quede contenido por debajo del viewport.
