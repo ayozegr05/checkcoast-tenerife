@@ -503,15 +503,12 @@ export default function CoastMap({
   // sobre la zona 5) y se mueve a las coordenadas reales de las
   // zonas que están cerradas o en aviso
   const alertPulse = useMemo<FeatureCollection>(() => {
-    if (!pmPoints || pmPoints.features.length === 0)
-      return visibleAlertBeaches;
+    if (!pmPoints || pmPoints.features.length === 0) return visibleAlertBeaches;
     const memberIds = new Set(pmPoints.features.map((f) => f.id));
     return {
       type: 'FeatureCollection',
       features: [
-        ...visibleAlertBeaches.features.filter(
-          (f) => !memberIds.has(f.id),
-        ),
+        ...visibleAlertBeaches.features.filter((f) => !memberIds.has(f.id)),
         ...pmPoints.features.filter(
           (f) =>
             (f.properties.status === 'closed' ||

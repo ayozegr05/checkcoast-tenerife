@@ -44,8 +44,7 @@ const RISK_COLORS: Record<string, string> = {
 // "residual urbana e industrial" y "residual industrial" aparte
 const natureGroup = (n?: string | null) => {
   const s = (n ?? '').toLowerCase();
-  if (s.includes('residual') && s.includes('industrial'))
-    return 'industrial';
+  if (s.includes('residual') && s.includes('industrial')) return 'industrial';
   if (s.includes('residual')) return 'fecal';
   if (s.includes('salmuera')) return 'salmuera';
   if (s.includes('pluvial')) return 'pluvial';
@@ -165,36 +164,36 @@ export default function OutfallList({
 
   const rows = useMemo(() => {
     const q = searchNorm(query);
-    return outfalls
-      .filter((f) => {
-        if (q && !searchNorm(f.properties.name).includes(q))
-          return false;
-        if (
-          status !== undefined &&
-          (f.properties.status ?? 'unknown') !== status
+    return (
+      outfalls
+        .filter((f) => {
+          if (q && !searchNorm(f.properties.name).includes(q)) return false;
+          if (
+            status !== undefined &&
+            (f.properties.status ?? 'unknown') !== status
+          )
+            return false;
+          if (
+            municipality !== undefined &&
+            f.properties.municipality !== municipality
+          )
+            return false;
+          if (natureF === 'zec') return !!f.properties.protected_area;
+          if (natureF === 'orilla') {
+            const s = f.properties.shore_m;
+            return s != null && s < 50;
+          }
+          if (natureF !== undefined)
+            return natureGroup(f.properties.nature) === natureF;
+          return true;
+        })
+        // De más preocupante a menos — índice compartido con la ficha
+        .sort(
+          (a, b) =>
+            outfallRisk(b.properties).score - outfallRisk(a.properties).score ||
+            a.properties.name.localeCompare(b.properties.name),
         )
-          return false;
-        if (
-          municipality !== undefined &&
-          f.properties.municipality !== municipality
-        )
-          return false;
-        if (natureF === 'zec') return !!f.properties.protected_area;
-        if (natureF === 'orilla') {
-          const s = f.properties.shore_m;
-          return s != null && s < 50;
-        }
-        if (natureF !== undefined)
-          return natureGroup(f.properties.nature) === natureF;
-        return true;
-      })
-      // De más preocupante a menos — índice compartido con la ficha
-      .sort(
-        (a, b) =>
-          outfallRisk(b.properties).score -
-            outfallRisk(a.properties).score ||
-          a.properties.name.localeCompare(b.properties.name),
-      );
+    );
   }, [outfalls, query, status, municipality, natureF]);
 
   return (
@@ -350,35 +349,35 @@ export default function OutfallList({
           <View style={styles.filterBarDivider} />
           {/* Tercera fila: qué se vierte — la lista sale ya ordenada
             de más preocupante a menos */}
-        <ScrollChips
-          style={styles.chips}
-          contentContainerStyle={styles.chipsContent}
-          fadeRgbLeft="140,216,230"
-          fadeRgbRight="242,251,253"
-        >
-          {NATURE_FILTERS.map((nf) => (
-            <Pressable
-              key={nf.key}
-              style={({ pressed }) => [
-                styles.chip,
-                natureF === nf.key && styles.chipActive,
-                pressed && styles.pressFx,
-              ]}
-              onPress={() =>
-                setNatureF(natureF === nf.key ? undefined : nf.key)
-              }
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  natureF === nf.key && styles.chipTextActive,
+          <ScrollChips
+            style={styles.chips}
+            contentContainerStyle={styles.chipsContent}
+            fadeRgbLeft="140,216,230"
+            fadeRgbRight="242,251,253"
+          >
+            {NATURE_FILTERS.map((nf) => (
+              <Pressable
+                key={nf.key}
+                style={({ pressed }) => [
+                  styles.chip,
+                  natureF === nf.key && styles.chipActive,
+                  pressed && styles.pressFx,
                 ]}
+                onPress={() =>
+                  setNatureF(natureF === nf.key ? undefined : nf.key)
+                }
               >
-                {nf.label} ({natureCounts[nf.key] ?? 0})
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollChips>
+                <Text
+                  style={[
+                    styles.chipText,
+                    natureF === nf.key && styles.chipTextActive,
+                  ]}
+                >
+                  {nf.label} ({natureCounts[nf.key] ?? 0})
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollChips>
         </ImageBackground>
 
         <FlatList
@@ -401,9 +400,7 @@ export default function OutfallList({
                   </Text>
                   <Text style={styles.rowSub}>
                     {f.properties.municipality ?? 'Sin municipio'}
-                    {f.properties.nature
-                      ? ` · ${f.properties.nature}`
-                      : ''}
+                    {f.properties.nature ? ` · ${f.properties.nature}` : ''}
                   </Text>
                   {/* Minibadges escaneables: avisos sin abrir la
                       ficha */}
@@ -411,8 +408,7 @@ export default function OutfallList({
                     {p.protected_area ? (
                       <Text style={styles.miniBadge}>🛡 ZEC</Text>
                     ) : null}
-                    {p.condition === 'Malo' ||
-                    p.condition === 'Precario' ? (
+                    {p.condition === 'Malo' || p.condition === 'Precario' ? (
                       <Text
                         style={[
                           styles.miniBadge,
@@ -428,9 +424,7 @@ export default function OutfallList({
                       </Text>
                     ) : null}
                     {p.start_lat != null ? (
-                      <Text style={styles.miniBadge}>
-                        ⤴ con recorrido
-                      </Text>
+                      <Text style={styles.miniBadge}>⤴ con recorrido</Text>
                     ) : null}
                   </View>
                 </View>
@@ -441,9 +435,7 @@ export default function OutfallList({
                       { backgroundColor: STATUS_COLORS[s] },
                     ]}
                   >
-                    <Text style={styles.badgeText}>
-                      {STATUS_LABELS[s]}
-                    </Text>
+                    <Text style={styles.badgeText}>{STATUS_LABELS[s]}</Text>
                   </View>
                   <View
                     style={[

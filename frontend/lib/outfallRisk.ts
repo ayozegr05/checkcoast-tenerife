@@ -13,9 +13,7 @@ export type OutfallRisk = {
   reasons: string[];
 };
 
-export function outfallRisk(
-  p: GeoFeature['properties'],
-): OutfallRisk {
+export function outfallRisk(p: GeoFeature['properties']): OutfallRisk {
   const n = (p.nature ?? '').toLowerCase();
   const o = (p.origin ?? '').toLowerCase();
   const weighted: [number, string][] = [];
@@ -41,8 +39,7 @@ export function outfallRisk(
         !pretreated &&
         /e[dt]a[rs]|depuradora|tratamiento/.test(o) &&
         !/ebar|bombeo|aliviadero|saneamiento|red/.test(o);
-      substance =
-        (treated ? 1 : 2) + (industrial ? 0.5 : 0);
+      substance = (treated ? 1 : 2) + (industrial ? 0.5 : 0);
       weighted.push([
         substance,
         pretreated
@@ -92,16 +89,13 @@ export function outfallRisk(
     (d != null && (d >= 0 || Math.abs(d) < 8)) ||
     (p.kind ?? '').includes('DPMT') ||
     (p.shore_m != null && p.shore_m < 50);
-  if (shallow && substance >= 1)
-    weighted.push([1, 'vierte en la orilla']);
+  if (shallow && substance >= 1) weighted.push([1, 'vierte en la orilla']);
 
   if (p.condition === 'Malo') weighted.push([1, 'estado malo']);
-  else if (p.condition === 'Precario')
-    weighted.push([0.5, 'estado precario']);
+  else if (p.condition === 'Precario') weighted.push([0.5, 'estado precario']);
 
   const score = weighted.reduce((s, [w]) => s + w, 0);
-  const level: RiskLevel =
-    score >= 5 ? 'alto' : score >= 3 ? 'medio' : 'bajo';
+  const level: RiskLevel = score >= 5 ? 'alto' : score >= 3 ? 'medio' : 'bajo';
   const reasons = weighted
     .sort((a, b) => b[0] - a[0])
     .slice(0, 3)

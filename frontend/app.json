@@ -52,10 +52,7 @@
               "pathPrefix": "/b"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
       "adaptiveIcon": {

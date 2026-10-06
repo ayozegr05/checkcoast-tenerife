@@ -134,8 +134,7 @@ describe('pressSummary — ciclo de vida del cierre', () => {
       },
     );
     expect(r.main).toBe(
-      'Cerrada por riesgo de desprendimientos\n' +
-        'desde 2024 · lleva ~2 años',
+      'Cerrada por riesgo de desprendimientos\n' + 'desde 2024 · lleva ~2 años',
     );
   });
 

@@ -22,11 +22,7 @@ import SatelliteShot from './SatelliteShot';
 import type { Selection } from './CoastMap';
 import type { GeoFeature } from '../lib/api';
 import { OutfallNearbyBeach, fetchOutfallNearbyBeaches } from '../lib/api';
-import {
-  beachBaseName,
-  pointLongLabel,
-  displayBeachName,
-} from '../lib/format';
+import { beachBaseName, pointLongLabel, displayBeachName } from '../lib/format';
 import { outfallRisk, RISK_LABEL } from '../lib/outfallRisk';
 import { colors, fonts } from '../lib/theme';
 
@@ -225,8 +221,7 @@ const natureParts = (
     desc: string | null;
     note: string;
   }[] = [];
-  const industrialOnly =
-    n.includes('industrial') && !n.includes('urbana');
+  const industrialOnly = n.includes('industrial') && !n.includes('urbana');
   if (n.includes('residual'))
     parts.push({
       src: pretreated
@@ -241,14 +236,13 @@ const natureParts = (
         : n.includes('industrial')
           ? 'aguas fecales, domésticas e industriales'
           : 'aguas fecales y domésticas',
-      desc: industrialOnly
-        ? 'químicos, hidrocarburos o metales'
-        : null,
+      desc: industrialOnly ? 'químicos, hidrocarburos o metales' : null,
       note: industrialOnly
         ? 'restos de la actividad de la planta — el impacto depende de la industria y su tratamiento.'
         : pretreated
           ? 'solo filtra lo grueso (sólidos, arenas y grasas) — el agua sale sin depurar.'
-          : 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',    });
+          : 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
+    });
   if (n.includes('salmuera')) {
     // La profundidad solo se convierte en aviso cuando es contundente:
     // un vertido somero llega al fondo casi sin diluir pase lo que
@@ -296,8 +290,7 @@ const natureParts = (
   // una sola basta la instalación para no repetir el heroValue
   const multi = parts.length > 1;
   return parts.map((p) => ({
-    label:
-      multi && p.src ? `${p.src} (${p.name})` : (p.src ?? p.name),
+    label: multi && p.src ? `${p.src} (${p.name})` : (p.src ?? p.name),
     desc: p.desc,
     note: p.note,
     colon: multi || !!p.desc,
@@ -595,9 +588,7 @@ export default function FeatureSheet({
     new Set(members.map((m) => stripPm(m.properties.name))).size === 1;
   const pmSuffix =
     chosenPm && sameBase
-      ? ` · Zona ${
-          chosenPm.properties.name.match(/PM(\d+)$/)?.[1] ?? ''
-        }`
+      ? ` · Zona ${chosenPm.properties.name.match(/PM(\d+)$/)?.[1] ?? ''}`
       : '';
   const muni = isBeach ? beachFeature.properties.municipality : null;
   const title =
@@ -819,9 +810,7 @@ export default function FeatureSheet({
                     >
                       {RISK_LABEL[risk.level]}
                     </Text>
-                    {risk.reasons.length
-                      ? ` — ${risk.reasons.join(', ')}`
-                      : ''}
+                    {risk.reasons.length ? ` — ${risk.reasons.join(', ')}` : ''}
                     .
                   </Text>
                 ) : null}
@@ -853,14 +842,9 @@ export default function FeatureSheet({
                       <View style={styles.secHead}>
                         <Image
                           source={require('../assets/icons/icon-faucet.png')}
-                          style={[
-                            styles.secIcon,
-                            { tintColor: colors.accent },
-                          ]}
+                          style={[styles.secIcon, { tintColor: colors.accent }]}
                         />
-                        <Text style={styles.secCardTitle}>
-                          Qué se vierte
-                        </Text>
+                        <Text style={styles.secCardTitle}>Qué se vierte</Text>
                       </View>
                       <Text style={styles.heroValue}>{p.nature}</Text>
                       {p.origin ? (
@@ -883,16 +867,14 @@ export default function FeatureSheet({
                             originLabel(p.origin).toLowerCase();
                         const desc = pt.desc
                           ? dup
-                            ? pt.desc[0].toUpperCase() +
-                              pt.desc.slice(1)
+                            ? pt.desc[0].toUpperCase() + pt.desc.slice(1)
                             : pt.desc
                           : null;
                         return (
                           <Text key={i} style={styles.heroNote}>
                             {dup ? null : (
                               <Text style={styles.heroRespStrong}>
-                                {pt.label[0].toUpperCase() +
-                                  pt.label.slice(1)}
+                                {pt.label[0].toUpperCase() + pt.label.slice(1)}
                                 {pt.colon ? ':' : ''}
                               </Text>
                             )}
@@ -902,8 +884,7 @@ export default function FeatureSheet({
                               </Text>
                             ) : null}
                             {dup && !desc
-                              ? pt.note[0].toUpperCase() +
-                                pt.note.slice(1)
+                              ? pt.note[0].toUpperCase() + pt.note.slice(1)
                               : pt.colon
                                 ? ` ${pt.note}`
                                 : ` — ${pt.note}`}
@@ -951,12 +932,7 @@ export default function FeatureSheet({
                 {placeText ? (
                   <Text style={styles.zoneDesc}>{placeText}</Text>
                 ) : null}
-                {conduitSegs(
-                  p.kind,
-                  p.shore_m,
-                  p.length_m,
-                  p.outfall_depth,
-                ) ? (
+                {conduitSegs(p.kind, p.shore_m, p.length_m, p.outfall_depth) ? (
                   <Text style={styles.row}>
                     {conduitSegs(
                       p.kind,
@@ -997,22 +973,14 @@ export default function FeatureSheet({
                 mapa */}
             {nearby.length > 0 ? (
               <View
-                style={[
-                  styles.secCard,
-                  { borderLeftColor: colors.accent },
-                ]}
+                style={[styles.secCard, { borderLeftColor: colors.accent }]}
               >
                 <View style={styles.secHead}>
                   <Image
                     source={require('../assets/icons/icon-wave.png')}
-                    style={[
-                      styles.secIcon,
-                      { tintColor: colors.accent },
-                    ]}
+                    style={[styles.secIcon, { tintColor: colors.accent }]}
                   />
-                  <Text style={styles.secCardTitle}>
-                    Playas cercanas
-                  </Text>
+                  <Text style={styles.secCardTitle}>Playas cercanas</Text>
                 </View>
                 <Text style={styles.nearSub}>
                   Si no las ves en el mapa, aleja el zoom
@@ -1060,12 +1028,7 @@ export default function FeatureSheet({
                       </View>
                       {/* Distancia como badge: columna escaneable,
                           mismo formato que "Emisarios cercanos" */}
-                      <Text
-                        style={[
-                          styles.nearestDist,
-                          { color: distColor },
-                        ]}
-                      >
+                      <Text style={[styles.nearestDist, { color: distColor }]}>
                         {fmtDistance(n.distance_m)}
                       </Text>
                       {beachTarget && onSelectBeach && (
@@ -1083,9 +1046,7 @@ export default function FeatureSheet({
                 enlace por transparencia */}
             {p.source_url ? (
               <Pressable
-                onPress={() =>
-                  p.source_url && Linking.openURL(p.source_url)
-                }
+                onPress={() => p.source_url && Linking.openURL(p.source_url)}
                 accessibilityRole="link"
                 accessibilityLabel="Abrir el censo oficial de vertidos"
                 style={({ pressed }) => [
@@ -1102,7 +1063,6 @@ export default function FeatureSheet({
         )}
       </ScrollView>
 
-
       {/* "Ver más": insinúa que hay contenido debajo. Aparece cuando el
           contenido no cabe en el viewport actual del ScrollView (aunque
           cupiera en la card expandida — el usuario aún no la ha
@@ -1111,10 +1071,7 @@ export default function FeatureSheet({
           abajo. */}
       {showMore && (
         <Pressable
-          style={({ pressed }) => [
-            styles.moreBtn,
-            pressed && styles.pressFx,
-          ]}
+          style={({ pressed }) => [styles.moreBtn, pressed && styles.pressFx]}
           onPress={() => {
             // Sin expandir la card: "Ver más" solo baja el contenido
             // una página (~85% del viewport) dentro de la misma altura
