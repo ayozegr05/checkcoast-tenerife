@@ -36,17 +36,15 @@ export async function setupPushNotifications(): Promise<void> {
   if (status !== 'granted') return;
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId as
-    | string
-    | undefined;
+    string | undefined;
   if (!projectId) {
     Alert.alert('Push debug', 'projectId no encontrado en expoConfig');
     return;
   }
 
   try {
-    const token = (
-      await Notifications.getExpoPushTokenAsync({ projectId })
-    ).data;
+    const token = (await Notifications.getExpoPushTokenAsync({ projectId }))
+      .data;
     await registerDevice(token, Platform.OS);
   } catch (e) {
     // DEBUG temporal: mostrar por qué falla el registro

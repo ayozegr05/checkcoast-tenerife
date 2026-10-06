@@ -1,12 +1,12 @@
 """Tests del parser de la pestaña Muestreos de Náyade."""
 
-from datetime import date
+from datetime import UTC, date
 
 from app.models import Beach, BeachState
 from scripts.ingest_beach_status import (
+    _derive_state,
     _foreign_municipality,
     _parse_pms,
-    _derive_state,
 )
 
 PM_TMPL = """
@@ -79,7 +79,13 @@ def test_closed_incident_is_closed():
         [
             (
                 "PLAYA TEST PM1",
-                [("02/09/2026", "", "Zona donde queda prohibido el baño temporalmente")],
+                [
+                    (
+                        "02/09/2026",
+                        "",
+                        "Zona donde queda prohibido el baño temporalmente",
+                    )
+                ],
             )
         ]
     )
@@ -103,7 +109,12 @@ def test_open_non_prohibition_incident_is_warning():
 
 def test_closed_incident_in_past_is_open():
     html = _html(
-        [("PLAYA TEST PM1", [("02/09/2026", "03/09/2026", "prohibido el baño")])]
+        [
+            (
+                "PLAYA TEST PM1",
+                [("02/09/2026", "03/09/2026", "prohibido el baño")],
+            )
+        ]
     )
     assert _states(html)["PLAYA TEST PM1"] == BeachState.open
 
@@ -122,7 +133,12 @@ def test_multiple_pms_independent_states():
 
 def test_incident_dates_and_observations_parsed():
     html = _html(
-        [("PLAYA TEST PM1", [("02/09/2026", "03/09/2026", "prohibido el baño")])]
+        [
+            (
+                "PLAYA TEST PM1",
+                [("02/09/2026", "03/09/2026", "prohibido el baño")],
+            )
+        ]
     )
     inc = _parse_pms(html)["PLAYA TEST PM1"].incidents[0]
     assert inc.opened == date(2026, 9, 2)
@@ -184,9 +200,7 @@ def test_ungraded_open_incident_is_not_an_alert():
     """Una incidencia abierta con solo 'Sin Calificar' tampoco alerta:
     es la traza administrativa de una muestra sin evaluar (o de una
     playa cerrada por el municipio — Gaviotas), no un aviso de agua."""
-    html = _html(
-        [("PLAYA TEST PM1", [("11/08/2026", "", "Sin Calificar")])]
-    )
+    html = _html([("PLAYA TEST PM1", [("11/08/2026", "", "Sin Calificar")])])
     assert _states(html)["PLAYA TEST PM1"] == BeachState.open
 
 
@@ -219,7 +233,9 @@ def test_incident_rows_are_not_measurements():
 def test_foreign_municipality_rejects_same_named_pm():
     """Un PM homónimo de otra zona no casa con la playa: evita que
     'Caleta de Negros' de otro municipio sobreescriba su estado."""
-    beach = Beach(name="Caleta de Negros", municipality="Santa Cruz de Tenerife")
+    beach = Beach(
+        name="Caleta de Negros", municipality="Santa Cruz de Tenerife"
+    )
     assert _foreign_municipality(beach, "Granadilla de Abona") is True
     assert _foreign_municipality(beach, "Santa Cruz de Tenerife") is False
 
@@ -232,32 +248,37 @@ def test_foreign_municipality_normalizes_article_forms():
 
 def test_foreign_municipality_unknown_side_does_not_filter():
     """Sin municipio en la playa o en la zona no se puede discriminar."""
-    assert _foreign_municipality(
-        Beach(name="X", municipality=None), "Adeje"
-    ) is False
-    assert _foreign_municipality(
-        Beach(name="X", municipality="Adeje"), ""
-    ) is False
+    assert (
+        _foreign_municipality(Beach(name="X", municipality=None), "Adeje")
+        is False
+    )
+    assert (
+        _foreign_municipality(Beach(name="X", municipality="Adeje"), "")
+        is False
+    )
 
 
 def test_superseded_by_reopening_stale_sample():
     """Muestra mala tomada ANTES de la reapertura de prensa: mismo
     episodio que Náyade publica tarde -> no cambia el estado."""
+    from datetime import datetime
     from types import SimpleNamespace
+
     from scripts.ingest_beach_status import _superseded_by_reopening
-    from datetime import datetime, timezone
 
     beach = SimpleNamespace(
         news_items=[
             SimpleNamespace(
                 relevant=True,
                 event_type="reopening",
-                published_at=datetime(2026, 9, 20, tzinfo=timezone.utc),
+                published_at=datetime(2026, 9, 20, tzinfo=UTC),
             )
         ]
     )
     meas = MEAS_ROW.format(
-        fecha="15/09/2026", ecoli="900", entero="500",
+        fecha="15/09/2026",
+        ecoli="900",
+        entero="500",
         obs="Zona donde queda prohibido el baño temporalmente",
     )
     pm = _parse_pms(
@@ -269,21 +290,24 @@ def test_superseded_by_reopening_stale_sample():
 def test_superseded_by_reopening_fresh_sample_closes():
     """Muestra mala tomada DESPUÉS de la reapertura: contaminación
     nueva, no es rezago -> el estado cambia a cerrada."""
+    from datetime import datetime
     from types import SimpleNamespace
+
     from scripts.ingest_beach_status import _superseded_by_reopening
-    from datetime import datetime, timezone
 
     beach = SimpleNamespace(
         news_items=[
             SimpleNamespace(
                 relevant=True,
                 event_type="reopening",
-                published_at=datetime(2026, 9, 20, tzinfo=timezone.utc),
+                published_at=datetime(2026, 9, 20, tzinfo=UTC),
             )
         ]
     )
     meas = MEAS_ROW.format(
-        fecha="25/09/2026", ecoli="900", entero="500",
+        fecha="25/09/2026",
+        ecoli="900",
+        entero="500",
         obs="Zona donde queda prohibido el baño temporalmente",
     )
     pm = _parse_pms(
@@ -296,9 +320,10 @@ def test_open_incident_single_source_not_stale():
     """Incidencia ABIERTA anterior a la reapertura + UNA sola fuente:
     un titular no puede abrir una prohibición vigente (Gaviotas:
     'obras PARA reabrir' mal clasificada)."""
+    from datetime import datetime
     from types import SimpleNamespace
+
     from scripts.ingest_beach_status import _superseded_by_reopening
-    from datetime import datetime, timezone
 
     beach = SimpleNamespace(
         news_items=[
@@ -306,7 +331,7 @@ def test_open_incident_single_source_not_stale():
                 relevant=True,
                 event_type="reopening",
                 source="El Día",
-                published_at=datetime(2026, 9, 20, tzinfo=timezone.utc),
+                published_at=datetime(2026, 9, 20, tzinfo=UTC),
             )
         ]
     )
@@ -321,9 +346,10 @@ def test_open_incident_corroborated_reopening_is_stale():
     """Incidencia ABIERTA anterior a la reapertura + >=2 medios
     distintos reportándola: reapertura corroborada, la incidencia es
     papeleo rezagado del mismo episodio -> se suprime."""
+    from datetime import datetime
     from types import SimpleNamespace
+
     from scripts.ingest_beach_status import _superseded_by_reopening
-    from datetime import datetime, timezone
 
     beach = SimpleNamespace(
         news_items=[
@@ -331,13 +357,13 @@ def test_open_incident_corroborated_reopening_is_stale():
                 relevant=True,
                 event_type="reopening",
                 source="El Día",
-                published_at=datetime(2026, 9, 20, tzinfo=timezone.utc),
+                published_at=datetime(2026, 9, 20, tzinfo=UTC),
             ),
             SimpleNamespace(
                 relevant=True,
                 event_type="reopening",
                 source="Diario de Avisos",
-                published_at=datetime(2026, 9, 19, tzinfo=timezone.utc),
+                published_at=datetime(2026, 9, 19, tzinfo=UTC),
             ),
         ]
     )
@@ -351,16 +377,17 @@ def test_open_incident_corroborated_reopening_is_stale():
 def test_open_incident_after_reopening_is_new_event():
     """Incidencia abierta DESPUÉS de la reapertura de prensa: evento
     nuevo, sí cambia el estado."""
+    from datetime import datetime
     from types import SimpleNamespace
+
     from scripts.ingest_beach_status import _superseded_by_reopening
-    from datetime import datetime, timezone
 
     beach = SimpleNamespace(
         news_items=[
             SimpleNamespace(
                 relevant=True,
                 event_type="reopening",
-                published_at=datetime(2026, 9, 20, tzinfo=timezone.utc),
+                published_at=datetime(2026, 9, 20, tzinfo=UTC),
             )
         ]
     )
@@ -374,11 +401,15 @@ def test_open_incident_after_reopening_is_new_event():
 def test_no_reopening_no_suppression():
     """Sin reapertura de prensa no hay supresión."""
     from types import SimpleNamespace
+
     from scripts.ingest_beach_status import _superseded_by_reopening
 
     beach = SimpleNamespace(news_items=[])
     meas = MEAS_ROW.format(
-        fecha="15/09/2026", ecoli="900", entero="500", obs="prohibido",
+        fecha="15/09/2026",
+        ecoli="900",
+        entero="500",
+        obs="prohibido",
     )
     pm = _parse_pms(
         PM_TMPL.format(name="PLAYA TEST PM1", rows="", meas_rows=meas)

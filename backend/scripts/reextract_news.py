@@ -28,12 +28,17 @@ from scripts.ingest_news import _enrich_with_body, _rematch_pending
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--max", type=int, default=40,
-                    help="tope de URLs distintas a procesar")
-    ap.add_argument("--all", action="store_true",
-                    help="incluir también las no relevantes")
-    ap.add_argument("--beach", default=None,
-                    help="solo ítems de playas cuyo nombre contiene TXT")
+    ap.add_argument(
+        "--max", type=int, default=40, help="tope de URLs distintas a procesar"
+    )
+    ap.add_argument(
+        "--all", action="store_true", help="incluir también las no relevantes"
+    )
+    ap.add_argument(
+        "--beach",
+        default=None,
+        help="solo ítems de playas cuyo nombre contiene TXT",
+    )
     args = ap.parse_args()
 
     if not settings.gemini_api_key:
@@ -78,7 +83,9 @@ def main() -> None:
 
         for url, rows in list(by_url.items())[: args.max]:
             art = RawArticle(
-                title=rows[0].title, url=url, source=rows[0].source,
+                title=rows[0].title,
+                url=url,
+                source=rows[0].source,
                 published_at=rows[0].published_at,
             )
             ext = extract_event(art, extractor)
@@ -86,7 +93,8 @@ def main() -> None:
                 continue  # fallo del proveedor: la fila queda como estaba
             hits = (
                 match_beaches(ext, beaches, title=art.title)
-                if ext.relevant else []
+                if ext.relevant
+                else []
             )
             ext, hits, used, verified = _enrich_with_body(
                 art,
@@ -122,9 +130,7 @@ def main() -> None:
                     # Reasignar sin violar (url, beach_id): las filas ya
                     # bien casadas se quedan; solo las que perdieron su
                     # playa se mueven a hits sin fila o quedan libres
-                    free_rows = [
-                        r for r in rows if r.beach_id not in hit_ids
-                    ]
+                    free_rows = [r for r in rows if r.beach_id not in hit_ids]
                     for beach in hits:
                         if any(r.beach_id == beach.id for r in rows):
                             continue

@@ -220,8 +220,7 @@ export const fetchMunicipalityIncidents = (municipality: string) =>
 // Episodios de toda la isla (oficiales + reconstruidos), una fila por
 // episodio agrupado por playa base + municipio — alimenta el resumen
 // anual, "Resueltas recientemente" y la vista Temporada
-export const fetchEpisodes = () =>
-  getJson<MunicipalityIncident[]>('/episodes');
+export const fetchEpisodes = () => getJson<MunicipalityIncident[]>('/episodes');
 export const fetchSampling = () => getJson<SamplingSummary>('/sampling');
 
 // URL pública compartible de una playa (mini-página OG del backend);

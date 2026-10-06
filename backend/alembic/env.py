@@ -1,10 +1,9 @@
 from logging.config import fileConfig
 
+from geoalchemy2 import alembic_helpers
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from geoalchemy2 import alembic_helpers
-
 from app.config import settings
 from app.models import Base
 
@@ -28,23 +27,52 @@ IGNORED_TABLES = {
     "spatial_ref_sys",
     "geocode_settings",
     "geocode_settings_default",
-    "addr", "addrfeat", "bg", "county", "county_lookup", "countysub_lookup",
-    "cousub", "direction_lookup", "edges", "faces", "featnames",
-    "loader_lookuptables", "loader_platform", "loader_variables",
-    "place", "place_lookup", "secondary_unit_lookup", "state",
-    "state_lookup", "street_type_lookup", "tabblock", "tabblock20",
-    "tract", "zcta5", "zip_lookup", "zip_lookup_all", "zip_lookup_base",
-    "zip_state", "zip_state_loc", "pagc_gaz", "pagc_lex", "pagc_rules",
-    "layer", "topology",
+    "addr",
+    "addrfeat",
+    "bg",
+    "county",
+    "county_lookup",
+    "countysub_lookup",
+    "cousub",
+    "direction_lookup",
+    "edges",
+    "faces",
+    "featnames",
+    "loader_lookuptables",
+    "loader_platform",
+    "loader_variables",
+    "place",
+    "place_lookup",
+    "secondary_unit_lookup",
+    "state",
+    "state_lookup",
+    "street_type_lookup",
+    "tabblock",
+    "tabblock20",
+    "tract",
+    "zcta5",
+    "zip_lookup",
+    "zip_lookup_all",
+    "zip_lookup_base",
+    "zip_state",
+    "zip_state_loc",
+    "pagc_gaz",
+    "pagc_lex",
+    "pagc_rules",
+    "layer",
+    "topology",
 }
 
 
 def include_object(obj, name, type_, reflected, compare_to):
     if reflected and (
-        getattr(obj, "schema", None) in IGNORED_SCHEMAS or name in IGNORED_TABLES
+        getattr(obj, "schema", None) in IGNORED_SCHEMAS
+        or name in IGNORED_TABLES
     ):
         return False
-    return alembic_helpers.include_object(obj, name, type_, reflected, compare_to)
+    return alembic_helpers.include_object(
+        obj, name, type_, reflected, compare_to
+    )
 
 
 def run_migrations_offline() -> None:

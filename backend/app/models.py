@@ -173,9 +173,7 @@ class BeachMeasurement(Base):
     """
 
     __tablename__ = "beach_measurements"
-    __table_args__ = (
-        UniqueConstraint("beach_id", "sampled_at"),
-    )
+    __table_args__ = (UniqueConstraint("beach_id", "sampled_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     beach_id: Mapped[int] = mapped_column(
@@ -242,9 +240,7 @@ class NewsItem(Base):
     # Push: el envío es fire-and-forget en la ingesta — estas marcas
     # permiten reintentar en la siguiente pasada lo que no salió
     push_pending: Mapped[bool] = mapped_column(default=False)
-    pushed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True)
-    )
+    pushed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     beach: Mapped[Beach] = relationship(
         back_populates="news_items", passive_deletes=True

@@ -7,9 +7,7 @@ import type { MunicipalityIncident } from './api';
 // Temporada de baño: 1 jun – 30 sep. Fuera de ese rango la temporada
 // de referencia es la del año anterior (ya cerrada).
 export const seasonYear = (today: Date = new Date()): number =>
-  today.getMonth() + 1 >= 6
-    ? today.getFullYear()
-    : today.getFullYear() - 1;
+  today.getMonth() + 1 >= 6 ? today.getFullYear() : today.getFullYear() - 1;
 
 // Episodios que SE SOLAPAN con la ventana [start, end] (ISO): los que
 // empezaron dentro Y los que venían abiertos de antes y seguían (o
@@ -21,24 +19,20 @@ const overlapping = (
   end: string,
 ): MunicipalityIncident[] =>
   eps.filter(
-    (e) =>
-      e.opened_at <= end &&
-      (e.closed_at === null || e.closed_at >= start),
+    (e) => e.opened_at <= end && (e.closed_at === null || e.closed_at >= start),
   );
 
 // Episodios que tocaron la temporada de baño (jun-sep) del año dado
 export const seasonEpisodes = (
   eps: MunicipalityIncident[],
   year: number = seasonYear(),
-): MunicipalityIncident[] =>
-  overlapping(eps, `${year}-06-01`, `${year}-09-30`);
+): MunicipalityIncident[] => overlapping(eps, `${year}-06-01`, `${year}-09-30`);
 
 // Episodios que tocaron el año natural (ene-dic) — la vista "Este año"
 export const yearEpisodes = (
   eps: MunicipalityIncident[],
   year: number = new Date().getFullYear(),
-): MunicipalityIncident[] =>
-  overlapping(eps, `${year}-01-01`, `${year}-12-31`);
+): MunicipalityIncident[] => overlapping(eps, `${year}-01-01`, `${year}-12-31`);
 
 // Años con algún episodio (selector de temporada/año): del más viejo
 // al actual — Benijo abrió en 2024 y sigue abierta, así que 2025 y
@@ -75,13 +69,10 @@ export const causeCounts = (
 
 // Desglose de causas de un conjunto de episodios:
 // "9 contaminación · 3 desprendimientos · 2 sin causa"
-export const causeBreakdown = (
-  eps: MunicipalityIncident[],
-): string =>
+export const causeBreakdown = (eps: MunicipalityIncident[]): string =>
   causeCounts(eps)
     .map(
-      ([cause, n]) =>
-        `${n} ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`,
+      ([cause, n]) => `${n} ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`,
     )
     .join(' · ');
 
@@ -113,16 +104,13 @@ export const recentlyResolved = (
     .toISOString()
     .slice(0, 10);
   return eps.filter(
-    (e) =>
-      e.closed_at !== null && !e.end_estimated && e.closed_at >= lim,
+    (e) => e.closed_at !== null && !e.end_estimated && e.closed_at >= lim,
   );
 };
 
 // Días naturales que duró (o lleva) un episodio, incluyendo el inicial
 export const episodeDays = (e: MunicipalityIncident): number => {
-  const end = e.closed_at
-    ? new Date(`${e.closed_at}T00:00:00Z`)
-    : new Date();
+  const end = e.closed_at ? new Date(`${e.closed_at}T00:00:00Z`) : new Date();
   return (
     Math.max(
       0,

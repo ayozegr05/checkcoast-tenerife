@@ -1,15 +1,5 @@
 from collections import Counter
-from datetime import date, datetime, timedelta, timezone
-
-_MESES = (
-    "ene", "feb", "mar", "abr", "may", "jun",
-    "jul", "ago", "sep", "oct", "nov", "dic",
-)
-
-
-def _mes(d: date) -> str:
-    """Mes abreviado + año para observaciones: jul 2024."""
-    return f"{_MESES[d.month - 1]} {d.year}"
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2 import Geography, Geometry
@@ -42,11 +32,11 @@ from app.models import (
 )
 from app.queries import (
     _CAUSE_RANK,
+    CONTAMINATION_CAUSES,
     _episode_params,
     _params_in_text,
     _press_cause,
     _short_cause,
-    CONTAMINATION_CAUSES,
     beaches_with_latest_status,
     effective_states,
     is_ungraded_note,
@@ -69,6 +59,26 @@ from app.schemas import (
 from app.security import require_admin
 
 router = APIRouter(tags=["beaches"])
+
+_MESES = (
+    "ene",
+    "feb",
+    "mar",
+    "abr",
+    "may",
+    "jun",
+    "jul",
+    "ago",
+    "sep",
+    "oct",
+    "nov",
+    "dic",
+)
+
+
+def _mes(d: date) -> str:
+    """Mes abreviado + año para observaciones: jul 2024."""
+    return f"{_MESES[d.month - 1]} {d.year}"
 
 
 @router.get("/beaches", response_model=FeatureCollection)
@@ -235,8 +245,7 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
             and _short_cause(it.cause) in CONTAMINATION_CAUSES
             and it.published_at
             and not any(
-                s <= it.published_at.date() <= e
-                for s, e in inc_windows
+                s <= it.published_at.date() <= e for s, e in inc_windows
             )
         )
         press_clusters = 0
@@ -414,17 +423,13 @@ def municipality_incidents(
     solapadas o a ≤14 días se fusionan sobre el nombre base); `beach_id`
     apunta al PM representativo — al abrir la ficha se ven los demás
     PMs del grupo."""
-    beaches = (
-        db.query(Beach).filter(Beach.municipality == municipality).all()
-    )
+    beaches = db.query(Beach).filter(Beach.municipality == municipality).all()
     out = _merged_episode_rows(_collect_episodes(beaches, date.today()))
     out.sort(key=lambda r: r.opened_at, reverse=True)
     return out
 
 
-def _collect_episodes(
-    beaches: list[Beach], today: date
-) -> list[Episode]:
+def _collect_episodes(beaches: list[Beach], today: date) -> list[Episode]:
     """Episodios crudos de un conjunto de playas: incidencias
     oficiales + eventos reconstruidos (analítica/prensa)."""
     episodes: list[Episode] = []
@@ -472,17 +477,18 @@ def _collect_episodes(
                     via=ev.via,
                     ref_id=synth_id,
                     obs=_synth_observations(ev),
-                    press_count=(
-                        ev.press_count if ev.via == "press" else 0
-                    ),
+                    press_count=(ev.press_count if ev.via == "press" else 0),
                     end_estimated=ev.end_estimated,
                     # prensa: voto de sus causas crudas; measurement:
                     # la analítica prohibida ES contaminación; un
                     # cierre de prensa sin razón extraída → sin causa
                     cause=(
                         _dominant_cause(ev.causes)
-                        or ("Contaminación" if ev.via == "measurement"
-                            else None)
+                        or (
+                            "Contaminación"
+                            if ev.via == "measurement"
+                            else None
+                        )
                     ),
                 )
             )
@@ -696,9 +702,7 @@ def _news_cause(items: list[NewsItem]) -> str | None:
     "/beaches/{beach_id}/news",
     response_model=BeachNewsOut,
 )
-def beach_news(
-    beach_id: int, db: Session = Depends(get_db)
-) -> BeachNewsOut:
+def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
     """Noticias de prensa ligadas a la playa, más reciente primero,
     más un resumen determinista (evento/causa dominantes + nº medios).
 
@@ -737,7 +741,8 @@ def beach_news(
     # reapertura 9-may → cierre 5-jun son dos episodios, el "desde" es
     # junio, no mayo)
     reopen_dates = sorted(
-        r.published_at for r in rows
+        r.published_at
+        for r in rows
         if r.event_type == "reopening" and r.published_at
     )
 
@@ -750,9 +755,7 @@ def beach_news(
     # pieza del 25-sep sobre el cierre del miércoles 23, publicada
     # tras la ola de reaperturas)
     closure_rows = [
-        r
-        for r in rows
-        if r.event_type == "closure" and r.published_at
+        r for r in rows if r.event_type == "closure" and r.published_at
     ]
     outlets_by_day: dict[date, set] = {}
     for r in closure_rows:
@@ -823,7 +826,7 @@ def beach_news(
                 since.date(), inc.opened_at, inc.closed_at, date.today()
             ):
                 opened = datetime.combine(
-                    inc.opened_at, datetime.min.time(), tzinfo=timezone.utc
+                    inc.opened_at, datetime.min.time(), tzinfo=UTC
                 )
                 if opened < since:
                     since = opened
@@ -834,9 +837,7 @@ def beach_news(
     # ya se resolvió, solo el último clúster (el episodio del banner)
     closed_since = None
     if dominant == "closure":
-        still_open = any(
-            e.via == "press" and e.closed_at is None for e in evs
-        )
+        still_open = any(e.via == "press" and e.closed_at is None for e in evs)
         if still_open:
             # Solo los cierres posteriores a la última reapertura: una
             # playa que reabrió de verdad no puede "seguir cerrada
@@ -848,9 +849,7 @@ def beach_news(
                 for r in rows
                 if r.event_type == "closure"
                 and r.published_at
-                and (
-                    last_reopen is None or r.published_at > last_reopen
-                )
+                and (last_reopen is None or r.published_at > last_reopen)
             ]
         else:
             pool = [
@@ -861,9 +860,7 @@ def beach_news(
                 and r.published_at
                 and r.published_at >= since
             ]
-        closed_since = _min_closed_since(
-            r.closed_since for r in pool
-        )
+        closed_since = _min_closed_since(r.closed_since for r in pool)
     # Titulares del ÚLTIMO episodio de cobertura: clúster encadenado
     # por fecha (hueco >PRESS_CLUSTER_GAP rompe), con cualquier tipo
     # de evento — la reapertura forma parte del episodio que cierra.
@@ -882,9 +879,7 @@ def beach_news(
             if r.published_at
             and (
                 r.event_type in ("warning", "pollution")
-                or (
-                    r.event_type == "closure" and _is_new_episode_closure(r)
-                )
+                or (r.event_type == "closure" and _is_new_episode_closure(r))
             )
         ),
         default=None,
@@ -914,7 +909,8 @@ def beach_news(
     episode_items = [
         r
         for r in ep_pool
-        if r.published_at and ep_start is not None
+        if r.published_at
+        and ep_start is not None
         and r.published_at >= ep_start
     ]
     return BeachNewsOut(
@@ -1024,7 +1020,9 @@ def set_beach_status(
 
 
 @router.get("/beaches/{beach_id}/status", response_model=BeachStatusOut)
-def beach_status(beach_id: int, db: Session = Depends(get_db)) -> BeachStatusOut:
+def beach_status(
+    beach_id: int, db: Session = Depends(get_db)
+) -> BeachStatusOut:
     row = (
         beaches_with_latest_status(db)
         .filter(Beach.id == beach_id)
@@ -1038,9 +1036,7 @@ def beach_status(beach_id: int, db: Session = Depends(get_db)) -> BeachStatusOut
     return BeachStatusOut(
         beach_id=beach.id,
         beach_name=beach.name,
-        status=eff.get(
-            "status", status.status.value if status else "unknown"
-        ),
+        status=eff.get("status", status.status.value if status else "unknown"),
         reported_at=eff.get(
             "reported_at", status.reported_at if status else None
         ),

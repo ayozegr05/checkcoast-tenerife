@@ -75,8 +75,7 @@ export const pressSummary = (
     : s.since
       ? fmtDate(s.since.slice(0, 10))
       : null;
-  const sinceIsPartial =
-    !!s.closed_since && s.closed_since.length < 10;
+  const sinceIsPartial = !!s.closed_since && s.closed_since.length < 10;
   // Inicio del episodio como día ISO: con precisión parcial se asume
   // el día 1 y el conteo se marca con "~" (no inventamos día exacto)
   const startRaw = s.closed_since || s.since;
@@ -88,10 +87,7 @@ export const pressSummary = (
         : startRaw.slice(0, 10)
     : null;
   const daySpan = (a: string, b: string) =>
-    Math.max(
-      1,
-      Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000),
-    );
+    Math.max(1, Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000));
   const approx = sinceIsPartial ? '~' : '';
   const todayIso = (opts.now ?? new Date()).toISOString().slice(0, 10);
 

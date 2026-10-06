@@ -63,7 +63,9 @@ def _send(db: Session, tokens: list[str], messages: list[dict]) -> int:
     return len(messages) - len(dead)
 
 
-def _messages(db: Session, beach: Beach, body: str) -> tuple[list[str], list[dict]]:
+def _messages(
+    db: Session, beach: Beach, body: str
+) -> tuple[list[str], list[dict]]:
     tokens = [t for (t,) in db.query(DeviceToken.token).all()]
     muni = beach.municipality or "Tenerife"
     return tokens, [
@@ -79,12 +81,12 @@ def _messages(db: Session, beach: Beach, body: str) -> tuple[list[str], list[dic
     ]
 
 
-def notify_beach_status(
-    db: Session, beach: Beach, state: BeachState
-) -> int:
+def notify_beach_status(db: Session, beach: Beach, state: BeachState) -> int:
     """Push a todos los dispositivos registrados al cambiar el estado
     oficial de una playa."""
-    tokens, messages = _messages(db, beach, f"{_STATE_LABEL[state]} · {{muni}}")
+    tokens, messages = _messages(
+        db, beach, f"{_STATE_LABEL[state]} · {{muni}}"
+    )
     return _send(db, tokens, messages) if tokens else 0
 
 
@@ -151,5 +153,7 @@ def notify_press_event(db: Session, beach: Beach, event_type: str) -> int:
     label = _PRESS_LABEL.get(event_type)
     if label is None:
         return 0
-    tokens, messages = _messages(db, beach, f"{label} · {{muni}} · según prensa")
+    tokens, messages = _messages(
+        db, beach, f"{label} · {{muni}} · según prensa"
+    )
     return _send(db, tokens, messages) if tokens else 0

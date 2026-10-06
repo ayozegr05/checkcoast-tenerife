@@ -73,14 +73,9 @@ export default function IntroCard({
             <View style={styles.titleCenter}>
               <Image
                 source={require('../assets/icon.png')}
-                style={[
-                  styles.titleIcon,
-                  revisit && styles.titleIconRevisit,
-                ]}
+                style={[styles.titleIcon, revisit && styles.titleIconRevisit]}
               />
-              <Text
-                style={[styles.title, revisit && styles.titleRevisit]}
-              >
+              <Text style={[styles.title, revisit && styles.titleRevisit]}>
                 CheckCoast Tenerife
               </Text>
             </View>
@@ -100,8 +95,7 @@ export default function IntroCard({
             )}
           </View>
           <Text style={styles.subtitle}>
-            ¿Puedo bañarme hoy? El estado real de las playas de
-            Tenerife
+            ¿Puedo bañarme hoy? El estado real de las playas de Tenerife
           </Text>
         </ImageBackground>
 
@@ -116,9 +110,9 @@ export default function IntroCard({
               ausencia de incidencia conocida. Decirlo aquí construye
               la confianza que nos diferencia */}
           <Text style={styles.note}>
-            Verde significa «sin incidencias oficiales activas», no
-            una garantía. Si hay duda, cada ficha muestra la última
-            analítica y su fecha.
+            Verde significa «sin incidencias oficiales activas», no una
+            garantía. Si hay duda, cada ficha muestra la última analítica y su
+            fecha.
           </Text>
         </View>
 
@@ -133,14 +127,10 @@ export default function IntroCard({
               accessibilityRole="checkbox"
               accessibilityState={{ checked: dontShow }}
             >
-              <View
-                style={[styles.checkBox, dontShow && styles.checkBoxOn]}
-              >
+              <View style={[styles.checkBox, dontShow && styles.checkBoxOn]}>
                 {dontShow && <Text style={styles.checkMark}>✓</Text>}
               </View>
-              <Text style={styles.checkLabel}>
-                No mostrar al inicio
-              </Text>
+              <Text style={styles.checkLabel}>No mostrar al inicio</Text>
             </Pressable>
             <Pressable
               onPress={() => onClose(dontShow)}

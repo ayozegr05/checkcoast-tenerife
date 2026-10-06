@@ -1,0 +1,9 @@
+node_modules/
+.expo/
+android/
+ios/
+dist/
+web-build/
+package-lock.json
+assets/
+google-services.json

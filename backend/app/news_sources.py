@@ -31,14 +31,14 @@ USER_AGENT = "CheckCoastBot/0.1 (civic data ingestion; contact: local dev)"
 # temáticas; dedup por URL aguas abajo.
 QUERIES = [
     # contaminación / calidad del agua
-    'playa tenerife (vertido OR contaminada OR fecales OR '
+    "playa tenerife (vertido OR contaminada OR fecales OR "
     '"calidad del agua" OR algas OR gasoil)',
     # cierres y reaperturas
-    'playa tenerife (cerrada OR cerrado OR cierre OR prohibido OR '
-    'prohibición OR reabierta OR reapertura OR clausurada)',
+    "playa tenerife (cerrada OR cerrado OR cierre OR prohibido OR "
+    "prohibición OR reabierta OR reapertura OR clausurada)",
     # obras / riesgo físico (talud, desprendimientos, derrumbes)
-    'playa tenerife (obras OR desprendimiento OR talud OR ladera OR '
-    'seguridad OR derrumbe OR socavón OR colapso)',
+    "playa tenerife (obras OR desprendimiento OR talud OR ladera OR "
+    "seguridad OR derrumbe OR socavón OR colapso)",
 ]
 
 # Medios descartados a priori (ruido conocido, no aportan eventos).
@@ -47,11 +47,11 @@ QUERIES = [
 EXCLUDED_SOURCES = {
     "teneriffa",  # SEO-farm: ficha templada diaria por playa
     # auditado 2026-09-30 — ajenos al dominio playas/baño
-    "radio europa",      # radio en alemán para residentes
-    "caribbean news",    # revista de turismo
-    "seguritecnia",      # revista del sector seguridad
+    "radio europa",  # radio en alemán para residentes
+    "caribbean news",  # revista de turismo
+    "seguritecnia",  # revista del sector seguridad
     "canarias-semanal",  # semanario político
-    "san borondon",      # hiperlocal de La Palma
+    "san borondon",  # hiperlocal de La Palma
 }
 
 
@@ -243,8 +243,10 @@ def fetch_municipal_feeds() -> list[RawArticle]:
             except requests.exceptions.SSLError:
                 # cert autofirmado o cadena incompleta (Buenavista, Fasnia)
                 resp = requests.get(
-                    feed_url, headers={"User-Agent": USER_AGENT},
-                    timeout=30, verify=False,
+                    feed_url,
+                    headers={"User-Agent": USER_AGENT},
+                    timeout=30,
+                    verify=False,
                 )
             resp.raise_for_status()
             raw = resp.content
@@ -255,7 +257,7 @@ def fetch_municipal_feeds() -> list[RawArticle]:
             start = re.search(r"<\?xml|<rss|<feed", raw)
             if start is None:
                 continue
-            root = ET.fromstring(_fix_named_entities(raw[start.start():]))
+            root = ET.fromstring(_fix_named_entities(raw[start.start() :]))
         except Exception:
             continue
         for item in root.findall(".//item"):

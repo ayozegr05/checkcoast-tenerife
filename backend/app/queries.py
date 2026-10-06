@@ -1,5 +1,5 @@
 import unicodedata
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
@@ -50,7 +50,7 @@ PRESS_ALERT_MAX_AGE = timedelta(days=21)
 # Náyade porque los cierres municipales tardan en llegar a Sanidad;
 # pasada la ventana sin seguimiento, gana Sanidad
 PRESS_OPEN_GRACE = timedelta(days=14)
-_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 # Causas de titulares/observaciones → etiqueta corta para la UI.
 # El LLM y Náyade escriben texto libre ("exceso de enterococos",
@@ -66,8 +66,14 @@ _CAUSE_RULES = [
         # caverna bajo la avenida) no es un desprendimiento ni un
         # problema de agua — categoría propia, también estructural
         (
-            "socav", "colaps", "cavern", "cavidad", "cueva",
-            "hundim", "horad", "erosion",
+            "socav",
+            "colaps",
+            "cavern",
+            "cavidad",
+            "cueva",
+            "hundim",
+            "horad",
+            "erosion",
         ),
         "Colapso del terreno",
     ),
@@ -257,9 +263,7 @@ def stale_official_ids(db: Session) -> set[int]:
     Sirve para el estado efectivo (mapa, alertas, ficha): el dato oficial
     crudo no se toca y sigue visible en el historial de la playa."""
     rows = (
-        db.query(
-            NewsItem.beach_id, NewsItem.published_at, NewsItem.source
-        )
+        db.query(NewsItem.beach_id, NewsItem.published_at, NewsItem.source)
         .filter(
             NewsItem.relevant.is_(True),
             NewsItem.beach_id.isnot(None),
@@ -292,12 +296,14 @@ def stale_official_ids(db: Session) -> set[int]:
         .all()
     )
     open_incs: dict[int, list] = {}
-    for bid, opened in db.query(
-        BeachIncident.beach_id, BeachIncident.opened_at
-    ).filter(
-        BeachIncident.beach_id.in_(ids),
-        BeachIncident.closed_at.is_(None),
-    ).all():
+    for bid, opened in (
+        db.query(BeachIncident.beach_id, BeachIncident.opened_at)
+        .filter(
+            BeachIncident.beach_id.in_(ids),
+            BeachIncident.closed_at.is_(None),
+        )
+        .all()
+    ):
         open_incs.setdefault(bid, []).append(opened)
     last_meas = dict(
         db.query(
@@ -388,7 +394,7 @@ def effective_states(db: Session) -> dict[int, dict]:
     # (no aviso) por causa estructural, que persiste sin caducar: ni
     # Sanidad ni la prensa repiten la misma noticia cada mes mientras
     # dura una obra o un desprendimiento
-    cutoff = datetime.now(timezone.utc) - PRESS_ALERT_MAX_AGE
+    cutoff = datetime.now(UTC) - PRESS_ALERT_MAX_AGE
     press_state: dict[int, str] = {}
     press_when: dict[int, datetime | None] = {}
     press_cause: dict[int, str | None] = {}
@@ -484,7 +490,7 @@ def effective_states(db: Session) -> dict[int, dict]:
         }
 
     # Prensa en playas sin alerta oficial vigente
-    grace = datetime.now(timezone.utc) - PRESS_OPEN_GRACE
+    grace = datetime.now(UTC) - PRESS_OPEN_GRACE
     for beach_id, state in press_state.items():
         if beach_id in result and result[beach_id]["alerted"]:
             continue
@@ -510,9 +516,11 @@ def effective_states(db: Session) -> dict[int, dict]:
                 )
                 .scalar()
             )
-            last_meas = db.query(func.max(BeachMeasurement.sampled_at)).filter(
-                BeachMeasurement.beach_id == beach_id
-            ).scalar()
+            last_meas = (
+                db.query(func.max(BeachMeasurement.sampled_at))
+                .filter(BeachMeasurement.beach_id == beach_id)
+                .scalar()
+            )
             if last_meas is not None and (
                 resolved is None or last_meas > resolved
             ):
@@ -538,9 +546,7 @@ def effective_states(db: Session) -> dict[int, dict]:
     # o evaluación de la última medición; si no aportan ("Sin
     # Calificar"), cae a la causa dominante de la prensa (etiquetada)
     off_ids = [
-        b
-        for b, e in result.items()
-        if e["via"] == "official" and e["alerted"]
+        b for b, e in result.items() if e["via"] == "official" and e["alerted"]
     ]
     if off_ids:
         inc_obs: dict[int, str | None] = {}
@@ -556,9 +562,7 @@ def effective_states(db: Session) -> dict[int, dict]:
             inc_obs.setdefault(bid, obs)
         meas_ev: dict[int, str | None] = {}
         for bid, ev_txt in (
-            db.query(
-                BeachMeasurement.beach_id, BeachMeasurement.evaluation
-            )
+            db.query(BeachMeasurement.beach_id, BeachMeasurement.evaluation)
             .filter(BeachMeasurement.beach_id.in_(off_ids))
             .order_by(BeachMeasurement.sampled_at.desc())
             .all()
