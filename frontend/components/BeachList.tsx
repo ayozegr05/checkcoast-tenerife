@@ -66,10 +66,12 @@ const SORT_LABELS: Record<SortMode, string> = {
 const evalLabel = (evaluation: string | null) => {
   if (!evaluation) return null;
   if (/prohib/i.test(evaluation)) return 'Prohibido';
+  if (/pendiente|valoraci/i.test(evaluation)) return 'Pendiente';
   if (/calificar/i.test(evaluation)) return 'Sin calificar';
   if (/apta/i.test(evaluation)) return 'Apta';
   if (/recomend/i.test(evaluation)) return 'Recomendación';
-  return evaluation;
+  // Nunca mostrar el texto administrativo crudo de Náyade
+  return null;
 };
 
 const fmtShort = (iso: string) => {
@@ -141,7 +143,21 @@ export default function BeachList({
     Keyboard.dismiss();
     scrollMetrics.current = { y: 0, vh: 0, ch: 0 };
     setShowMore(false);
+    // Si la ficha es de un PM de grupo, al volver debe verse la lista
+    // de PMs expandida — solo si el grupo tiene más de un miembro,
+    // si no queda un "punto 1" suelto colgando de la fila
+    const key = groupKeyOf(f);
+    const n = beaches.filter((b) => groupKeyOf(b) === key).length;
+    if (n > 1) setExpandedKey(key);
     setDetail(f);
+  };
+  const closeDetail = () => {
+    if (detail) {
+      const key = groupKeyOf(detail);
+      const n = beaches.filter((b) => groupKeyOf(b) === key).length;
+      if (n > 1) setExpandedKey(key);
+    }
+    setDetail(null);
   };
 
   // El componente queda montado (Modal visible): búsqueda, filtro,
@@ -273,7 +289,7 @@ export default function BeachList({
     <Modal
       animationType="slide"
       visible={visible}
-      onRequestClose={detail ? () => setDetail(null) : onClose}
+      onRequestClose={detail ? closeDetail : onClose}
     >
       <View style={styles.container}>
         <>
@@ -606,7 +622,7 @@ export default function BeachList({
                     <Text style={styles.rowSub}>
                       {g.municipality ?? 'Sin municipio'}
                       {g.members.length > 1
-                        ? ` · ${g.members.length} PMs`
+                        ? ` · ${g.members.length} zonas`
                         : ''}
                       {closures + warnings > 0
                         ? ` · ${closures} ${
@@ -712,21 +728,37 @@ export default function BeachList({
               resizeMode="cover"
             >
               <View style={styles.detailHeaderRow}>
+                <Pressable
+                  onPress={closeDetail}
+                  hitSlop={12}
+                  style={({ pressed }) => [
+                    styles.backBtn,
+                    pressed && styles.pressFx,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Volver a la lista de playas"
+                >
+                  <Text style={styles.backText}>‹</Text>
+                </Pressable>
                 <Text
                   style={[styles.title, { flex: 1, textAlign: 'center' }]}
                   numberOfLines={2}
                 >
-                  {displayBeachName(
-                    beaches.filter(
-                      (b) => groupKeyOf(b) === groupKeyOf(detail),
-                    ).length > 1
-                      ? detail.properties.name
-                      : beachBaseName(detail.properties.name),
-                  )}
+                  {(() => {
+                    const base = displayBeachName(
+                      beachBaseName(detail.properties.name),
+                    );
+                    // En multipunto el título dice la zona, no la
+                    // sigla del censo: "Playa Jardín · Zona 1"
+                    const z = pointLongLabel(detail.properties.name);
+                    return z ? `${base} · ${z}` : base;
+                  })()}
                   {detail.properties.municipality
                     ? ` · ${detail.properties.municipality}`
                     : ''}
                 </Text>
+                {/* Simétrico al ‹ para que el título quede centrado */}
+                <View style={styles.backBtn} />
               </View>
             </ImageBackground>
             <ScrollView
@@ -753,6 +785,9 @@ export default function BeachList({
                   feature={detail}
                   hasAlert={detail.properties.alert === true}
                   outfalls={outfalls}
+                  members={beaches.filter(
+                    (b) => groupKeyOf(b) === groupKeyOf(detail),
+                  )}
                   onViewOnMap={() => onSelect(detail)}
                   onSelectOutfall={
                     onSelectOutfall

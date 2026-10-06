@@ -120,7 +120,7 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     );
     expect(r.main).toBe(
       'Cerrada por riesgo de desprendimientos\n' +
-        'desde jul-2024 · lleva ~730 días',
+        'desde jul-2024 · lleva ~2 años',
     );
   });
 
@@ -135,7 +135,7 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     );
     expect(r.main).toBe(
       'Cerrada por riesgo de desprendimientos\n' +
-        'desde 2024 · lleva ~731 días',
+        'desde 2024 · lleva ~2 años',
     );
   });
 
@@ -153,7 +153,7 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     );
     expect(r.main).toBe(
       'Cerrada por riesgo de desprendimientos\n' +
-        'desde el 15/07/2024 · lleva 730 días',
+        'desde el 15/07/2024 · lleva 2 años',
     );
   });
 
@@ -172,7 +172,7 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     expect(r.tone).toBe('reopened');
     expect(r.sub).toBe(
       'según prensa · 9 medios · estuvo cerrada desde jul-2024 ' +
-        '· ~816 días',
+        '· ~2 años y 3 meses',
     );
   });
 });

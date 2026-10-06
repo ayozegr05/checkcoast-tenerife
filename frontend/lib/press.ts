@@ -3,7 +3,7 @@
 // agregado que ya calcula el backend en /beaches/{id}/news.
 
 import type { BeachNewsSummary } from './api';
-import { fmtDate, fmtPartialDate } from './format';
+import { fmtDate, fmtPartialDate, formatDays } from './format';
 
 // Línea-resumen: motivo primero, fecha del primer titular, atribución
 // abajo — "Cerrada por riesgo de desprendimientos · desde el 03/06".
@@ -19,13 +19,25 @@ const NEWS_EVENT_LINE: Record<string, [string, string, string]> = {
 
 export const pressSummary = (
   s: BeachNewsSummary,
-  opts: { stillClosed: boolean; reopenedAt: string | null; now?: Date },
+  opts: {
+    stillClosed: boolean;
+    reopenedAt: string | null;
+    now?: Date;
+    // El episodio es de un PM hermano del arenal ("PM4") — este
+    // punto no registró cierre; el banner nombra al hermano en
+    // lenguaje llano ("la zona 4")
+    siblingPm?: string | null;
+  },
 ) => {
   const [noun, prep, dmark] = NEWS_EVENT_LINE[s.event_type ?? 'other'] ?? [
     'Noticias',
     'sobre',
     'el',
   ];
+  // "PM4" → "zona 4" — nunca exponemos la sigla interna
+  const pmShort = opts.siblingPm
+    ? `zona ${opts.siblingPm.replace(/^PM/i, '')}`
+    : null;
   const medios =
     s.outlets_count === 1 ? '1 medio' : `${s.outlets_count} medios`;
   const isClosure = s.event_type === 'closure';
@@ -56,10 +68,12 @@ export const pressSummary = (
           : startRaw.slice(0, 10)
       : null;
     const dur = startIso
-      ? ` · ~${Math.max(1, Math.round((Date.parse(opts.reopenedAt!.slice(0, 10)) - Date.parse(startIso)) / 86_400_000))} días`
+      ? ` · ~${formatDays(Math.max(1, Math.round((Date.parse(opts.reopenedAt!.slice(0, 10)) - Date.parse(startIso)) / 86_400_000)))}`
       : '';
     return {
-      main: `Reabierta el ${fmtDate(opts.reopenedAt!.slice(0, 10))}`,
+      main: pmShort
+        ? `La ${pmShort} reabrió el ${fmtDate(opts.reopenedAt!.slice(0, 10))}`
+        : `Reabierta el ${fmtDate(opts.reopenedAt!.slice(0, 10))}`,
       sub:
         `según prensa · ${medios}` +
         (closedFor ? ` · estuvo cerrada ${closedFor}${dur}` : ''),
@@ -98,11 +112,15 @@ export const pressSummary = (
   // Cierre: el "cuánto duró" es parte del titular — rango completo +
   // días en una segunda línea; la atribución queda abajo
   if (isClosure) {
-    const nounTxt = `${shownNoun}${s.cause ? ` ${prep} ${s.cause}` : ''}`;
+    // Episodio adjudicado a un punto hermano: el sujeto es él, no la
+    // playa — "La zona 4 estuvo cerrada por…"
+    const nounTxt = pmShort
+      ? `La ${pmShort} ${opts.stillClosed ? 'sigue cerrada' : 'estuvo cerrada'}${s.cause ? ` ${prep} ${s.cause}` : ''}`
+      : `${shownNoun}${s.cause ? ` ${prep} ${s.cause}` : ''}`;
     if (opts.stillClosed) {
       const line2 = startIso
         ? `desde ${sinceIsPartial ? '' : 'el '}${sinceText} · lleva ` +
-          `${approx}${daySpan(startIso, todayIso)} días`
+          `${approx}${formatDays(daySpan(startIso, todayIso))}`
         : '';
       return {
         main: `${nounTxt}${line2 ? `\n${line2}` : ''}`,
@@ -116,7 +134,7 @@ export const pressSummary = (
         main:
           `${nounTxt}\n` +
           `del ${fmtDate(startIso)} al ${fmtDate(end)} · ` +
-          `${approx}${daySpan(startIso, end)} días`,
+          `${approx}${formatDays(daySpan(startIso, end))}`,
         sub: `según prensa · ${medios}`,
         tone: 'default' as const,
       };
@@ -132,8 +150,11 @@ export const pressSummary = (
     };
   }
   const date = sinceText ? ` · ${dmark} ${sinceText}` : '';
+  const genericMain = pmShort
+    ? `${shownNoun} en la ${pmShort}${s.cause ? ` ${prep} ${s.cause}` : ''}`
+    : `${shownNoun}${s.cause ? ` ${prep} ${s.cause}` : ''}`;
   return {
-    main: `${shownNoun}${s.cause ? ` ${prep} ${s.cause}` : ''}${date}`,
+    main: `${genericMain}${date}`,
     sub: `según prensa · ${medios}`,
     tone: 'default' as const,
   };

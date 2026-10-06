@@ -439,6 +439,14 @@ UPDATE `relevant`/`press_aliases`/`closed_since` + `_rematch_pending`
   `lineHeight` holgado (19 a 12 px): Android corta acentos si es justo
 - **eas-cli** no está instalado global: usar `npx eas-cli` (npx cachea)
   o el build local documentado (10.4)
+- **EAS Build**: `eas build -p android --profile preview` (APK interno)
+  / `--profile production` (AAB Play Store) con `EXPO_TOKEN` en env.
+  El repo es bare workflow (carpeta `android/` commiteada) →
+  `app.json.runtimeVersion` debe ser un literal (`"1.0.0"`), la
+  política `appVersion` NO se soporta. Regla: `version` y
+  `runtimeVersion` siempre a la par; subir ambos en cada release y
+  también al tocar código nativo (deps nativas, `android/`, SDK Expo),
+  si no un OTA puede llegar a binarios incompatibles
 - **GDELT** descartado como fuente de prensa: 429 persistente desde esta
   IP y su índice busca traducciones al inglés, no el texto español
 - **Gemini**: `gemini-2.5-flash` está deprecado para usuarios nuevos;

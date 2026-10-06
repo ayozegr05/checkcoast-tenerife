@@ -35,6 +35,7 @@ import {
   beachPointLabel,
   displayBeachName,
   fmtDate,
+  formatDays,
   searchNorm,
 } from '../lib/format';
 import { episodeDays, recentlyResolved } from '../lib/episodes';
@@ -118,6 +119,10 @@ type CoastMapProps = {
   // Puntos de muestreo de la playa seleccionada (capa temporal de
   // dots coloreados por estado mientras la card está abierta)
   pmPoints?: FeatureCollection;
+  // Zona concreta abierta en la ficha multipunto (null = selector de
+  // zonas): el encuadre sube un poco para que los dots respiren por
+  // encima de la ficha más alta
+  zoneFocus?: GeoFeature | null;
   onSelect: (selection: Selection) => void;
   // Cierra la card abierta (Ayuda/Buscar la pisaban por encima)
   onDismissSelection?: () => void;
@@ -209,6 +214,7 @@ export default function CoastMap({
   selectedBeachId,
   selectedOutfallId,
   pmPoints,
+  zoneFocus = null,
   onSelect,
   onDismissSelection,
   onOpenList,
@@ -311,6 +317,63 @@ export default function CoastMap({
       },
     );
   };
+
+  // Ficha de una zona abierta: paneo puro, SIN tocar el zoom — mover
+  // el centro hacia el sur desplaza el contenido hacia arriba unos
+  // píxeles para que los dots respiren sobre la ficha. Al volver al
+  // selector se restaura el centro previo
+  const LIFT_PX = 20;
+  const prevZoneFocus = useRef<GeoFeature | null>(null);
+  const preLiftCenter = useRef<[number, number] | null>(null);
+  useEffect(() => {
+    const prev = prevZoneFocus.current;
+    prevZoneFocus.current = zoneFocus;
+    if (!pmShown) return;
+    const opening = !!zoneFocus && !prev;
+    const closing = !zoneFocus && !!prev;
+    if (!opening && !closing) return;
+    const { center, zoom } = lastView.current;
+    // Mismo padding que fitBeachBounds: con padding 0 el centro pasaría
+    // al centro real de pantalla y el contenido caería ~200px solo por
+    // el reseteo de padding, tapando el desplazamiento que queremos
+    const pad = {
+      top: CARD_PAD.top + 60,
+      right: 64,
+      bottom: CARD_PAD.bottom,
+      left: 64,
+    };
+    if (opening) {
+      preLiftCenter.current = center;
+      // Centro hacia el SUR = los puntos quedan al norte del centro y
+      // el contenido aparece más arriba en pantalla
+      const mpp =
+        (156543.03 * Math.cos((center[1] * Math.PI) / 180)) / 2 ** zoom;
+      const dLat = (LIFT_PX * mpp) / 111320;
+      cameraRef.current?.flyTo({
+        center: [center[0], center[1] - dLat],
+        zoom,
+        padding: pad,
+        duration: 400,
+      });
+    } else {
+      // Solo restaura si la zona cerrada sigue perteneciendo al grupo
+      // visible (vuelta al selector). Si la selección saltó a otra
+      // playa, zoneFocus llega obsoleto y el encuadre nuevo manda —
+      // sin este filtro el mapa volaba de vuelta al grupo anterior
+      const sameGroup = pmPoints!.features.some(
+        (f) => f.id === prev!.id,
+      );
+      if (sameGroup && preLiftCenter.current) {
+        cameraRef.current?.flyTo({
+          center: preLiftCenter.current,
+          zoom,
+          padding: pad,
+          duration: 400,
+        });
+      }
+      preLiftCenter.current = null;
+    }
+  }, [zoneFocus, pmShown]);
 
   // Card cerrada -> vuelve a la vista previa al toque del pin, SOLO si
   // el usuario no movió el mapa a mano mientras la ficha estaba
@@ -558,6 +621,30 @@ export default function CoastMap({
     [visibleBeaches],
   );
 
+  // Pulso de alerta: con la card multipunto abierta, el halo deja el
+  // centroide (que podía caer sobre una zona abierta — Jardín caía
+  // sobre la zona 5) y se mueve a las coordenadas reales de las
+  // zonas que están cerradas o en aviso
+  const alertPulse = useMemo<FeatureCollection>(() => {
+    if (!pmPoints || pmPoints.features.length === 0)
+      return visibleAlertBeaches;
+    const memberIds = new Set(pmPoints.features.map((f) => f.id));
+    return {
+      type: 'FeatureCollection',
+      features: [
+        ...visibleAlertBeaches.features.filter(
+          (f) => !memberIds.has(f.id),
+        ),
+        ...pmPoints.features.filter(
+          (f) =>
+            (f.properties.status === 'closed' ||
+              f.properties.status === 'warning') &&
+            beachSel.has(beachCategory(f)),
+        ),
+      ],
+    };
+  }, [visibleAlertBeaches, pmPoints, beachSel]);
+
   // Halo que crece y se desvance ~1 ciclo/seg solo si hay alertas
   useEffect(() => {
     if (!hasAlerts) return;
@@ -591,8 +678,10 @@ export default function CoastMap({
           break;
         }
       }
-      // Grupo multi-PM sin zoom explícito: encuadra todos los puntos
-      if (!exact && grp && grp.members.length > 1) {
+      // Grupo multi-PM: encuadra todos los puntos — también con zoom
+      // explícito ("Ver en mapa", deep-link): ver el pin de una zona
+      // sin las hermanas era zoom demasiado cerca
+      if (grp && grp.members.length > 1) {
         fitBeachBounds(grp.members, 1500);
         return;
       }
@@ -636,7 +725,7 @@ export default function CoastMap({
           label,
           sub:
             (g.rep.properties.municipality ?? 'Playa') +
-            (g.members.length > 1 ? ` · ${g.members.length} PMs` : ''),
+            (g.members.length > 1 ? ` · ${g.members.length} zonas` : ''),
           feature: g.rep,
           members: g.members,
           center: g.center,
@@ -1038,7 +1127,7 @@ export default function CoastMap({
         )}
 
         {beachSel.size > 0 && hasAlerts && (
-          <GeoJSONSource id="beach-alerts" data={visibleAlertBeaches}>
+          <GeoJSONSource id="beach-alerts" data={alertPulse}>
             <Layer
               id="beach-pulse"
               type="circle"
@@ -1554,8 +1643,7 @@ export default function CoastMap({
                   </Text>
                   <Text style={styles.alertCause} numberOfLines={1}>
                     {ep.closed_at ? fmtDate(ep.closed_at) : ''} ·{' '}
-                    {episodeDays(ep)}{' '}
-                    {episodeDays(ep) === 1 ? 'día' : 'días'} cerrada
+                    {formatDays(episodeDays(ep))} cerrada
                   </Text>
                 </View>
               </Pressable>

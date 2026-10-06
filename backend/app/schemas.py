@@ -64,6 +64,10 @@ class BeachIncidentOut(BaseModel):
     # Titulares que sustentan o corroboran el episodio — la fila del
     # historial los despliega como evidencia ("según prensa")
     press_items: list[NewsItemOut] = []
+    # El episodio (reconstruido por prensa, replicado a todos los PM
+    # del arenal) en realidad corresponde al PM hermano con incidente
+    # oficial solapado — la UI lo rotula "en el punto N"
+    attributed_pm: str | None = None
 
 
 class MunicipalityIncidentOut(BaseModel):
@@ -155,6 +159,9 @@ class NewsSummaryOut(BaseModel):
     # inicio real afirmado por el texto ("cerrada desde julio de
     # 2024" → "2024-07"), ISO parcial — si existe adelanta a `since`
     closed_since: str | None = None
+    # El episodio resumido corresponde a un PM hermano del arenal
+    # (tiene la evidencia oficial) — la UI dice "el punto N"
+    attributed_pm: str | None = None
 
 
 class BeachNewsOut(BaseModel):

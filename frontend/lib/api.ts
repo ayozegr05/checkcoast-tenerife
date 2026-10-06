@@ -69,6 +69,9 @@ export type BeachIncident = {
   // Titulares que sustentan/corroboran el episodio — la fila del
   // historial los despliega como evidencia ("según prensa")
   press_items?: BeachNews[];
+  // El episodio de prensa corresponde a un punto de muestreo hermano
+  // del arenal (ej. "PM4") — este punto no cerró oficialmente
+  attributed_pm?: string | null;
 };
 
 export type BeachMeasurement = {
@@ -156,6 +159,9 @@ export type BeachNewsSummary = {
   // inicio real afirmado por el texto ("cerrada desde julio de 2024"
   // → "2024-07"), ISO parcial — puede ser YYYY, YYYY-MM o YYYY-MM-DD
   closed_since?: string | null;
+  // El episodio corresponde a un punto de muestreo hermano (ej.
+  // "PM4") — este punto no registró cierre oficial
+  attributed_pm?: string | null;
 };
 
 export type BeachNewsResponse = {

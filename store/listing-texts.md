@@ -30,6 +30,11 @@ Con la app puedes:
   enterococos) y cómo le fue a cada playa durante el verano
 • Recibir un aviso en tu móvil cuando tu playa cierra o reabre
 
+El mapa también muestra playas sin seguimiento sanitario
+(OpenStreetMap): aparecen marcadas como "sin monitorización" —
+nadie analiza su agua oficialmente, así que no tienen datos de
+calidad.
+
 Los datos vienen de fuentes oficiales: Náyade (Ministerio de
 Sanidad), el Censo de Vertidos Tierra-Mar del Gobierno de
 Canarias y MITECO — más prensa local verificada para el contexto

@@ -13,7 +13,7 @@ def _mes(d: date) -> str:
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2 import Geography, Geometry
-from sqlalchemy import cast, func, literal
+from sqlalchemy import cast, func, literal, or_
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
@@ -68,6 +68,76 @@ from app.schemas import (
 )
 
 router = APIRouter(tags=["beaches"])
+
+
+def _pm_label(name: str) -> str | None:
+    """'PLAYA JARDIN PM4' → 'PM4'; None si no es punto de muestreo."""
+    import re
+
+    m = re.search(r"\bPM(\d+)$", name)
+    return f"PM{m.group(1)}" if m else None
+
+
+def _latest_closed(db: Session, beach_id: int) -> bool:
+    st = (
+        db.query(BeachStatus)
+        .filter(BeachStatus.beach_id == beach_id)
+        .order_by(BeachStatus.reported_at.desc())
+        .first()
+    )
+    return st is not None and st.status == BeachState.closed
+
+
+def _sibling_pm_attribution(
+    beach: Beach, db: Session, start: date, end: date | None
+) -> str | None:
+    """PM hermano del arenal con evidencia oficial en la ventana, si
+    la playa pedida no tiene ninguna — el episodio de prensa (que se
+    replica a todos los PM) es realmente del hermano, no de este
+    punto. `end=None` = episodio aún abierto → también vale que el
+    hermano siga oficialmente cerrado hoy."""
+    if _pm_label(beach.name) is None:
+        return None
+    end_d = end or date.today()
+    own = (
+        db.query(BeachIncident)
+        .filter(
+            BeachIncident.beach_id == beach.id,
+            BeachIncident.opened_at <= end_d,
+            or_(
+                BeachIncident.closed_at.is_(None),
+                BeachIncident.closed_at >= start,
+            ),
+        )
+        .first()
+    )
+    if own or (end is None and _latest_closed(db, beach.id)):
+        return None
+    sibs = (
+        db.query(Beach)
+        .filter(
+            Beach.id != beach.id,
+            Beach.municipality == beach.municipality,
+            Beach.name.like(base_name(beach.name) + "%"),
+        )
+        .all()
+    )
+    for sib in sibs:
+        hit = (
+            db.query(BeachIncident)
+            .filter(
+                BeachIncident.beach_id == sib.id,
+                BeachIncident.opened_at <= end_d,
+                or_(
+                    BeachIncident.closed_at.is_(None),
+                    BeachIncident.closed_at >= start,
+                ),
+            )
+            .first()
+        )
+        if hit or (end is None and _latest_closed(db, sib.id)):
+            return _pm_label(sib.name)
+    return None
 
 
 @router.get("/beaches", response_model=FeatureCollection)
@@ -584,18 +654,32 @@ def beach_incidents(
         for row in rows
     ]
     synth_id = -1
+    live_closed = _latest_closed(db, beach_id)
     for ev in synthesize_events(beach):
+        obs = _synth_observations(ev)
+        # Prensa aún abierta y Náyade también la da por cerrada: no es
+        # "solo prensa" — el cierre tiene respaldo oficial de estado
+        # aunque no exista incidencia abierta (Jardín PM4 oct-2026)
+        if ev.via == "press" and ev.closed_at is None and live_closed:
+            obs = "Cierre vigente — confirmado por estado oficial en Náyade"
         out.append(
             BeachIncidentOut(
                 id=synth_id,
                 beach_id=beach_id,
                 opened_at=ev.opened_at,
                 closed_at=ev.closed_at,
-                observations=_synth_observations(ev),
+                observations=obs,
                 source_url=None,
                 via=ev.via,
                 press_confirmed=ev.press_confirmed,
                 end_estimated=ev.end_estimated,
+                attributed_pm=(
+                    _sibling_pm_attribution(
+                        beach, db, ev.opened_at, ev.closed_at
+                    )
+                    if ev.via == "press"
+                    else None
+                ),
                 press_items=[
                     _news_out(n)
                     for n in sorted(
@@ -832,10 +916,10 @@ def beach_news(
     # cadena de clústeres es una sola → miramos todos los cierres; si
     # ya se resolvió, solo el último clúster (el episodio del banner)
     closed_since = None
+    still_open = dominant == "closure" and any(
+        e.via == "press" and e.closed_at is None for e in evs
+    )
     if dominant == "closure":
-        still_open = any(
-            e.via == "press" and e.closed_at is None for e in evs
-        )
         if still_open:
             # Solo los cierres posteriores a la última reapertura: una
             # playa que reabrió de verdad no puede "seguir cerrada
@@ -916,6 +1000,14 @@ def beach_news(
         if r.published_at and ep_start is not None
         and r.published_at >= ep_start
     ]
+    attributed_pm = None
+    if dominant == "closure" and since is not None:
+        ep_begin = (
+            _closed_since_date(closed_since) or since.date()
+        )
+        attributed_pm = _sibling_pm_attribution(
+            beach, db, ep_begin, None if still_open else date.today()
+        )
     return BeachNewsOut(
         summary=NewsSummaryOut(
             event_type=dominant,
@@ -924,6 +1016,7 @@ def beach_news(
             outlets_count=len({r.source for r in rows if r.source}),
             since=since,
             closed_since=closed_since,
+            attributed_pm=attributed_pm,
         ),
         items=[_news_out(row) for row in rows],
         episode_items=[_news_out(r) for r in episode_items],

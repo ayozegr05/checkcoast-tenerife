@@ -17,6 +17,8 @@ export type ShotMarker = {
   coords: [number, number];
   color: string;
   icon?: ImageSourcePropType;
+  // Número dentro del dot (zonas hermanas de una playa multipunto)
+  label?: string;
 };
 
 // Trazado arranque → punto de vertido (emisarios): línea discontinua
@@ -31,9 +33,16 @@ export type ShotLine = {
 // ~300 m, detalle de la arena/el espigón), cerca (~1,2 km x 750 m) y
 // contexto
 // (x2,5) para ver emisarios/playas a varios cientos de metros
-const BASE_DLON = 0.006;
 const BASE_DLAT = 0.0033;
+// El bbox debe tener el MISMO aspecto que la imagen pedida (640×300 =
+// 2.133): si difiere, Esri expande el encuadre devuelto para casarlo
+// y los marcadores proyectados quedan comprimidos hacia el centro
+const BASE_DLON = BASE_DLAT * (640 / 300); // ≈ 0.00704
 const LEVELS = [0.25, 1, 2.5];
+// Encuadre multipunto: además de los niveles estándar hay uno
+// intermedio y uno muy ancho — un arenal largo (Jardín: sus zonas
+// separadas ~800 m) no cabe con los encuadres de playa simple
+const FIT_LEVELS = [0.25, 0.6, 1, 1.8, 2.5, 4];
 // Arranca en el más cerca: el detalle de la playa es lo que vende;
 // los marcadores se prefetchean y aparecen al alejar
 const START_LEVEL = 0;
@@ -61,6 +70,10 @@ export default function SatelliteShot({
   line,
   onPress,
   startLevel = START_LEVEL,
+  fitMarkers = false,
+  fitOver,
+  hideCenter = false,
+  centerLabel,
 }: {
   center: [number, number];
   centerColor: string;
@@ -71,21 +84,56 @@ export default function SatelliteShot({
   // Nivel inicial: 0 máximo (playas), 1 medio (emisarios — el punto
   // solo no dice nada, interesa el entorno)
   startLevel?: number;
+  // Encuadre al abrir: el menor nivel que contiene todos los
+  // marcadores de `fitOver` (o de `markers` si no se pasa). En una
+  // multipunto interesa encuadrar las zonas — no los emisarios, que
+  // forzarían el nivel más ancho
+  fitMarkers?: boolean;
+  fitOver?: ShotMarker[];
+  // Multipunto: el dot central caería en el centroide del arenal —
+  // posición inventada que además llevaría la etiqueta de la zona
+  // abierta en sitio equivocado. Con zonas reales numeradas sobra
+  hideCenter?: boolean;
+  // Número dentro del punto central (la zona abierta en la ficha)
+  centerLabel?: string;
 }) {
   const [lon, lat] = center;
-  const [level, setLevel] = useState(startLevel);
+  // Nivel de arranque que cubre todos los marcadores con margen
+  // (0.78 del semibbox: el dot tiene cuerpo y no debe ir pegado al
+  // borde); si ninguno llega, el más alejado. Con fitMarkers el
+  // índice es sobre FIT_LEVELS, no sobre LEVELS
+  const scales = fitMarkers ? FIT_LEVELS : LEVELS;
+  const fitLevel = () => {
+    const fitSet = fitOver ?? markers;
+    if (!fitMarkers || fitSet.length === 0) return startLevel;
+    for (let i = 0; i < scales.length; i++) {
+      const mx = BASE_DLON * scales[i] * 0.78;
+      const my = BASE_DLAT * scales[i] * 0.78;
+      if (
+        fitSet.every(
+          (m) =>
+            Math.abs(m.coords[0] - lon) <= mx &&
+            Math.abs(m.coords[1] - lat) <= my,
+        )
+      )
+        return i;
+    }
+    return scales.length - 1;
+  };
+  const [level, setLevel] = useState(fitLevel);
   // Uri ya cargada: el skeleton solo tapa la foto si la actual aún no
   // llegó (los demás niveles se prefetchan → zoom instantáneo)
   const [loadedUri, setLoadedUri] = useState<string | null>(null);
-  const uri = shotUrl(lon, lat, LEVELS[level]);
+  const uri = shotUrl(lon, lat, scales[level]);
 
   useEffect(() => {
-    setLevel(startLevel);
+    setLevel(fitLevel());
     setLoadedUri(null);
-  }, [lon, lat, startLevel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lon, lat, startLevel, fitMarkers]);
 
-  const dLon = BASE_DLON * LEVELS[level];
-  const dLat = BASE_DLAT * LEVELS[level];
+  const dLon = BASE_DLON * scales[level];
+  const dLat = BASE_DLAT * scales[level];
 
   // Marcadores dentro del encuadre actual: lon/lat → % del contenedor.
   // Ordenados por cercanía al centro, con tope para no saturar zonas
@@ -151,7 +199,7 @@ export default function SatelliteShot({
         onLoad={() => {
           setLoadedUri(uri);
           // Prefetch del resto de niveles para que ± sea instantáneo
-          LEVELS.forEach((s, i) => {
+          scales.forEach((s, i) => {
             if (i !== level)
               Image.prefetch(shotUrl(lon, lat, s)).catch(() => {});
           });
@@ -198,17 +246,29 @@ export default function SatelliteShot({
             { left: `${m.x}%`, top: `${m.y}%`, backgroundColor: m.color },
           ]}
         >
-          {m.icon && (
-            <Image source={m.icon} style={styles.markerIcon} />
+          {m.label ? (
+            <Text style={styles.markerLabel}>{m.label}</Text>
+          ) : (
+            m.icon && (
+              <Image source={m.icon} style={styles.markerIcon} />
+            )
           )}
         </View>
       ))}
       <View
         pointerEvents="none"
-        style={[styles.centerDot, { backgroundColor: centerColor }]}
+        style={[
+          styles.centerDot,
+          { backgroundColor: centerColor },
+          hideCenter && { opacity: 0 },
+        ]}
       >
-        {centerIcon && (
-          <Image source={centerIcon} style={styles.centerIcon} />
+        {centerLabel ? (
+          <Text style={styles.markerLabel}>{centerLabel}</Text>
+        ) : (
+          centerIcon && (
+            <Image source={centerIcon} style={styles.centerIcon} />
+          )
         )}
       </View>
 
@@ -234,21 +294,21 @@ export default function SatelliteShot({
         </Pressable>
         <Pressable
           onPress={() => setLevel((l) => l + 1)}
-          disabled={level === LEVELS.length - 1}
+          disabled={level === scales.length - 1}
           hitSlop={6}
           style={({ pressed }) => [
             styles.zoomBtn,
-            level === LEVELS.length - 1 && styles.zoomBtnOff,
+            level === scales.length - 1 && styles.zoomBtnOff,
             pressed && styles.pressFx,
           ]}
           accessibilityRole="button"
           accessibilityLabel="Alejar vista satélite"
-          accessibilityState={{ disabled: level === LEVELS.length - 1 }}
+          accessibilityState={{ disabled: level === scales.length - 1 }}
         >
           <Text
             style={[
               styles.zoomText,
-              level === LEVELS.length - 1 && styles.zoomTextOff,
+              level === scales.length - 1 && styles.zoomTextOff,
             ]}
           >
             −
@@ -349,6 +409,13 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     tintColor: '#fff',
+  },
+  markerLabel: {
+    fontSize: 10,
+    fontFamily: fonts.extrabold,
+    color: '#fff',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   // Trazado de la conducción: línea discontinua con halo claro para
   // leerse sobre satélite (el borde blanco va por debajo vía sombra)

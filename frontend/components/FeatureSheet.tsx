@@ -351,6 +351,7 @@ export default function FeatureSheet({
   onViewOnMap,
   onSelectOutfall,
   onSelectBeach,
+  onZoneShown,
 }: {
   selection: Selection;
   onClose: () => void;
@@ -366,6 +367,10 @@ export default function FeatureSheet({
   onSelectOutfall?: (feature: GeoFeature, origin: GeoFeature) => void;
   // Tap en "Playa más cercana" de la ficha de emisario → verla en el mapa
   onSelectBeach?: (feature: GeoFeature) => void;
+  // Zona concreta abierta en una playa multipunto (null = picker):
+  // el mapa la usa para subir un poco el encuadre y que los dots
+  // respiren por encima de la ficha
+  onZoneShown?: (zone: GeoFeature | null) => void;
 }) {
   const { feature } = selection;
   const p = feature.properties;
@@ -394,7 +399,7 @@ export default function FeatureSheet({
         .filter((v, i, a) => a.indexOf(v) === i);
   const placeText = zoneLine
     ? whereExtra.length
-      ? `${zoneLine.slice(0, -1)} — ${whereExtra.join(', ')}.`
+      ? `${zoneLine.slice(0, -1)}, ${whereExtra.join(', ')}.`
       : zoneLine
     : whereExtra.length
       ? `Está en ${whereExtra.join(', ')}.`
@@ -404,7 +409,12 @@ export default function FeatureSheet({
   // muestreo, la card muestra primero la lista y el usuario elige
   const members = isBeach ? (selection.members ?? []) : [];
   const [chosenPm, setChosenPm] = useState<GeoFeature | null>(null);
+  // Ref espejo: el PanResponder se crea una sola vez y capturaría el
+  // chosenPm inicial (siempre null)
+  const chosenPmRef = useRef<GeoFeature | null>(null);
+  chosenPmRef.current = chosenPm;
   useEffect(() => setChosenPm(null), [selection]);
+  useEffect(() => onZoneShown?.(chosenPm), [chosenPm, onZoneShown]);
   const showPmPicker = isBeach && members.length > 1 && !chosenPm;
 
   // Atrás hardware: con un PM elegido vuelve primero al selector de
@@ -577,6 +587,14 @@ export default function FeatureSheet({
     }).start(({ finished }) => finished && (after ?? onClose)());
   };
 
+  // Con una zona abierta, cerrar primero vuelve al selector de zonas
+  // (mismo comportamiento que el atrás hardware); desde el selector
+  // sí se cierra la card
+  const closeOrBack = () => {
+    if (chosenPmRef.current) setChosenPm(null);
+    else dismiss();
+  };
+
   // Tap en la foto satélite: cierra la card con la misma animación y
   // se queda en el mapa (ya centrado en el punto)
   const handleViewOnMap =
@@ -591,7 +609,7 @@ export default function FeatureSheet({
     new Set(members.map((m) => stripPm(m.properties.name))).size === 1;
   const pmSuffix =
     chosenPm && sameBase
-      ? ` · Punto ${
+      ? ` · Zona ${
           chosenPm.properties.name.match(/PM(\d+)$/)?.[1] ?? ''
         }`
       : '';
@@ -622,7 +640,7 @@ export default function FeatureSheet({
       onPanResponderRelease: (_e, g) => {
         const nh = snapped.current - g.dy;
         const mid = (peek + CARD_MAX) / 2;
-        if (nh < peek * 0.55 || g.vy > 1.4) dismiss();
+        if (nh < peek * 0.55 || g.vy > 1.4) closeOrBack();
         else if (nh > mid || g.vy < -1.2) snapTo(CARD_MAX, true);
         else snapTo(peek);
       },
@@ -648,7 +666,7 @@ export default function FeatureSheet({
           </Text>
         </View>
         <Pressable
-          onPress={() => dismiss()}
+          onPress={closeOrBack}
           hitSlop={12}
           style={({ pressed }) => [
             styles.closeBtn,
@@ -692,7 +710,7 @@ export default function FeatureSheet({
           showPmPicker ? (
             <View>
               <Text style={styles.pmHint}>
-                {members.length} puntos de muestreo oficiales
+                {members.length} zonas de esta playa
               </Text>
               {members.map((m) => {
                 const k = beachStatusKey(m);
@@ -733,19 +751,6 @@ export default function FeatureSheet({
             </View>
           ) : (
             <View>
-              {members.length > 1 && (
-                <Pressable
-                  onPress={() => setChosenPm(null)}
-                  hitSlop={6}
-                  style={({ pressed }) => pressed && styles.pressFx}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Volver a los ${members.length} puntos de muestreo`}
-                >
-                  <Text style={styles.pmBack}>
-                    ‹ {members.length} puntos de muestreo
-                  </Text>
-                </Pressable>
-              )}
               <BeachDetail
                 feature={beachFeature}
                 hasAlert={
@@ -754,6 +759,7 @@ export default function FeatureSheet({
                     : selection.hasAlert
                 }
                 outfalls={outfalls}
+                members={members}
                 onViewOnMap={handleViewOnMap}
                 onSelectOutfall={
                   onSelectOutfall
@@ -927,24 +933,15 @@ export default function FeatureSheet({
                       })}
                     </>
                   ) : null}
-                  {/* Quién responde legalmente (Entidad) y quién lo
-                      opera (GestSan) — la responsabilidad es del
-                      titular siempre */}
-                  {p.entity ? (
+                  {/* Solo el responsable: la distinción titular/
+                      gestor (Entidad vs GestSan) no le dice nada al
+                      bañista y partía la línea en dos etiquetas
+                      distintas según el emisario */}
+                  {p.entity || p.manager ? (
                     <Text style={styles.heroResp}>
                       Responsable:{' '}
                       <Text style={styles.heroRespStrong}>
-                        {p.entity}
-                      </Text>
-                      {p.manager && p.manager !== p.entity
-                        ? ` · operado por ${p.manager}`
-                        : null}
-                    </Text>
-                  ) : p.manager ? (
-                    <Text style={styles.heroResp}>
-                      Operador:{' '}
-                      <Text style={styles.heroRespStrong}>
-                        {p.manager}
+                        {p.entity ?? p.manager}
                       </Text>
                     </Text>
                   ) : null}

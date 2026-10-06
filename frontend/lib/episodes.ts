@@ -73,6 +73,53 @@ export const causeCounts = (
   return out;
 };
 
+// Familias de causa (misma taxonomía que el backend, queries.py):
+// los parámetros de laboratorio y la contaminación genérica son una
+// sola familia "Contaminación"; desprendimientos/obras/colapso son
+// "Riesgo estructural". Las chips de la app agrupan por familia —
+// 7 variantes de causa eran ilegibles
+const FAMILY_STRUCTURAL = new Set([
+  'Desprendimientos',
+  'Obras',
+  'Colapso del terreno',
+]);
+const FAMILY_CONTAMINATION = new Set([
+  'Contaminación',
+  'Contaminación fecal',
+  'Hidrocarburos',
+  'Algas',
+  'E. coli',
+  'Enterococos',
+  'E. coli y enterococos',
+]);
+
+export const causeFamily = (
+  cause: string | null | undefined,
+): string | null => {
+  if (!cause) return null;
+  if (FAMILY_STRUCTURAL.has(cause)) return 'Riesgo estructural';
+  if (FAMILY_CONTAMINATION.has(cause)) return 'Contaminación';
+  return cause;
+};
+
+// Igual que causeCounts pero agrupado por familia
+export const causeFamilyCounts = (
+  eps: MunicipalityIncident[],
+): [string, number][] => {
+  const byFam = new globalThis.Map<string, number>();
+  let unknown = 0;
+  for (const e of eps) {
+    const f = causeFamily(e.cause);
+    if (f) byFam.set(f, (byFam.get(f) ?? 0) + 1);
+    else unknown += 1;
+  }
+  const out: [string, number][] = [...byFam.entries()].sort(
+    (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+  );
+  if (unknown) out.push(['sin causa', unknown]);
+  return out;
+};
+
 // Desglose de causas de un conjunto de episodios:
 // "9 contaminación · 3 desprendimientos · 2 sin causa"
 export const causeBreakdown = (

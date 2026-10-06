@@ -260,10 +260,22 @@ def synthesize_events(beach: Beach, today: date | None = None) -> list[SynthEven
                 hit.press_confirmed = True
                 _add_press(hit, n, pub)
                 continue
-            # La noticia cubre una incidencia oficial: no duplicar
-            if any(
-                _in_window(pub, o_s, o_e, today) for o_s, o_e in official
-            ):
+            # La noticia cubre una incidencia oficial: no duplicar.
+            # Una incidencia la "cubre" solo si su fin no precede al
+            # inicio que afirma el texto: closed_since posterior al
+            # closed_at oficial es un episodio NUEVO (Jardín PM4: la
+            # incidencia cerró el 3-sep y la prensa del 30-sep grita
+            # "cerrada desde el 29-sep", que es el cierre VIGENTE).
+            # Y un clúster de prensa vivo absorbe la mención aunque
+            # caiga dentro del fuzz de una incidencia vieja
+            cs_d = _closed_since_date(n.closed_since)
+            live = current is not None and current.closed_at is None
+            covered = any(
+                _in_window(pub, o_s, o_e, today)
+                and (o_e is None or cs_d is None or cs_d <= o_e)
+                for o_s, o_e in official
+            )
+            if covered and not live:
                 continue
             # Retrospectiva: el titular sale DESPUÉS de la reapertura
             # pero relata el episodio ya resuelto. Lo delata su texto

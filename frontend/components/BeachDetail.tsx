@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import {
   BeachIncident,
@@ -25,9 +26,11 @@ import {
 } from '../lib/api';
 import {
   MONTHS_FULL,
+  beachPointLabel,
   displayBeachName,
   fmtDate,
   fmtPartialDate,
+  formatDays,
 } from '../lib/format';
 import { pressSummary } from '../lib/press';
 import { colors, fonts } from '../lib/theme';
@@ -44,11 +47,17 @@ const BEACH_STATUS: Record<string, { label: string; color: string }> = {
 };
 
 // Un incidente es "cierre" si la observación prohíbe el baño; los
-// eventos reconstruidos (analítica/prensa) siempre son cierres
+// eventos reconstruidos (analítica/prensa) siempre son cierres.
+// Una incidencia oficial cuya prensa adjunta habla de cierre/
+// reapertura también cuenta — Náyade la anotó como "recomendación"
+// pero el baño estuvo vetado de facto (Jardín PM4 ago-2026)
 const isClosure = (inc: BeachIncident) =>
   inc.via === 'press' ||
   inc.via === 'measurement' ||
-  /prohib/i.test(inc.observations ?? '');
+  /prohib/i.test(inc.observations ?? '') ||
+  (inc.press_items ?? []).some(
+    (p) => p.event_type === 'closure' || p.event_type === 'reopening',
+  );
 
 // Náyade a veces abre una "incidencia" cuyo texto es solo la
 // evaluación pendiente de una muestra (p.ej. Las Gaviotas 08/06/2026:
@@ -57,13 +66,29 @@ const isClosure = (inc: BeachIncident) =>
 const isUnclassified = (inc: BeachIncident) =>
   /sin\s*calificar/i.test(inc.observations ?? '');
 
-// Cierres cuya apertura cayó dentro de los últimos `years` años
-const closuresInYears = (incidents: BeachIncident[], years: number) => {
-  const cutoff = Date.now() - years * 365.25 * 24 * 3600 * 1000;
-  return incidents.filter(
-    (i) => isClosure(i) && Date.parse(i.opened_at) >= cutoff,
-  ).length;
+// Episodios (cierres / avisos) con apertura dentro de los últimos
+// `years` años. Los atribuidos a un punto hermano no cuentan — son
+// episodios de otra zona del arenal, no de este punto
+const countSince = (incidents: BeachIncident[], cutoff: number) => {
+  const inWindow = incidents.filter(
+    (i) => !i.attributed_pm && !isUnclassified(i) && Date.parse(i.opened_at) >= cutoff,
+  );
+  return {
+    closures: inWindow.filter(isClosure).length,
+    warnings: inWindow.filter((i) => !isClosure(i)).length,
+  };
 };
+
+const episodesInYears = (incidents: BeachIncident[], years: number) =>
+  countSince(incidents, Date.now() - years * 365.25 * 24 * 3600 * 1000);
+
+// "Este año" = año natural: un episodio abierto en noviembre del año
+// pasado NO es de este año aunque caiga en una ventana de 365 días
+const episodesThisYear = (incidents: BeachIncident[]) =>
+  countSince(
+    incidents,
+    new Date(new Date().getFullYear(), 0, 1).getTime(),
+  );
 
 // Umbrales RD 1341/2007 (aguas costeras), UFC/100 mL:
 // [excelente, buena] — por encima de "buena" es insuficiente/mala
@@ -460,6 +485,7 @@ export default function BeachDetail({
   feature,
   hasAlert,
   outfalls,
+  members,
   onViewOnMap,
   onSelectOutfall,
 }: {
@@ -467,6 +493,9 @@ export default function BeachDetail({
   hasAlert: boolean;
   // Emisarios cargados en la app: se superponen a la foto satélite
   outfalls?: GeoFeature[];
+  // Zonas hermanas (puntos de muestreo del mismo arenal): se pintan
+  // numeradas en la foto satélite y el encuadre las cubre todas
+  members?: GeoFeature[];
   // Tap en la foto satélite → ver la playa en el mapa
   onViewOnMap?: () => void;
   // Tap en un emisario cercano → verlo en el mapa (pin seleccionado)
@@ -696,6 +725,15 @@ export default function BeachDetail({
   // registró el cierre 24/08-26/08). Un cierre oficial mucho después
   // ya no se puede atribuir a este episodio
   const pressStillClosed = p.status === 'closed';
+  // Cuando el episodio es de una zona hermana (attributed_pm), este
+  // punto está 'open' aunque el episodio siga vivo — el tiempo verbal
+  // debe mirar si el episodio tiene fin, no el estado del punto:
+  // "la zona 4 SIGUE cerrada", no "estuvo"
+  const pressEpisodeOpen =
+    !!news?.summary.attributed_pm &&
+    (incidents ?? []).some(
+      (i) => i.via === 'press' && i.closed_at === null,
+    );
   const pressReopenedAt = useMemo(() => {
     if (pressStillClosed || !news?.summary.since) return null;
     const since = news.summary.since.slice(0, 10);
@@ -757,8 +795,9 @@ export default function BeachDetail({
   const alertActive = beachKey === 'closed';
   const press = news !== null && news.items.length > 0
     ? pressSummary(news.summary, {
-        stillClosed: pressStillClosed,
+        stillClosed: pressStillClosed || pressEpisodeOpen,
         reopenedAt: pressReopenedAt,
+        siblingPm: news.summary.attributed_pm,
       })
     : null;
   const pressReopened = press?.tone === 'reopened';
@@ -842,9 +881,57 @@ export default function BeachDetail({
           emisarios catalogados situados en su posición real dentro del
           encuadre, coloreados por estado. La foto es clicable → mapa */}
       <SatelliteShot
-        center={[lon, lat]}
+        // Multipunto: el encuadre se centra en el centroide del
+        // arenal, no en la zona abierta — si no, las hermanas del
+        // extremo quedan pegadas al borde
+        center={
+          (members?.length ?? 0) > 1
+            ? [
+                members!.reduce(
+                  (s, m) => s + m.geometry.coordinates[0],
+                  0,
+                ) / members!.length,
+                members!.reduce(
+                  (s, m) => s + m.geometry.coordinates[1],
+                  0,
+                ) / members!.length,
+              ]
+            : [lon, lat]
+        }
         centerColor={statusColor}
-        markers={shotMarkers}
+        centerLabel={
+          beachPointLabel(p.name)?.replace(/PM(\d+)/, '$1') ??
+          undefined
+        }
+        markers={[
+          ...shotMarkers,
+          // Todas las zonas numeradas en su posición real — la zona
+          // abierta también (el dot central se oculta: el centroide
+          // no es una posición real de ninguna zona)
+          ...(members ?? []).map((m) => ({
+            id: `pm-${m.id}`,
+            coords: m.geometry.coordinates as [number, number],
+            color:
+              BEACH_STATUS[
+                m.properties.status &&
+                m.properties.status !== 'unknown'
+                  ? (m.properties.status as string)
+                  : 'unknown'
+              ]?.color ?? colors.status.unknown,
+            label:
+              beachPointLabel(m.properties.name)?.replace(
+                /PM(\d+)/,
+                '$1',
+              ) ?? '',
+          })),
+        ]}
+        fitMarkers={(members?.length ?? 0) > 1}
+        fitOver={(members ?? []).map((m) => ({
+          id: m.id,
+          coords: m.geometry.coordinates as [number, number],
+          color: '',
+        }))}
+        hideCenter={(members?.length ?? 0) > 1}
         onPress={onViewOnMap}
       />
 
@@ -870,99 +957,102 @@ export default function BeachDetail({
         </Pressable>
       </View>
 
-      {alertActive && pressBanner}
-
-      {nearby !== null && nearby.length > 0 && (
-        <View style={styles.nearbyTop}>
-          <Text style={[styles.historyTitle, { marginBottom: 10 }]}>
-            Emisarios cercanos:{' '}
-            <Text style={[styles.historySub, { color: colors.text }]}>
-              {nearby.length} a menos de 1 km · el más próximo a{' '}
-              <Text
-                style={
-                  nearby[0].distance_m < 500
-                    ? { color: colors.status.warning }
-                    : undefined
-                }
-              >
-                {fmtDistance(nearby[0].distance_m).replace(' ', ' ')}
-              </Text>
-              {' · aleja el zoom si no los ves'}
-            </Text>
-          </Text>
-          {nearby.map((o) => {
-            const accent =
-              colors.outfall[o.status] ?? colors.status.unknown;
-            const target = (outfalls ?? []).find(
-              (f) => f.id === o.outfall_id,
-            );
-            return (
-              <Pressable
-                key={o.outfall_id}
-                style={({ pressed }) => [
-                  styles.outfallRow,
-                  { borderLeftColor: accent },
-                  pressed && styles.pressFx,
-                ]}
-                onPress={
-                  target && onSelectOutfall
-                    ? () => onSelectOutfall(target)
-                    : undefined
-                }
-                disabled={!target || !onSelectOutfall}
-                accessibilityRole="button"
-                accessibilityLabel={`${o.name}, ver en el mapa`}
-              >
-                <View style={styles.outfallRowBody}>
-                  <Text style={styles.outfallName} numberOfLines={1}>
-                    {o.name}
-                  </Text>
-                  <Text style={styles.outfallMeta}>
-                    {OUTFALL_STATUS_LABELS[o.status] ?? 'En trámite'}
-                  </Text>
-                </View>
-                {/* Distancia como badge: columna escaneable para
-                    comparar emisarios de un vistazo */}
-                <Text style={[styles.outfallDist, { color: accent }]}>
-                  {fmtDistance(o.distance_m)}
-                </Text>
-                {target && onSelectOutfall && (
-                  <Text style={styles.outfallChevron}>›</Text>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-
-      {/* Sin alerta activa la prensa queda en su sitio: contexto
-          histórico bajo los datos oficiales */}
-      {!alertActive && pressBanner}
+      {pressBanner}
 
       {incidents !== null && incidents.length > 0 && (
         <View style={styles.history}>
-          <Text style={styles.historyTitle}>
-            Historial de incidencias ({incidents.length})
-          </Text>
-          <Text style={styles.incidentObs}>
-            {incidents.filter(isClosure).length} cierres ·{' '}
-            {incidents.filter((i) => !isClosure(i) && !isUnclassified(i)).length}{' '}
-            avisos
-            {incidents.some(isUnclassified)
-              ? ` · ${incidents.filter(isUnclassified).length} muestra${
-                  incidents.filter(isUnclassified).length === 1 ? '' : 's'
-                } sin calificar`
-              : ''}
-            {'\n'}
-            Cerrada {closuresInYears(incidents, 1)} vez
-            {closuresInYears(incidents, 1) === 1 ? '' : 'es'} el último año
-            · {closuresInYears(incidents, 5)} en los últimos 5 años
-          </Text>
+          <View style={styles.secHead}>
+            <Image
+              source={require('../assets/icons/icon-alert.png')}
+              style={[styles.secIcon, { tintColor: colors.status.warning }]}
+            />
+            <Text style={styles.secCardTitle}>
+              Historial de incidencias ({incidents.length})
+            </Text>
+          </View>
+          {(() => {
+            const own = incidents.filter((i) => !i.attributed_pm);
+            const totalC = own.filter(isClosure).length;
+            const totalW = own.filter(
+              (i) => !isClosure(i) && !isUnclassified(i),
+            ).length;
+            const uncl = incidents.filter(isUnclassified).length;
+            const y1 = episodesThisYear(incidents);
+            const y5 = episodesInYears(incidents, 5);
+            const parts = (c: number, w: number) =>
+              [
+                c ? `${c} cierre${c === 1 ? '' : 's'}` : null,
+                w ? `${w} aviso${w === 1 ? '' : 's'}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ');
+            const y1parts = parts(y1.closures, y1.warnings);
+            const y5parts = parts(y5.closures, y5.warnings);
+            // Todo el historial cabe en 5 años → el total y el "5 años"
+            // son el mismo número: una sola frase, sin repetir datos
+            const allIn5 =
+              totalC === y5.closures && totalW === y5.warnings;
+            return (
+              <View style={styles.historySummary}>
+                {allIn5 && y5parts ? (
+                  <View style={styles.historyStatRow}>
+                    {y1parts !== y5parts && (
+                      <Text style={styles.historyStat}>
+                        <Text style={styles.historySummaryNum}>
+                          {y1parts || 'Sin episodios'}
+                        </Text>
+                        {' este año'}
+                      </Text>
+                    )}
+                    <Text style={styles.historyStat}>
+                      <Text style={styles.historySummaryNum}>
+                        {y5parts}
+                      </Text>
+                      {y1parts === y5parts
+                        ? ' este año'
+                        : ' en los últimos 5 años'}
+                    </Text>
+                    {uncl > 0 && (
+                      <Text style={styles.historyStat}>
+                        <Text style={styles.historySummaryNum}>{uncl}</Text>
+                        {` sin calificar`}
+                      </Text>
+                    )}
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.historyStatRow}>
+                      <Text style={styles.historyStat}>
+                        <Text style={styles.historySummaryNum}>{totalC}</Text>
+                        {` cierre${totalC === 1 ? '' : 's'}`}
+                      </Text>
+                      {totalW > 0 && (
+                        <Text style={styles.historyStat}>
+                          <Text style={styles.historySummaryNum}>{totalW}</Text>
+                          {` aviso${totalW === 1 ? '' : 's'}`}
+                        </Text>
+                      )}
+                      {uncl > 0 && (
+                        <Text style={styles.historyStat}>
+                          <Text style={styles.historySummaryNum}>{uncl}</Text>
+                          {` sin calificar`}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={styles.historySummarySub}>
+                      {`Este año: ${y1parts || 'sin episodios'}  ·  Últimos 5 años: ${y5parts || 'sin episodios'}`}
+                    </Text>
+                  </>
+                )}
+              </View>
+            );
+          })()}
           {/* Sin scroll interno: la sección crece con su contenido y
               scrollea la ficha entera — un cajón fijo dejaba los
               titulares expandidos en una ventana diminuta */}
           <View>
-            {incidents.map((inc) => {
+            {(() => {
+              const renderInc = (inc: BeachIncident) => {
               const closure = isClosure(inc);
               const unclassified = isUnclassified(inc);
               // Duración del episodio: hasta closed_at o hasta hoy
@@ -1009,7 +1099,7 @@ export default function BeachDetail({
                             inc.closed_at
                               ? fmtDate(inc.closed_at)
                               : 'hoy'
-                          } · ${days} ${days === 1 ? 'día' : 'días'}`}
+                          } · ${formatDays(days)}`}
                     </Text>
                     <View
                       style={[
@@ -1020,6 +1110,11 @@ export default function BeachDetail({
                       <Text style={styles.incidentTagText}>{tag}</Text>
                     </View>
                   </View>
+                  {inc.attributed_pm ? (
+                    <Text style={styles.incidentObs}>
+                      {`Ocurrió en la zona ${inc.attributed_pm.replace(/^PM/i, '')}`}
+                    </Text>
+                  ) : null}
                   {inc.observations ? (
                     <Text style={styles.incidentObs}>
                       {unclassified
@@ -1060,8 +1155,115 @@ export default function BeachDetail({
                   )}
                 </View>
               );
-            })}
+              };
+              // Agrupado por año; dentro de cada año, los episodios de
+              // la zona hermana (attributed_pm) van al final con su
+              // propio rótulo — no son cierres de este punto
+              const years = [
+                ...new Set(incidents.map((i) => i.opened_at.slice(0, 4))),
+              ];
+              return (
+                <>
+                  {years.map((y) => {
+                    const rows = incidents.filter((i) =>
+                      i.opened_at.startsWith(y),
+                    );
+                    const own = rows.filter((i) => !i.attributed_pm);
+                    const sib = rows.filter((i) => i.attributed_pm);
+                    return (
+                      <View key={y}>
+                        <Text style={styles.historyGroupTitle}>{y}</Text>
+                        {own.map(renderInc)}
+                        {sib.length > 0 && (
+                          <>
+                            <Text style={styles.historySubGroupTitle}>
+                              En la zona {sib[0].attributed_pm!.replace(/^PM/i, '')}
+                            </Text>
+                            {sib.map(renderInc)}
+                          </>
+                        )}
+                      </View>
+                    );
+                  })}
+                </>
+              );
+            })()}
           </View>
+        </View>
+      )}
+
+      {nearby !== null && nearby.length > 0 && (
+        <View
+          style={[
+            styles.nearbyTop,
+            styles.secCard,
+          ]}
+        >
+          <View style={styles.secHead}>
+            <Image
+              source={require('../assets/icons/icon-faucet.png')}
+              style={[
+                styles.secIcon,
+                { tintColor: colors.primaryDark, marginBottom: -2 },
+              ]}
+            />
+            <Text style={styles.secCardTitle}>Emisarios cercanos</Text>
+          </View>
+          <Text style={styles.nearSub}>
+            {nearby.length} a menos de 1 km · el más próximo a{' '}
+              <Text
+                style={
+                  nearby[0].distance_m < 500
+                    ? { color: colors.status.warning }
+                    : undefined
+                }
+              >
+                {fmtDistance(nearby[0].distance_m).replace(' ', ' ')}
+              </Text>
+              {' · aleja el zoom si no los ves'}
+          </Text>
+          {nearby.map((o) => {
+            const accent =
+              colors.outfall[o.status] ?? colors.status.unknown;
+            const target = (outfalls ?? []).find(
+              (f) => f.id === o.outfall_id,
+            );
+            return (
+              <Pressable
+                key={o.outfall_id}
+                style={({ pressed }) => [
+                  styles.outfallRow,
+                  { borderLeftColor: accent },
+                  pressed && styles.pressFx,
+                ]}
+                onPress={
+                  target && onSelectOutfall
+                    ? () => onSelectOutfall(target)
+                    : undefined
+                }
+                disabled={!target || !onSelectOutfall}
+                accessibilityRole="button"
+                accessibilityLabel={`${o.name}, ver en el mapa`}
+              >
+                <View style={styles.outfallRowBody}>
+                  <Text style={styles.outfallName} numberOfLines={1}>
+                    {o.name}
+                  </Text>
+                  <Text style={styles.outfallMeta}>
+                    {OUTFALL_STATUS_LABELS[o.status] ?? 'En trámite'}
+                  </Text>
+                </View>
+                {/* Distancia como badge: columna escaneable para
+                    comparar emisarios de un vistazo */}
+                <Text style={[styles.outfallDist, { color: accent }]}>
+                  {fmtDistance(o.distance_m)}
+                </Text>
+                {target && onSelectOutfall && (
+                  <Text style={styles.outfallChevron}>›</Text>
+                )}
+              </Pressable>
+            );
+          })}
         </View>
       )}
 
@@ -1081,9 +1283,17 @@ export default function BeachDetail({
 
       {quality !== null && quality.length > 0 && (
         <View style={styles.qualityCard}>
-          <Text style={styles.historyTitle}>
-            Calidad del agua · {fmtDate(quality[0].sampled_at)}
-          </Text>
+          <View style={styles.secHead}>
+            <Ionicons
+              name="flask"
+              size={20}
+              color="#00897b"
+              style={[styles.secVectorIcon, { marginBottom: 4 }]}
+            />
+            <Text style={styles.secCardTitle}>
+              Calidad del agua · {fmtDate(quality[0].sampled_at)}
+            </Text>
+          </View>
           {(['ecoli', 'enterococci'] as const).map((param) => {
             const raw = quality[0][param];
             const info = classifyValue(param, raw);
@@ -1136,144 +1346,152 @@ export default function BeachDetail({
               {sampleNote.text}
             </Text>
           ) : null}
+        </View>
+      )}
 
-          {chartData.length >= 2 && (
-            <View
-              style={styles.chartBlock}
-              onLayout={(e) =>
-                setChartW(e.nativeEvent.layout.width)
-              }
-            >
-              <View style={styles.chartHead}>
-                <Text style={styles.historyTitle}>Evolución</Text>
-                <View style={styles.chartToggle}>
-                  {(['ecoli', 'enterococci'] as const).map((param) => (
-                    <Pressable
-                      key={param}
-                      onPress={() => setChartParam(param)}
-                      style={({ pressed }) => [
-                        styles.toggleChip,
-                        chartParam === param && styles.toggleChipOn,
-                        pressed && styles.pressFx,
-                      ]}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Ver evolución de ${QUALITY_THRESHOLDS[param].label}`}
-                      accessibilityState={{
-                        selected: chartParam === param,
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.toggleChipText,
-                          chartParam === param && styles.toggleChipTextOn,
-                        ]}
-                      >
-                        {QUALITY_THRESHOLDS[param].label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-              <ScrollChips
-                fadeRgb="255, 255, 255"
-                a11yLabel="la gráfica"
-                anchorEnd
-              >
-                <View style={styles.chartInner}>
-                  <View style={styles.chartArea}>
+      {chartData.length >= 2 && (
+        <View
+          style={styles.chartBlock}
+          onLayout={(e) =>
+            setChartW(e.nativeEvent.layout.width)
+          }
+        >
+          <View style={styles.chartHead}>
+            <View style={styles.secHead}>
+              <Ionicons
+                name="stats-chart"
+                size={20}
+                color="#7e57c2"
+                style={[styles.secVectorIcon, { marginBottom: 4.6 }]}
+              />
+              <Text style={styles.secCardTitle}>Evolución</Text>
+            </View>
+            <View style={styles.chartToggle}>
+              {(['ecoli', 'enterococci'] as const).map((param) => (
+                <Pressable
+                  key={param}
+                  onPress={() => setChartParam(param)}
+                  style={({ pressed }) => [
+                    styles.toggleChip,
+                    chartParam === param && styles.toggleChipOn,
+                    pressed && styles.pressFx,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver evolución de ${QUALITY_THRESHOLDS[param].label}`}
+                  accessibilityState={{
+                    selected: chartParam === param,
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.toggleChipText,
+                      chartParam === param && styles.toggleChipTextOn,
+                    ]}
+                  >
+                    {QUALITY_THRESHOLDS[param].label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <ScrollChips
+            fadeRgb="255, 255, 255"
+            a11yLabel="la gráfica"
+            anchorEnd
+          >
+            <View style={styles.chartInner}>
+              <View style={styles.chartArea}>
+                <View
+                  style={[
+                    styles.limitLine,
+                    {
+                      bottom: barH(
+                        QUALITY_THRESHOLDS[chartParam].good,
+                      ),
+                    },
+                  ]}
+                />
+                {chartData.map((d, i) => {
+                  const t = QUALITY_THRESHOLDS[chartParam];
+                  const color =
+                    d.value <= t.excellent
+                      ? colors.status.open
+                      : d.value <= t.good
+                        ? colors.outfall.unknown
+                        : colors.status.closed;
+                  return (
                     <View
+                      key={i}
                       style={[
-                        styles.limitLine,
-                        {
-                          bottom: barH(
-                            QUALITY_THRESHOLDS[chartParam].good,
-                          ),
-                        },
+                        styles.barCol,
+                        { width: colW, marginRight: 0 },
                       ]}
-                    />
-                    {chartData.map((d, i) => {
-                      const t = QUALITY_THRESHOLDS[chartParam];
-                      const color =
-                        d.value <= t.excellent
-                          ? colors.status.open
-                          : d.value <= t.good
-                            ? colors.outfall.unknown
-                            : colors.status.closed;
-                      return (
-                        <View
-                          key={i}
-                          style={[
-                            styles.barCol,
-                            { width: colW, marginRight: 0 },
-                          ]}
-                        >
-                          <View
-                            style={[
-                              styles.bar,
-                              {
-                                height: barH(d.value),
-                                width: Math.max(3, colW - 2),
-                                backgroundColor: color,
-                              },
-                            ]}
-                          />
-                        </View>
-                      );
-                    })}
-                    {(() => {
-                      const first = Date.parse(chartData[0].date);
-                      const last = Date.parse(
-                        chartData[chartData.length - 1].date,
-                      );
-                      const span = Math.max(last - first, 1);
-                      return incidentRanges.map((r, i) => {
-                        const pos = Math.min(
-                          1,
-                          Math.max(0, (Date.parse(r.from) - first) / span),
-                        );
-                        return (
-                          <View
-                            key={i}
-                            style={[
-                              styles.incidentTick,
-                              {
-                                left: Math.round(
-                                  pos * (chartData.length - 1) * colW,
-                                ),
-                              },
-                            ]}
-                          />
-                        );
-                      });
-                    })()}
-                  </View>
-                  <View style={styles.yearRow}>
-                    {chartData.map((d, i) => (
+                    >
+                      <View
+                        style={[
+                          styles.bar,
+                          {
+                            height: barH(d.value),
+                            width: Math.max(3, colW - 2),
+                            backgroundColor: color,
+                          },
+                        ]}
+                      />
+                    </View>
+                  );
+                })}
+                {(() => {
+                  const first = Date.parse(chartData[0].date);
+                  const last = Date.parse(
+                    chartData[chartData.length - 1].date,
+                  );
+                  const span = Math.max(last - first, 1);
+                  return incidentRanges.map((r, i) => {
+                    const pos = Math.min(
+                      1,
+                      Math.max(0, (Date.parse(r.from) - first) / span),
+                    );
+                    return (
                       <View
                         key={i}
-                        style={[styles.yearCol, { width: colW }]}
-                      >
-                        {d.yearLabel &&
-                        (d.yearSpan * colW >= 30 || i === lastYearIdx) ? (
-                          <Text style={styles.yearText} numberOfLines={1}>
-                            {d.yearLabel}
-                          </Text>
-                        ) : null}
-                      </View>
-                    ))}
+                        style={[
+                          styles.incidentTick,
+                          {
+                            left: Math.round(
+                              pos * (chartData.length - 1) * colW,
+                            ),
+                          },
+                        ]}
+                      />
+                    );
+                  });
+                })()}
+              </View>
+              <View style={styles.yearRow}>
+                {chartData.map((d, i) => (
+                  <View
+                    key={i}
+                    style={[styles.yearCol, { width: colW }]}
+                  >
+                    {d.yearLabel &&
+                    (d.yearSpan * colW >= 30 || i === lastYearIdx) ? (
+                      <Text style={styles.yearText} numberOfLines={1}>
+                        {d.yearLabel}
+                      </Text>
+                    ) : null}
                   </View>
-                </View>
-              </ScrollChips>
-              <Text style={styles.chartFoot}>
-                {chartData.length} muestreos · cada barra = un análisis
-                oficial · línea azul = límite normativo (
-                {QUALITY_THRESHOLDS[chartParam].good} UFC/100 mL)
-                {incidentRanges.length > 0
-                  ? ' · línea roja = cierre/aviso'
-                  : ''}
-              </Text>
+                ))}
+              </View>
             </View>
-          )}
+          </ScrollChips>
+          <Text style={styles.chartFoot}>
+            {chartData.length} muestreos · cada barra = un análisis
+            oficial · línea azul = límite normativo (
+            {QUALITY_THRESHOLDS[chartParam].good} UFC/100 mL)
+            {incidentRanges.length > 0
+              ? ' · línea roja = cierre/aviso'
+              : ''}
+          </Text>
         </View>
       )}
 
@@ -1355,11 +1573,44 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingTop: 8,
   },
-  // "Emisarios cercanos" arriba de la ficha: sin borde superior, es el
-  // primer bloque de contenido tras la fila de estado
   nearbyTop: {
     marginTop: 10,
-    paddingTop: 2,
+  },
+  // Card de sección — fondo + cabecera con icono como las cards de la
+  // ficha de emisario, pero SIN barra de color: aquí el color es el
+  // semáforo de estado y una barra turquesa suelta competía con él
+  secCard: {
+    paddingVertical: 8,
+  },
+  secHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 7,
+    marginBottom: 2,
+  },
+  secIcon: {
+    width: 22,
+    height: 22,
+    // Alineación óptica: el margen positivo SUBE el icono hasta que
+    // su base casa con la línea base del texto del título (la caja
+    // de línea tiene ~4px de descender por debajo de los glifos)
+    marginBottom: 3,
+  },
+  // Misma corrección para los Ionicons (no usan secIcon)
+  secVectorIcon: {
+    marginBottom: 3,
+  },
+  secCardTitle: {
+    fontSize: 15,
+    fontFamily: fonts.extrabold,
+    color: colors.primaryDark,
+  },
+  nearSub: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    marginBottom: 6,
   },
   sourceFoot: {
     fontSize: 11,
@@ -1369,17 +1620,53 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    textAlign: 'center',
   },
   historyTitle: {
-    fontSize: 13,
-    fontFamily: fonts.bold,
-    color: colors.text,
+    fontSize: 15,
+    fontFamily: fonts.extrabold,
+    color: colors.primaryDark,
     marginBottom: 4,
   },
-  historySub: {
+  historySummary: {
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  historyStatRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  historyStat: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+  },
+  historySummaryNum: {
+    fontFamily: fonts.semibold,
+    color: colors.text,
+  },
+  historySummarySub: {
     fontSize: 11,
     fontFamily: fonts.regular,
     color: colors.textFaint,
+    marginTop: 2,
+  },
+  historyGroupTitle: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.textFaint,
+    marginTop: 18,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  historySubGroupTitle: {
+    fontSize: 10,
+    fontFamily: fonts.semibold,
+    color: colors.textFaint,
+    marginTop: 6,
+    marginBottom: 2,
   },
   qualityCard: {
     marginTop: 10,
@@ -1450,13 +1737,13 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   chartHead: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   chartToggle: {
     flexDirection: 'row',
     gap: 6,
+    marginTop: 6,
+    marginBottom: 4,
   },
   toggleChip: {
     borderRadius: 4,

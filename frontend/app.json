@@ -75,9 +75,7 @@
       }
     },
     "owner": "ayozegr",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/fd4c0991-27fb-4812-8424-eb7680035566"
     }

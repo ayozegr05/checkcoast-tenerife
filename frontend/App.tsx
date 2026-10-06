@@ -106,6 +106,10 @@ export default function App() {
   // Emisario abierto desde "Emisarios cercanos" de una ficha de playa:
   // la selección previa se guarda para restaurarla al cerrar/atrás
   const [restoreSel, setRestoreSel] = useState<Selection | null>(null);
+  // Zona concreta abierta en la ficha multipunto (null = picker o
+  // playa simple): el mapa sube un poco el encuadre para que los
+  // dots respiren por encima de la ficha
+  const [zoneShown, setZoneShown] = useState<GeoFeature | null>(null);
   // Doble atrás para salir: marca temporal del último atrás en el mapa
   const lastBackRef = useRef(0);
 
@@ -200,7 +204,13 @@ export default function App() {
             ...m,
             properties: {
               ...m.properties,
-              pointLabel: beachPointLabel(m.properties.name) ?? '',
+              // "PM3" → "Zona 3": coherente con el lenguaje de la
+              // ficha ("la zona 4"), nada de siglas del censo
+              pointLabel:
+                beachPointLabel(m.properties.name)?.replace(
+                  /PM(\d+)/,
+                  'Zona $1',
+                ) ?? '',
             },
           })),
         }
@@ -471,6 +481,7 @@ export default function App() {
           selection?.type === 'outfall' ? selection.feature.id : null
         }
         pmPoints={pmPointsFC}
+        zoneFocus={zoneShown}
         onSelect={(s) => {
           setSelection(s);
           setSheetHidden(false);
@@ -642,6 +653,7 @@ export default function App() {
             })
           }
           onSelectBeach={(f) => openBeachPin(f, selection)}
+          onZoneShown={setZoneShown}
           onViewOnMap={() => {
             // Ocultar la card pero mantener la selección: el pin sigue
             // destacado y el mapa vuela cerca del punto

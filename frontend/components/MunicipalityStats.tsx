@@ -21,7 +21,8 @@ import {
   fetchMunicipalityIncidents,
 } from '../lib/api';
 import {
-  causeCounts,
+  causeFamily,
+  causeFamilyCounts,
   closuresThisYear,
   episodeDays,
   episodeYears,
@@ -29,7 +30,7 @@ import {
   seasonYear,
   yearEpisodes,
 } from '../lib/episodes';
-import { displayBeachName, searchNorm } from '../lib/format';
+import { displayBeachName, formatDays, searchNorm } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 import Skeleton from './Skeleton';
 import ScrollChips from './ScrollChips';
@@ -221,7 +222,8 @@ export default function MunicipalityStats({
   // Las chips de causa cuentan solo CIERRES — igual que el desglose
   // del banner ("14 cierres (7 mar agitado · ...)")
   const yearCauses = useMemo(
-    () => causeCounts(causeScope.filter((e) => e.kind === 'closure')),
+    () =>
+      causeFamilyCounts(causeScope.filter((e) => e.kind === 'closure')),
     [causeScope],
   );
   const yearRows = useMemo(
@@ -231,7 +233,9 @@ export default function MunicipalityStats({
           yearCause === 'all'
             ? true
             : e.kind === 'closure' &&
-              (yearCause === 'sin causa' ? !e.cause : e.cause === yearCause),
+              (yearCause === 'sin causa'
+                ? !e.cause
+                : causeFamily(e.cause) === yearCause),
         )
         .sort(
           (a, b) =>
@@ -250,7 +254,9 @@ export default function MunicipalityStats({
     for (const e of causeScope) {
       if (e.kind !== 'closure') continue;
       const hit =
-        yearCause === 'sin causa' ? !e.cause : e.cause === yearCause;
+        yearCause === 'sin causa'
+          ? !e.cause
+          : causeFamily(e.cause) === yearCause;
       if (!hit) continue;
       m.set(e.municipality, (m.get(e.municipality) ?? 0) + 1);
     }
@@ -416,7 +422,7 @@ export default function MunicipalityStats({
           ? true
           : yearCause === 'sin causa'
             ? !inc.cause
-            : inc.cause === yearCause,
+            : causeFamily(inc.cause) === yearCause,
       )
       // En modo-año la línea temporal solo muestra episodios que
       // tocaron ese año (mismo solape que yearEpisodes)
@@ -683,11 +689,7 @@ export default function MunicipalityStats({
                                 : 'activo'
                             }${
                               inc.opened_at
-                                ? ` · ${durationDays(inc)} ${
-                                    durationDays(inc) === 1
-                                      ? 'día'
-                                      : 'días'
-                                  }`
+                                ? ` · ${formatDays(durationDays(inc))}`
                                 : ''
                             }`}
                       </Text>
@@ -1051,9 +1053,7 @@ export default function MunicipalityStats({
                       ? `desde el ${fmtDate(ep.opened_at)}`
                       : `${fmtDate(ep.opened_at)} → ${fmtDate(
                           ep.closed_at as string,
-                        )} · ${episodeDays(ep)} ${
-                          episodeDays(ep) === 1 ? 'día' : 'días'
-                        }`}
+                        )} · ${formatDays(episodeDays(ep))}`}
                     {ep.cause
                       ? ` · ${ep.cause.charAt(0).toLowerCase()}${ep.cause.slice(1)}`
                       : ''}
@@ -1148,7 +1148,7 @@ export default function MunicipalityStats({
                   {item.beaches}{' '}
                   {item.beaches === 1 ? 'playa' : 'playas'}
                   {item.points > item.beaches
-                    ? ` · ${item.points} PMs`
+                    ? ` · ${item.points} zonas`
                     : ''}
                 </Text>
               </View>

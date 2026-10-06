@@ -59,6 +59,19 @@ export const fmtDate = (iso: string) => {
   return `${d}/${m}/${y}`;
 };
 
+// Duración legible: bajo el año, días a secas ("45 días"); a partir
+// de 365 días (Benijo, Los Patos — miles) se desglosa en años y
+// meses: "2 años", "1 año y 3 meses". A esa escala la precisión de
+// días es ruido
+export const formatDays = (days: number): string => {
+  if (days < 365) return `${days} ${days === 1 ? 'día' : 'días'}`;
+  const months = Math.round(days / 30.4375);
+  const y = Math.floor(months / 12);
+  const m = months % 12;
+  const yrs = `${y} ${y === 1 ? 'año' : 'años'}`;
+  return m ? `${yrs} y ${m} ${m === 1 ? 'mes' : 'meses'}` : yrs;
+};
+
 // ISO parcial (closed_since): "2024" -> "2024", "2024-07" ->
 // "jul-2024", "2024-07-15" -> "15/07/2024". La fuente solo afirma la
 // precisión que dice; no inventamos día ni mes
@@ -148,10 +161,12 @@ export const beachPointLabel = (name: string) => {
   return label || null;
 };
 
-// Versión legible para el usuario: "PM3" -> "Punto de muestreo 3";
-// "II · PM3" -> "II · punto de muestreo 3". "PM" solo lo entiende
-// quien conoce el censo de Náyade
+// Versión legible para el usuario: "PM3" -> "Zona 3";
+// "II · PM3" -> "II · zona 3". "PM" solo lo entiende quien conoce
+// el censo de Náyade
 export const pointLongLabel = (name: string) => {
   const l = beachPointLabel(name);
-  return l ? l.replace(/PM(\d+)/, 'punto de muestreo $1') : null;
+  if (!l) return null;
+  const s = l.replace(/PM(\d+)/, 'zona $1');
+  return s.charAt(0).toUpperCase() + s.slice(1);
 };
