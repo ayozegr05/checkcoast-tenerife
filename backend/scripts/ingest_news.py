@@ -47,6 +47,7 @@ _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 def _norm_key(s: str | None) -> str:
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
+
 # Solo estos eventos de prensa despiertan el móvil; el resto queda como
 # contexto en la ficha
 _PRESS_PUSH_EVENTS = {"closure", "warning", "reopening"}
@@ -120,9 +121,19 @@ def _press_push_candidate(
 # enterococos) suele vivir solo en el cuerpo, así que "contaminación
 # fecal" a secas SÍ dispara la descarga.
 _SPECIFIC_CAUSE_KEYS = (
-    "enterococo", "coli", "gasoil", "hidrocarburo", "fuel",
-    "alga", "medusa", "desprend", "talud", "derrumbe", "corrimiento",
-    "colapso", "socav",
+    "enterococo",
+    "coli",
+    "gasoil",
+    "hidrocarburo",
+    "fuel",
+    "alga",
+    "medusa",
+    "desprend",
+    "talud",
+    "derrumbe",
+    "corrimiento",
+    "colapso",
+    "socav",
 )
 
 
@@ -207,7 +218,12 @@ def _enrich_with_body(
         ext2 = extract_event(replace(art, body=body), extractor)
         time.sleep(2)
         if ext2 is not None and ext2.relevant:
-            return ext2, match_beaches(ext2, beaches, title=art.title), True, True
+            return (
+                ext2,
+                match_beaches(ext2, beaches, title=art.title),
+                True,
+                True,
+            )
         if ext2 is None:
             return None, hits, True, False
         return ext, hits, True, False  # el cuerpo confirma: no relevante
@@ -355,11 +371,7 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
         ext = extract_event(art, extractor)
         if ext is None:
             continue  # fallo del proveedor: reintento la próxima pasada
-        hits = (
-            match_beaches(ext, beaches, title=title)
-            if ext.relevant
-            else []
-        )
+        hits = match_beaches(ext, beaches, title=title) if ext.relevant else []
         if rows:
             # Ficha ya vista: actualizamos la extracción en las filas
             # que existan (la misma URL replicada por PM)
@@ -381,9 +393,7 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
             for b in hits:
                 if b.id in have:
                     continue
-                free = next(
-                    (r for r in rows if r.beach_id is None), None
-                )
+                free = next((r for r in rows if r.beach_id is None), None)
                 if free is not None:
                     free.beach_id = b.id
                 else:
@@ -484,7 +494,8 @@ def run() -> tuple[int, int, int]:
                 continue  # fallo del proveedor: se reintenta la próxima pasada
             hits = (
                 match_beaches(ext, beaches, title=art.title)
-                if ext.relevant else []
+                if ext.relevant
+                else []
             )
             verified = False
             if body_left > 0:
@@ -540,8 +551,7 @@ def run() -> tuple[int, int, int]:
                 NewsItem.push_pending.is_(True),
                 NewsItem.pushed_at.is_(None),
                 NewsItem.published_at
-                >= datetime.now(UTC)
-                - timedelta(days=_PRESS_PUSH_DAYS),
+                >= datetime.now(UTC) - timedelta(days=_PRESS_PUSH_DAYS),
             )
             .all()
         )

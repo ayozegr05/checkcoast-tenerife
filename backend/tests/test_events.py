@@ -38,9 +38,7 @@ def news(
     body_verified: bool = False,
 ):
     return SimpleNamespace(
-        published_at=datetime(
-            day.year, day.month, day.day, tzinfo=UTC
-        ),
+        published_at=datetime(day.year, day.month, day.day, tzinfo=UTC),
         event_type=event_type,
         relevant=True,
         source=source,

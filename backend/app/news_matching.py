@@ -82,9 +82,7 @@ def _name_in_title(key: str, title_norm: str) -> bool:
     """La clave aparece como nombre literal en el titular (límites de
     palabra: "LA ARENA" no casa dentro de "ARENITA")."""
     return bool(
-        re.search(
-            rf"(?<![A-Z0-9]){re.escape(key)}(?![A-Z0-9])", title_norm
-        )
+        re.search(rf"(?<![A-Z0-9]){re.escape(key)}(?![A-Z0-9])", title_norm)
     )
 
 
@@ -199,7 +197,9 @@ def match_beaches(
         out: list[Beach] = []
         seen_ids: set[int] = set()
         for p in parts:
-            for b in match_beaches(replace(ext, beach_name=p), beaches, title=title):
+            for b in match_beaches(
+                replace(ext, beach_name=p), beaches, title=title
+            ):
                 if b.id not in seen_ids:
                     seen_ids.add(b.id)
                     out.append(b)
@@ -210,8 +210,7 @@ def match_beaches(
         # La playa aporta todas sus claves: nombre del censo + aliases
         # de prensa ("Los Guanches" → PLAYA CANDELARIA)
         keys = [_press_key(b.name)] + [
-            _press_key(a)
-            for a in (getattr(b, "press_aliases", None) or [])
+            _press_key(a) for a in (getattr(b, "press_aliases", None) or [])
         ]
         # El exacto (nombre o alias) gana a las contenciones: si no,
         # "Bajamar" casaría por substring contra "PISCINAS NATURALES DE

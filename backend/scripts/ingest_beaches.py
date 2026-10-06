@@ -31,7 +31,12 @@ DATASET_URL = (
 USER_AGENT = "CheckCoastBot/0.1 (civic data ingestion; contact: local dev)"
 
 # Bounding box de Tenerife (WGS84)
-TENERIFE_BBOX = (-17.0, 27.9, -16.0, 28.7)  # lon_min, lat_min, lon_max, lat_max
+TENERIFE_BBOX = (
+    -17.0,
+    27.9,
+    -16.0,
+    28.7,
+)  # lon_min, lat_min, lon_max, lat_max
 
 
 def _solve_altcha(challenge: dict) -> str:
@@ -102,7 +107,11 @@ def main() -> None:
                 continue
 
             external_id = f"zb2025-{rec['localId']}"
-            obj = db.query(Beach).filter_by(external_id=external_id).one_or_none()
+            obj = (
+                db.query(Beach)
+                .filter_by(external_id=external_id)
+                .one_or_none()
+            )
             if obj is None:
                 obj = Beach(external_id=external_id)
                 created += 1

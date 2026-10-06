@@ -6,6 +6,7 @@
    trajo: reaperturas del 9-may y 6-jun + cierres del 5-jun.
    Extracción con cuerpo completo → body_verified=True.
 """
+
 import re
 import time
 from datetime import UTC, datetime
@@ -24,26 +25,44 @@ from app.news_sources import RawArticle
 # diferir; las verifiqué una a una en la web)
 URLS = [
     # Reapertura 9-may-2025: Troya I + Puertito
-    ("https://www.europapress.es/islas-canarias/noticia-reabiertas-bano-playas-troya-puertito-adeje-tenerife-20250509185255.html",
-     datetime(2025, 5, 9, 18, 52, tzinfo=UTC)),
-    ("https://diariodeavisos.elespanol.com/2025/05/reabren-el-bano-en-dos-playas-del-sur-de-tenerife-la-calidad-del-agua-es-optima/",
-     datetime(2025, 5, 9, tzinfo=UTC)),
-    ("https://www.rtvc.es/cerradas-al-bano-las-playas-de-troya-i-y-el-puertito-en-adeje-en-el-sur-de-tenerife/",
-     datetime(2025, 5, 9, 16, 40, tzinfo=UTC)),
+    (
+        "https://www.europapress.es/islas-canarias/noticia-reabiertas-bano-playas-troya-puertito-adeje-tenerife-20250509185255.html",
+        datetime(2025, 5, 9, 18, 52, tzinfo=UTC),
+    ),
+    (
+        "https://diariodeavisos.elespanol.com/2025/05/reabren-el-bano-en-dos-playas-del-sur-de-tenerife-la-calidad-del-agua-es-optima/",
+        datetime(2025, 5, 9, tzinfo=UTC),
+    ),
+    (
+        "https://www.rtvc.es/cerradas-al-bano-las-playas-de-troya-i-y-el-puertito-en-adeje-en-el-sur-de-tenerife/",
+        datetime(2025, 5, 9, 16, 40, tzinfo=UTC),
+    ),
     # Cierre 5-jun-2025 (el "de nuevo")
-    ("https://www.eldiario.es/canariasahora/tenerifeahora/sur/cerrado-nuevo-bano-puertito-adeje-altos-niveles-bacterias-fecales_1_12359734.html",
-     datetime(2025, 6, 5, tzinfo=UTC)),
-    ("https://diariodeavisos.elespanol.com/2025/06/cerrado-al-bano-una-playa-en-adeje-por-altos-niveles-de-bacterias-fecales/",
-     datetime(2025, 6, 5, tzinfo=UTC)),
-    ("https://www.atlanticohoy.com/tenerife/dos-playas-mas-prohiben-bano-en-tenerife-por-contaminacion_1546157_102.html",
-     datetime(2025, 6, 5, tzinfo=UTC)),
+    (
+        "https://www.eldiario.es/canariasahora/tenerifeahora/sur/cerrado-nuevo-bano-puertito-adeje-altos-niveles-bacterias-fecales_1_12359734.html",
+        datetime(2025, 6, 5, tzinfo=UTC),
+    ),
+    (
+        "https://diariodeavisos.elespanol.com/2025/06/cerrado-al-bano-una-playa-en-adeje-por-altos-niveles-de-bacterias-fecales/",
+        datetime(2025, 6, 5, tzinfo=UTC),
+    ),
+    (
+        "https://www.atlanticohoy.com/tenerife/dos-playas-mas-prohiben-bano-en-tenerife-por-contaminacion_1546157_102.html",
+        datetime(2025, 6, 5, tzinfo=UTC),
+    ),
     # Reapertura 6-jun-2025
-    ("https://www.eldia.es/tenerife/2025/06/06/ayuntamiento-adeje-reabre-bano-puertito-118328853.html",
-     datetime(2025, 6, 6, 15, 43, tzinfo=UTC)),
-    ("https://diariodeavisos.elespanol.com/2025/06/reabierta-al-bano-la-playa-de-adeje-tras-las-ultimas-analiticas/",
-     datetime(2025, 6, 6, tzinfo=UTC)),
-    ("https://eldigitalsur.com/tenerifesur/adeje/adeje-reabre-bano-puertito-calidad-agua/",
-     datetime(2025, 6, 6, 10, 8, tzinfo=UTC)),
+    (
+        "https://www.eldia.es/tenerife/2025/06/06/ayuntamiento-adeje-reabre-bano-puertito-118328853.html",
+        datetime(2025, 6, 6, 15, 43, tzinfo=UTC),
+    ),
+    (
+        "https://diariodeavisos.elespanol.com/2025/06/reabierta-al-bano-la-playa-de-adeje-tras-las-ultimas-analiticas/",
+        datetime(2025, 6, 6, tzinfo=UTC),
+    ),
+    (
+        "https://eldigitalsur.com/tenerifesur/adeje/adeje-reabre-bano-puertito-calidad-agua/",
+        datetime(2025, 6, 6, 10, 8, tzinfo=UTC),
+    ),
 ]
 
 _TITLE_RE = re.compile(r"<title[^>]*>([^<]+)</title>", re.IGNORECASE)
@@ -98,28 +117,37 @@ def main():
             "eldia.es": "El Día",
             "eldigitalsur.com": "El Digital Sur",
         }.get(dom, dom)
-        art = RawArticle(title=title, url=url, source=source,
-                         published_at=pub, body=body)
+        art = RawArticle(
+            title=title, url=url, source=source, published_at=pub, body=body
+        )
         ext = extract_event(art, extractor)
         time.sleep(2)
         if ext is None:
             print("LLM fail:", url[:80])
             continue
         hits = match_beaches(ext, beaches, title=title) if ext.relevant else []
-        print(f"-> {ext.event_type} | {ext.cause} | "
-              f"beach={[b.id for b in hits]} | {title[:60]}")
+        print(
+            f"-> {ext.event_type} | {ext.cause} | "
+            f"beach={[b.id for b in hits]} | {title[:60]}"
+        )
         for beach in hits or [None]:
-            db.add(NewsItem(
-                url=url, title=title, source=source,
-                published_at=pub, relevant=ext.relevant,
-                beach_id=beach.id if beach else None,
-                event_type=ext.event_type, cause=ext.cause,
-                closed_since=ext.closed_since,
-                extracted_beach=ext.beach_name,
-                extracted_municipality=ext.municipality,
-                confidence=ext.confidence,
-                body_verified=True,  # extracción sobre cuerpo completo
-            ))
+            db.add(
+                NewsItem(
+                    url=url,
+                    title=title,
+                    source=source,
+                    published_at=pub,
+                    relevant=ext.relevant,
+                    beach_id=beach.id if beach else None,
+                    event_type=ext.event_type,
+                    cause=ext.cause,
+                    closed_since=ext.closed_since,
+                    extracted_beach=ext.beach_name,
+                    extracted_municipality=ext.municipality,
+                    confidence=ext.confidence,
+                    body_verified=True,  # extracción sobre cuerpo completo
+                )
+            )
         db.commit()
 
 

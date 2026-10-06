@@ -20,15 +20,8 @@ import BeachDetail from './BeachDetail';
 import SatelliteShot from './SatelliteShot';
 import type { Selection } from './CoastMap';
 import type { GeoFeature } from '../lib/api';
-import {
-  OutfallNearbyBeach,
-  fetchOutfallNearbyBeaches,
-} from '../lib/api';
-import {
-  beachBaseName,
-  pointLongLabel,
-  displayBeachName,
-} from '../lib/format';
+import { OutfallNearbyBeach, fetchOutfallNearbyBeaches } from '../lib/api';
+import { beachBaseName, pointLongLabel, displayBeachName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -69,8 +62,7 @@ const originLabel = (s: string) => {
   const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
   if (s.includes('+')) {
     const labels = s.split('+').map((t) => originKindLabel(t.trim()));
-    if (labels.every(Boolean))
-      return cap([...new Set(labels)].join(' + '));
+    if (labels.every(Boolean)) return cap([...new Set(labels)].join(' + '));
   }
   const l = originKindLabel(s.trim());
   return l ? cap(l) : s;
@@ -148,15 +140,12 @@ const natureParts = (
 ): { label: string; note: string }[] => {
   const n = nature.toLowerCase();
   const o = (origin ?? '').toLowerCase();
-  const parts: { src: string | null; name: string; note: string }[] =
-    [];
+  const parts: { src: string | null; name: string; note: string }[] = [];
   if (n.includes('residual'))
     parts.push({
       src: /e[dt]a[rs]|depuradora|tratamiento/.test(o)
         ? 'Depuradora'
-        : /ebar|bombeo|pretratamiento|saneamiento|aliviadero|red/.test(
-              o,
-            )
+        : /ebar|bombeo|pretratamiento|saneamiento|aliviadero|red/.test(o)
           ? 'Red de saneamiento'
           : null,
       name: n.includes('industrial')
@@ -169,8 +158,7 @@ const natureParts = (
     // un vertido somero llega al fondo casi sin diluir pase lo que
     // pase; uno profundo NO garantiza buen diseño (caudal y difusor
     // mandan también) → silencio antes que falsa tranquilidad
-    const shallow =
-      depth != null && (depth >= 0 || Math.abs(depth) < 8);
+    const shallow = depth != null && (depth >= 0 || Math.abs(depth) < 8);
     parts.push({
       src: /edam|desaladora|salina/.test(o) ? 'Desaladora' : null,
       name: 'salmuera',
@@ -293,8 +281,8 @@ export default function FeatureSheet({
   const whereLabel = isBeach
     ? null
     : [p.location, p.settlement]
-          .filter((v, i, a) => v && a.indexOf(v) === i && v !== p.municipality)
-          .join(' · ') || null;
+        .filter((v, i, a) => v && a.indexOf(v) === i && v !== p.municipality)
+        .join(' · ') || null;
 
   // Selector de PMs: si la playa agrupada tiene varios puntos de
   // muestreo, la card muestra primero la lista y el usuario elige
@@ -335,10 +323,7 @@ export default function FeatureSheet({
   const PEEK_MAX = Math.round(winH * 0.64);
   const [bodyH, setBodyH] = useState(0);
   // Peek = altura del contenido (con minimo razonable y tope PEEK_MAX)
-  const peek = Math.max(
-    170,
-    Math.min(PEEK_MAX, CARD_MAX, bodyH + HEADER_H),
-  );
+  const peek = Math.max(170, Math.min(PEEK_MAX, CARD_MAX, bodyH + HEADER_H));
   const h = useRef(new Animated.Value(0)).current; // cerrada = alto 0
   const b = useRef(new Animated.Value(CARD_BOTTOM)).current;
   // Card bajita en reposo: flota sobre el borde en vez de ir pegada
@@ -368,13 +353,10 @@ export default function FeatureSheet({
   const scrollMetrics = useRef({ y: 0, vh: 0, ch: 0 });
   const recomputeMore = () => {
     const m = scrollMetrics.current;
-    setShowMore(
-      m.vh > 0 && m.ch > m.vh + 8 && m.y + m.vh < m.ch - 32,
-    );
+    setShowMore(m.vh > 0 && m.ch > m.vh + 8 && m.y + m.vh < m.ch - 32);
   };
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, layoutMeasurement, contentSize } =
-      e.nativeEvent;
+    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
     scrollMetrics.current = {
       y: contentOffset.y,
       vh: layoutMeasurement.height,
@@ -398,8 +380,7 @@ export default function FeatureSheet({
             (n, i) =>
               list.findIndex(
                 (m) =>
-                  beachBaseName(m.beach_name) ===
-                  beachBaseName(n.beach_name),
+                  beachBaseName(m.beach_name) === beachBaseName(n.beach_name),
               ) === i,
           ),
         ),
@@ -487,16 +468,14 @@ export default function FeatureSheet({
     new Set(members.map((m) => stripPm(m.properties.name))).size === 1;
   const pmSuffix =
     chosenPm && sameBase
-      ? ` · Punto ${
-          chosenPm.properties.name.match(/PM(\d+)$/)?.[1] ?? ''
-        }`
+      ? ` · Punto ${chosenPm.properties.name.match(/PM(\d+)$/)?.[1] ?? ''}`
       : '';
   const muni = isBeach ? beachFeature.properties.municipality : null;
   const title =
     (showPmPicker
       ? displayBeachName(beachBaseName(p.name))
-      : displayBeachName(stripPm(beachFeature.properties.name)) +
-        pmSuffix) + (muni ? ` · ${muni}` : '');
+      : displayBeachName(stripPm(beachFeature.properties.name)) + pmSuffix) +
+    (muni ? ` · ${muni}` : '');
 
   // Acento de la cabecera según estado (playa o vertido): tinta sutil
   // + línea superior del color de estado
@@ -509,10 +488,7 @@ export default function FeatureSheet({
       onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > 6,
       onPanResponderMove: (_e, g) => {
         // Arrastrar hacia abajo (dy>0) encoge la card
-        const nh = Math.max(
-          60,
-          Math.min(CARD_MAX, snapped.current - g.dy),
-        );
+        const nh = Math.max(60, Math.min(CARD_MAX, snapped.current - g.dy));
         h.setValue(nh);
       },
       onPanResponderRelease: (_e, g) => {
@@ -526,9 +502,7 @@ export default function FeatureSheet({
   ).current;
 
   return (
-    <Animated.View
-      style={[styles.sheet, { bottom: b, height: h }]}
-    >
+    <Animated.View style={[styles.sheet, { bottom: b, height: h }]}>
       {/* Zona de agarre: asa + cabecera responden al arrastre */}
       <View
         {...pan.panHandlers}
@@ -660,9 +634,7 @@ export default function FeatureSheet({
                 otros vertidos y playas alrededor. Clicable → mapa */}
             <SatelliteShot
               center={feature.geometry.coordinates as [number, number]}
-              centerColor={
-                STATUS_COLORS[statusKey] ?? colors.status.unknown
-              }
+              centerColor={STATUS_COLORS[statusKey] ?? colors.status.unknown}
               centerIcon={require('../assets/icons/icon-faucet-sil.png')}
               markers={shotMarkers}
               line={
@@ -720,8 +692,8 @@ export default function FeatureSheet({
                 </Text>
                 <Text style={styles.protectedName}>
                   Este emisario está dentro de la{' '}
-                  {protectedAreaName(p.protected_area)}, una Zona
-                  Especial de Conservación de la red Natura 2000
+                  {protectedAreaName(p.protected_area)}, una Zona Especial de
+                  Conservación de la red Natura 2000
                   {protectedAreaNote(p.protected_area)}.
                 </Text>
               </View>
@@ -737,25 +709,18 @@ export default function FeatureSheet({
                 <View style={styles.heroText}>
                   {p.nature ? (
                     <>
-                      <Text style={styles.heroKicker}>
-                        Qué se vierte
-                      </Text>
+                      <Text style={styles.heroKicker}>Qué se vierte</Text>
                       <Text style={styles.heroValue}>{p.nature}</Text>
                       {p.origin ? (
                         <Text style={styles.heroSub}>
                           {originLabel(p.origin)}
                         </Text>
                       ) : null}
-                      {natureParts(
-                        p.nature,
-                        p.origin,
-                        p.outfall_depth,
-                      ).map(
+                      {natureParts(p.nature, p.origin, p.outfall_depth).map(
                         (pt, i) => (
                           <Text key={i} style={styles.heroNote}>
                             <Text style={styles.heroRespStrong}>
-                              {pt.label[0].toUpperCase() +
-                                pt.label.slice(1)}
+                              {pt.label[0].toUpperCase() + pt.label.slice(1)}
                             </Text>
                             {` — ${pt.note}`}
                           </Text>
@@ -769,9 +734,7 @@ export default function FeatureSheet({
                   {p.entity ? (
                     <Text style={styles.heroResp}>
                       Responsable:{' '}
-                      <Text style={styles.heroRespStrong}>
-                        {p.entity}
-                      </Text>
+                      <Text style={styles.heroRespStrong}>{p.entity}</Text>
                       {p.manager && p.manager !== p.entity
                         ? ` · operado por ${p.manager}`
                         : null}
@@ -779,9 +742,7 @@ export default function FeatureSheet({
                   ) : p.manager ? (
                     <Text style={styles.heroResp}>
                       Operador:{' '}
-                      <Text style={styles.heroRespStrong}>
-                        {p.manager}
-                      </Text>
+                      <Text style={styles.heroRespStrong}>{p.manager}</Text>
                     </Text>
                   ) : null}
                 </View>
@@ -790,34 +751,28 @@ export default function FeatureSheet({
             {/* Dónde + conducción en una sola card: son pocos datos
                 y juntos narran "está aquí, sale así". El responsable
                 vive en el hero; la profundidad va visible */}
-            {p.location || p.settlement || p.municipality || p.zone_desc ||
-            p.kind || p.length_m != null || p.outfall_depth != null ||
+            {p.location ||
+            p.settlement ||
+            p.municipality ||
+            p.zone_desc ||
+            p.kind ||
+            p.length_m != null ||
+            p.outfall_depth != null ||
             p.condition ? (
               <View
-                style={[
-                  styles.secCard,
-                  { borderLeftColor: colors.accent },
-                ]}
+                style={[styles.secCard, { borderLeftColor: colors.accent }]}
               >
                 <View style={styles.secHead}>
                   <Image
                     source={require('../assets/icons/icon-map.png')}
-                    style={[
-                      styles.secIcon,
-                      { tintColor: colors.accent },
-                    ]}
+                    style={[styles.secIcon, { tintColor: colors.accent }]}
                   />
-                  <Text style={styles.secCardTitle}>
-                    Dónde y cómo
-                  </Text>
+                  <Text style={styles.secCardTitle}>Dónde y cómo</Text>
                 </View>
                 {whereLabel || p.municipality ? (
                   <Text style={styles.row}>
                     Está en{' '}
-                    {[whereLabel, p.municipality]
-                      .filter(Boolean)
-                      .join(', ')}
-                    .
+                    {[whereLabel, p.municipality].filter(Boolean).join(', ')}.
                   </Text>
                 ) : null}
                 {p.zone_desc ? (
@@ -835,9 +790,7 @@ export default function FeatureSheet({
                       style={[
                         styles.rowStrong,
                         {
-                          color:
-                            CONDITION_COLORS[p.condition] ??
-                            colors.text,
+                          color: CONDITION_COLORS[p.condition] ?? colors.text,
                         },
                       ]}
                     >
@@ -867,8 +820,7 @@ export default function FeatureSheet({
                         styles.nearestBox,
                         {
                           borderLeftColor:
-                            STATUS_COLORS[statusKey] ??
-                            colors.status.unknown,
+                            STATUS_COLORS[statusKey] ?? colors.status.unknown,
                         },
                         pressed && styles.pressFx,
                       ]}
@@ -882,10 +834,7 @@ export default function FeatureSheet({
                       accessibilityLabel={`${displayBeachName(beachBaseName(n.beach_name))}, ver en el mapa`}
                     >
                       <View style={styles.nearestBody}>
-                        <Text
-                          style={styles.nearestName}
-                          numberOfLines={1}
-                        >
+                        <Text style={styles.nearestName} numberOfLines={1}>
                           {displayBeachName(beachBaseName(n.beach_name))}
                         </Text>
                         {n.municipality ? (
@@ -901,8 +850,7 @@ export default function FeatureSheet({
                           styles.nearestDist,
                           {
                             color:
-                              STATUS_COLORS[statusKey] ??
-                              colors.status.unknown,
+                              STATUS_COLORS[statusKey] ?? colors.status.unknown,
                           },
                         ]}
                       >
@@ -958,8 +906,7 @@ export default function FeatureSheet({
             // del fondo (si el usuario subió a mano, se respeta).
             setTimeout(() => {
               const m2 = scrollMetrics.current;
-              if (m2.ch > 0 && m2.y + m2.vh >= m2.ch - 120)
-                setShowMore(false);
+              if (m2.ch > 0 && m2.y + m2.vh >= m2.ch - 120) setShowMore(false);
             }, 800);
           }}
           accessibilityRole="button"
@@ -973,7 +920,6 @@ export default function FeatureSheet({
           <Text style={styles.moreText}>Ver más</Text>
         </Pressable>
       )}
-
     </Animated.View>
   );
 }

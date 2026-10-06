@@ -66,8 +66,14 @@ _CAUSE_RULES = [
         # caverna bajo la avenida) no es un desprendimiento ni un
         # problema de agua — categoría propia, también estructural
         (
-            "socav", "colaps", "cavern", "cavidad", "cueva",
-            "hundim", "horad", "erosion",
+            "socav",
+            "colaps",
+            "cavern",
+            "cavidad",
+            "cueva",
+            "hundim",
+            "horad",
+            "erosion",
         ),
         "Colapso del terreno",
     ),
@@ -257,9 +263,7 @@ def stale_official_ids(db: Session) -> set[int]:
     Sirve para el estado efectivo (mapa, alertas, ficha): el dato oficial
     crudo no se toca y sigue visible en el historial de la playa."""
     rows = (
-        db.query(
-            NewsItem.beach_id, NewsItem.published_at, NewsItem.source
-        )
+        db.query(NewsItem.beach_id, NewsItem.published_at, NewsItem.source)
         .filter(
             NewsItem.relevant.is_(True),
             NewsItem.beach_id.isnot(None),
@@ -292,12 +296,14 @@ def stale_official_ids(db: Session) -> set[int]:
         .all()
     )
     open_incs: dict[int, list] = {}
-    for bid, opened in db.query(
-        BeachIncident.beach_id, BeachIncident.opened_at
-    ).filter(
-        BeachIncident.beach_id.in_(ids),
-        BeachIncident.closed_at.is_(None),
-    ).all():
+    for bid, opened in (
+        db.query(BeachIncident.beach_id, BeachIncident.opened_at)
+        .filter(
+            BeachIncident.beach_id.in_(ids),
+            BeachIncident.closed_at.is_(None),
+        )
+        .all()
+    ):
         open_incs.setdefault(bid, []).append(opened)
     last_meas = dict(
         db.query(
@@ -510,9 +516,11 @@ def effective_states(db: Session) -> dict[int, dict]:
                 )
                 .scalar()
             )
-            last_meas = db.query(func.max(BeachMeasurement.sampled_at)).filter(
-                BeachMeasurement.beach_id == beach_id
-            ).scalar()
+            last_meas = (
+                db.query(func.max(BeachMeasurement.sampled_at))
+                .filter(BeachMeasurement.beach_id == beach_id)
+                .scalar()
+            )
             if last_meas is not None and (
                 resolved is None or last_meas > resolved
             ):
@@ -538,9 +546,7 @@ def effective_states(db: Session) -> dict[int, dict]:
     # o evaluación de la última medición; si no aportan ("Sin
     # Calificar"), cae a la causa dominante de la prensa (etiquetada)
     off_ids = [
-        b
-        for b, e in result.items()
-        if e["via"] == "official" and e["alerted"]
+        b for b, e in result.items() if e["via"] == "official" and e["alerted"]
     ]
     if off_ids:
         inc_obs: dict[int, str | None] = {}
@@ -556,9 +562,7 @@ def effective_states(db: Session) -> dict[int, dict]:
             inc_obs.setdefault(bid, obs)
         meas_ev: dict[int, str | None] = {}
         for bid, ev_txt in (
-            db.query(
-                BeachMeasurement.beach_id, BeachMeasurement.evaluation
-            )
+            db.query(BeachMeasurement.beach_id, BeachMeasurement.evaluation)
             .filter(BeachMeasurement.beach_id.in_(off_ids))
             .order_by(BeachMeasurement.sampled_at.desc())
             .all()

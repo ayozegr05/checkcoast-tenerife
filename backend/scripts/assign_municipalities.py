@@ -119,9 +119,7 @@ def main() -> None:
         assigned = assign_municipalities(db)
         db.commit()
         remaining = db.execute(
-            text(
-                "SELECT count(*) FROM beaches WHERE municipality IS NULL"
-            )
+            text("SELECT count(*) FROM beaches WHERE municipality IS NULL")
         ).scalar()
         print(
             f"Municipios asignados: {assigned}; "

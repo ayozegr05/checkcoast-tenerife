@@ -26,11 +26,7 @@ import {
   fetchBeachStats,
   fetchEpisodes,
 } from '../lib/api';
-import {
-  pointLongLabel,
-  displayBeachName,
-  beachBaseName,
-} from '../lib/format';
+import { pointLongLabel, displayBeachName, beachBaseName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 import {
   STATUS_ORDER,
@@ -96,15 +92,12 @@ export default function BeachList({
   initialMunicipality?: string | null;
   // Tap en un emisario cercano dentro de la ficha → verlo en el mapa;
   // el segundo argumento es la playa a restaurar al volver
-  onSelectOutfall?: (
-    feature: GeoFeature,
-    restore: GeoFeature | null,
-  ) => void;
+  onSelectOutfall?: (feature: GeoFeature, restore: GeoFeature | null) => void;
 }) {
   const [query, setQuery] = useState('');
-  const [municipality, setMunicipality] = useState<
-    string | null | undefined
-  >(initialMunicipality);
+  const [municipality, setMunicipality] = useState<string | null | undefined>(
+    initialMunicipality,
+  );
   const [sortMode, setSortMode] = useState<SortMode>('estado');
   const [statusFilter, setStatusFilter] = useState<string | undefined>(
     undefined,
@@ -121,13 +114,10 @@ export default function BeachList({
   const scrollMetrics = useRef({ y: 0, vh: 0, ch: 0 });
   const recomputeMore = () => {
     const m = scrollMetrics.current;
-    setShowMore(
-      m.vh > 0 && m.ch > m.vh + 8 && m.y + m.vh < m.ch - 32,
-    );
+    setShowMore(m.vh > 0 && m.ch > m.vh + 8 && m.y + m.vh < m.ch - 32);
   };
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, layoutMeasurement, contentSize } =
-      e.nativeEvent;
+    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
     scrollMetrics.current = {
       y: contentOffset.y,
       vh: layoutMeasurement.height,
@@ -148,8 +138,7 @@ export default function BeachList({
   // expansión y orden se conservan entre aperturas. El municipio solo se
   // impone cuando llega uno nuevo desde el ranking de municipios
   useEffect(() => {
-    if (initialMunicipality !== undefined)
-      setMunicipality(initialMunicipality);
+    if (initialMunicipality !== undefined) setMunicipality(initialMunicipality);
   }, [initialMunicipality]);
 
   // Al cerrarse el modal el detalle se descarta: reabrir la lista (p. ej.
@@ -159,14 +148,11 @@ export default function BeachList({
     if (!visible) setDetail(null);
   }, [visible]);
 
-
   // Stats frescas cada vez que se abre
   useEffect(() => {
     if (!visible) return;
     fetchBeachStats()
-      .then((rows) =>
-        setStats(new Map(rows.map((s) => [s.beach_id, s]))),
-      )
+      .then((rows) => setStats(new Map(rows.map((s) => [s.beach_id, s]))))
       .catch(() => {});
     fetchEpisodes()
       .then(setEpisodes)
@@ -179,10 +165,7 @@ export default function BeachList({
     const seen = new Map<string, boolean>();
     for (const f of beaches) {
       const k = groupKeyOf(f);
-      seen.set(
-        k,
-        (seen.get(k) ?? false) || f.properties.monitored !== false,
-      );
+      seen.set(k, (seen.get(k) ?? false) || f.properties.monitored !== false);
     }
     let mon = 0;
     let un = 0;
@@ -201,9 +184,7 @@ export default function BeachList({
       const dLo = (b[0] - a[0]) * rad;
       const s =
         Math.sin(dLa / 2) ** 2 +
-        Math.cos(a[1] * rad) *
-          Math.cos(b[1] * rad) *
-          Math.sin(dLo / 2) ** 2;
+        Math.cos(a[1] * rad) * Math.cos(b[1] * rad) * Math.sin(dLo / 2) ** 2;
       return 2 * 6371000 * Math.asin(Math.sqrt(s));
     };
     const byId = new Map(beaches.map((f) => [f.id, f]));
@@ -217,22 +198,22 @@ export default function BeachList({
       polluted.add(key);
       if (
         outfalls.some(
-          (o) =>
-            hav(f.geometry.coordinates, o.geometry.coordinates) <= 500,
+          (o) => hav(f.geometry.coordinates, o.geometry.coordinates) <= 500,
         )
       ) {
         near.add(key);
       }
     }
-    return polluted.size
-      ? { total: polluted.size, near: near.size }
-      : null;
+    return polluted.size ? { total: polluted.size, near: near.size } : null;
   }, [episodes, beaches, outfalls]);
 
   const municipalities = useMemo(
     () =>
-      [...new Set(beaches.map((f) => f.properties.municipality).filter(Boolean))]
-        .sort() as string[],
+      [
+        ...new Set(
+          beaches.map((f) => f.properties.municipality).filter(Boolean),
+        ),
+      ].sort() as string[],
     [beaches],
   );
 
@@ -277,430 +258,426 @@ export default function BeachList({
     >
       <View style={styles.container}>
         <>
-        <ImageBackground
-          source={require('../assets/gradient-sea.png')}
-          style={styles.header}
-          resizeMode="cover"
-        >
-          {/* Fila 1: título + acciones. Los datos isla van a ancho
+          <ImageBackground
+            source={require('../assets/gradient-sea.png')}
+            style={styles.header}
+            resizeMode="cover"
+          >
+            {/* Fila 1: título + acciones. Los datos isla van a ancho
               completo debajo — antes apretaban el botón "Por
               municipio" */}
-          <View style={styles.headerTop}>
-            <Text style={[styles.title, { flex: 1, textAlign: 'center' }]}>
-              Playas
+            <View style={styles.headerTop}>
+              <Text style={[styles.title, { flex: 1, textAlign: 'center' }]}>
+                Playas
+              </Text>
+              <View style={styles.headerRight}>
+                <Pressable
+                  onPress={onClose}
+                  hitSlop={12}
+                  style={({ pressed }) => [
+                    styles.closeBtn,
+                    pressed && styles.pressFx,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cerrar lista de playas"
+                >
+                  <Text style={styles.close}>✕</Text>
+                </Pressable>
+              </View>
+            </View>
+            <Text style={[styles.headerSub, { marginTop: 23 }]}>
+              {totals.mon} vigiladas · {totals.un} sin vigilar
             </Text>
-            <View style={styles.headerRight}>
+            {correlation && (
+              <Text style={styles.headerSub}>
+                De las {correlation.total} playas con cierres por contaminación,{' '}
+                {correlation.near} tienen un emisario a menos de 500 m
+              </Text>
+            )}
+          </ImageBackground>
+
+          <View style={styles.searchWrap}>
+            <Image
+              source={require('../assets/icons/icon-search.png')}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={styles.search}
+              placeholder="Busca tu playa…"
+              placeholderTextColor={colors.textFaint}
+              value={query}
+              onChangeText={setQuery}
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+              accessibilityLabel="Buscar playa por nombre"
+            />
+          </View>
+
+          <ImageBackground
+            source={require('../assets/gradient-filter.png')}
+            style={styles.filterBar}
+            imageStyle={styles.filterBarImg}
+          >
+            <ScrollChips
+              style={styles.chips}
+              contentContainerStyle={styles.chipsContent}
+              fadeRgbLeft="140,216,230"
+              fadeRgbRight="242,251,253"
+              a11yLabel="municipios"
+            >
               <Pressable
-                onPress={onClose}
-                hitSlop={12}
                 style={({ pressed }) => [
-                  styles.closeBtn,
+                  styles.chip,
+                  municipality === undefined && styles.chipActive,
                   pressed && styles.pressFx,
                 ]}
+                onPress={() => setMunicipality(undefined)}
                 accessibilityRole="button"
-                accessibilityLabel="Cerrar lista de playas"
+                accessibilityLabel="Mostrar todas las playas"
+                accessibilityState={{ selected: municipality === undefined }}
               >
-                <Text style={styles.close}>✕</Text>
+                <Text
+                  style={[
+                    styles.chipText,
+                    municipality === undefined && styles.chipTextActive,
+                  ]}
+                >
+                  Todos
+                </Text>
               </Pressable>
-            </View>
-          </View>
-          <Text style={[styles.headerSub, { marginTop: 23 }]}>
-            {totals.mon} vigiladas · {totals.un} sin vigilar
-          </Text>
-          {correlation && (
-            <Text style={styles.headerSub}>
-              De las {correlation.total} playas con cierres por
-              contaminación, {correlation.near} tienen un emisario a
-              menos de 500 m
-            </Text>
-          )}
-        </ImageBackground>
-
-        <View style={styles.searchWrap}>
-          <Image
-            source={require('../assets/icons/icon-search.png')}
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={styles.search}
-            placeholder="Busca tu playa…"
-            placeholderTextColor={colors.textFaint}
-            value={query}
-            onChangeText={setQuery}
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-            accessibilityLabel="Buscar playa por nombre"
-          />
-        </View>
-
-        <ImageBackground
-          source={require('../assets/gradient-filter.png')}
-          style={styles.filterBar}
-          imageStyle={styles.filterBarImg}
-        >
-        <ScrollChips
-          style={styles.chips}
-          contentContainerStyle={styles.chipsContent}
-          fadeRgbLeft="140,216,230"
-          fadeRgbRight="242,251,253"
-          a11yLabel="municipios"
-        >
-          <Pressable
-            style={({ pressed }) => [
-              styles.chip,
-              municipality === undefined && styles.chipActive,
-              pressed && styles.pressFx,
-            ]}
-            onPress={() => setMunicipality(undefined)}
-            accessibilityRole="button"
-            accessibilityLabel="Mostrar todas las playas"
-            accessibilityState={{ selected: municipality === undefined }}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                municipality === undefined && styles.chipTextActive,
-              ]}
-            >
-              Todos
-            </Text>
-          </Pressable>
-          {municipalities.map((m) => (
-            <Pressable
-              key={m}
-              style={({ pressed }) => [
-                styles.chip,
-                municipality === m && styles.chipActive,
-                pressed && styles.pressFx,
-              ]}
-              onPress={() =>
-                setMunicipality(municipality === m ? undefined : m)
-              }
-              accessibilityRole="button"
-              accessibilityLabel={`Filtrar por municipio ${m}`}
-              accessibilityState={{ selected: municipality === m }}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  municipality === m && styles.chipTextActive,
-                ]}
-              >
-                {m}
-              </Text>
-            </Pressable>
-          ))}
-          {beaches.some((f) => f.properties.municipality == null) && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.chip,
-                municipality === null && styles.chipActive,
-                pressed && styles.pressFx,
-              ]}
-              onPress={() =>
-                setMunicipality(municipality === null ? undefined : null)
-              }
-              accessibilityRole="button"
-              accessibilityLabel="Filtrar por playas sin municipio"
-              accessibilityState={{ selected: municipality === null }}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  municipality === null && styles.chipTextActive,
-                ]}
-              >
-                Sin municipio
-              </Text>
-            </Pressable>
-          )}
-        </ScrollChips>
-        <View style={styles.filterBarDivider} />
-        {/* Filtros de estado (toggles independientes) */}
-        <ScrollChips
-          style={styles.chips}
-          contentContainerStyle={styles.chipsContent}
-          fadeRgbLeft="140,216,230"
-          fadeRgbRight="242,251,253"
-          a11yLabel="filtros de estado"
-        >
-          {presentStatuses.map((s) => (
-            <Pressable
-              key={s}
-              style={({ pressed }) => [
-                styles.chip,
-                styles.chipStatus,
-                statusFilter === s && styles.chipActive,
-                pressed && styles.pressFx,
-              ]}
-              onPress={() =>
-                setStatusFilter(statusFilter === s ? undefined : s)
-              }
-              accessibilityRole="button"
-              accessibilityLabel={`Filtrar por estado ${STATUS_LABELS[s]}`}
-              accessibilityState={{ selected: statusFilter === s }}
-            >
-              <View
-                style={[
-                  styles.chipDot,
-                  { backgroundColor: STATUS_COLORS[s] },
-                ]}
-              />
-              <Text
-                style={[
-                  styles.chipText,
-                  statusFilter === s && styles.chipTextActive,
-                ]}
-              >
-                {STATUS_LABELS[s]}
-                {statusFilter === s ? ` (${groups.length})` : ''}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollChips>
-        <View style={styles.filterBarDivider} />
-        {/* Orden (radio): el orden siempre es uno. "Agua siempre apta"
-            es un modo de este grupo — al activarlo fija el orden a
-            "Estado", y elegir otro chip lo desactiva (no es un toggle
-            aparte) */}
-        <ScrollChips
-          style={styles.chips}
-          contentContainerStyle={styles.chipsContent}
-          fadeRgbLeft="140,216,230"
-          fadeRgbRight="242,251,253"
-          a11yLabel="orden"
-        >
-          {(['estado', 'agua', 'cierres', 'calidad'] as const).map(
-            (item) =>
-              item === 'agua' ? (
+              {municipalities.map((m) => (
                 <Pressable
-                  key="agua"
+                  key={m}
                   style={({ pressed }) => [
                     styles.chip,
-                    styles.chipStatus,
-                    statusFilter === 'impecables' && styles.chipActive,
-                    pressed && styles.pressFx,
-                  ]}
-                  onPress={() => {
-                    if (statusFilter === 'impecables') return;
-                    setStatusFilter('impecables');
-                    setSortMode('estado');
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Filtrar por playas que nunca tuvieron un problema de agua"
-                  accessibilityState={{
-                    selected: statusFilter === 'impecables',
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      statusFilter === 'impecables' &&
-                        styles.chipTextActive,
-                    ]}
-                  >
-                    Agua siempre apta
-                    {statusFilter === 'impecables'
-                      ? ` (${groups.length})`
-                      : ''}
-                  </Text>
-                </Pressable>
-              ) : (
-                <Pressable
-                  key={item}
-                  style={({ pressed }) => [
-                    styles.chip,
-                    // Radio puro: con "Agua siempre apta" activo el
-                    // orden interno es Estado pero el chip no se
-                    // marca — solo un chip activo a la vez
-                    sortMode === item &&
-                      statusFilter !== 'impecables' &&
-                      styles.chipActive,
-                    pressed && styles.pressFx,
-                  ]}
-                  onPress={() => {
-                    setSortMode(item);
-                    // Elegir un orden sale del modo "Agua siempre apta"
-                    if (statusFilter === 'impecables')
-                      setStatusFilter(undefined);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Ordenar por ${SORT_LABELS[item]}`}
-                  accessibilityState={{
-                    selected:
-                      sortMode === item &&
-                      statusFilter !== 'impecables',
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      sortMode === item &&
-                        statusFilter !== 'impecables' &&
-                        styles.chipTextActive,
-                    ]}
-                  >
-                    {SORT_LABELS[item]}
-                  </Text>
-                </Pressable>
-              ),
-          )}
-        </ScrollChips>
-        </ImageBackground>
-
-        {statusFilter === 'impecables' && (
-          <Text style={styles.impecablesNote}>
-            Solo playas vigiladas por Sanidad: cero muestras no aptas y
-            cero episodios de contaminación
-          </Text>
-        )}
-
-        <FlatList
-          data={groups}
-          keyExtractor={(g) => g.key}
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item: g }) => {
-            const status = worstStatusOf(g);
-            const expanded = expandedKey === g.key;
-            // Cabecera del grupo: totales DEDUPLICADOS por playa
-            // física — un cierre de prensa replicado en los 3 PMs
-            // cuenta una vez (Jardín: 5 eventos reales, no 11)
-            const closures =
-              statSum(g, 'closures') + statSum(g, 'reconstructed');
-            const warnings = statSum(g, 'warnings');
-            const badSamples = statSum(g, 'bad_samples');
-            return (
-              <View style={styles.row}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.rowMain,
+                    municipality === m && styles.chipActive,
                     pressed && styles.pressFx,
                   ]}
                   onPress={() =>
-                    g.members.length === 1
-                      ? openDetail(g.members[0])
-                      : setExpandedKey(expanded ? null : g.key)
+                    setMunicipality(municipality === m ? undefined : m)
                   }
                   accessibilityRole="button"
-                  accessibilityLabel={`${displayName(g.name)}, ${
-                    g.municipality ?? 'sin municipio'
-                  }, ${STATUS_LABELS[status]}${
-                    g.members.length > 1
-                      ? `, ${g.members.length} puntos de muestreo`
-                      : ''
-                  }`}
-                  accessibilityHint={
-                    g.members.length > 1
-                      ? 'Toca para ver los puntos de muestreo'
-                      : 'Toca para abrir la ficha'
-                  }
-                  accessibilityState={
-                    g.members.length > 1 ? { expanded } : undefined
-                  }
+                  accessibilityLabel={`Filtrar por municipio ${m}`}
+                  accessibilityState={{ selected: municipality === m }}
                 >
-                  <View style={styles.rowText}>
-                    <Text style={styles.rowName}>
-                      {displayName(g.name)}
-                    </Text>
-                    <Text style={styles.rowSub}>
-                      {g.municipality ?? 'Sin municipio'}
-                      {g.members.length > 1
-                        ? ` · ${g.members.length} PMs`
-                        : ''}
-                      {closures + warnings > 0
-                        ? ` · ${closures} ${
-                            closures === 1 ? 'cierre' : 'cierres'
-                          } · ${warnings} ${
-                            warnings === 1 ? 'aviso' : 'avisos'
-                          }`
-                        : ''}
-                      {sortMode === 'calidad' &&
-                      worstEvalOf(g, stats) != null
-                        ? ` · última: ${evalShort(worstEvalOf(g, stats))}`
-                        : ''}
-                      {badSamples > 0
-                        ? ` · ${badSamples} muestras no aptas`
-                        : ''}
-                    </Text>
-                  </View>
-                  <View
+                  <Text
                     style={[
-                      styles.badge,
-                      { backgroundColor: STATUS_COLORS[status] },
+                      styles.chipText,
+                      municipality === m && styles.chipTextActive,
                     ]}
                   >
-                    <Text style={styles.badgeText}>
-                      {STATUS_LABELS[status]}
-                    </Text>
-                  </View>
+                    {m}
+                  </Text>
                 </Pressable>
-                {expanded &&
-                  g.members.map((f) => {
-                    const fStatus = statusOf(f);
-                    const st = stats.get(f.id);
-                    const ev = evalLabel(st?.latest_evaluation ?? null);
-                    const pmSub = [
-                      st?.latest_sampled_at
-                        ? fmtShort(st.latest_sampled_at)
-                        : null,
-                      ev,
-                      // Conteo propio del PM — cuadra con su ficha
-                      st && (st.own_closures ?? 0) + (st.own_warnings ?? 0) > 0
-                        ? `${st.own_closures} ${
-                            st.own_closures === 1 ? 'cierre' : 'cierres'
-                          } · ${st.own_warnings} ${
-                            st.own_warnings === 1 ? 'aviso' : 'avisos'
-                          }`
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ');
-                    return (
-                      <Pressable
-                        key={f.id}
-                        style={({ pressed }) => [
-                          styles.pmRow,
-                          pressed && styles.pressFx,
+              ))}
+              {beaches.some((f) => f.properties.municipality == null) && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.chip,
+                    municipality === null && styles.chipActive,
+                    pressed && styles.pressFx,
+                  ]}
+                  onPress={() =>
+                    setMunicipality(municipality === null ? undefined : null)
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel="Filtrar por playas sin municipio"
+                  accessibilityState={{ selected: municipality === null }}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      municipality === null && styles.chipTextActive,
+                    ]}
+                  >
+                    Sin municipio
+                  </Text>
+                </Pressable>
+              )}
+            </ScrollChips>
+            <View style={styles.filterBarDivider} />
+            {/* Filtros de estado (toggles independientes) */}
+            <ScrollChips
+              style={styles.chips}
+              contentContainerStyle={styles.chipsContent}
+              fadeRgbLeft="140,216,230"
+              fadeRgbRight="242,251,253"
+              a11yLabel="filtros de estado"
+            >
+              {presentStatuses.map((s) => (
+                <Pressable
+                  key={s}
+                  style={({ pressed }) => [
+                    styles.chip,
+                    styles.chipStatus,
+                    statusFilter === s && styles.chipActive,
+                    pressed && styles.pressFx,
+                  ]}
+                  onPress={() =>
+                    setStatusFilter(statusFilter === s ? undefined : s)
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`Filtrar por estado ${STATUS_LABELS[s]}`}
+                  accessibilityState={{ selected: statusFilter === s }}
+                >
+                  <View
+                    style={[
+                      styles.chipDot,
+                      { backgroundColor: STATUS_COLORS[s] },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.chipText,
+                      statusFilter === s && styles.chipTextActive,
+                    ]}
+                  >
+                    {STATUS_LABELS[s]}
+                    {statusFilter === s ? ` (${groups.length})` : ''}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollChips>
+            <View style={styles.filterBarDivider} />
+            {/* Orden (radio): el orden siempre es uno. "Agua siempre apta"
+            es un modo de este grupo — al activarlo fija el orden a
+            "Estado", y elegir otro chip lo desactiva (no es un toggle
+            aparte) */}
+            <ScrollChips
+              style={styles.chips}
+              contentContainerStyle={styles.chipsContent}
+              fadeRgbLeft="140,216,230"
+              fadeRgbRight="242,251,253"
+              a11yLabel="orden"
+            >
+              {(['estado', 'agua', 'cierres', 'calidad'] as const).map(
+                (item) =>
+                  item === 'agua' ? (
+                    <Pressable
+                      key="agua"
+                      style={({ pressed }) => [
+                        styles.chip,
+                        styles.chipStatus,
+                        statusFilter === 'impecables' && styles.chipActive,
+                        pressed && styles.pressFx,
+                      ]}
+                      onPress={() => {
+                        if (statusFilter === 'impecables') return;
+                        setStatusFilter('impecables');
+                        setSortMode('estado');
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Filtrar por playas que nunca tuvieron un problema de agua"
+                      accessibilityState={{
+                        selected: statusFilter === 'impecables',
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          statusFilter === 'impecables' &&
+                            styles.chipTextActive,
                         ]}
-                        onPress={() => openDetail(f)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${
-                          pointLongLabel(f.properties.name) ??
-                          displayName(f.properties.name)
-                        }, ${STATUS_LABELS[fStatus]}`}
-                        accessibilityHint="Abrir ficha del punto de muestreo"
                       >
-                        <View style={styles.pmText}>
-                          <Text style={styles.pmName}>
-                            {pointLongLabel(f.properties.name) ??
-                              displayName(f.properties.name)}
-                          </Text>
-                          {pmSub ? (
-                            <Text style={styles.pmSub}>{pmSub}</Text>
-                          ) : null}
-                        </View>
-                        <View
-                          style={[
-                            styles.badge,
-                            { backgroundColor: STATUS_COLORS[fStatus] },
+                        Agua siempre apta
+                        {statusFilter === 'impecables'
+                          ? ` (${groups.length})`
+                          : ''}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      key={item}
+                      style={({ pressed }) => [
+                        styles.chip,
+                        // Radio puro: con "Agua siempre apta" activo el
+                        // orden interno es Estado pero el chip no se
+                        // marca — solo un chip activo a la vez
+                        sortMode === item &&
+                          statusFilter !== 'impecables' &&
+                          styles.chipActive,
+                        pressed && styles.pressFx,
+                      ]}
+                      onPress={() => {
+                        setSortMode(item);
+                        // Elegir un orden sale del modo "Agua siempre apta"
+                        if (statusFilter === 'impecables')
+                          setStatusFilter(undefined);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ordenar por ${SORT_LABELS[item]}`}
+                      accessibilityState={{
+                        selected:
+                          sortMode === item && statusFilter !== 'impecables',
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          sortMode === item &&
+                            statusFilter !== 'impecables' &&
+                            styles.chipTextActive,
+                        ]}
+                      >
+                        {SORT_LABELS[item]}
+                      </Text>
+                    </Pressable>
+                  ),
+              )}
+            </ScrollChips>
+          </ImageBackground>
+
+          {statusFilter === 'impecables' && (
+            <Text style={styles.impecablesNote}>
+              Solo playas vigiladas por Sanidad: cero muestras no aptas y cero
+              episodios de contaminación
+            </Text>
+          )}
+
+          <FlatList
+            data={groups}
+            keyExtractor={(g) => g.key}
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            renderItem={({ item: g }) => {
+              const status = worstStatusOf(g);
+              const expanded = expandedKey === g.key;
+              // Cabecera del grupo: totales DEDUPLICADOS por playa
+              // física — un cierre de prensa replicado en los 3 PMs
+              // cuenta una vez (Jardín: 5 eventos reales, no 11)
+              const closures =
+                statSum(g, 'closures') + statSum(g, 'reconstructed');
+              const warnings = statSum(g, 'warnings');
+              const badSamples = statSum(g, 'bad_samples');
+              return (
+                <View style={styles.row}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.rowMain,
+                      pressed && styles.pressFx,
+                    ]}
+                    onPress={() =>
+                      g.members.length === 1
+                        ? openDetail(g.members[0])
+                        : setExpandedKey(expanded ? null : g.key)
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`${displayName(g.name)}, ${
+                      g.municipality ?? 'sin municipio'
+                    }, ${STATUS_LABELS[status]}${
+                      g.members.length > 1
+                        ? `, ${g.members.length} puntos de muestreo`
+                        : ''
+                    }`}
+                    accessibilityHint={
+                      g.members.length > 1
+                        ? 'Toca para ver los puntos de muestreo'
+                        : 'Toca para abrir la ficha'
+                    }
+                    accessibilityState={
+                      g.members.length > 1 ? { expanded } : undefined
+                    }
+                  >
+                    <View style={styles.rowText}>
+                      <Text style={styles.rowName}>{displayName(g.name)}</Text>
+                      <Text style={styles.rowSub}>
+                        {g.municipality ?? 'Sin municipio'}
+                        {g.members.length > 1
+                          ? ` · ${g.members.length} PMs`
+                          : ''}
+                        {closures + warnings > 0
+                          ? ` · ${closures} ${
+                              closures === 1 ? 'cierre' : 'cierres'
+                            } · ${warnings} ${
+                              warnings === 1 ? 'aviso' : 'avisos'
+                            }`
+                          : ''}
+                        {sortMode === 'calidad' && worstEvalOf(g, stats) != null
+                          ? ` · última: ${evalShort(worstEvalOf(g, stats))}`
+                          : ''}
+                        {badSamples > 0
+                          ? ` · ${badSamples} muestras no aptas`
+                          : ''}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.badge,
+                        { backgroundColor: STATUS_COLORS[status] },
+                      ]}
+                    >
+                      <Text style={styles.badgeText}>
+                        {STATUS_LABELS[status]}
+                      </Text>
+                    </View>
+                  </Pressable>
+                  {expanded &&
+                    g.members.map((f) => {
+                      const fStatus = statusOf(f);
+                      const st = stats.get(f.id);
+                      const ev = evalLabel(st?.latest_evaluation ?? null);
+                      const pmSub = [
+                        st?.latest_sampled_at
+                          ? fmtShort(st.latest_sampled_at)
+                          : null,
+                        ev,
+                        // Conteo propio del PM — cuadra con su ficha
+                        st &&
+                        (st.own_closures ?? 0) + (st.own_warnings ?? 0) > 0
+                          ? `${st.own_closures} ${
+                              st.own_closures === 1 ? 'cierre' : 'cierres'
+                            } · ${st.own_warnings} ${
+                              st.own_warnings === 1 ? 'aviso' : 'avisos'
+                            }`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ');
+                      return (
+                        <Pressable
+                          key={f.id}
+                          style={({ pressed }) => [
+                            styles.pmRow,
+                            pressed && styles.pressFx,
                           ]}
+                          onPress={() => openDetail(f)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${
+                            pointLongLabel(f.properties.name) ??
+                            displayName(f.properties.name)
+                          }, ${STATUS_LABELS[fStatus]}`}
+                          accessibilityHint="Abrir ficha del punto de muestreo"
                         >
-                          <Text style={styles.badgeText}>
-                            {STATUS_LABELS[fStatus]}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-              </View>
-            );
-          }}
-          ListEmptyComponent={
-            <Text style={styles.empty}>Sin resultados</Text>
-          }
-        />
-          </>
+                          <View style={styles.pmText}>
+                            <Text style={styles.pmName}>
+                              {pointLongLabel(f.properties.name) ??
+                                displayName(f.properties.name)}
+                            </Text>
+                            {pmSub ? (
+                              <Text style={styles.pmSub}>{pmSub}</Text>
+                            ) : null}
+                          </View>
+                          <View
+                            style={[
+                              styles.badge,
+                              { backgroundColor: STATUS_COLORS[fStatus] },
+                            ]}
+                          >
+                            <Text style={styles.badgeText}>
+                              {STATUS_LABELS[fStatus]}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                </View>
+              );
+            }}
+            ListEmptyComponent={
+              <Text style={styles.empty}>Sin resultados</Text>
+            }
+          />
+        </>
 
         {/* Ficha del PM como overlay: la lista queda montada debajo y
             conserva scroll + expansión al volver atrás */}
@@ -717,9 +694,8 @@ export default function BeachList({
                   numberOfLines={2}
                 >
                   {displayBeachName(
-                    beaches.filter(
-                      (b) => groupKeyOf(b) === groupKeyOf(detail),
-                    ).length > 1
+                    beaches.filter((b) => groupKeyOf(b) === groupKeyOf(detail))
+                      .length > 1
                       ? detail.properties.name
                       : beachBaseName(detail.properties.name),
                   )}
@@ -733,8 +709,7 @@ export default function BeachList({
               ref={detailScrollRef}
               style={styles.detailScroll}
               onLayout={(e) => {
-                scrollMetrics.current.vh =
-                  e.nativeEvent.layout.height;
+                scrollMetrics.current.vh = e.nativeEvent.layout.height;
                 recomputeMore();
               }}
               onContentSizeChange={(_w, ch) => {
@@ -802,7 +777,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
     paddingTop:
-      (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 10,
+      (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 24) + 10,
     paddingBottom: 12,
   },
   headerTop: {

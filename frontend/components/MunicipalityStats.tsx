@@ -83,9 +83,7 @@ const yearScoreOf = (m: MuniStats) =>
   (m.yearClosures ?? 0) * 3 + (m.yearWarnings ?? 0);
 
 const yearBarColorOf = (m: MuniStats) =>
-  (m.yearClosures ?? 0) > 0
-    ? colors.status.closed
-    : colors.status.warning;
+  (m.yearClosures ?? 0) > 0 ? colors.status.closed : colors.status.warning;
 
 const fmtDate = (iso: string) => iso.split('-').reverse().join('/');
 
@@ -97,9 +95,8 @@ const durationDays = (inc: MunicipalityIncident) => {
   const end = inc.closed_at ? new Date(inc.closed_at) : new Date();
   return Math.max(
     1,
-    Math.round(
-      (end.getTime() - new Date(inc.opened_at).getTime()) / 86400000,
-    ) + 1,
+    Math.round((end.getTime() - new Date(inc.opened_at).getTime()) / 86400000) +
+      1,
   );
 };
 
@@ -192,8 +189,7 @@ export default function MunicipalityStats({
         )
         .sort(
           (a, b) =>
-            (a.closed_at === null ? 0 : 1) -
-              (b.closed_at === null ? 0 : 1) ||
+            (a.closed_at === null ? 0 : 1) - (b.closed_at === null ? 0 : 1) ||
             b.opened_at.localeCompare(a.opened_at),
         ),
     [seasonRows, seasonFilter],
@@ -216,8 +212,7 @@ export default function MunicipalityStats({
   // Ámbito de las chips de causa y su filtro: en ranking siguen a la
   // vista activa (Histórico = todo el registro, modo-año = ese año);
   // en la vista "Este año" siempre el año seleccionado
-  const causeScope =
-    view === 'ranking' && histMode ? episodes : yearAll;
+  const causeScope = view === 'ranking' && histMode ? episodes : yearAll;
   // Las chips de causa cuentan solo CIERRES — igual que el desglose
   // del banner ("14 cierres (7 mar agitado · ...)")
   const yearCauses = useMemo(
@@ -235,8 +230,7 @@ export default function MunicipalityStats({
         )
         .sort(
           (a, b) =>
-            (a.closed_at === null ? 0 : 1) -
-              (b.closed_at === null ? 0 : 1) ||
+            (a.closed_at === null ? 0 : 1) - (b.closed_at === null ? 0 : 1) ||
             b.opened_at.localeCompare(a.opened_at),
         ),
     [yearAll, yearCause],
@@ -249,8 +243,7 @@ export default function MunicipalityStats({
     if (yearCause === 'all') return m;
     for (const e of causeScope) {
       if (e.kind !== 'closure') continue;
-      const hit =
-        yearCause === 'sin causa' ? !e.cause : e.cause === yearCause;
+      const hit = yearCause === 'sin causa' ? !e.cause : e.cause === yearCause;
       if (!hit) continue;
       m.set(e.municipality, (m.get(e.municipality) ?? 0) + 1);
     }
@@ -281,10 +274,8 @@ export default function MunicipalityStats({
     for (const y of years)
       m.set(
         y,
-        (view === 'temporada' ? seasonEpisodes : yearEpisodes)(
-          episodes,
-          y,
-        ).length,
+        (view === 'temporada' ? seasonEpisodes : yearEpisodes)(episodes, y)
+          .length,
       );
     return m;
   }, [episodes, years, view]);
@@ -324,8 +315,7 @@ export default function MunicipalityStats({
     // su episodio tenga fin estimado (Benijo, Gaviotas, Garachico)
     const live = beaches.filter(
       (f) =>
-        f.properties.status === 'closed' ||
-        f.properties.status === 'warning',
+        f.properties.status === 'closed' || f.properties.status === 'warning',
     ).length;
     if (!isYearMode) {
       // Histórico: registro completo — totales, causas de los cierres
@@ -338,13 +328,10 @@ export default function MunicipalityStats({
         `${closures.length} ${closures.length === 1 ? 'cierre' : 'cierres'}`,
       ];
       if (warnings)
-        parts.push(
-          `${warnings} ${warnings === 1 ? 'aviso' : 'avisos'}`,
-        );
+        parts.push(`${warnings} ${warnings === 1 ? 'aviso' : 'avisos'}`);
       let line = parts.join(' · ');
       if (firstYear) line += ` desde ${firstYear}`;
-      if (live)
-        line += ` · ${live} ${live === 1 ? 'activa' : 'activas'} ahora`;
+      if (live) line += ` · ${live} ${live === 1 ? 'activa' : 'activas'} ahora`;
       return line;
     }
     const n = closuresThisYear(episodes, selYear).length;
@@ -388,8 +375,8 @@ export default function MunicipalityStats({
       : beaches
           .filter(
             (f) =>
-              (f.properties.municipality ?? 'Sin municipio') ===
-                detail.name && f.properties.alert === true,
+              (f.properties.municipality ?? 'Sin municipio') === detail.name &&
+              f.properties.alert === true,
           )
           .map((f) => ({
             id: -f.id, // id negativo: no colisiona con incidentes reales
@@ -402,41 +389,36 @@ export default function MunicipalityStats({
                 : ('closure' as const),
             opened_at: (f.properties.reported_at ?? '').slice(0, 10),
             closed_at: null,
-            observations:
-              'Según prensa — sin incidente oficial en Náyade',
+            observations: 'Según prensa — sin incidente oficial en Náyade',
             via: 'press',
           }));
-    return [...official, ...pressRows]
-      .sort((a, b) =>
-        (b.opened_at ?? '').localeCompare(a.opened_at ?? ''),
-      )
-      // Con una causa activa el detalle muestra solo esos episodios
-      .filter((inc) =>
-        yearCause === 'all'
-          ? true
-          : yearCause === 'sin causa'
-            ? !inc.cause
-            : inc.cause === yearCause,
-      )
-      // En modo-año la línea temporal solo muestra episodios que
-      // tocaron ese año (mismo solape que yearEpisodes)
-      .filter(
-        (inc) =>
-          !isYearMode ||
-          ((inc.opened_at ?? '') <= `${selYear}-12-31` &&
-            (inc.closed_at === null ||
-              inc.closed_at >= `${selYear}-01-01`)),
-      );
+    return (
+      [...official, ...pressRows]
+        .sort((a, b) => (b.opened_at ?? '').localeCompare(a.opened_at ?? ''))
+        // Con una causa activa el detalle muestra solo esos episodios
+        .filter((inc) =>
+          yearCause === 'all'
+            ? true
+            : yearCause === 'sin causa'
+              ? !inc.cause
+              : inc.cause === yearCause,
+        )
+        // En modo-año la línea temporal solo muestra episodios que
+        // tocaron ese año (mismo solape que yearEpisodes)
+        .filter(
+          (inc) =>
+            !isYearMode ||
+            ((inc.opened_at ?? '') <= `${selYear}-12-31` &&
+              (inc.closed_at === null || inc.closed_at >= `${selYear}-01-01`)),
+        )
+    );
   }, [detail, incidents, beaches, yearCause, isYearMode, selYear]);
 
   // Estado vivo por playa: un incidente abierto cuyo observations no
   // dice "prohibido" se clasifica como aviso, pero si la playa está
   // cerrada ahora mismo el badge debe decir "Cierre activo"
   const liveStatus = useMemo(
-    () =>
-      new Map(
-        beaches.map((f) => [f.id, f.properties.status ?? 'unknown']),
-      ),
+    () => new Map(beaches.map((f) => [f.id, f.properties.status ?? 'unknown'])),
     [beaches],
   );
 
@@ -445,18 +427,17 @@ export default function MunicipalityStats({
     for (const f of beaches) {
       const municipality = f.properties.municipality ?? null;
       const name = municipality ?? 'Sin municipio';
-      const m =
-        byMuni.get(name) ?? {
-          municipality,
-          name,
-          beachNames: new Set<string>(),
-          points: 0,
-          closedNow: 0,
-          warningNow: 0,
-          incidents: 0,
-          closuresLastYear: 0,
-          badSamples: 0,
-        };
+      const m = byMuni.get(name) ?? {
+        municipality,
+        name,
+        beachNames: new Set<string>(),
+        points: 0,
+        closedNow: 0,
+        warningNow: 0,
+        incidents: 0,
+        closuresLastYear: 0,
+        badSamples: 0,
+      };
       // El conteo de playas incluye todas las catalogadas;
       // solo las monitorizadas tienen estado oficial ni stats
       m.beachNames.add(baseName(f.properties.name));
@@ -481,19 +462,19 @@ export default function MunicipalityStats({
       if (st?.reconstructed) m.incidents += st.reconstructed;
       byMuni.set(name, m);
     }
-    return [...byMuni.values()]
-      .map(({ beachNames, ...m }): MuniStats => ({
-        ...m,
-        beaches: beachNames.size,
-      }))
-      // Con una causa activa solo quedan los municipios que sufrieron
-      // cierres de ese tipo en el año seleccionado
-      .filter(
-        (m) => yearCause === 'all' || muniCauseCount.has(m.municipality),
-      )
-      .sort(
-        (a, b) => scoreOf(b) - scoreOf(a) || a.name.localeCompare(b.name),
-      );
+    return (
+      [...byMuni.values()]
+        .map(({ beachNames, ...m }): MuniStats => ({
+          ...m,
+          beaches: beachNames.size,
+        }))
+        // Con una causa activa solo quedan los municipios que sufrieron
+        // cierres de ese tipo en el año seleccionado
+        .filter(
+          (m) => yearCause === 'all' || muniCauseCount.has(m.municipality),
+        )
+        .sort((a, b) => scoreOf(b) - scoreOf(a) || a.name.localeCompare(b.name))
+    );
   }, [beaches, stats, yearCause, muniCauseCount]);
 
   // Ranking con un año pasado seleccionado: las filas muestran los
@@ -512,9 +493,7 @@ export default function MunicipalityStats({
           yearBeaches: [...(y?.beaches ?? [])].sort(),
         };
       })
-      .filter(
-        (m) => (m.yearClosures ?? 0) + (m.yearWarnings ?? 0) > 0,
-      )
+      .filter((m) => (m.yearClosures ?? 0) + (m.yearWarnings ?? 0) > 0)
       .sort(
         (a, b) =>
           yearScoreOf(b) - yearScoreOf(a) || a.name.localeCompare(b.name),
@@ -531,8 +510,7 @@ export default function MunicipalityStats({
     [displayRows, muniQ],
   );
 
-  const score = (m: MuniStats) =>
-    isYearMode ? yearScoreOf(m) : scoreOf(m);
+  const score = (m: MuniStats) => (isYearMode ? yearScoreOf(m) : scoreOf(m));
   const barColor = (m: MuniStats) =>
     isYearMode ? yearBarColorOf(m) : barColorOf(m);
   const maxScore = Math.max(1, ...displayRows.map(score));
@@ -582,8 +560,7 @@ export default function MunicipalityStats({
               </View>
               <Text style={styles.subtitle}>
                 Línea temporal de incidentes
-                {isYearMode ? ` · ${selYear}` : ''} · más reciente
-                primero
+                {isYearMode ? ` · ${selYear}` : ''} · más reciente primero
               </Text>
             </ImageBackground>
 
@@ -674,27 +651,19 @@ export default function MunicipalityStats({
                             ? fmtDate(inc.opened_at)
                             : '—'
                           : `${
-                              inc.opened_at
-                                ? fmtDate(inc.opened_at)
-                                : '—'
+                              inc.opened_at ? fmtDate(inc.opened_at) : '—'
                             } → ${
-                              inc.closed_at
-                                ? fmtDate(inc.closed_at)
-                                : 'activo'
+                              inc.closed_at ? fmtDate(inc.closed_at) : 'activo'
                             }${
                               inc.opened_at
                                 ? ` · ${durationDays(inc)} ${
-                                    durationDays(inc) === 1
-                                      ? 'día'
-                                      : 'días'
+                                    durationDays(inc) === 1 ? 'día' : 'días'
                                   }`
                                 : ''
                             }`}
                       </Text>
                       {inc.observations ? (
-                        <Text style={styles.tlObs}>
-                          {inc.observations}
-                        </Text>
+                        <Text style={styles.tlObs}>{inc.observations}</Text>
                       ) : null}
                     </Pressable>
                   </View>
@@ -718,521 +687,518 @@ export default function MunicipalityStats({
                     ))}
                   </View>
                 ) : (
-                  <Text style={styles.empty}>
-                    Sin incidentes registrados
-                  </Text>
+                  <Text style={styles.empty}>Sin incidentes registrados</Text>
                 )
               }
             />
           </>
         ) : (
           <>
-        <ImageBackground
-          source={require('../assets/gradient-sea.png')}
-          style={styles.headerBlock}
-          resizeMode="cover"
-        >
-          <View style={styles.header}>
-            <Text style={[styles.title, { flex: 1, textAlign: 'center' }]}>
-              Incidencias por municipio
-            </Text>
-            <Pressable
-              onPress={onClose}
-              hitSlop={12}
-              style={({ pressed }) => [
-                styles.closeBtn,
-                pressed && styles.pressFx,
-              ]}
+            <ImageBackground
+              source={require('../assets/gradient-sea.png')}
+              style={styles.headerBlock}
+              resizeMode="cover"
             >
-              <Text style={styles.close}>✕</Text>
-            </Pressable>
-          </View>
-          <Text style={styles.subtitle}>
-            {view === 'ranking'
-              ? isYearMode
-                ? `Ranking de ${selYear} · episodios del año por municipio`
-                : 'Ranking por afectación actual e histórica'
-              : view === 'temporada'
-                ? selYear === seasonYear()
-                  ? 'Este verano'
-                  : `Verano ${selYear}`
-                : selYear === new Date().getFullYear()
-                  ? 'Este año'
-                  : `Año ${selYear}`}
-          </Text>
-          {view === 'ranking' && yearLine && (
-            <Text style={styles.yearLine}>{yearLine}</Text>
-          )}
-        </ImageBackground>
+              <View style={styles.header}>
+                <Text style={[styles.title, { flex: 1, textAlign: 'center' }]}>
+                  Incidencias por municipio
+                </Text>
+                <Pressable
+                  onPress={onClose}
+                  hitSlop={12}
+                  style={({ pressed }) => [
+                    styles.closeBtn,
+                    pressed && styles.pressFx,
+                  ]}
+                >
+                  <Text style={styles.close}>✕</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.subtitle}>
+                {view === 'ranking'
+                  ? isYearMode
+                    ? `Ranking de ${selYear} · episodios del año por municipio`
+                    : 'Ranking por afectación actual e histórica'
+                  : view === 'temporada'
+                    ? selYear === seasonYear()
+                      ? 'Este verano'
+                      : `Verano ${selYear}`
+                    : selYear === new Date().getFullYear()
+                      ? 'Este año'
+                      : `Año ${selYear}`}
+              </Text>
+              {view === 'ranking' && yearLine && (
+                <Text style={styles.yearLine}>{yearLine}</Text>
+              )}
+            </ImageBackground>
 
-          {years.length > 1 && (
-            <ScrollChips
-              style={styles.seasonChipsWrap}
-              contentContainerStyle={styles.seasonChips}
-              a11yLabel="años"
-            >
-              {visibleYears.map((y) => (
-                <Pressable
-                  key={y}
-                  style={({ pressed }) => [
-                    styles.seasonChip,
-                    (view === 'ranking'
-                      ? !histMode && selYear === y
-                      : selYear === y) && styles.seasonChipOn,
-                    pressed && styles.pressFx,
-                  ]}
-                  onPress={() => {
-                    setSelYear(y);
-                    if (view === 'ranking') setHistMode(false);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Ver ${
-                    view === 'temporada' ? 'verano' : 'año'
-                  } ${y}`}
-                >
-                  <Text
-                    style={[
-                      styles.seasonChipText,
-                      (view === 'ranking'
-                        ? !histMode && selYear === y
-                        : selYear === y) && styles.seasonChipTextOn,
-                    ]}
-                  >
-                    {view === 'temporada'
-                      ? y === seasonYear()
-                        ? 'Este verano'
-                        : `Verano ${y}`
-                      : y === new Date().getFullYear()
-                        ? 'Este año'
-                        : `${y}`}
-                    {` (${chipCounts.get(y) ?? 0})`}
-                  </Text>
-                </Pressable>
-              ))}
-              {canCollapseYears && (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.seasonChip,
-                    pressed && styles.pressFx,
-                  ]}
-                  onPress={() => setShowAllYears((v) => !v)}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    showAllYears
-                      ? 'Plegar la lista de años'
-                      : 'Ver todos los años'
-                  }
-                >
-                  <Text style={styles.seasonChipText}>
-                    {showAllYears
-                      ? 'Menos ›'
-                      : view === 'temporada'
-                        ? 'Más veranos ›'
-                        : 'Más años ›'}
-                  </Text>
-                </Pressable>
-              )}
-              {view === 'ranking' && (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.seasonChip,
-                    histMode && styles.seasonChipOn,
-                    pressed && styles.pressFx,
-                  ]}
-                  onPress={() => setHistMode(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Ver ranking histórico completo"
-                >
-                  <Text
-                    style={[
-                      styles.seasonChipText,
-                      histMode && styles.seasonChipTextOn,
-                    ]}
-                  >
-                    Histórico ({episodes.length})
-                  </Text>
-                </Pressable>
-              )}
-            </ScrollChips>
-          )}
-          {view === 'temporada' && seasonRows.length > 0 && (
-            <ScrollChips
-              style={styles.seasonChipsWrap}
-              contentContainerStyle={styles.seasonChips}
-              a11yLabel="filtros de episodios"
-            >
-              {(
-                [
-                  ['closure', seasonCounts.closures, 'cierre', 'cierres'],
-                  ['warning', seasonCounts.warnings, 'aviso', 'avisos'],
-                  ['active', seasonCounts.active, 'activa', 'activas'],
-                ] as const
-              ).map(([k, n, one, many]) =>
-                n > 0 ? (
+            {years.length > 1 && (
+              <ScrollChips
+                style={styles.seasonChipsWrap}
+                contentContainerStyle={styles.seasonChips}
+                a11yLabel="años"
+              >
+                {visibleYears.map((y) => (
                   <Pressable
-                    key={k}
+                    key={y}
                     style={({ pressed }) => [
                       styles.seasonChip,
-                      seasonFilter === k && styles.seasonChipOn,
+                      (view === 'ranking'
+                        ? !histMode && selYear === y
+                        : selYear === y) && styles.seasonChipOn,
                       pressed && styles.pressFx,
                     ]}
-                    onPress={() =>
-                      setSeasonFilter((f) => (f === k ? 'all' : k))
-                    }
+                    onPress={() => {
+                      setSelYear(y);
+                      if (view === 'ranking') setHistMode(false);
+                    }}
                     accessibilityRole="button"
-                    accessibilityLabel={`${
-                      seasonFilter === k ? 'Quitar filtro de' : 'Filtrar por'
-                    } ${n === 1 ? one : many}`}
+                    accessibilityLabel={`Ver ${
+                      view === 'temporada' ? 'verano' : 'año'
+                    } ${y}`}
                   >
                     <Text
                       style={[
                         styles.seasonChipText,
-                        seasonFilter === k && styles.seasonChipTextOn,
+                        (view === 'ranking'
+                          ? !histMode && selYear === y
+                          : selYear === y) && styles.seasonChipTextOn,
                       ]}
                     >
-                      {`${n} ${n === 1 ? one : many}`}
+                      {view === 'temporada'
+                        ? y === seasonYear()
+                          ? 'Este verano'
+                          : `Verano ${y}`
+                        : y === new Date().getFullYear()
+                          ? 'Este año'
+                          : `${y}`}
+                      {` (${chipCounts.get(y) ?? 0})`}
                     </Text>
                   </Pressable>
-                ) : null,
-              )}
-            </ScrollChips>
-          )}
-          {view !== 'temporada' && yearCauses.length > 0 && (
-            <ScrollChips
-              style={styles.seasonChipsWrap}
-              contentContainerStyle={styles.seasonChips}
-              a11yLabel="filtros por causa"
-            >
-              <Pressable
-                style={({ pressed }) => [
-                  styles.seasonChip,
-                  yearCause === 'all' && styles.seasonChipOn,
-                  pressed && styles.pressFx,
-                ]}
-                onPress={() => setYearCause('all')}
-                accessibilityRole="button"
-                accessibilityLabel="Ver todos los episodios del año"
+                ))}
+                {canCollapseYears && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.seasonChip,
+                      pressed && styles.pressFx,
+                    ]}
+                    onPress={() => setShowAllYears((v) => !v)}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      showAllYears
+                        ? 'Plegar la lista de años'
+                        : 'Ver todos los años'
+                    }
+                  >
+                    <Text style={styles.seasonChipText}>
+                      {showAllYears
+                        ? 'Menos ›'
+                        : view === 'temporada'
+                          ? 'Más veranos ›'
+                          : 'Más años ›'}
+                    </Text>
+                  </Pressable>
+                )}
+                {view === 'ranking' && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.seasonChip,
+                      histMode && styles.seasonChipOn,
+                      pressed && styles.pressFx,
+                    ]}
+                    onPress={() => setHistMode(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Ver ranking histórico completo"
+                  >
+                    <Text
+                      style={[
+                        styles.seasonChipText,
+                        histMode && styles.seasonChipTextOn,
+                      ]}
+                    >
+                      Histórico ({episodes.length})
+                    </Text>
+                  </Pressable>
+                )}
+              </ScrollChips>
+            )}
+            {view === 'temporada' && seasonRows.length > 0 && (
+              <ScrollChips
+                style={styles.seasonChipsWrap}
+                contentContainerStyle={styles.seasonChips}
+                a11yLabel="filtros de episodios"
               >
-                <Text
-                  style={[
-                    styles.seasonChipText,
-                    yearCause === 'all' && styles.seasonChipTextOn,
-                  ]}
-                >
-                  Todos
-                </Text>
-              </Pressable>
-              {yearCauses.map(([cause, n]) => (
+                {(
+                  [
+                    ['closure', seasonCounts.closures, 'cierre', 'cierres'],
+                    ['warning', seasonCounts.warnings, 'aviso', 'avisos'],
+                    ['active', seasonCounts.active, 'activa', 'activas'],
+                  ] as const
+                ).map(([k, n, one, many]) =>
+                  n > 0 ? (
+                    <Pressable
+                      key={k}
+                      style={({ pressed }) => [
+                        styles.seasonChip,
+                        seasonFilter === k && styles.seasonChipOn,
+                        pressed && styles.pressFx,
+                      ]}
+                      onPress={() =>
+                        setSeasonFilter((f) => (f === k ? 'all' : k))
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={`${
+                        seasonFilter === k ? 'Quitar filtro de' : 'Filtrar por'
+                      } ${n === 1 ? one : many}`}
+                    >
+                      <Text
+                        style={[
+                          styles.seasonChipText,
+                          seasonFilter === k && styles.seasonChipTextOn,
+                        ]}
+                      >
+                        {`${n} ${n === 1 ? one : many}`}
+                      </Text>
+                    </Pressable>
+                  ) : null,
+                )}
+              </ScrollChips>
+            )}
+            {view !== 'temporada' && yearCauses.length > 0 && (
+              <ScrollChips
+                style={styles.seasonChipsWrap}
+                contentContainerStyle={styles.seasonChips}
+                a11yLabel="filtros por causa"
+              >
                 <Pressable
-                  key={cause}
                   style={({ pressed }) => [
                     styles.seasonChip,
-                    yearCause === cause && styles.seasonChipOn,
+                    yearCause === 'all' && styles.seasonChipOn,
                     pressed && styles.pressFx,
                   ]}
-                  onPress={() =>
-                    setYearCause((c) => (c === cause ? 'all' : cause))
-                  }
+                  onPress={() => setYearCause('all')}
                   accessibilityRole="button"
-                  accessibilityLabel={`Filtrar por ${cause}`}
+                  accessibilityLabel="Ver todos los episodios del año"
                 >
                   <Text
                     style={[
                       styles.seasonChipText,
-                      yearCause === cause && styles.seasonChipTextOn,
+                      yearCause === 'all' && styles.seasonChipTextOn,
                     ]}
                   >
-                    {`${n} ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`}
+                    Todos
+                  </Text>
+                </Pressable>
+                {yearCauses.map(([cause, n]) => (
+                  <Pressable
+                    key={cause}
+                    style={({ pressed }) => [
+                      styles.seasonChip,
+                      yearCause === cause && styles.seasonChipOn,
+                      pressed && styles.pressFx,
+                    ]}
+                    onPress={() =>
+                      setYearCause((c) => (c === cause ? 'all' : cause))
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`Filtrar por ${cause}`}
+                  >
+                    <Text
+                      style={[
+                        styles.seasonChipText,
+                        yearCause === cause && styles.seasonChipTextOn,
+                      ]}
+                    >
+                      {`${n} ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollChips>
+            )}
+            <View style={styles.viewToggle}>
+              {(['ranking', 'temporada', 'year'] as const).map((v) => (
+                <Pressable
+                  key={v}
+                  style={({ pressed }) => [
+                    styles.viewTab,
+                    view === v && styles.viewTabOn,
+                    pressed && styles.pressFx,
+                  ]}
+                  onPress={() => setView(v)}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    v === 'ranking'
+                      ? 'Ver por municipio'
+                      : v === 'temporada'
+                        ? 'Ver temporada'
+                        : 'Ver episodios del año'
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.viewTabText,
+                      view === v && styles.viewTabTextOn,
+                    ]}
+                  >
+                    {v === 'ranking'
+                      ? 'Por municipio'
+                      : v === 'temporada'
+                        ? 'Este verano'
+                        : 'Este año'}
                   </Text>
                 </Pressable>
               ))}
-            </ScrollChips>
-          )}
-          <View style={styles.viewToggle}>
-            {(['ranking', 'temporada', 'year'] as const).map((v) => (
-              <Pressable
-                key={v}
-                style={({ pressed }) => [
-                  styles.viewTab,
-                  view === v && styles.viewTabOn,
-                  pressed && styles.pressFx,
-                ]}
-                onPress={() => setView(v)}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  v === 'ranking'
-                    ? 'Ver por municipio'
-                    : v === 'temporada'
-                      ? 'Ver temporada'
-                      : 'Ver episodios del año'
-                }
-              >
-                <Text
-                  style={[
-                    styles.viewTabText,
-                    view === v && styles.viewTabTextOn,
-                  ]}
-                >
-                  {v === 'ranking'
-                    ? 'Por municipio'
-                    : v === 'temporada'
-                      ? 'Este verano'
-                      : 'Este año'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+            </View>
 
-        {view === 'ranking' && (
-          <View style={styles.searchWrap}>
-            <Image
-              source={require('../assets/icons/icon-search.png')}
-              style={styles.searchIcon}
-            />
-            <TextInput
-              style={styles.search}
-              placeholder="Busca un municipio…"
-              placeholderTextColor={colors.textFaint}
-              value={muniQuery}
-              onChangeText={setMuniQuery}
-              autoCorrect={false}
-              clearButtonMode="while-editing"
-              accessibilityLabel="Buscar municipio por nombre"
-            />
-          </View>
-        )}
-
-        {view !== 'ranking' ? (
-          <FlatList
-            data={view === 'temporada' ? seasonRowsFiltered : yearRows}
-            keyExtractor={(ep) => `s${ep.id}-${ep.beach_id}`}
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            renderItem={({ item: ep }) => {
-              const open = ep.closed_at === null;
-              return (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.row,
-                    pressed && styles.pressFx,
-                  ]}
-                  onPress={() => onSelectBeach?.(ep.beach_id)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Ver ficha de ${displayBeachName(
-                    ep.beach_name,
-                  )}`}
-                >
-                  <View style={styles.rowHeader}>
-                    <Text style={styles.rowName} numberOfLines={1}>
-                      {displayBeachName(ep.beach_name)}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.badge,
-                        open
-                          ? ep.kind === 'closure'
-                            ? styles.badgeClosed
-                            : styles.badgeWarning
-                          : styles.badgeOpen,
-                      ]}
-                    >
-                      {open
-                        ? ep.kind === 'closure'
-                          ? 'Sigue cerrada'
-                          : 'Aviso activo'
-                        : ep.kind === 'closure'
-                          ? 'Cierre resuelto'
-                          : 'Aviso resuelto'}
-                    </Text>
-                  </View>
-                  <Text style={styles.rowSub}>
-                    {ep.municipality ?? 'Sin municipio'} ·{' '}
-                    {open
-                      ? `desde el ${fmtDate(ep.opened_at)}`
-                      : `${fmtDate(ep.opened_at)} → ${fmtDate(
-                          ep.closed_at as string,
-                        )} · ${episodeDays(ep)} ${
-                          episodeDays(ep) === 1 ? 'día' : 'días'
-                        }`}
-                    {ep.cause
-                      ? ` · ${ep.cause.charAt(0).toLowerCase()}${ep.cause.slice(1)}`
-                      : ''}
-                    {ep.via === 'press' ? ' · según prensa' : ''}
-                  </Text>
-                </Pressable>
-              );
-            }}
-            ListEmptyComponent={
-              view === 'temporada' &&
-              selYear === curYear &&
-              new Date().getMonth() < 5 ? (
-                // La temporada jun-sep aún no ha empezado: la lista
-                // vacía sería ambigua — ofrecer la última completada
-                <View style={styles.emptyWrap}>
-                  <Text style={styles.emptyNote}>
-                    El verano {selYear} aún no ha comenzado
-                  </Text>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.emptyCta,
-                      pressed && styles.pressFx,
-                    ]}
-                    onPress={() => setSelYear(selYear - 1)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Ver Verano ${selYear - 1}`}
-                  >
-                    <Text style={styles.emptyCtaText}>
-                      Ver Verano {selYear - 1}
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <Text style={styles.empty}>
-                  {view === 'temporada'
-                    ? 'Sin episodios este verano'
-                    : 'Sin episodios este año'}
-                </Text>
-              )
-            }
-          />
-        ) : (
-        <FlatList
-          data={filteredRows}
-          keyExtractor={(m) => m.name}
-          ListEmptyComponent={
-            <Text style={styles.empty}>
-              {muniQ
-                ? `Sin municipios que coincidan con “${muniQuery.trim()}”`
-                : isYearMode
-                  ? `Sin episodios en ${selYear}`
-                  : 'Sin datos de municipios'}
-            </Text>
-          }
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item, index }) => (
-            <Pressable
-              style={({ pressed }) => [
-                styles.row,
-                pressed && styles.pressFx,
-              ]}
-              onPress={() => setDetail(item)}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.name}, posición ${index + 1} de ${
-                filteredRows.length
-              }, ${item.beaches} playas, ${
-                isYearMode
-                  ? `${item.yearClosures} cierres y ${item.yearWarnings} avisos en ${selYear}`
-                  : `${item.incidents} incidentes`
-              }`}
-              accessibilityHint="Ver línea temporal de incidentes"
-            >
-              <View style={styles.rowHeader}>
-                <View
-                  style={[
-                    styles.rank,
-                    index < 3 && styles.rankPodium,
-                    {
-                      backgroundColor: isYearMode
-                        ? index < 3
-                          ? yearBarColorOf(item)
-                          : '#8fa3ad'
-                        : rankColorOf(item, index),
-                    },
-                  ]}
-                >
-                  <Text style={styles.rankText}>{index + 1}</Text>
-                </View>
-                <Text style={styles.rowName}>{item.name}</Text>
-                <Text style={styles.rowBeaches}>
-                  {item.beaches}{' '}
-                  {item.beaches === 1 ? 'playa' : 'playas'}
-                  {item.points > item.beaches
-                    ? ` · ${item.points} PMs`
-                    : ''}
-                </Text>
-              </View>
-              <View style={styles.barTrack}>
-                <View
-                  style={[
-                    styles.barFill,
-                    {
-                      width: `${(score(item) / maxScore) * 100}%`,
-                      backgroundColor: barColor(item),
-                    },
-                  ]}
+            {view === 'ranking' && (
+              <View style={styles.searchWrap}>
+                <Image
+                  source={require('../assets/icons/icon-search.png')}
+                  style={styles.searchIcon}
+                />
+                <TextInput
+                  style={styles.search}
+                  placeholder="Busca un municipio…"
+                  placeholderTextColor={colors.textFaint}
+                  value={muniQuery}
+                  onChangeText={setMuniQuery}
+                  autoCorrect={false}
+                  clearButtonMode="while-editing"
+                  accessibilityLabel="Buscar municipio por nombre"
                 />
               </View>
-              <View style={styles.rowStats}>
-                {isYearMode ? (
-                  <>
-                    {(item.yearClosures ?? 0) > 0 && (
-                      <Text style={[styles.badge, styles.badgeClosed]}>
-                        {item.yearClosures}{' '}
-                        {item.yearClosures === 1 ? 'cierre' : 'cierres'}
+            )}
+
+            {view !== 'ranking' ? (
+              <FlatList
+                data={view === 'temporada' ? seasonRowsFiltered : yearRows}
+                keyExtractor={(ep) => `s${ep.id}-${ep.beach_id}`}
+                style={styles.list}
+                contentContainerStyle={styles.listContent}
+                renderItem={({ item: ep }) => {
+                  const open = ep.closed_at === null;
+                  return (
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.row,
+                        pressed && styles.pressFx,
+                      ]}
+                      onPress={() => onSelectBeach?.(ep.beach_id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ver ficha de ${displayBeachName(
+                        ep.beach_name,
+                      )}`}
+                    >
+                      <View style={styles.rowHeader}>
+                        <Text style={styles.rowName} numberOfLines={1}>
+                          {displayBeachName(ep.beach_name)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.badge,
+                            open
+                              ? ep.kind === 'closure'
+                                ? styles.badgeClosed
+                                : styles.badgeWarning
+                              : styles.badgeOpen,
+                          ]}
+                        >
+                          {open
+                            ? ep.kind === 'closure'
+                              ? 'Sigue cerrada'
+                              : 'Aviso activo'
+                            : ep.kind === 'closure'
+                              ? 'Cierre resuelto'
+                              : 'Aviso resuelto'}
+                        </Text>
+                      </View>
+                      <Text style={styles.rowSub}>
+                        {ep.municipality ?? 'Sin municipio'} ·{' '}
+                        {open
+                          ? `desde el ${fmtDate(ep.opened_at)}`
+                          : `${fmtDate(ep.opened_at)} → ${fmtDate(
+                              ep.closed_at as string,
+                            )} · ${episodeDays(ep)} ${
+                              episodeDays(ep) === 1 ? 'día' : 'días'
+                            }`}
+                        {ep.cause
+                          ? ` · ${ep.cause.charAt(0).toLowerCase()}${ep.cause.slice(1)}`
+                          : ''}
+                        {ep.via === 'press' ? ' · según prensa' : ''}
                       </Text>
-                    )}
-                    {(item.yearWarnings ?? 0) > 0 && (
-                      <Text style={[styles.badge, styles.badgeWarning]}>
-                        {item.yearWarnings}{' '}
-                        {item.yearWarnings === 1 ? 'aviso' : 'avisos'}
+                    </Pressable>
+                  );
+                }}
+                ListEmptyComponent={
+                  view === 'temporada' &&
+                  selYear === curYear &&
+                  new Date().getMonth() < 5 ? (
+                    // La temporada jun-sep aún no ha empezado: la lista
+                    // vacía sería ambigua — ofrecer la última completada
+                    <View style={styles.emptyWrap}>
+                      <Text style={styles.emptyNote}>
+                        El verano {selYear} aún no ha comenzado
                       </Text>
-                    )}
-                    {(item.yearActive ?? 0) > 0 && (
-                      <Text style={[styles.badge, styles.badgeEnded]}>
-                        {item.yearActive}{' '}
-                        {item.yearActive === 1
-                          ? 'sigue abierta'
-                          : 'siguen abiertas'}
-                      </Text>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {item.closedNow > 0 && (
-                      <Text style={[styles.badge, styles.badgeClosed]}>
-                        {item.closedNow}{' '}
-                        {item.closedNow === 1 ? 'cerrada' : 'cerradas'}{' '}
-                        ahora
-                      </Text>
-                    )}
-                    {item.warningNow > 0 && (
-                      <Text style={[styles.badge, styles.badgeWarning]}>
-                        {item.warningNow}{' '}
-                        {item.warningNow === 1 ? 'aviso' : 'avisos'}{' '}
-                        activo
-                        {item.warningNow === 1 ? '' : 's'}
-                      </Text>
-                    )}
-                  </>
-                )}
-                {yearCause !== 'all' && (
-                  <Text style={[styles.badge, styles.badgeEnded]}>
-                    {muniCauseCount.get(item.municipality) ?? 0}{' '}
-                    {yearCause === 'sin causa'
-                      ? 'sin causa'
-                      : yearCause.toLowerCase()}
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.emptyCta,
+                          pressed && styles.pressFx,
+                        ]}
+                        onPress={() => setSelYear(selYear - 1)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Ver Verano ${selYear - 1}`}
+                      >
+                        <Text style={styles.emptyCtaText}>
+                          Ver Verano {selYear - 1}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Text style={styles.empty}>
+                      {view === 'temporada'
+                        ? 'Sin episodios este verano'
+                        : 'Sin episodios este año'}
+                    </Text>
+                  )
+                }
+              />
+            ) : (
+              <FlatList
+                data={filteredRows}
+                keyExtractor={(m) => m.name}
+                ListEmptyComponent={
+                  <Text style={styles.empty}>
+                    {muniQ
+                      ? `Sin municipios que coincidan con “${muniQuery.trim()}”`
+                      : isYearMode
+                        ? `Sin episodios en ${selYear}`
+                        : 'Sin datos de municipios'}
                   </Text>
+                }
+                style={styles.list}
+                contentContainerStyle={styles.listContent}
+                renderItem={({ item, index }) => (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.row,
+                      pressed && styles.pressFx,
+                    ]}
+                    onPress={() => setDetail(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.name}, posición ${index + 1} de ${
+                      filteredRows.length
+                    }, ${item.beaches} playas, ${
+                      isYearMode
+                        ? `${item.yearClosures} cierres y ${item.yearWarnings} avisos en ${selYear}`
+                        : `${item.incidents} incidentes`
+                    }`}
+                    accessibilityHint="Ver línea temporal de incidentes"
+                  >
+                    <View style={styles.rowHeader}>
+                      <View
+                        style={[
+                          styles.rank,
+                          index < 3 && styles.rankPodium,
+                          {
+                            backgroundColor: isYearMode
+                              ? index < 3
+                                ? yearBarColorOf(item)
+                                : '#8fa3ad'
+                              : rankColorOf(item, index),
+                          },
+                        ]}
+                      >
+                        <Text style={styles.rankText}>{index + 1}</Text>
+                      </View>
+                      <Text style={styles.rowName}>{item.name}</Text>
+                      <Text style={styles.rowBeaches}>
+                        {item.beaches} {item.beaches === 1 ? 'playa' : 'playas'}
+                        {item.points > item.beaches
+                          ? ` · ${item.points} PMs`
+                          : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.barTrack}>
+                      <View
+                        style={[
+                          styles.barFill,
+                          {
+                            width: `${(score(item) / maxScore) * 100}%`,
+                            backgroundColor: barColor(item),
+                          },
+                        ]}
+                      />
+                    </View>
+                    <View style={styles.rowStats}>
+                      {isYearMode ? (
+                        <>
+                          {(item.yearClosures ?? 0) > 0 && (
+                            <Text style={[styles.badge, styles.badgeClosed]}>
+                              {item.yearClosures}{' '}
+                              {item.yearClosures === 1 ? 'cierre' : 'cierres'}
+                            </Text>
+                          )}
+                          {(item.yearWarnings ?? 0) > 0 && (
+                            <Text style={[styles.badge, styles.badgeWarning]}>
+                              {item.yearWarnings}{' '}
+                              {item.yearWarnings === 1 ? 'aviso' : 'avisos'}
+                            </Text>
+                          )}
+                          {(item.yearActive ?? 0) > 0 && (
+                            <Text style={[styles.badge, styles.badgeEnded]}>
+                              {item.yearActive}{' '}
+                              {item.yearActive === 1
+                                ? 'sigue abierta'
+                                : 'siguen abiertas'}
+                            </Text>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {item.closedNow > 0 && (
+                            <Text style={[styles.badge, styles.badgeClosed]}>
+                              {item.closedNow}{' '}
+                              {item.closedNow === 1 ? 'cerrada' : 'cerradas'}{' '}
+                              ahora
+                            </Text>
+                          )}
+                          {item.warningNow > 0 && (
+                            <Text style={[styles.badge, styles.badgeWarning]}>
+                              {item.warningNow}{' '}
+                              {item.warningNow === 1 ? 'aviso' : 'avisos'}{' '}
+                              activo
+                              {item.warningNow === 1 ? '' : 's'}
+                            </Text>
+                          )}
+                        </>
+                      )}
+                      {yearCause !== 'all' && (
+                        <Text style={[styles.badge, styles.badgeEnded]}>
+                          {muniCauseCount.get(item.municipality) ?? 0}{' '}
+                          {yearCause === 'sin causa'
+                            ? 'sin causa'
+                            : yearCause.toLowerCase()}
+                        </Text>
+                      )}
+                    </View>
+                    <Text
+                      style={styles.rowSub}
+                      numberOfLines={isYearMode ? 2 : 1}
+                    >
+                      {isYearMode
+                        ? `Afectadas: ${(item.yearBeaches ?? []).join(' · ')}`
+                        : `${item.incidents} ${
+                            item.incidents === 1 ? 'incidente' : 'incidentes'
+                          } (${item.closuresLastYear} últ. año) · ${
+                            item.badSamples
+                          } ${
+                            item.badSamples === 1 ? 'muestra' : 'muestras'
+                          } no apta${item.badSamples === 1 ? '' : 's'}`}
+                    </Text>
+                  </Pressable>
                 )}
-              </View>
-              <Text
-                style={styles.rowSub}
-                numberOfLines={isYearMode ? 2 : 1}
-              >
-                {isYearMode
-                  ? `Afectadas: ${(item.yearBeaches ?? []).join(' · ')}`
-                  : `${item.incidents} ${
-                      item.incidents === 1 ? 'incidente' : 'incidentes'
-                    } (${item.closuresLastYear} últ. año) · ${
-                      item.badSamples
-                    } ${
-                      item.badSamples === 1 ? 'muestra' : 'muestras'
-                    } no apta${item.badSamples === 1 ? '' : 's'}`}
-              </Text>
-            </Pressable>
-          )}
-        />
-        )}
+              />
+            )}
           </>
         )}
       </View>
@@ -1251,7 +1217,7 @@ const styles = StyleSheet.create({
   },
   headerBlock: {
     paddingTop:
-      (Platform.OS === 'android' ? StatusBar.currentHeight ?? 24 : 24) + 10,
+      (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 24) + 10,
     paddingBottom: 12,
   },
   header: {

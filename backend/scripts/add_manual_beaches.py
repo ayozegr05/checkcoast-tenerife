@@ -33,7 +33,9 @@ def add_manual_beaches(db: Session) -> tuple[int, int]:
     nombre/coords/fuente de las existentes. Devuelve (creadas, actualizadas)."""
     existing = {
         b.external_id: b
-        for b in db.query(Beach).filter(Beach.external_id.like("manual-%")).all()
+        for b in db.query(Beach)
+        .filter(Beach.external_id.like("manual-%"))
+        .all()
     }
     created = updated = 0
     for external_id, name, lat, lon in MANUAL_BEACHES:

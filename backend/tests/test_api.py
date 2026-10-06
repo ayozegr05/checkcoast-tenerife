@@ -55,7 +55,10 @@ def test_beaches_include_status_and_municipality():
     features = client.get("/beaches").json()["features"]
     for f in features:
         assert f["properties"]["status"] in (
-            "open", "closed", "warning", "unknown"
+            "open",
+            "closed",
+            "warning",
+            "unknown",
         )
     # La ingesta de Náyade rellena municipality en las playas casadas
     assert any(f["properties"]["municipality"] for f in features)
@@ -166,7 +169,7 @@ def test_press_closure_enters_alerts(seed_data):
     from app.models import NewsItem
 
     osm_id = seed_data["osm_beach_id"]  # sin estado oficial
-    mon_id = seed_data["beach_id"]      # monitorizada con oficial 'open'
+    mon_id = seed_data["beach_id"]  # monitorizada con oficial 'open'
     db = SessionLocal()
     item = NewsItem(
         url="https://news.google.com/rss/articles/pytest-press-alert",
@@ -199,9 +202,7 @@ def test_press_closure_enters_alerts(seed_data):
         assert hit is not None
         assert hit["status"] == "closed"
         assert hit["via"] == "press"
-        hit_open = next(
-            (a for a in alerts if a["beach_id"] == mon_id), None
-        )
+        hit_open = next((a for a in alerts if a["beach_id"] == mon_id), None)
         assert hit_open is not None
         assert hit_open["via"] == "press"
     finally:
@@ -227,7 +228,7 @@ def test_press_closure_persistence_by_cause(seed_data):
     from app.models import NewsItem
 
     osm_id = seed_data["osm_beach_id"]  # sin estado oficial
-    mon_id = seed_data["beach_id"]      # monitorizada con oficial 'open'
+    mon_id = seed_data["beach_id"]  # monitorizada con oficial 'open'
     db = SessionLocal()
     old = datetime.now(UTC) - timedelta(days=30)
     item_structural = NewsItem(
@@ -327,9 +328,7 @@ def test_effective_status_suppresses_stale_official(seed_data):
     try:
         # Mapa: pin efectivo 'open' aunque el último status es 'closed'
         features = client.get("/beaches").json()["features"]
-        feat = next(
-            f for f in features if f["id"] == beach_id
-        )
+        feat = next(f for f in features if f["id"] == beach_id)
         assert feat["properties"]["status"] == "open"
         # Ficha: mismo estado efectivo
         body = client.get(f"/beaches/{beach_id}/status").json()
@@ -337,8 +336,11 @@ def test_effective_status_suppresses_stale_official(seed_data):
         # Alertas: sin alerta oficial para esta playa
         alerts = client.get("/alerts").json()
         hit = next(
-            (a for a in alerts
-             if a["beach_id"] == beach_id and a["via"] == "official"),
+            (
+                a
+                for a in alerts
+                if a["beach_id"] == beach_id and a["via"] == "official"
+            ),
             None,
         )
         assert hit is None
@@ -399,8 +401,11 @@ def test_effective_status_keeps_new_official_closure(seed_data):
         assert body["status"] == "closed"
         alerts = client.get("/alerts").json()
         hit = next(
-            (a for a in alerts
-             if a["beach_id"] == beach_id and a["via"] == "official"),
+            (
+                a
+                for a in alerts
+                if a["beach_id"] == beach_id and a["via"] == "official"
+            ),
             None,
         )
         assert hit is not None
@@ -687,9 +692,7 @@ def test_incident_press_items_and_episode_items(seed_data):
     try:
         rows = client.get(f"/beaches/{beach_id}/incidents").json()
         official = next(r for r in rows if r["via"] == "official")
-        assert [n["title"] for n in official["press_items"]] == [
-            near.title
-        ]
+        assert [n["title"] for n in official["press_items"]] == [near.title]
         press_rows = [r for r in rows if r["via"] == "press"]
         assert len(press_rows) == 1
         assert [n["title"] for n in press_rows[0]["press_items"]] == [
@@ -803,9 +806,7 @@ def test_push_few_changes_stay_individual(monkeypatch):
     db = SessionLocal()
     try:
         b = Beach(name="PLAYA TEST SOLO", municipality="M")
-        notify.notify_beach_states(
-            db, [(b, BeachState.closed)] * 3
-        )
+        notify.notify_beach_states(db, [(b, BeachState.closed)] * 3)
         assert individual == [BeachState.closed] * 3
     finally:
         db.close()

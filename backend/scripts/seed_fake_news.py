@@ -62,7 +62,9 @@ def seed() -> None:
 
 def clean() -> None:
     with SessionLocal() as db:
-        n = db.execute(delete(NewsItem).where(NewsItem.url == FAKE_URL)).rowcount
+        n = db.execute(
+            delete(NewsItem).where(NewsItem.url == FAKE_URL)
+        ).rowcount
         s = db.execute(
             delete(BeachStatus).where(
                 BeachStatus.beach_id == BEACH_ID,

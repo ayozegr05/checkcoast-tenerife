@@ -79,7 +79,13 @@ def test_closed_incident_is_closed():
         [
             (
                 "PLAYA TEST PM1",
-                [("02/09/2026", "", "Zona donde queda prohibido el baño temporalmente")],
+                [
+                    (
+                        "02/09/2026",
+                        "",
+                        "Zona donde queda prohibido el baño temporalmente",
+                    )
+                ],
             )
         ]
     )
@@ -103,7 +109,12 @@ def test_open_non_prohibition_incident_is_warning():
 
 def test_closed_incident_in_past_is_open():
     html = _html(
-        [("PLAYA TEST PM1", [("02/09/2026", "03/09/2026", "prohibido el baño")])]
+        [
+            (
+                "PLAYA TEST PM1",
+                [("02/09/2026", "03/09/2026", "prohibido el baño")],
+            )
+        ]
     )
     assert _states(html)["PLAYA TEST PM1"] == BeachState.open
 
@@ -122,7 +133,12 @@ def test_multiple_pms_independent_states():
 
 def test_incident_dates_and_observations_parsed():
     html = _html(
-        [("PLAYA TEST PM1", [("02/09/2026", "03/09/2026", "prohibido el baño")])]
+        [
+            (
+                "PLAYA TEST PM1",
+                [("02/09/2026", "03/09/2026", "prohibido el baño")],
+            )
+        ]
     )
     inc = _parse_pms(html)["PLAYA TEST PM1"].incidents[0]
     assert inc.opened == date(2026, 9, 2)
@@ -184,9 +200,7 @@ def test_ungraded_open_incident_is_not_an_alert():
     """Una incidencia abierta con solo 'Sin Calificar' tampoco alerta:
     es la traza administrativa de una muestra sin evaluar (o de una
     playa cerrada por el municipio — Gaviotas), no un aviso de agua."""
-    html = _html(
-        [("PLAYA TEST PM1", [("11/08/2026", "", "Sin Calificar")])]
-    )
+    html = _html([("PLAYA TEST PM1", [("11/08/2026", "", "Sin Calificar")])])
     assert _states(html)["PLAYA TEST PM1"] == BeachState.open
 
 
@@ -219,7 +233,9 @@ def test_incident_rows_are_not_measurements():
 def test_foreign_municipality_rejects_same_named_pm():
     """Un PM homónimo de otra zona no casa con la playa: evita que
     'Caleta de Negros' de otro municipio sobreescriba su estado."""
-    beach = Beach(name="Caleta de Negros", municipality="Santa Cruz de Tenerife")
+    beach = Beach(
+        name="Caleta de Negros", municipality="Santa Cruz de Tenerife"
+    )
     assert _foreign_municipality(beach, "Granadilla de Abona") is True
     assert _foreign_municipality(beach, "Santa Cruz de Tenerife") is False
 
@@ -232,12 +248,14 @@ def test_foreign_municipality_normalizes_article_forms():
 
 def test_foreign_municipality_unknown_side_does_not_filter():
     """Sin municipio en la playa o en la zona no se puede discriminar."""
-    assert _foreign_municipality(
-        Beach(name="X", municipality=None), "Adeje"
-    ) is False
-    assert _foreign_municipality(
-        Beach(name="X", municipality="Adeje"), ""
-    ) is False
+    assert (
+        _foreign_municipality(Beach(name="X", municipality=None), "Adeje")
+        is False
+    )
+    assert (
+        _foreign_municipality(Beach(name="X", municipality="Adeje"), "")
+        is False
+    )
 
 
 def test_superseded_by_reopening_stale_sample():
@@ -258,7 +276,9 @@ def test_superseded_by_reopening_stale_sample():
         ]
     )
     meas = MEAS_ROW.format(
-        fecha="15/09/2026", ecoli="900", entero="500",
+        fecha="15/09/2026",
+        ecoli="900",
+        entero="500",
         obs="Zona donde queda prohibido el baño temporalmente",
     )
     pm = _parse_pms(
@@ -285,7 +305,9 @@ def test_superseded_by_reopening_fresh_sample_closes():
         ]
     )
     meas = MEAS_ROW.format(
-        fecha="25/09/2026", ecoli="900", entero="500",
+        fecha="25/09/2026",
+        ecoli="900",
+        entero="500",
         obs="Zona donde queda prohibido el baño temporalmente",
     )
     pm = _parse_pms(
@@ -384,7 +406,10 @@ def test_no_reopening_no_suppression():
 
     beach = SimpleNamespace(news_items=[])
     meas = MEAS_ROW.format(
-        fecha="15/09/2026", ecoli="900", entero="500", obs="prohibido",
+        fecha="15/09/2026",
+        ecoli="900",
+        entero="500",
+        obs="prohibido",
     )
     pm = _parse_pms(
         PM_TMPL.format(name="PLAYA TEST PM1", rows="", meas_rows=meas)

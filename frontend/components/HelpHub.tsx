@@ -147,16 +147,13 @@ export default function HelpHub({
   // Atrás hardware: dentro de una sección vuelve al índice; en el
   // índice devuelve false para que App cierre la guía entera
   useEffect(() => {
-    const sub = BackHandler.addEventListener(
-      'hardwareBackPress',
-      () => {
-        if (topic) {
-          setTopic(null);
-          return true;
-        }
-        return false;
-      },
-    );
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (topic) {
+        setTopic(null);
+        return true;
+      }
+      return false;
+    });
     return () => sub.remove();
   }, [topic]);
 
@@ -183,9 +180,7 @@ export default function HelpHub({
               </Pressable>
             )}
             <View style={styles.titleWrap}>
-              <Text style={styles.title}>
-                {topic ? topic.title : 'Guía'}
-              </Text>
+              <Text style={styles.title}>{topic ? topic.title : 'Guía'}</Text>
               <Text style={styles.subtitle}>
                 {topic
                   ? topic.subtitle
@@ -208,63 +203,60 @@ export default function HelpHub({
         </ImageBackground>
 
         <View style={styles.body}>
-          {topic
-            ? topic.rows.map(([icon, text], i) => (
-                <View key={i} style={styles.hintRow}>
-                  <Image source={icon} style={styles.hintIcon} />
-                  <Text style={styles.hintText}>{text}</Text>
-                </View>
-              ))
-            : (
-                <>
-                  {onShowIntro && (
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.topicRow,
-                        pressed && styles.pressFx,
-                      ]}
-                      onPress={onShowIntro}
-                      accessibilityRole="button"
-                      accessibilityLabel="Ver la tarjeta de bienvenida"
-                    >
-                      <Image
-                        source={require('../assets/icon.png')}
-                        style={styles.hintIcon}
-                      />
-                      <View style={styles.topicTextWrap}>
-                        <Text style={styles.topicTitle}>
-                          ¿Qué es CheckCoast?
-                        </Text>
-                        <Text style={styles.topicSub}>
-                          Primeros pasos: lo esencial en 5 líneas
-                        </Text>
-                      </View>
-                      <Text style={styles.topicChevron}>›</Text>
-                    </Pressable>
-                  )}
-                  {TOPICS.map((t) => (
-                    <Pressable
-                      key={t.key}
-                      style={({ pressed }) => [
-                        styles.topicRow,
-                        pressed && styles.pressFx,
-                      ]}
-                      onPress={() => setTopic(t)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Ayuda sobre ${t.title}`}
-                    >
-                      <Image source={t.icon} style={styles.hintIcon} />
-                      <View style={styles.topicTextWrap}>
-                        <Text style={styles.topicTitle}>{t.title}</Text>
-                        <Text style={styles.topicSub}>{t.subtitle}</Text>
-                      </View>
-                      <Text style={styles.topicChevron}>›</Text>
-                    </Pressable>
-                  ))}
-                </>
+          {topic ? (
+            topic.rows.map(([icon, text], i) => (
+              <View key={i} style={styles.hintRow}>
+                <Image source={icon} style={styles.hintIcon} />
+                <Text style={styles.hintText}>{text}</Text>
+              </View>
+            ))
+          ) : (
+            <>
+              {onShowIntro && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.topicRow,
+                    pressed && styles.pressFx,
+                  ]}
+                  onPress={onShowIntro}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver la tarjeta de bienvenida"
+                >
+                  <Image
+                    source={require('../assets/icon.png')}
+                    style={styles.hintIcon}
+                  />
+                  <View style={styles.topicTextWrap}>
+                    <Text style={styles.topicTitle}>¿Qué es CheckCoast?</Text>
+                    <Text style={styles.topicSub}>
+                      Primeros pasos: lo esencial en 5 líneas
+                    </Text>
+                  </View>
+                  <Text style={styles.topicChevron}>›</Text>
+                </Pressable>
               )}
+              {TOPICS.map((t) => (
+                <Pressable
+                  key={t.key}
+                  style={({ pressed }) => [
+                    styles.topicRow,
+                    pressed && styles.pressFx,
+                  ]}
+                  onPress={() => setTopic(t)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ayuda sobre ${t.title}`}
+                >
+                  <Image source={t.icon} style={styles.hintIcon} />
+                  <View style={styles.topicTextWrap}>
+                    <Text style={styles.topicTitle}>{t.title}</Text>
+                    <Text style={styles.topicSub}>{t.subtitle}</Text>
+                  </View>
+                  <Text style={styles.topicChevron}>›</Text>
+                </Pressable>
+              ))}
+            </>
+          )}
         </View>
-
       </View>
     </View>
   );
