@@ -3,6 +3,7 @@ import {
   BackHandler,
   Image,
   Keyboard,
+  LayoutAnimation,
   NativeSyntheticEvent,
   Platform,
   Pressable,
@@ -37,6 +38,7 @@ import {
   fmtDate,
   searchNorm,
 } from '../lib/format';
+import { foldCount, foldSummary } from '../lib/alertFold';
 import { episodeDays, recentlyResolved } from '../lib/episodes';
 import { groupKeyOf } from '../lib/beachGroups';
 import { colors, fonts } from '../lib/theme';
@@ -134,6 +136,7 @@ type CoastMapProps = {
 };
 
 const OUTFALL_COLORS = colors.outfall;
+const STRUCTURAL_SECTION = 'Cierre estructural';
 const BEACH_COLORS = colors.status;
 
 // Solo un grupo con >=2 puntos de muestreo reales (etiqueta "PM" o
@@ -222,6 +225,11 @@ export default function CoastMap({
   const [searchOpen, setSearchOpen] = useState(false);
   // Lista desplegable de playas en aviso (banner de alertas)
   const [alertsOpen, setAlertsOpen] = useState(false);
+  // "N más" de la sección estructural; vuelve a plegarse al cerrar
+  const [structuralOpen, setStructuralOpen] = useState(false);
+  useEffect(() => {
+    if (!alertsOpen) setStructuralOpen(false);
+  }, [alertsOpen]);
   // Panel de capas por estado (botón flotante junto a la brújula)
   const [layersOpen, setLayersOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -504,7 +512,7 @@ export default function CoastMap({
       .sort(byWhen);
     return [
       ['Contaminación', contam],
-      ['Cierre estructural', structural],
+      [STRUCTURAL_SECTION, structural],
       ['Avisos', warnings],
     ].filter(([, fs]) => fs.length > 0) as [string, GeoFeature[]][];
   }, [alertBeaches]);
@@ -1432,83 +1440,146 @@ export default function CoastMap({
             >
               Activas ahora · {alertBeaches.features.length}
             </Text>
-            {alertSections.map(
-              ([sectionLabel, features]) =>
-                features.length > 0 && (
-                  <View key={sectionLabel}>
-                    {alertSections.length > 1 &&
-                      features.length > 0 && (
-                        <Text style={styles.alertSubsection}>
-                          {sectionLabel} · {features.length}
-                        </Text>
-                      )}
-                    {features.map((f) => {
-                      const s =
-                        f.properties.status === 'closed'
-                          ? 'closed'
-                          : 'warning';
-                      return (
-                        <Pressable
-                          key={
-                            (f.properties as { groupKey?: string })
-                              .groupKey ?? f.id
-                          }
-                          style={({ pressed }) => [
-                            styles.alertRow,
-                            pressed && styles.pressFx,
+            {alertSections.map(([sectionLabel, features]) => {
+              if (features.length === 0) return null;
+              const foldable = sectionLabel === STRUCTURAL_SECTION;
+              const preview = foldable
+                ? foldCount(features.map((f) => f.properties))
+                : features.length;
+              const hidden = features.slice(preview);
+              const shown =
+                structuralOpen || !foldable
+                  ? features
+                  : features.slice(0, preview);
+              return (
+                <View key={sectionLabel}>
+                  {alertSections.length > 1 && (
+                    <Text style={styles.alertSubsection}>
+                      {sectionLabel} · {features.length}
+                    </Text>
+                  )}
+                  {shown.map((f) => {
+                    const s =
+                      f.properties.status === 'closed'
+                        ? 'closed'
+                        : 'warning';
+                    return (
+                      <Pressable
+                        key={
+                          (f.properties as { groupKey?: string })
+                            .groupKey ?? f.id
+                        }
+                        style={({ pressed }) => [
+                          styles.alertRow,
+                          pressed && styles.pressFx,
+                        ]}
+                        onPress={() => openAlertBeach(f)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${displayBeachName(
+                          beachBaseName(f.properties.name),
+                        )}, ${s === 'closed' ? 'cerrada' : 'aviso'}`}
+                      >
+                        <View
+                          style={[
+                            styles.alertDot,
+                            { backgroundColor: colors.status[s] },
                           ]}
-                          onPress={() => openAlertBeach(f)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${displayBeachName(
-                            beachBaseName(f.properties.name),
-                          )}, ${s === 'closed' ? 'cerrada' : 'aviso'}`}
-                        >
-                          <View
+                        />
+                        <View style={styles.alertText}>
+                          <Text
+                            style={styles.alertName}
+                            numberOfLines={1}
+                          >
+                            {displayBeachName(
+                              beachBaseName(f.properties.name),
+                            )}
+                          </Text>
+                          <Text
+                            style={styles.alertSub}
+                            numberOfLines={1}
+                          >
+                            {f.properties.municipality ?? ''}
+                          </Text>
+                        </View>
+                        <View style={styles.alertStateCol}>
+                          <Text
                             style={[
-                              styles.alertDot,
-                              { backgroundColor: colors.status[s] },
+                              styles.alertState,
+                              { color: colors.status[s] },
                             ]}
-                          />
-                          <View style={styles.alertText}>
+                          >
+                            {s === 'closed' ? 'Cerrada' : 'Aviso'}
+                          </Text>
+                          {f.properties.alert_cause ? (
                             <Text
-                              style={styles.alertName}
+                              style={styles.alertCause}
                               numberOfLines={1}
                             >
-                              {displayBeachName(
-                                beachBaseName(f.properties.name),
-                              )}
+                              {f.properties.alert_cause}
                             </Text>
-                            <Text
-                              style={styles.alertSub}
-                              numberOfLines={1}
-                            >
-                              {f.properties.municipality ?? ''}
-                            </Text>
-                          </View>
-                          <View style={styles.alertStateCol}>
-                            <Text
+                          ) : null}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                  {hidden.length > 0 && (
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.alertRow,
+                        pressed && styles.pressFx,
+                      ]}
+                      onPress={() => {
+                        LayoutAnimation.configureNext(
+                          LayoutAnimation.Presets.easeInEaseOut,
+                        );
+                        setStructuralOpen((o) => !o);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: structuralOpen }}
+                      accessibilityLabel={
+                        structuralOpen
+                          ? 'Ver menos cierres estructurales'
+                          : `Ver ${hidden.length} cierres estructurales más`
+                      }
+                    >
+                      {structuralOpen ? (
+                        <View style={styles.alertDotsSpacer} />
+                      ) : (
+                        <View style={styles.alertDots}>
+                          {[0, 1, 2].map((i) => (
+                            <View
+                              key={i}
                               style={[
-                                styles.alertState,
-                                { color: colors.status[s] },
+                                styles.alertDotSmall,
+                                i > 0 && styles.alertDotStacked,
+                                { zIndex: 3 - i },
                               ]}
-                            >
-                              {s === 'closed' ? 'Cerrada' : 'Aviso'}
-                            </Text>
-                            {f.properties.alert_cause ? (
-                              <Text
-                                style={styles.alertCause}
-                                numberOfLines={1}
-                              >
-                                {f.properties.alert_cause}
-                              </Text>
-                            ) : null}
-                          </View>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ),
-            )}
+                            />
+                          ))}
+                        </View>
+                      )}
+                      <View style={styles.alertText}>
+                        <Text style={styles.alertFoldName}>
+                          {structuralOpen
+                            ? 'Ver menos'
+                            : `${hidden.length} más`}
+                        </Text>
+                        {!structuralOpen && (
+                          <Text style={styles.alertSub} numberOfLines={1}>
+                            {foldSummary(
+                              hidden.map((f) => f.properties.municipality),
+                            )}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={styles.alertFoldChevron}>
+                        {structuralOpen ? '▴' : '▾'}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })}
             {resueltas.length > 0 && (
               <Text
                 style={[styles.alertSection, styles.alertSectionResolved]}
@@ -1917,6 +1988,39 @@ const styles = StyleSheet.create({
   },
   alertText: {
     flex: 1,
+  },
+  // Fila "N más": misma rejilla que una playa, con 3 puntos apilados
+  // en el hueco del punto de estado
+  alertDots: {
+    width: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertDotsSpacer: {
+    width: 10,
+  },
+  alertDotSmall: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.status.closed,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  alertDotStacked: {
+    marginLeft: -5,
+    opacity: 0.7,
+  },
+  alertFoldName: {
+    fontSize: 14,
+    fontFamily: fonts.bold,
+    color: colors.primary,
+  },
+  alertFoldChevron: {
+    fontSize: 14,
+    fontFamily: fonts.bold,
+    color: colors.primary,
   },
   alertName: {
     fontSize: 14,
