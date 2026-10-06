@@ -467,12 +467,23 @@ def fetch_backfill(
     seen: set[str] = set()
     articles = []
     for q in queries:
-        try:
-            for a in fetch_google_news(q):
-                if a.url and a.url not in seen:
-                    seen.add(a.url)
-                    articles.append(a)
-        except Exception:
-            continue  # una query caída (rate limit) no aborta el barrido
+        items = None
+        for pause in (0, 5, 15):
+            # rate limit de Google: reintenta con espera creciente —
+            # una query descartada silenciosamente es una playa sin
+            # cobertura (caso real: La Jaquita 2025 en la 1ª pasada)
+            if pause:
+                time.sleep(pause)
+            try:
+                items = fetch_google_news(q)
+                break
+            except Exception:
+                continue
+        if items is None:
+            continue
+        for a in items:
+            if a.url and a.url not in seen:
+                seen.add(a.url)
+                articles.append(a)
         time.sleep(0.5)
     return [a for a in articles if _looks_local(a, geo_terms)]
