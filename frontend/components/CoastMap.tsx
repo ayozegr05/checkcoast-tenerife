@@ -3,14 +3,11 @@ import {
   BackHandler,
   Image,
   Keyboard,
-  LayoutAnimation,
   NativeSyntheticEvent,
   Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
-  Text,
   TextInput,
   View,
   useWindowDimensions,
@@ -31,18 +28,26 @@ import type {
   GeoFeature,
   MunicipalityIncident,
 } from '../lib/api';
+import { beachBaseName, displayBeachName } from '../lib/format';
+
+import { recentlyResolved } from '../lib/episodes';
+
 import {
-  beachBaseName,
-  beachPointLabel,
-  displayBeachName,
-  fmtDate,
-  searchNorm,
-} from '../lib/format';
-import { foldCount, foldSummary } from '../lib/alertFold';
-import { episodeDays, recentlyResolved } from '../lib/episodes';
-import { groupKeyOf } from '../lib/beachGroups';
-import { colors, fonts } from '../lib/theme';
+  beachCategory,
+  buildAlertSections,
+  buildBeachGroups,
+  outfallCategory,
+  pmMembersOf,
+  searchMap,
+  type SearchItem,
+} from '../lib/mapData';
+import { colors } from '../lib/theme';
 import seaStyle from '../assets/mapstyle-sea.json';
+import AlertsBanner from './map/AlertsBanner';
+import LayersPanel from './map/LayersPanel';
+import MapLegend from './map/MapLegend';
+import MapSearch from './map/MapSearch';
+import MapTopbar from './map/MapTopbar';
 
 // Estilo vectorial tematico (OpenFreeMap/OpenMapTiles retenido con la
 // paleta oceanica por scripts/gen_mapstyle.py). Sin API key.
@@ -136,73 +141,7 @@ type CoastMapProps = {
 };
 
 const OUTFALL_COLORS = colors.outfall;
-const STRUCTURAL_SECTION = 'Cierre estructural';
 const BEACH_COLORS = colors.status;
-
-// Solo un grupo con >=2 puntos de muestreo reales (etiqueta "PM" o
-// romano) abre el selector de PMs en la card: duplicados OSM sin
-// etiqueta agrupados por nombre (p.ej. La Hornilla) quedan como
-// playa simple
-const pmMembersOf = (members?: GeoFeature[]) => {
-  const labeled = (members ?? []).filter((m) =>
-    beachPointLabel(m.properties.name),
-  );
-  return labeled.length > 1 ? labeled : undefined;
-};
-
-// Categoría visual del pin — la misma lógica que elige el icono:
-// OSM sin monitorizar y playas de estado desconocido comparten pin
-// gris, así que el filtro "Sin monitorizar" las cubre a ambas
-const beachCategory = (f: GeoFeature): string =>
-  f.properties.monitored === false && f.properties.alert !== true
-    ? 'unmonitored'
-    : f.properties.status && f.properties.status !== 'unknown'
-      ? (f.properties.status as string)
-      : 'unmonitored';
-
-// Emisarios: todo lo que no es legal/illegal lleva el pin "en trámite"
-const outfallCategory = (f: GeoFeature): string =>
-  f.properties.status === 'legal' || f.properties.status === 'illegal'
-    ? (f.properties.status as string)
-    : 'unknown';
-
-const BEACH_STATES: [string, string, string][] = [
-  [colors.status.open, 'Apta', 'open'],
-  [colors.status.warning, 'Aviso', 'warning'],
-  [colors.status.closed, 'Cerrada', 'closed'],
-  [colors.status.unmonitored, 'Sin monitorizar', 'unmonitored'],
-];
-// Categorías de causa que el backend emite para cierres estructurales
-// (_STRUCTURAL_CAUSES en queries.py) — se mantienen en el tiempo, al
-// contrario que un episodio de contaminación
-const STRUCTURAL_CAUSES = new Set([
-  'Desprendimientos',
-  'Obras',
-  'Colapso del terreno',
-]);
-const OUTFALL_STATES: [string, string, string][] = [
-  [colors.outfall.legal, 'Autorizado', 'legal'],
-  [colors.outfall.illegal, 'No autorizado', 'illegal'],
-  [colors.outfall.unknown, 'En trámite', 'unknown'],
-];
-
-// Toggle inmutable de un estado en su set de la leyenda
-const toggleInSet = (set: Set<string>, key: string) => {
-  const next = new Set(set);
-  if (next.has(key)) next.delete(key);
-  else next.add(key);
-  return next;
-};
-
-type SearchItem = {
-  key: string;
-  kind: 'beach' | 'outfall' | 'municipality';
-  label: string;
-  sub: string;
-  feature?: GeoFeature;
-  members?: GeoFeature[];
-  center?: [number, number];
-};
 
 export default function CoastMap({
   outfalls,
@@ -225,11 +164,6 @@ export default function CoastMap({
   const [searchOpen, setSearchOpen] = useState(false);
   // Lista desplegable de playas en aviso (banner de alertas)
   const [alertsOpen, setAlertsOpen] = useState(false);
-  // "N más" de la sección estructural; vuelve a plegarse al cerrar
-  const [structuralOpen, setStructuralOpen] = useState(false);
-  useEffect(() => {
-    if (!alertsOpen) setStructuralOpen(false);
-  }, [alertsOpen]);
   // Panel de capas por estado (botón flotante junto a la brújula)
   const [layersOpen, setLayersOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -380,52 +314,10 @@ export default function CoastMap({
   // es un registro oficial distinto, pero el mapa dibuja UN pin por
   // playa en el centroide, coloreado por el peor estado del grupo.
   // La ficha que se abre es la del PM peor parado (representante).
-  const beachGroups = useMemo(() => {
-    // globalThis.Map: "Map" aquí es el componente de MapLibre
-    const groups = new globalThis.Map<
-      string,
-      {
-        members: GeoFeature[];
-        rep: GeoFeature;
-        center: [number, number];
-      }
-    >();
-    for (const f of beaches.features) {
-      const key = groupKeyOf(f);
-      const g = groups.get(key) ?? {
-        members: [],
-        rep: f,
-        center: [0, 0] as [number, number],
-      };
-      g.members.push(f);
-      groups.set(key, g);
-    }
-    const rank = (f: GeoFeature) => {
-      const s =
-        f.properties.monitored === false && f.properties.alert !== true
-          ? 'unmonitored'
-          : (f.properties.status ?? 'unknown');
-      return (
-        { closed: 0, warning: 1, unknown: 2, open: 3, unmonitored: 4 }[s] ?? 5
-      );
-    };
-    for (const g of groups.values()) {
-      // Orden estable del selector de PMs (PM1<PM2, Troya I<II)
-      g.members.sort((a, b) =>
-        a.properties.name.localeCompare(b.properties.name),
-      );
-      g.rep = g.members.reduce(
-        (a, b) => (rank(b) < rank(a) ? b : a),
-        g.members[0],
-      );
-      const n = g.members.length;
-      g.center = [
-        g.members.reduce((s, f) => s + f.geometry.coordinates[0], 0) / n,
-        g.members.reduce((s, f) => s + f.geometry.coordinates[1], 0) / n,
-      ];
-    }
-    return groups;
-  }, [beaches]);
+  const beachGroups = useMemo(
+    () => buildBeachGroups(beaches.features),
+    [beaches],
+  );
 
   // Un pin por playa: geometría del centroide + propiedades del PM
   // representante (peor estado) + groupKey para resolver al pulsar
@@ -493,28 +385,10 @@ export default function CoastMap({
   // cierre estructural (desprendimientos/obras/colapso — se mantiene
   // en el tiempo). Dentro de cada sección, de la más reciente a la
   // más antigua por inicio real de la alerta (alerted_at)
-  const alertSections = useMemo<[string, GeoFeature[]][]>(() => {
-    const byWhen = (a: GeoFeature, b: GeoFeature) =>
-      (b.properties.alerted_at ?? b.properties.reported_at ?? '').localeCompare(
-        a.properties.alerted_at ?? a.properties.reported_at ?? '',
-      );
-    const isStructural = (f: GeoFeature) =>
-      f.properties.status === 'closed' &&
-      !!f.properties.alert_cause &&
-      STRUCTURAL_CAUSES.has(f.properties.alert_cause);
-    const contam = alertBeaches.features
-      .filter((f) => f.properties.status === 'closed' && !isStructural(f))
-      .sort(byWhen);
-    const structural = alertBeaches.features.filter(isStructural).sort(byWhen);
-    const warnings = alertBeaches.features
-      .filter((f) => f.properties.status === 'warning')
-      .sort(byWhen);
-    return [
-      ['Contaminación', contam],
-      [STRUCTURAL_SECTION, structural],
-      ['Avisos', warnings],
-    ].filter(([, fs]) => fs.length > 0) as [string, GeoFeature[]][];
-  }, [alertBeaches]);
+  const alertSections = useMemo(
+    () => buildAlertSections(alertBeaches.features),
+    [alertBeaches],
+  );
 
   // Marcas de la leyenda: se aplican sobre la FC entera del source —
   // pins, etiquetas, seleccionada y pulso quedan filtrados de una vez
@@ -620,66 +494,11 @@ export default function CoastMap({
 
   // Resultados del buscador: playas, vertidos y municipios que
   // contienen la query (mínimo 2 caracteres)
-  const searchResults = useMemo<SearchItem[]>(() => {
-    const q = searchNorm(query);
-    if (q.length < 2) return [];
-    const items: SearchItem[] = [];
-    // Playas agrupadas como en el mapa: "troya" da UN resultado
-    // (casa también por el nombre de cualquiera de sus PMs)
-    for (const [key, g] of beachGroups) {
-      const label = displayBeachName(beachBaseName(g.rep.properties.name));
-      const hay = searchNorm(
-        [label, ...g.members.map((m) => m.properties.name)].join(' '),
-      );
-      if (hay.includes(q)) {
-        items.push({
-          key: `b${key}`,
-          kind: 'beach',
-          label,
-          sub:
-            (g.rep.properties.municipality ?? 'Playa') +
-            (g.members.length > 1 ? ` · ${g.members.length} PMs` : ''),
-          feature: g.rep,
-          members: g.members,
-          center: g.center,
-        });
-      }
-    }
-    for (const f of outfalls.features) {
-      if (searchNorm(f.properties.name ?? '').includes(q)) {
-        items.push({
-          key: `o${f.id}`,
-          kind: 'outfall',
-          label: displayBeachName(f.properties.name ?? ''),
-          sub: 'Emisario',
-          feature: f,
-        });
-      }
-    }
-    const munis = new Set(
-      beaches.features
-        .map((f) => f.properties.municipality)
-        .filter((m): m is string => !!m),
-    );
-    for (const m of munis) {
-      if (searchNorm(m).includes(q)) {
-        const pts = beaches.features.filter(
-          (f) => f.properties.municipality === m,
-        );
-        items.push({
-          key: `m${m}`,
-          kind: 'municipality',
-          label: m,
-          sub: 'Municipio',
-          center: [
-            pts.reduce((s, f) => s + f.geometry.coordinates[0], 0) / pts.length,
-            pts.reduce((s, f) => s + f.geometry.coordinates[1], 0) / pts.length,
-          ],
-        });
-      }
-    }
-    return items.slice(0, 8);
-  }, [query, beachGroups, outfalls]);
+  const searchResults = useMemo(
+    () => searchMap(query, beachGroups, outfalls.features, beaches.features),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [query, beachGroups, outfalls],
+  );
 
   const pickResult = (item: SearchItem) => {
     setQuery('');
@@ -757,77 +576,22 @@ export default function CoastMap({
     setLayersOpen(false);
   };
 
-  // Fila del panel de capas: checkbox cuadrado + dot de color + label.
-  // Marcado = visible en el mapa
-  const checkRow = (
-    rowKey: string,
-    color: string,
-    label: string,
-    on: boolean,
-    onPress: () => void,
-    isAll = false,
-  ) => (
-    <Pressable
-      key={rowKey}
-      style={({ pressed }) => [
-        styles.layerItem,
-        pressed && styles.layerItemPressed,
-      ]}
-      onPress={onPress}
-      accessibilityRole="togglebutton"
-      accessibilityLabel={label}
-      accessibilityState={{ checked: on }}
-    >
-      <View
-        style={[
-          styles.check,
-          { borderColor: color },
-          on && { backgroundColor: color },
-        ]}
-      >
-        {on && <Text style={styles.checkMark}>✓</Text>}
-      </View>
-      {!isAll && <View style={[styles.dot, { backgroundColor: color }]} />}
-      <Text
-        style={[
-          styles.layerItemText,
-          isAll && styles.layerItemTextAll,
-          !on && styles.layerItemTextOff,
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-
-  // Sección del panel (Emisarios / Playas): cabecera + fila Todas +
-  // una fila por estado
-  const layerSection = (
-    title: string,
-    allLabel: string,
-    states: [string, string, string][],
-    sel: Set<string>,
-    setSel: React.Dispatch<React.SetStateAction<Set<string>>>,
-  ) => {
-    const allOn = sel.size === states.length;
-    return (
-      <View style={styles.layerSection}>
-        <Text style={styles.layerHead}>{title}</Text>
-        {checkRow(
-          `${title}-all`,
-          colors.primary,
-          allLabel,
-          allOn,
-          () => setSel(allOn ? new Set() : new Set(states.map(([, , k]) => k))),
-          true,
-        )}
-        {states.map(([color, label, key]) =>
-          checkRow(key, color, label, sel.has(key), () =>
-            setSel((s) => toggleInSet(s, key)),
-          ),
-        )}
-      </View>
-    );
+  // Pill del banner: con alertas despliega/pliega la lista; sin
+  // alertas abre la lista general
+  const pressBanner = () => {
+    // Con alertas: despliega la lista de playas en aviso.
+    // Sin alertas: abre la lista general.
+    closeSearch();
+    setLayersOpen(false);
+    if (hasAlerts) {
+      const next = !alertsOpen;
+      setAlertsOpen(next);
+      // El desplegable se monta sobre la card: misma regla que
+      // Buscar/Guía — abrirlo cierra la ficha
+      if (next) onDismissSelection?.();
+    } else {
+      onOpenList?.();
+    }
   };
 
   const handlePress =
@@ -1228,433 +992,70 @@ export default function CoastMap({
       </Map>
 
       <View style={styles.topBlock} pointerEvents="box-none">
-        <View style={styles.topbar}>
-          <Image
-            source={require('../assets/icon.png')}
-            style={styles.topbarBrand}
-          />
-          {onOpenList && (
-            <>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.topbarBtn,
-                  pressed && styles.topbarBtnPressed,
-                ]}
-                onPress={() => {
-                  closeOverlays();
-                  onOpenList();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Abrir lista de playas"
-              >
-                <Image
-                  source={require('../assets/icons/beach.png')}
-                  style={styles.topbarIcon}
-                />
-                <Text style={styles.topbarLabel}>Playas</Text>
-              </Pressable>
-              <View style={styles.topbarDivider} />
-            </>
-          )}
-          {onOpenOutfalls && (
-            <>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.topbarBtn,
-                  pressed && styles.topbarBtnPressed,
-                ]}
-                onPress={() => {
-                  closeOverlays();
-                  onOpenOutfalls();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Abrir lista de emisarios"
-              >
-                <Image
-                  source={require('../assets/icons/icon-faucet.png')}
-                  style={styles.topbarIcon}
-                />
-                <Text style={styles.topbarLabel}>Emisarios</Text>
-              </Pressable>
-              <View style={styles.topbarDivider} />
-            </>
-          )}
-          {onOpenMunicipalities && (
-            <>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.topbarBtn,
-                  pressed && styles.topbarBtnPressed,
-                ]}
-                onPress={() => {
-                  closeOverlays();
-                  onOpenMunicipalities();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Abrir incidencias por municipio"
-              >
-                <Image
-                  source={require('../assets/icons/icon-townhall.png')}
-                  style={styles.topbarIcon}
-                />
-                <Text style={styles.topbarLabel}>Municipios</Text>
-              </Pressable>
-              <View style={styles.topbarDivider} />
-            </>
-          )}
-          <Pressable
-            style={({ pressed }) => [
-              styles.topbarBtn,
-              pressed && styles.topbarBtnPressed,
-            ]}
-            onPress={() => {
-              const next = !searchOpen;
-              setSearchOpen(next);
-              setQuery('');
-              setAlertsOpen(false);
-              if (next) onDismissSelection?.();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Buscar playa, emisario o municipio"
-          >
-            <Image
-              source={require('../assets/icons/icon-search.png')}
-              style={styles.topbarIcon}
-            />
-            <Text style={styles.topbarLabel}>Buscar</Text>
-          </Pressable>
-          <View style={styles.topbarDivider} />
-          {onOpenHelp && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.topbarBtn,
-                pressed && styles.topbarBtnPressed,
-              ]}
-              onPress={() => {
-                closeOverlays();
-                onDismissSelection?.();
-                onOpenHelp?.();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Abrir guía de uso"
-            >
-              <Image
-                source={require('../assets/icons/icon-book.png')}
-                style={styles.topbarIcon}
-              />
-              <Text style={styles.topbarLabel}>Guía</Text>
-            </Pressable>
-          )}
-        </View>
-        <Pressable
-          style={({ pressed }) => [
-            styles.banner,
-            {
-              backgroundColor: closedCount
-                ? colors.status.closed
-                : warningCount
-                  ? colors.status.warning
-                  : colors.status.open,
-            },
-            pressed && styles.pressFx,
-          ]}
-          onPress={() => {
-            // Con alertas: despliega la lista de playas en aviso.
-            // Sin alertas: abre la lista general.
-            closeSearch();
-            setLayersOpen(false);
-            if (hasAlerts) {
-              const next = !alertsOpen;
-              setAlertsOpen(next);
-              // El desplegable se monta sobre la card: misma regla que
-              // Buscar/Guía — abrirlo cierra la ficha
-              if (next) onDismissSelection?.();
-            } else {
-              onOpenList?.();
-            }
+        <MapTopbar
+          onOpenList={
+            onOpenList &&
+            (() => {
+              closeOverlays();
+              onOpenList();
+            })
+          }
+          onOpenOutfalls={
+            onOpenOutfalls &&
+            (() => {
+              closeOverlays();
+              onOpenOutfalls();
+            })
+          }
+          onOpenMunicipalities={
+            onOpenMunicipalities &&
+            (() => {
+              closeOverlays();
+              onOpenMunicipalities();
+            })
+          }
+          onToggleSearch={() => {
+            const next = !searchOpen;
+            setSearchOpen(next);
+            setQuery('');
+            setAlertsOpen(false);
+            if (next) onDismissSelection?.();
           }}
-          accessibilityRole="button"
-          accessibilityLabel="Resumen del estado de las playas"
-          accessibilityState={{ expanded: alertsOpen }}
-        >
-          {(closedCount > 0 || warningCount > 0) && (
-            <Image
-              source={require('../assets/icons/icon-alert.png')}
-              style={styles.bannerIcon}
-            />
-          )}
-          <Text style={styles.bannerText}>
-            {closedCount || warningCount
-              ? [
-                  closedCount
-                    ? `${closedCount} ${closedCount === 1 ? 'cerrada' : 'cerradas'}`
-                    : null,
-                  warningCount
-                    ? `${warningCount} ${warningCount === 1 ? 'aviso' : 'avisos'}`
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')
-              : 'Todas las playas sin incidencias'}
-            {hasAlerts ? (alertsOpen ? ' ▴' : ' ▾') : ''}
-          </Text>
-        </Pressable>
-        {alertsOpen && hasAlerts && (
-          // Card acotada: sin maxHeight una ola de alertas desbordaba
-          // hasta la barra nativa; la lista scrollea y el botón de
-          // episodios queda fijo abajo (fuera del ScrollView)
-          <View style={[styles.alertList, { maxHeight: winH * 0.62 }]}>
-            <ScrollView
-              style={styles.alertListScroll}
-              nestedScrollEnabled
-              keyboardShouldPersistTaps="handled"
-            >
-              <Text style={[styles.alertSection, styles.alertSectionActive]}>
-                Activas ahora · {alertBeaches.features.length}
-              </Text>
-              {alertSections.map(([sectionLabel, features]) => {
-                if (features.length === 0) return null;
-                const foldable = sectionLabel === STRUCTURAL_SECTION;
-                const preview = foldable
-                  ? foldCount(features.map((f) => f.properties))
-                  : features.length;
-                const hidden = features.slice(preview);
-                const shown =
-                  structuralOpen || !foldable
-                    ? features
-                    : features.slice(0, preview);
-                return (
-                  <View key={sectionLabel}>
-                    {alertSections.length > 1 && (
-                      <Text style={styles.alertSubsection}>
-                        {sectionLabel} · {features.length}
-                      </Text>
-                    )}
-                    {shown.map((f) => {
-                      const s =
-                        f.properties.status === 'closed' ? 'closed' : 'warning';
-                      return (
-                        <Pressable
-                          key={
-                            (f.properties as { groupKey?: string }).groupKey ??
-                            f.id
-                          }
-                          style={({ pressed }) => [
-                            styles.alertRow,
-                            pressed && styles.pressFx,
-                          ]}
-                          onPress={() => openAlertBeach(f)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${displayBeachName(
-                            beachBaseName(f.properties.name),
-                          )}, ${s === 'closed' ? 'cerrada' : 'aviso'}`}
-                        >
-                          <View
-                            style={[
-                              styles.alertDot,
-                              { backgroundColor: colors.status[s] },
-                            ]}
-                          />
-                          <View style={styles.alertText}>
-                            <Text style={styles.alertName} numberOfLines={1}>
-                              {displayBeachName(
-                                beachBaseName(f.properties.name),
-                              )}
-                            </Text>
-                            <Text style={styles.alertSub} numberOfLines={1}>
-                              {f.properties.municipality ?? ''}
-                            </Text>
-                          </View>
-                          <View style={styles.alertStateCol}>
-                            <Text
-                              style={[
-                                styles.alertState,
-                                { color: colors.status[s] },
-                              ]}
-                            >
-                              {s === 'closed' ? 'Cerrada' : 'Aviso'}
-                            </Text>
-                            {f.properties.alert_cause ? (
-                              <Text style={styles.alertCause} numberOfLines={1}>
-                                {f.properties.alert_cause}
-                              </Text>
-                            ) : null}
-                          </View>
-                        </Pressable>
-                      );
-                    })}
-                    {hidden.length > 0 && (
-                      <Pressable
-                        style={({ pressed }) => [
-                          styles.alertRow,
-                          pressed && styles.pressFx,
-                        ]}
-                        onPress={() => {
-                          LayoutAnimation.configureNext(
-                            LayoutAnimation.Presets.easeInEaseOut,
-                          );
-                          setStructuralOpen((o) => !o);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityState={{ expanded: structuralOpen }}
-                        accessibilityLabel={
-                          structuralOpen
-                            ? 'Ver menos cierres estructurales'
-                            : `Ver ${hidden.length} cierres estructurales más`
-                        }
-                      >
-                        {structuralOpen ? (
-                          <View style={styles.alertDotsSpacer} />
-                        ) : (
-                          <View style={styles.alertDots}>
-                            {[0, 1, 2].map((i) => (
-                              <View
-                                key={i}
-                                style={[
-                                  styles.alertDotSmall,
-                                  i > 0 && styles.alertDotStacked,
-                                  { zIndex: 3 - i },
-                                ]}
-                              />
-                            ))}
-                          </View>
-                        )}
-                        <View style={styles.alertText}>
-                          <Text style={styles.alertFoldName}>
-                            {structuralOpen
-                              ? 'Ver menos'
-                              : `${hidden.length} más`}
-                          </Text>
-                          {!structuralOpen && (
-                            <Text style={styles.alertSub} numberOfLines={1}>
-                              {foldSummary(
-                                hidden.map((f) => f.properties.municipality),
-                              )}
-                            </Text>
-                          )}
-                        </View>
-                        <Text style={styles.alertFoldChevron}>
-                          {structuralOpen ? '▴' : '▾'}
-                        </Text>
-                      </Pressable>
-                    )}
-                  </View>
-                );
-              })}
-              {resueltas.length > 0 && (
-                <Text
-                  style={[styles.alertSection, styles.alertSectionResolved]}
-                >
-                  Reabiertas recientemente · {resueltas.length}
-                </Text>
-              )}
-              {resueltas.map((ep) => (
-                <Pressable
-                  key={`res-${ep.id}-${ep.beach_id}`}
-                  style={({ pressed }) => [
-                    styles.alertRow,
-                    pressed && styles.pressFx,
-                  ]}
-                  onPress={() => openEpisodeBeach(ep.beach_id)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${displayBeachName(
-                    ep.beach_name,
-                  )}, reabierta`}
-                >
-                  <View
-                    style={[
-                      styles.alertDot,
-                      { backgroundColor: colors.status.open },
-                    ]}
-                  />
-                  <View style={styles.alertText}>
-                    <Text style={styles.alertName} numberOfLines={1}>
-                      {displayBeachName(ep.beach_name)}
-                    </Text>
-                    <Text style={styles.alertSub} numberOfLines={1}>
-                      {ep.municipality ?? ''}
-                    </Text>
-                  </View>
-                  <View style={styles.alertStateCol}>
-                    <Text
-                      style={[styles.alertState, { color: colors.status.open }]}
-                    >
-                      Reabierta
-                    </Text>
-                    <Text style={styles.alertCause} numberOfLines={1}>
-                      {ep.closed_at ? fmtDate(ep.closed_at) : ''} ·{' '}
-                      {episodeDays(ep)} {episodeDays(ep) === 1 ? 'día' : 'días'}{' '}
-                      cerrada
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </ScrollView>
-            {onOpenTemporada && (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.alertMore,
-                  pressed && styles.pressFx,
-                ]}
-                onPress={() => {
-                  setAlertsOpen(false);
-                  onOpenTemporada();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Ver todos los episodios del verano"
-              >
-                <Text style={styles.alertMoreText}>
-                  Todos los episodios del verano ›
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        )}
+          onOpenHelp={
+            onOpenHelp &&
+            (() => {
+              closeOverlays();
+              onDismissSelection?.();
+              onOpenHelp();
+            })
+          }
+        />
+        <AlertsBanner
+          closedCount={closedCount}
+          warningCount={warningCount}
+          alertsOpen={alertsOpen}
+          alertCount={alertBeaches.features.length}
+          alertSections={alertSections}
+          resueltas={resueltas}
+          onPress={pressBanner}
+          onOpenAlertBeach={openAlertBeach}
+          onOpenEpisodeBeach={openEpisodeBeach}
+          onOpenTemporada={
+            onOpenTemporada &&
+            (() => {
+              setAlertsOpen(false);
+              onOpenTemporada();
+            })
+          }
+        />
         {searchOpen && (
-          <View style={styles.searchWrap}>
-            <View style={styles.searchBar}>
-              <Image
-                source={require('../assets/icons/icon-search.png')}
-                style={styles.searchIcon}
-              />
-              <TextInput
-                ref={searchInputRef}
-                style={styles.searchInput}
-                placeholder="Buscar playa, emisario o municipio..."
-                placeholderTextColor={colors.textFaint}
-                value={query}
-                onChangeText={setQuery}
-                autoFocus
-                autoCorrect={false}
-                returnKeyType="search"
-                accessibilityLabel="Buscar playa, emisario o municipio"
-              />
-            </View>
-            {searchResults.length > 0 && (
-              <View style={styles.searchResults}>
-                {searchResults.map((item) => (
-                  <Pressable
-                    key={item.key}
-                    style={({ pressed }) => [
-                      styles.searchRow,
-                      pressed && styles.pressFx,
-                    ]}
-                    onPress={() => pickResult(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.label}, ${item.sub}`}
-                    accessibilityHint="Centrar en el mapa"
-                  >
-                    <Text style={styles.searchLabel} numberOfLines={1}>
-                      {item.label}
-                    </Text>
-                    <Text style={styles.searchSub} numberOfLines={1}>
-                      {item.sub}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-          </View>
+          <MapSearch
+            query={query}
+            onChangeQuery={setQuery}
+            results={searchResults}
+            onPick={pickResult}
+            inputRef={searchInputRef}
+          />
         )}
       </View>
 
@@ -1726,65 +1127,15 @@ export default function CoastMap({
       </Pressable>
 
       {layersOpen && (
-        <View style={styles.layersPanel}>
-          {layerSection(
-            'Emisarios',
-            'Todos',
-            OUTFALL_STATES,
-            outfallSel,
-            setOutfallSel,
-          )}
-          <View style={styles.layerDivider} />
-          {layerSection('Playas', 'Todas', BEACH_STATES, beachSel, setBeachSel)}
-        </View>
+        <LayersPanel
+          beachSel={beachSel}
+          setBeachSel={setBeachSel}
+          outfallSel={outfallSel}
+          setOutfallSel={setOutfallSel}
+        />
       )}
 
-      <View style={styles.legend} pointerEvents="box-none">
-        {/* Leyenda siempre visible: dos filas (Emisarios / Playas)
-            pegadas abajo — sin botón Capas */}
-        <View style={styles.legendCard}>
-          <View style={styles.layerRow}>
-            <Image
-              source={require('../assets/icons/icon-faucet.png')}
-              style={styles.legendIcon}
-            />
-            <View style={styles.legendSub}>
-              {OUTFALL_STATES.map(([color, label, key]) => (
-                <View
-                  key={label}
-                  style={[
-                    styles.swatchRow,
-                    !outfallSel.has(key) && styles.swatchDimmed,
-                  ]}
-                >
-                  <View style={[styles.dot, { backgroundColor: color }]} />
-                  <Text style={styles.swatchText}>{label}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-          <View style={[styles.layerRow, { marginTop: 13 }]}>
-            <Image
-              source={require('../assets/icons/beach.png')}
-              style={styles.legendIcon}
-            />
-            <View style={styles.legendSub}>
-              {BEACH_STATES.map(([color, label, key]) => (
-                <View
-                  key={label}
-                  style={[
-                    styles.swatchRow,
-                    !beachSel.has(key) && styles.swatchDimmed,
-                  ]}
-                >
-                  <View style={[styles.dot, { backgroundColor: color }]} />
-                  <Text style={styles.swatchText}>{label}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-      </View>
+      <MapLegend beachSel={beachSel} outfallSel={outfallSel} />
 
       {/* Sin backdrop: con alertas/capas abiertos el mapa sigue vivo
           (scroll, pines). Satélite y brújula se deshabilitan vía prop
@@ -1814,301 +1165,9 @@ const styles = StyleSheet.create({
     zIndex: 40,
     elevation: 40,
   },
-  // Altura fija: el icono absoluto la necesita como referencia
-  // estable. top+bottom sin altura fija en un hijo absoluto dentro de
-  // un contenedor de alto automático es ambiguo para Yoga y puede
-  // disparar el tamaño sin control — de ahí el bug anterior.
-  topbar: {
-    flexDirection: 'row',
-    alignSelf: 'stretch',
-    height: 48,
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 14,
-    paddingLeft: 52,
-    paddingRight: 6,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  topbarBrand: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 48,
-    height: 48,
-    opacity: 0.72,
-    borderTopLeftRadius: 14,
-    borderBottomLeftRadius: 14,
-  },
-  topbarBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 0,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  topbarBtnPressed: {
-    backgroundColor: 'rgba(7,82,118,0.10)',
-  },
   // Feedback táctil común: leve fundido al presionar
   pressFx: {
     opacity: 0.6,
-  },
-  topbarIcon: {
-    width: 22,
-    height: 22,
-  },
-  topbarLabel: {
-    fontSize: 10,
-    lineHeight: 12,
-    fontFamily: fonts.semibold,
-    color: colors.text,
-    marginTop: 1,
-  },
-  topbarDivider: {
-    width: 1,
-    alignSelf: 'stretch',
-    backgroundColor: colors.border,
-    marginVertical: 4,
-  },
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.75)',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  bannerIcon: {
-    width: 15,
-    height: 15,
-    marginRight: 7,
-  },
-  bannerText: {
-    color: '#fff',
-    fontSize: 13,
-    lineHeight: 17,
-    fontFamily: fonts.bold,
-  },
-  alertList: {
-    alignSelf: 'stretch',
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    borderRadius: 12,
-    paddingVertical: 4,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  alertListScroll: {
-    // Cede altura al botón fijo de abajo cuando la lista crece
-    flexShrink: 1,
-  },
-  alertRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: 10,
-  },
-  alertDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  alertText: {
-    flex: 1,
-  },
-  // Fila "N más": misma rejilla que una playa, con 3 puntos apilados
-  // en el hueco del punto de estado
-  alertDots: {
-    width: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  alertDotsSpacer: {
-    width: 10,
-  },
-  alertDotSmall: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.status.closed,
-    borderWidth: 1,
-    borderColor: '#fff',
-  },
-  alertDotStacked: {
-    marginLeft: -5,
-    opacity: 0.7,
-  },
-  alertFoldName: {
-    fontSize: 14,
-    fontFamily: fonts.bold,
-    color: colors.primary,
-  },
-  alertFoldChevron: {
-    fontSize: 14,
-    fontFamily: fonts.bold,
-    color: colors.primary,
-  },
-  alertName: {
-    fontSize: 14,
-    fontFamily: fonts.semibold,
-    color: colors.text,
-  },
-  alertSub: {
-    fontSize: 11,
-    lineHeight: 15,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  alertStateCol: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  alertState: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontFamily: fonts.bold,
-  },
-  // Causa bajo "Cerrada": "Contaminación", "Desprendimientos"...
-  alertCause: {
-    fontSize: 10,
-    lineHeight: 13,
-    fontFamily: fonts.semibold,
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  // Separador de sección: banda rellena a todo lo ancho — se distingue
-  // a primera vista de los hairlines de cada fila
-  alertSection: {
-    fontSize: 11,
-    lineHeight: 15,
-    fontFamily: fonts.extrabold,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 8,
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  // Subsección dentro de "Activas ahora" (contaminación vs cierre
-  // estructural): más discreta que la banda de sección
-  alertSubsection: {
-    fontSize: 11,
-    lineHeight: 15,
-    fontFamily: fonts.extrabold,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    paddingHorizontal: 14,
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  // Activa = peligro suave; resuelta = alivio
-  alertSectionActive: {
-    backgroundColor: 'rgba(198,40,40,0.10)',
-    color: colors.status.closed,
-  },
-  alertSectionResolved: {
-    backgroundColor: 'rgba(13,148,136,0.10)',
-    color: colors.status.open,
-  },
-  alertMore: {
-    marginHorizontal: 12,
-    marginVertical: 10,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: colors.status.closed,
-    alignItems: 'center',
-    elevation: 2,
-  },
-  alertMoreText: {
-    fontSize: 15,
-    fontFamily: fonts.extrabold,
-    color: '#fff',
-  },
-  searchWrap: {
-    alignSelf: 'stretch',
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.94)',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    elevation: 4,
-  },
-  searchIcon: {
-    width: 16,
-    height: 16,
-    tintColor: colors.textFaint,
-  },
-  searchInput: {
-    flex: 1,
-    paddingLeft: 8,
-    paddingVertical: 9,
-    fontSize: 14,
-    fontFamily: fonts.regular,
-    color: colors.text,
-  },
-  searchResults: {
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    borderRadius: 12,
-    marginTop: 6,
-    paddingVertical: 4,
-    elevation: 6,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    gap: 10,
-  },
-  searchLabel: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: fonts.semibold,
-    color: colors.text,
-  },
-  searchSub: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
-  },
-  // Wrapper posicional a todo lo ancho: centra la tarjeta de capas
-  legend: {
-    position: 'absolute',
-    // 46 despeja la barra de gestos y casi la de 3 botones (~48dp);
-    // número fijo porque no usamos safe-area-context
-    bottom: Platform.OS === 'android' ? 46 : 10,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
   },
   // Basemap flotante: solo icono, arriba-derecha bajo la topbar
   satBtn: {
@@ -2145,59 +1204,6 @@ const styles = StyleSheet.create({
     elevation: 3,
     zIndex: 5,
   },
-  legendCard: {
-    width: '97%', // ancho fijo: tapa las etiquetas de mar a los lados
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    elevation: 4,
-    // Desplazada a la izquierda: tapa el logo de MapLibre (fijo
-    // abajo-izquierda, independiente de attributionPosition)
-    transform: [{ translateX: -0.5 }],
-  },
-  // Icono + swatches como un solo bloque centrado en la card (sin
-  // flex:1 en legendSub, si no el icono queda pinchado a la izquierda)
-  layerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'nowrap',
-    justifyContent: 'center',
-  },
-  legendIcon: {
-    width: 18,
-    height: 18,
-    marginLeft: -4,
-    marginRight: 14,
-  },
-  // Swatches informativos en línea (no interactivos — las capas se
-  // controlan desde el panel del botón flotante). wrap + flexShrink
-  // obligatorios: sin ellos la fila se centra como bloque mayor que
-  // el hueco y recorta el primer y último swatch por igual
-  // (pantallas estrechas / fuente grande de accesibilidad)
-  legendSub: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    flexShrink: 1,
-    justifyContent: 'center',
-    gap: 14,
-    rowGap: 4,
-  },
-  swatchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  // La leyenda refleja el filtro: estado desmarcado en el panel =
-  // swatch atenuado ("esto es lo que estás viendo ahora")
-  swatchDimmed: {
-    opacity: 0.35,
-  },
-  swatchText: {
-    fontSize: 12,
-    lineHeight: 19,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
-  },
   // Botón flotante de capas: bajo la brújula, misma cápsula que los
   // demás botones de mapa
   layersBtn: {
@@ -2219,91 +1225,5 @@ const styles = StyleSheet.create({
   // (alertas/capas) — se ven muertos, no se pueden pulsar
   ctrlBtnDisabled: {
     opacity: 0.4,
-  },
-  // Panel de capas: tarjeta desplegable bajo el botón, alineada a la
-  // derecha; tap al mapa la cierra
-  layersPanel: {
-    position: 'absolute',
-    top: Platform.OS === 'android' ? 232 : 216,
-    right: 18,
-    width: 210,
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    // Por encima del backdrop de overlays (30) para seguir interactivo
-    zIndex: 40,
-    elevation: 40,
-  },
-  layerSection: {
-    paddingHorizontal: 6,
-  },
-
-  layerDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 7,
-    marginHorizontal: 2,
-  },
-  layerHead: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontFamily: fonts.extrabold,
-    color: colors.text,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginTop: 4,
-    marginBottom: 2,
-  },
-  layerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 7,
-    paddingHorizontal: 6,
-    borderRadius: 8,
-  },
-  layerItemPressed: {
-    backgroundColor: 'rgba(0,0,0,0.06)',
-  },
-  layerItemText: {
-    fontSize: 13,
-    lineHeight: 17,
-    fontFamily: fonts.regular,
-    color: colors.text,
-  },
-  layerItemTextAll: {
-    fontFamily: fonts.semibold,
-  },
-  layerItemTextOff: {
-    color: colors.textFaint,
-  },
-  check: {
-    width: 15,
-    height: 15,
-    borderRadius: 4,
-    borderWidth: 2,
-    marginRight: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkMark: {
-    color: '#fff',
-    fontSize: 10,
-    lineHeight: 11,
-    fontFamily: fonts.extrabold,
-    includeFontPadding: false,
-    textAlign: 'center',
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 6,
-    borderWidth: 1,
-    borderColor: '#fff',
   },
 });
