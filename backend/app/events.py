@@ -263,9 +263,21 @@ def synthesize_events(
             # incidencia cerró el 3-sep y la prensa del 30-sep grita
             # "cerrada desde el 29-sep", que es el cierre VIGENTE).
             # Y un clúster de prensa vivo absorbe la mención aunque
-            # caiga dentro del fuzz de una incidencia vieja
+            # caiga dentro del fuzz de una incidencia vieja — pero
+            # solo si la mención seguiría al clúster (hueco ≤GAP desde
+            # su última cobertura): una mención más lejana ya no se
+            # sumaría a él — crearía episodio nuevo — y dentro de una
+            # ventana oficial es cobertura de ESE episodio, no un
+            # clúster propio (El Médano: prensa del 23-sep dentro de
+            # la incidencia oficial 21→24-sep con un clúster de julio
+            # aún vivo — son episodios distintos)
             cs_d = _closed_since_date(n.closed_since)
-            live = current is not None and current.closed_at is None
+            live = (
+                current is not None
+                and current.closed_at is None
+                and pub - (current.last_closure or current.opened_at)
+                <= PRESS_CLUSTER_GAP
+            )
             covered = any(
                 _in_window(pub, o_s, o_e, today)
                 and (o_e is None or cs_d is None or cs_d <= o_e)
