@@ -274,7 +274,9 @@ export default function BeachDetail({
       <SatelliteShot
         // Multipunto: el encuadre se centra en el centroide del
         // arenal, no en la zona abierta — si no, las hermanas del
-        // extremo quedan pegadas al borde
+        // extremo quedan pegadas al borde. Al acercar con ± el centro
+        // salta a la zona de la ficha (detailCenter): el centroide
+        // cae en el mar y el zoom detalle enseñaba agua
         center={
           (members?.length ?? 0) > 1
             ? [
@@ -285,6 +287,7 @@ export default function BeachDetail({
               ]
             : [lon, lat]
         }
+        detailCenter={[lon, lat]}
         centerColor={statusColor}
         centerLabel={
           beachPointLabel(p.name)?.replace(/PM(\d+)/, '$1') ?? undefined

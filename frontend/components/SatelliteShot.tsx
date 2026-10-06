@@ -74,6 +74,7 @@ export default function SatelliteShot({
   fitOver,
   hideCenter = false,
   centerLabel,
+  detailCenter,
 }: {
   center: [number, number];
   centerColor: string;
@@ -96,6 +97,12 @@ export default function SatelliteShot({
   hideCenter?: boolean;
   // Número dentro del punto central (la zona abierta en la ficha)
   centerLabel?: string;
+  // Multipunto: el encuadre inicial va centrado en `center` (el
+  // centroide) para que quepan todas las zonas, pero al acercar más
+  // allá del fit el centro salta a este punto — el centroide de un
+  // arenal largo cae en el mar y el zoom detalle enseñaba agua
+  // (Jardín: sus zonas están separadas ~800 m)
+  detailCenter?: [number, number];
 }) {
   const [lon, lat] = center;
   // Nivel de arranque que cubre todos los marcadores con margen
@@ -120,17 +127,25 @@ export default function SatelliteShot({
     }
     return scales.length - 1;
   };
-  const [level, setLevel] = useState(fitLevel);
+  const fitIdx = fitLevel();
+  const [level, setLevel] = useState(fitIdx);
+  // Al acercar más allá del encuadre de grupo la foto se centra en el
+  // punto de la ficha (detailCenter), no en el centroide — ese punto
+  // es lo que el usuario quiere ver de cerca
+  const viewCenter = detailCenter && level < fitIdx ? detailCenter : center;
+  const [vlon, vlat] = viewCenter;
   // Uri ya cargada: el skeleton solo tapa la foto si la actual aún no
   // llegó (los demás niveles se prefetchan → zoom instantáneo)
   const [loadedUri, setLoadedUri] = useState<string | null>(null);
-  const uri = shotUrl(lon, lat, scales[level]);
+  const uri = shotUrl(vlon, vlat, scales[level]);
 
+  const dcLon = detailCenter?.[0];
+  const dcLat = detailCenter?.[1];
   useEffect(() => {
     setLevel(fitLevel());
     setLoadedUri(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lon, lat, startLevel, fitMarkers]);
+  }, [lon, lat, dcLon, dcLat, startLevel, fitMarkers]);
 
   const dLon = BASE_DLON * scales[level];
   const dLat = BASE_DLAT * scales[level];
@@ -139,23 +154,23 @@ export default function SatelliteShot({
   // Ordenados por cercanía al centro, con tope para no saturar zonas
   // densas (puerto de Santa Cruz, Costa Adeje)
   const visible = useMemo(() => {
-    const cos = Math.cos((lat * Math.PI) / 180);
+    const cos = Math.cos((vlat * Math.PI) / 180);
     return markers
       .map((m) => {
         const [ml, ma] = m.coords;
-        const dLonM = (ml - lon) * 111320 * cos;
-        const dLatM = (ma - lat) * 110540;
+        const dLonM = (ml - vlon) * 111320 * cos;
+        const dLatM = (ma - vlat) * 110540;
         return {
           ...m,
-          x: ((ml - (lon - dLon)) / (2 * dLon)) * 100,
-          y: ((lat + dLat - ma) / (2 * dLat)) * 100,
+          x: ((ml - (vlon - dLon)) / (2 * dLon)) * 100,
+          y: ((vlat + dLat - ma) / (2 * dLat)) * 100,
           d2: dLonM * dLonM + dLatM * dLatM,
         };
       })
       .filter((m) => m.x >= 0 && m.x <= 100 && m.y >= 0 && m.y <= 100)
       .sort((a, b) => a.d2 - b.d2)
       .slice(0, MAX_MARKERS);
-  }, [markers, lon, lat, dLon, dLat]);
+  }, [markers, vlon, vlat, dLon, dLat]);
 
   // Tamaño real del contenedor: el trazado se dibuja en píxeles
   // (rotar una View con % no funciona — la rotación es sobre su
@@ -163,8 +178,8 @@ export default function SatelliteShot({
   const [size, setSize] = useState({ w: 0, h: 0 });
   const seg = useMemo(() => {
     if (!line || !size.w || !size.h) return null;
-    const fx = ((line.from[0] - (lon - dLon)) / (2 * dLon)) * size.w;
-    const fy = ((lat + dLat - line.from[1]) / (2 * dLat)) * size.h;
+    const fx = ((line.from[0] - (vlon - dLon)) / (2 * dLon)) * size.w;
+    const fy = ((vlat + dLat - line.from[1]) / (2 * dLat)) * size.h;
     const cx = size.w / 2;
     const cy = size.h / 2;
     return {
@@ -175,7 +190,7 @@ export default function SatelliteShot({
       fx,
       fy,
     };
-  }, [line, size, lon, lat, dLon, dLat]);
+  }, [line, size, vlon, vlat, dLon, dLat]);
 
   const loading = loadedUri !== uri;
 
@@ -199,9 +214,12 @@ export default function SatelliteShot({
         onLoad={() => {
           setLoadedUri(uri);
           // Prefetch del resto de niveles para que ± sea instantáneo
+          // — cada uno sobre el centro que usará (centroide en el
+          // encuadre de grupo, el punto de la ficha al acercar)
           scales.forEach((s, i) => {
-            if (i !== level)
-              Image.prefetch(shotUrl(lon, lat, s)).catch(() => {});
+            if (i === level) return;
+            const c = detailCenter && i < fitIdx ? detailCenter : center;
+            Image.prefetch(shotUrl(c[0], c[1], s)).catch(() => {});
           });
         }}
       />
