@@ -1001,9 +1001,7 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
     ]
     attributed_pm = None
     if dominant == "closure" and since is not None:
-        ep_begin = (
-            _closed_since_date(closed_since) or since.date()
-        )
+        ep_begin = _closed_since_date(closed_since) or since.date()
         attributed_pm = _sibling_pm_attribution(
             beach, db, ep_begin, None if still_open else date.today()
         )

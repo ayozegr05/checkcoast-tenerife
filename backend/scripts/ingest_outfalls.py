@@ -38,7 +38,9 @@ _to_utm28 = Transformer.from_crs("EPSG:4326", "EPSG:32628", always_xy=True)
 # Línea de costa OSM de Tenerife (backend/data, descargada una vez vía
 # Overpass natural=coastline): sirve para derivar shore_m — a cuántos
 # metros de la orilla cae cada punto de vertido
-COASTLINE_GEOJSON = Path(__file__).parent.parent / "data" / "tenerife_coastline.geojson"
+COASTLINE_GEOJSON = (
+    Path(__file__).parent.parent / "data" / "tenerife_coastline.geojson"
+)
 
 
 def _load_coastline_utm() -> "LineString | None":
@@ -52,10 +54,16 @@ def _load_coastline_utm() -> "LineString | None":
         "features"
     ]
     lines = [
-        LineString([_to_utm28.transform(x, y) for x, y in f["geometry"]["coordinates"]])
+        LineString(
+            [
+                _to_utm28.transform(x, y)
+                for x, y in f["geometry"]["coordinates"]
+            ]
+        )
         for f in feats
     ]
     return unary_union(lines)
+
 
 _STATUS_MAP = {
     "Autorizado": OutfallStatus.legal,
@@ -158,7 +166,9 @@ def main() -> None:
             # Distancia en recta a la costa: calculada en UTM28N
             # (metros) sobre los segmentos OSM — deriva shore_m
             obj.shore_m = (
-                float(Point(x, y).distance(coast)) if coast is not None else None
+                float(Point(x, y).distance(coast))
+                if coast is not None
+                else None
             )
             obj.geom = f"SRID=4326;POINT({lon} {lat})"
             obj.source_url = DATASET_URL
