@@ -3,7 +3,7 @@
 Función pura sobre objetos en memoria — no toca BD.
 """
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 
 from app.events import (
@@ -39,7 +39,7 @@ def news(
 ):
     return SimpleNamespace(
         published_at=datetime(
-            day.year, day.month, day.day, tzinfo=timezone.utc
+            day.year, day.month, day.day, tzinfo=UTC
         ),
         event_type=event_type,
         relevant=True,
@@ -286,7 +286,7 @@ def test_body_verified_reopening_splits_single_medium():
     evs = synthesize_events(b, today=TODAY)
     assert len(evs) == 2
     old = next(e for e in evs if e.opened_at == date(2025, 5, 8))
-    new = next(e for e in evs if e.closed_at is None)
+    next(e for e in evs if e.closed_at is None)
     assert old.closed_at == date(2025, 5, 9)
 
 

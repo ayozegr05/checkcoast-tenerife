@@ -1,5 +1,5 @@
 import unicodedata
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
@@ -50,7 +50,7 @@ PRESS_ALERT_MAX_AGE = timedelta(days=21)
 # Náyade porque los cierres municipales tardan en llegar a Sanidad;
 # pasada la ventana sin seguimiento, gana Sanidad
 PRESS_OPEN_GRACE = timedelta(days=14)
-_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 # Causas de titulares/observaciones → etiqueta corta para la UI.
 # El LLM y Náyade escriben texto libre ("exceso de enterococos",
@@ -388,7 +388,7 @@ def effective_states(db: Session) -> dict[int, dict]:
     # (no aviso) por causa estructural, que persiste sin caducar: ni
     # Sanidad ni la prensa repiten la misma noticia cada mes mientras
     # dura una obra o un desprendimiento
-    cutoff = datetime.now(timezone.utc) - PRESS_ALERT_MAX_AGE
+    cutoff = datetime.now(UTC) - PRESS_ALERT_MAX_AGE
     press_state: dict[int, str] = {}
     press_when: dict[int, datetime | None] = {}
     press_cause: dict[int, str | None] = {}
@@ -484,7 +484,7 @@ def effective_states(db: Session) -> dict[int, dict]:
         }
 
     # Prensa en playas sin alerta oficial vigente
-    grace = datetime.now(timezone.utc) - PRESS_OPEN_GRACE
+    grace = datetime.now(UTC) - PRESS_OPEN_GRACE
     for beach_id, state in press_state.items():
         if beach_id in result and result[beach_id]["alerted"]:
             continue

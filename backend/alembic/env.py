@@ -1,10 +1,9 @@
 from logging.config import fileConfig
 
+from geoalchemy2 import alembic_helpers
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from geoalchemy2 import alembic_helpers
-
 from app.config import settings
 from app.models import Base
 

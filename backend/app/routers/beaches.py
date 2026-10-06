@@ -1,15 +1,5 @@
 from collections import Counter
-from datetime import date, datetime, timedelta, timezone
-
-_MESES = (
-    "ene", "feb", "mar", "abr", "may", "jun",
-    "jul", "ago", "sep", "oct", "nov", "dic",
-)
-
-
-def _mes(d: date) -> str:
-    """Mes abreviado + año para observaciones: jul 2024."""
-    return f"{_MESES[d.month - 1]} {d.year}"
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2 import Geography, Geometry
@@ -42,11 +32,11 @@ from app.models import (
 )
 from app.queries import (
     _CAUSE_RANK,
+    CONTAMINATION_CAUSES,
     _episode_params,
     _params_in_text,
     _press_cause,
     _short_cause,
-    CONTAMINATION_CAUSES,
     beaches_with_latest_status,
     effective_states,
     is_ungraded_note,
@@ -69,6 +59,16 @@ from app.schemas import (
 from app.security import require_admin
 
 router = APIRouter(tags=["beaches"])
+
+_MESES = (
+    "ene", "feb", "mar", "abr", "may", "jun",
+    "jul", "ago", "sep", "oct", "nov", "dic",
+)
+
+
+def _mes(d: date) -> str:
+    """Mes abreviado + año para observaciones: jul 2024."""
+    return f"{_MESES[d.month - 1]} {d.year}"
 
 
 @router.get("/beaches", response_model=FeatureCollection)
@@ -823,7 +823,7 @@ def beach_news(
                 since.date(), inc.opened_at, inc.closed_at, date.today()
             ):
                 opened = datetime.combine(
-                    inc.opened_at, datetime.min.time(), tzinfo=timezone.utc
+                    inc.opened_at, datetime.min.time(), tzinfo=UTC
                 )
                 if opened < since:
                     since = opened

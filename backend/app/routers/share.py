@@ -11,15 +11,15 @@ import io
 import json
 import math
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response
+from geoalchemy2 import Geography, Geometry
 from sqlalchemy import cast, func, literal
 from sqlalchemy.orm import Session
-from geoalchemy2 import Geography, Geometry
 
 from app.config import settings
 from app.db import get_db
@@ -59,7 +59,7 @@ def _alert_when(aword: str, rep: datetime | None, now: datetime) -> str:
     cuando el cierre lleva >30 d — 'hace 212 días' en una alerta viva
     se lee como dato rancio, no como cierre en curso."""
     if rep is not None and rep.tzinfo is None:
-        rep = rep.replace(tzinfo=timezone.utc)
+        rep = rep.replace(tzinfo=UTC)
     days = (now - rep).days if rep else 0
     if days <= 30:
         ago = (
@@ -256,7 +256,7 @@ def _effective_state(
     warning->closed y decide en playas sin monitorización."""
     state = official or "unknown"
     press_label: str | None = None
-    cutoff = datetime.now(timezone.utc) - timedelta(days=21)
+    cutoff = datetime.now(UTC) - timedelta(days=21)
     if news_items and news_items[0].published_at and news_items[0].published_at >= cutoff:
         change = next(
             (i for i in news_items
@@ -271,8 +271,8 @@ def _effective_state(
             press_ev = change
         elif warn and (
             change is None
-            or (warn.published_at or datetime.min.replace(tzinfo=timezone.utc))
-            > (change.published_at or datetime.min.replace(tzinfo=timezone.utc))
+            or (warn.published_at or datetime.min.replace(tzinfo=UTC))
+            > (change.published_at or datetime.min.replace(tzinfo=UTC))
         ):
             press_ev = warn
         counts: dict[str, int] = {}
@@ -292,7 +292,7 @@ def _effective_state(
                 state, press_label = "closed", "según prensa"
         elif official == "open":
             # ventana de gracia 14 días + sin reapertura formal posterior
-            grace = datetime.now(timezone.utc) - timedelta(days=14)
+            grace = datetime.now(UTC) - timedelta(days=14)
             resolved = (
                 db.query(func.max(BeachIncident.closed_at))
                 .filter(
@@ -747,7 +747,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     salerts = ""
     island_alerts = list_alerts(db)[:4]
     if island_alerts:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         rows_a = ""
         for a in island_alerts:
             rep = a.reported_at
@@ -1150,7 +1150,7 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
 
     # Alertas vivas (misma lista que el panel lateral de /b/)
     alert_rows = ""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for a in island_alerts[:5]:
         rep = a.reported_at
         via = "según prensa" if a.via == "press" else "oficial"

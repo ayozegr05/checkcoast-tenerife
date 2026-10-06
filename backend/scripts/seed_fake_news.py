@@ -12,7 +12,7 @@ Uso en la VM:
 """
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 
@@ -32,7 +32,7 @@ def seed() -> None:
         if db.scalar(select(NewsItem.id).where(NewsItem.url == FAKE_URL)):
             print("Ya existe la noticia fake; nada que hacer")
             return
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         db.add(
             NewsItem(
                 url=FAKE_URL,

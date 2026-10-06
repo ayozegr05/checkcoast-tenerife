@@ -16,7 +16,7 @@ Uso:
 """
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.db import SessionLocal
 from app.events import synthesize_events
@@ -284,7 +284,7 @@ def main():
     inserted = skipped = 0
     touched = set()
     for url, title, source, pub, etype, cause, since, beach_ids in ITEMS:
-        published = datetime.fromisoformat(pub).replace(tzinfo=timezone.utc)
+        published = datetime.fromisoformat(pub).replace(tzinfo=UTC)
         for bid in beach_ids:
             touched.add(bid)
             if (url, bid) in _OTHER:

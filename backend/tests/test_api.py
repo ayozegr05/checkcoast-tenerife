@@ -1,3 +1,5 @@
+from datetime import UTC
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -158,7 +160,7 @@ def test_beach_news_not_found():
 def test_press_closure_enters_alerts(seed_data):
     """Una playa sin alerta oficial pero cerrada según prensa (último
     evento que cambia estado = closure) entra en /alerts con via='press'."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from app.db import SessionLocal
     from app.models import NewsItem
@@ -174,7 +176,7 @@ def test_press_closure_enters_alerts(seed_data):
         beach_id=osm_id,
         event_type="closure",
         cause="desprendimientos",
-        published_at=datetime.now(timezone.utc),
+        published_at=datetime.now(UTC),
     )
     # Ventana de gracia: playa monitorizada con oficial 'open' + cierre
     # de prensa fresco -> alerta igualmente, porque Náyade tarda en
@@ -187,7 +189,7 @@ def test_press_closure_enters_alerts(seed_data):
         beach_id=mon_id,
         event_type="closure",
         cause="vertido",
-        published_at=datetime.now(timezone.utc),
+        published_at=datetime.now(UTC),
     )
     db.add_all([item, item_open])
     db.commit()
@@ -219,7 +221,7 @@ def test_press_closure_persistence_by_cause(seed_data):
       21 días aunque sea un cierre confirmado (caso Puertito: bacterias
       fecales de 2025 sin seguimiento en 15 meses)
     """
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import NewsItem
@@ -227,7 +229,7 @@ def test_press_closure_persistence_by_cause(seed_data):
     osm_id = seed_data["osm_beach_id"]  # sin estado oficial
     mon_id = seed_data["beach_id"]      # monitorizada con oficial 'open'
     db = SessionLocal()
-    old = datetime.now(timezone.utc) - timedelta(days=30)
+    old = datetime.now(UTC) - timedelta(days=30)
     item_structural = NewsItem(
         url="https://news.google.com/rss/articles/pytest-old-structural",
         title="La playa sigue cerrada por desprendimientos",
@@ -288,7 +290,7 @@ def test_effective_status_suppresses_stale_official(seed_data):
     anterior a una reapertura de prensa (mismo episodio que Náyade
     publica tarde) se muestra como 'open' en mapa y ficha, y no
     alerta. El BeachStatus crudo se conserva."""
-    from datetime import date, datetime, timedelta, timezone
+    from datetime import date, datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import (
@@ -300,7 +302,7 @@ def test_effective_status_suppresses_stale_official(seed_data):
 
     beach_id = seed_data["beach_id"]
     db = SessionLocal()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     status = BeachStatus(
         beach_id=beach_id,
         status=BeachState.closed,
@@ -355,7 +357,7 @@ def test_effective_status_keeps_new_official_closure(seed_data):
     """Si la evidencia oficial (medición) es POSTERIOR a la reapertura
     de prensa, es un evento nuevo: el estado efectivo sigue 'closed'
     y la playa alerta via='official'."""
-    from datetime import date, datetime, timedelta, timezone
+    from datetime import date, datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import (
@@ -367,7 +369,7 @@ def test_effective_status_keeps_new_official_closure(seed_data):
 
     beach_id = seed_data["beach_id"]
     db = SessionLocal()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     status = BeachStatus(
         beach_id=beach_id,
         status=BeachState.closed,
@@ -415,7 +417,7 @@ def test_open_incident_needs_corroborated_reopening(seed_data):
     """Incidencia formal ABIERTA + reapertura de prensa de UNA sola
     fuente: no basta para abrirla (caso Gaviotas). Con >=2 medios
     distintos la reapertura está corroborada y el efectivo es 'open'."""
-    from datetime import date, datetime, timedelta, timezone
+    from datetime import date, datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import (
@@ -427,7 +429,7 @@ def test_open_incident_needs_corroborated_reopening(seed_data):
 
     beach_id = seed_data["beach_id"]
     db = SessionLocal()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     status = BeachStatus(
         beach_id=beach_id,
         status=BeachState.closed,
@@ -587,14 +589,14 @@ def test_beach_news_since_anchors_latest_cluster(seed_data):
     el titular más viejo — un hueco >45 días separa episodios (caso El
     Médano: cierres de julio + septiembre; el banner debe decir 23/09,
     no 07/07)."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import NewsItem
 
     beach_id = seed_data["beach_id"]
     db = SessionLocal()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     old_ep = NewsItem(
         url="https://news.google.com/rss/articles/pytest-cluster-old",
         title="Cierran la playa por vertido",
@@ -647,14 +649,14 @@ def test_incident_press_items_and_episode_items(seed_data):
     - `/news.episode_items` = último clúster de cobertura, no el saco
       completo (el banner enseña solo el episodio que narra).
     """
-    from datetime import date, datetime, timedelta, timezone
+    from datetime import date, datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import BeachIncident, NewsItem
 
     beach_id = seed_data["beach_id"]
     db = SessionLocal()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today = date.today()
     inc = BeachIncident(
         beach_id=beach_id,
@@ -812,14 +814,14 @@ def test_push_few_changes_stay_individual(monkeypatch):
 def test_island_episodes(seed_data):
     """`/episodes` agrega episodios de toda la isla: incidencias
     oficiales + reconstruidos (prensa), una fila por episodio."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from app.db import SessionLocal
     from app.models import NewsItem
 
     osm_id = seed_data["osm_beach_id"]
     db = SessionLocal()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     # Episodio solo-prensa resuelto hace 3 días tras 2 cerrada
     item_c = NewsItem(
         url="https://news.google.com/rss/articles/pytest-ep-c",

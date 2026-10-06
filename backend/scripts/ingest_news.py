@@ -21,7 +21,7 @@ import re
 import time
 import unicodedata
 from dataclasses import replace
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.config import settings
 from app.db import SessionLocal
@@ -41,7 +41,7 @@ from app.news_sources import (
 )
 from app.queries import _short_cause
 
-_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
 def _norm_key(s: str | None) -> str:
@@ -68,7 +68,7 @@ def _press_push_candidate(
     ya la cubre — en ese caso el push oficial ya salió."""
     if event_type not in _PRESS_PUSH_EVENTS or not published_at:
         return False
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if now - published_at > timedelta(days=_PRESS_PUSH_DAYS):
         return False
     echo_q = db.query(NewsItem.id).filter(
@@ -540,7 +540,7 @@ def run() -> tuple[int, int, int]:
                 NewsItem.push_pending.is_(True),
                 NewsItem.pushed_at.is_(None),
                 NewsItem.published_at
-                >= datetime.now(timezone.utc)
+                >= datetime.now(UTC)
                 - timedelta(days=_PRESS_PUSH_DAYS),
             )
             .all()
@@ -550,13 +550,13 @@ def run() -> tuple[int, int, int]:
                 continue
             b = it.beach
             if b is None:
-                it.pushed_at = datetime.now(timezone.utc)  # nunca saldrá
+                it.pushed_at = datetime.now(UTC)  # nunca saldrá
                 continue
             key = _push_key(b, it.event_type)
             to_notify.setdefault(key, (b, it.event_type, []))
             to_notify[key][2].append(it)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for beach, ev, items in to_notify.values():
             try:
                 sent = notify_press_event(db, beach, ev)

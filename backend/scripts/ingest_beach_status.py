@@ -27,7 +27,7 @@ import re
 import time
 import unicodedata
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import requests
 from sqlalchemy import text
@@ -72,10 +72,11 @@ RE_MEASURE = re.compile(
     r'<td class="valorCampoI">([^<]*)</td>\s*'
     r'<td class="valorCampoI">([^<]*)</td>'
 )
-RE_FIELD = (
-    lambda label: rf'{label}:</td>\s*'
-    r'<td[^>]*class="valorCampoI"[^>]*>([^<]*)</td>'
-)
+def RE_FIELD(label: str) -> str:
+    return (
+        rf"{label}:</td>\s*"
+        r'<td[^>]*class="valorCampoI"[^>]*>([^<]*)</td>'
+    )
 INCIDENT_BLOCK = ("<!--INFORMACION INCIDENCIA -->", "<!--FIN INFORMACION INCIDENCIA -->")
 MUESTREOS_MARK = '<td class="apartadotabla">Muestreos:</td>'
 
@@ -424,7 +425,7 @@ def _persist(
             BeachStatus(
                 beach_id=beach.id,
                 status=state,
-                reported_at=datetime.now(timezone.utc),
+                reported_at=datetime.now(UTC),
                 source_url=SOURCE_URL,
             )
         )
