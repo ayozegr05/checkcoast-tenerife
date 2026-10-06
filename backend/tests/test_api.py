@@ -713,6 +713,65 @@ def test_incident_press_items_and_episode_items(seed_data):
         db.close()
 
 
+def test_beach_news_ignores_closed_since_before_official_incident(
+    seed_data,
+):
+    """Un closed_since de prensa anterior a la incidencia oficial que
+    cubre el episodio es imposible — el registro habría mostrado la
+    playa cerrada. Caso real El Médano sep-2026: Gemini extrajo
+    "2023-09-20" en un cierre temporal de 3 días (la playa sí había
+    cerrado en 2023, pero ese episodio era otro)."""
+    from datetime import date, datetime, timedelta
+
+    from app.db import SessionLocal
+    from app.models import BeachIncident, NewsItem
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    now = datetime.now(UTC)
+    today = date.today()
+    inc = BeachIncident(
+        beach_id=beach_id,
+        opened_at=today - timedelta(days=10),
+        closed_at=today - timedelta(days=5),
+        observations="Zona donde queda prohibido el baño temporalmente",
+    )
+    wild = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-cs-wild",
+        title="Cerrada temporalmente la playa",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        published_at=now - timedelta(days=8),
+        closed_since="2023-09-20",
+    )
+    honest = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-cs-honest",
+        title="El ayuntamiento cierra la playa",
+        source="Otro Medio",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        published_at=now - timedelta(days=8),
+        closed_since=(today - timedelta(days=8)).isoformat(),
+    )
+    db.add_all([inc, wild, honest])
+    db.commit()
+    try:
+        body = client.get(f"/beaches/{beach_id}/news").json()
+        assert (
+            body["summary"]["closed_since"]
+            == (today - timedelta(days=8)).isoformat()
+        )
+    finally:
+        db.delete(inc)
+        db.delete(wild)
+        db.delete(honest)
+        db.commit()
+        db.close()
+
+
 def test_send_push_tolerates_bad_expo_response(monkeypatch):
     """Un 502 con HTML de Expo (json() revienta) no debe propagarse:
     devuelve 0 y la ingesta sigue con el resto de playas."""

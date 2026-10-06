@@ -902,6 +902,7 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
     # sobre la primera cobertura de prensa (El Socorro: Náyade dice
     # 21-sep aunque los titulares lleguen el 23 — la prensa llegó
     # tarde). Si la prensa se adelanta, vale su fecha
+    official_start = None
     if since is not None and beach is not None:
         for inc in beach.incidents:
             if is_ungraded_note(inc.observations):
@@ -909,6 +910,8 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
             if _in_window(
                 since.date(), inc.opened_at, inc.closed_at, date.today()
             ):
+                if official_start is None or inc.opened_at < official_start:
+                    official_start = inc.opened_at
                 opened = datetime.combine(
                     inc.opened_at, datetime.min.time(), tzinfo=UTC
                 )
@@ -947,6 +950,21 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
                 and r.published_at >= since
             ]
         closed_since = _min_closed_since(r.closed_since for r in pool)
+        # Un "cerrada desde" anterior a la incidencia oficial que
+        # cubre el episodio es imposible: el registro de Náyade
+        # habría mostrado la playa cerrada. Es extracción errónea
+        # (El Médano/El Socorro sep-2026: Gemini afirmó "2023-09-20"
+        # — la playa SÍ cerró en 2023, pero este episodio era el
+        # cierre temporal del 23-sep)
+        if official_start is not None:
+            cs_d = _closed_since_date(closed_since)
+            if cs_d is not None and cs_d < official_start:
+                closed_since = _min_closed_since(
+                    r.closed_since
+                    for r in pool
+                    if (_d := _closed_since_date(r.closed_since)) is not None
+                    and _d >= official_start
+                )
     # Titulares del ÚLTIMO episodio de cobertura: clúster encadenado
     # por fecha (hueco >PRESS_CLUSTER_GAP rompe), con cualquier tipo
     # de evento — la reapertura forma parte del episodio que cierra.
