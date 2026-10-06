@@ -90,6 +90,8 @@ API en `http://localhost:8001` — docs interactivas en `/docs`.
 > `GEMINI_API_KEY=...` ([aistudio.google.com](https://aistudio.google.com),
 > free tier) para activar la extracción LLM de prensa. Sin ella el resto
 > funciona igual — solo las noticias quedan sin procesar.
+> `ADMIN_API_KEY` protege el cambio manual de estado (sin ella ese
+> endpoint queda deshabilitado).
 > `DATABASE_URL` tiene default local; el resto de vars
 > (`NAYADE_SYNC_SECONDS`, `GEMINI_MODEL`…) también
 > — ver `backend/app/config.py`.
@@ -136,7 +138,7 @@ npx expo start --dev-client --port 8082
 | `GET /beaches/stats` | Agregados por municipio (ranking) |
 | `GET /outfalls` | GeoJSON de vertidos (`?status=legal\|illegal\|unknown`) |
 | `GET /alerts` | Alertas activas — campo `via`: `official` / `press` |
-| `POST /beaches/{id}/status` | Cambio manual de estado (respaldo del scraper) |
+| `POST /beaches/{id}/status` | Cambio manual de estado (respaldo del scraper) — requiere cabecera `X-Admin-Key` |
 | `POST /devices` | Registro de Expo push tokens |
 
 ## Testing y CI

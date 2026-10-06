@@ -66,6 +66,7 @@ from app.schemas import (
     NewsSummaryOut,
     PointGeometry,
 )
+from app.security import require_admin
 
 router = APIRouter(tags=["beaches"])
 
@@ -989,12 +990,14 @@ def beach_nearby_outfalls(
     "/beaches/{beach_id}/status",
     response_model=BeachStatusOut,
     status_code=201,
+    dependencies=[Depends(require_admin)],
 )
 def set_beach_status(
     beach_id: int, payload: BeachStatusIn, db: Session = Depends(get_db)
 ) -> BeachStatusOut:
     """Registra manualmente el estado de una playa (respaldo del
-    scraping automático y demos)."""
+    scraping automático y demos). Requiere cabecera `X-Admin-Key`:
+    dispara push a todos los dispositivos."""
     beach = db.get(Beach, beach_id)
     if beach is None:
         raise HTTPException(status_code=404, detail="Beach not found")
