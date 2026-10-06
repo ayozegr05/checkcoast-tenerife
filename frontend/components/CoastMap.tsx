@@ -315,14 +315,18 @@ export default function CoastMap({
     setAlertsOpen(false);
   };
 
-  // Ficha de una zona abierta: paneo al PM concreto, SIN tocar el
-  // zoom. Antes solo se levantaba el encuadre de grupo ~20px, pero el
-  // centro quedaba en el baricentro del grupo — en playas largas ese
-  // punto cae en el mar y al hacer pinch-zoom los puntos salían por
-  // los bordes. Con el centro sobre el PM, el zoom posterior se ancla
-  // a él. Al volver al selector se restaura el centro previo
+  // Ficha de una zona abierta: vuela al PM concreto con zoom de
+  // detalle (≥15.5). El pinch-zoom de MapLibre se ancla al punto del
+  // gesto, no al centro de cámara — encuadrar el grupo y solo panear
+  // al PM dejaba el centro libre sobre el mar y el zoom se perdía;
+  // con el PM a zoom de detalle el punto domina la pantalla y el
+  // gesto se queda sobre él. Al volver al selector se restaura la
+  // vista previa (centro + zoom)
   const prevZoneFocus = useRef<GeoFeature | null>(null);
-  const preZoneCenter = useRef<[number, number] | null>(null);
+  const preZoneView = useRef<{
+    center: [number, number];
+    zoom: number;
+  } | null>(null);
   useEffect(() => {
     const prev = prevZoneFocus.current;
     prevZoneFocus.current = zoneFocus;
@@ -341,14 +345,14 @@ export default function CoastMap({
       left: 64,
     };
     if (opening) {
-      preZoneCenter.current = center;
+      preZoneView.current = { center, zoom };
       const [pmLon, pmLat] = zoneFocus!.geometry.coordinates as [
         number,
         number,
       ];
       cameraRef.current?.flyTo({
         center: [pmLon, pmLat],
-        zoom,
+        zoom: Math.max(zoom, 15.5),
         padding: pad,
         duration: 400,
       });
@@ -358,15 +362,15 @@ export default function CoastMap({
       // playa, zoneFocus llega obsoleto y el encuadre nuevo manda —
       // sin este filtro el mapa volaba de vuelta al grupo anterior
       const sameGroup = pmPoints!.features.some((f) => f.id === prev!.id);
-      if (sameGroup && preZoneCenter.current) {
+      if (sameGroup && preZoneView.current) {
         cameraRef.current?.flyTo({
-          center: preZoneCenter.current,
-          zoom,
+          center: preZoneView.current.center,
+          zoom: preZoneView.current.zoom,
           padding: pad,
           duration: 400,
         });
       }
-      preZoneCenter.current = null;
+      preZoneView.current = null;
     }
   }, [zoneFocus, pmShown]);
 
