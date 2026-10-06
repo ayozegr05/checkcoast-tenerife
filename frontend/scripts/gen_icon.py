@@ -1,6 +1,6 @@
 # Genera icono + splash tematicos: silueta de Tenerife + olas blancas
 # sobre degradado mar. La silueta sale del GeoJSON real de Nominatim/OSM.
-# Uso: python scripts_gen_icon.py  (desde frontend/, con Pillow)
+# Uso: python scripts/gen_icon.py  (desde frontend/, con Pillow)
 from PIL import Image, ImageDraw, ImageFilter
 import json
 import math

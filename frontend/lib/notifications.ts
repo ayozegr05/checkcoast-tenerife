@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import { registerDevice } from './api';
 
@@ -38,7 +38,7 @@ export async function setupPushNotifications(): Promise<void> {
   const projectId = Constants.expoConfig?.extra?.eas?.projectId as
     string | undefined;
   if (!projectId) {
-    Alert.alert('Push debug', 'projectId no encontrado en expoConfig');
+    console.warn('Push: projectId no encontrado en expoConfig');
     return;
   }
 
@@ -47,7 +47,7 @@ export async function setupPushNotifications(): Promise<void> {
       .data;
     await registerDevice(token, Platform.OS);
   } catch (e) {
-    // DEBUG temporal: mostrar por qué falla el registro
-    Alert.alert('Push debug', String(e));
+    // Sin push la app sigue funcionando; el aviso al usuario va en 10.8
+    console.warn('Push: registro fallido', e);
   }
 }
