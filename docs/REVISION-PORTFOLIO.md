@@ -29,7 +29,7 @@ temporal de trabajo: se puede borrar cuando estén resueltos los puntos.
 | 5c | Mover `frontend/scripts_gen_icon.py` y `scripts_gen_mapstyle.py` a `frontend/scripts/`; `frontend/LICENSE` duplica el de la raíz | Pendiente |
 | 5d | Mensajes de commit: elegir un estilo (`feat:/fix:` Conventional Commits) y mantenerlo | Pendiente |
 | 5e | ROADMAP 10.6 está desactualizado: la API key de Firebase ya no está restringida por app + SHA-1 (restricción de aplicación = "Ninguna"); falta limitarla por API (Firebase Installations, FCM, FCM Registration) | Pendiente |
-| 6 | README en inglés (o bilingüe) para optar a remoto internacional | Opcional |
+| 6 | README en inglés (o bilingüe) para optar a remoto internacional | ✅ Hecho — `README.md` (EN) + `README.es.md` |
 
 ## Preparación para entrevistas
 
