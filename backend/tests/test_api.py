@@ -1189,3 +1189,59 @@ def test_press_episode_overlapping_official_incident_not_duplicated(
         db.delete(inc)
         db.commit()
         db.close()
+
+
+def test_official_incident_of_previous_episode_does_not_drag_since(
+    seed_data,
+):
+    """Bug en cascada: el bucle de official_start mutaba `since` y lo
+    reevaluaba → incidencias cerradas ANTES de la última reapertura
+    (episodio anterior) arrastraban el inicio hacia atrás
+    (Jardín PM4: 30-sep → 2-sep → 11-ago)."""
+    from datetime import datetime
+
+    from app.db import SessionLocal
+    from app.models import BeachIncident
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    # Episodio anterior ya resuelto antes de la reapertura
+    inc = BeachIncident(
+        beach_id=beach_id,
+        opened_at=date(2026, 9, 2),
+        closed_at=date(2026, 9, 3),
+        observations="Prohibido el baño",
+    )
+    items = [
+        _news(
+            beach_id,
+            "reopening",
+            datetime(2026, 9, 4, tzinfo=UTC),
+            "https://news.test/prev-reopen",
+            "Reabre la playa",
+        ),
+        _news(
+            beach_id,
+            "closure",
+            datetime(2026, 9, 30, tzinfo=UTC),
+            "https://news.test/prev-close",
+            "Cierran la playa",
+        ),
+    ]
+    db.add(inc)
+    db.add_all(items)
+    db.commit()
+    try:
+        r = client.get(f"/beaches/{beach_id}/news")
+        assert r.status_code == 200
+        since = r.json()["summary"]["since"]
+        # El episodio actual empieza el 30-sep; la incidencia de
+        # 2-3 sep (cerrada antes de la reapertura del 4-sep) no lo
+        # arranca pese a caer en la ventana ±30d
+        assert since is not None and since.startswith("2026-09-30")
+    finally:
+        for it in items:
+            db.delete(it)
+        db.delete(inc)
+        db.commit()
+        db.close()

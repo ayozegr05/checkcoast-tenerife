@@ -964,11 +964,26 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
     # tarde). Si la prensa se adelanta, vale su fecha
     official_start = None
     if since is not None and beach is not None:
+        # La ventana se evalúa sobre el `since` ORIGINAL (ancla de
+        # cobertura): mutarlo dentro del bucle permitía arrastrar
+        # incidencias de episodios anteriores en cascada (Jardín PM4:
+        # 30-sep → cubierto por la incidencia del 2-3 sep → y esa por
+        # la del 11-ago → "desde el 11-ago" para el cierre actual)
+        anchor = since.date()
+        reopen_d = last_reopen.date() if last_reopen else None
         for inc in beach.incidents:
             if is_ungraded_note(inc.observations):
                 continue
+            # Incidencia ya cerrada ANTES de la última reapertura:
+            # pertenece al episodio anterior, no puede abrir este
+            if (
+                reopen_d is not None
+                and inc.closed_at is not None
+                and inc.closed_at <= reopen_d
+            ):
+                continue
             if _in_window(
-                since.date(), inc.opened_at, inc.closed_at, date.today()
+                anchor, inc.opened_at, inc.closed_at, date.today()
             ):
                 if official_start is None or inc.opened_at < official_start:
                     official_start = inc.opened_at

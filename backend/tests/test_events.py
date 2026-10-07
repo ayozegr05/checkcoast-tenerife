@@ -623,3 +623,21 @@ def test_cluster_episodes_merges_mixed_via_same_window():
     assert m.via == "official"
     assert m.start == date(2026, 8, 21)  # el más antiguo gana
     assert "2 noticias en prensa" in (m.obs or "")
+
+
+def test_min_closed_since_picks_earliest_same_precision():
+    """Bug: entre fechas completas del mismo año la clave empataba y
+    `min` devolvía la primera en orden de filas (la más reciente):
+    Jardín mostraba "desde el 07/10" con "2026-09-29" en el pool."""
+    from app.events import _min_closed_since
+
+    assert (
+        _min_closed_since(["2026-10-07", "2026-09-30", "2026-09-29"])
+        == "2026-09-29"
+    )
+    # A igual año sigue ganando la más precisa
+    assert _min_closed_since(["2026", "2026-09"]) == "2026-09"
+    # Y el año más antiguo manda sobre precisión
+    assert (
+        _min_closed_since(["2026-09-29", "2024"]) == "2024"
+    )

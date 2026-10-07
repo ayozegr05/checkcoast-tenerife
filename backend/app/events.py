@@ -120,9 +120,15 @@ def _closed_since_date(raw: str | None) -> date | None:
 
 def _min_closed_since(vals) -> str | None:
     """El inicio real más antiguo afirmado por las fuentes; a igual año
-    gana el más preciso ("2024-07" informa más que "2024")."""
+    gana el más preciso ("2024-07" informa más que "2024") y a igual
+    precisión la fecha más antigua — sin el tercer criterio, `min`
+    devolvía el PRIMER valor en orden de filas (el más reciente, ya
+    que llegan DESC): Jardín oct-2026 afirmaba "desde el 07/10"
+    teniendo "2026-09-29" en el pool."""
     vals = [v for v in vals if v]
-    return min(vals, key=lambda v: (v[:4], -len(v)), default=None)
+    return min(
+        vals, key=lambda v: (v[:4], -len(v), v), default=None
+    )
 
 
 def _is_structural(ev: "SynthEvent") -> bool:
