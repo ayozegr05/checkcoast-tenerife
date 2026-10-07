@@ -464,6 +464,22 @@ El shapefile del Censo de Vertidos Tierra-Mar 2025 trae ~25 campos que
 
 ---
 
+## Hito 12 — Troceado del backend ⬜ *(propuesto 2026-10-07, tras cerrar el troceado frontend)*
+
+Tras el repaso de portfolio quedó el backend con un único "componente
+grande": `app/routers/beaches.py` (1.158 líneas). Mismo criterio que
+frontend — mover código, no reescribirlo; suite existente como red de
+seguridad (test_api.py, test_share.py) + tests de caracterización
+nuevos donde falte cobertura. En producción — cada paso verde en CI
+antes de subir a la VM.
+
+| # | Tarea | Detalle | Esfuerzo |
+|---|-------|---------|----------|
+| 12.1 | **`routers/beaches.py`** (1.158) | Separar endpoints de listado/stats de los de detalle (`/beaches/{id}/status`, `/news`, `/episodes`) o extraer serialización/parseo a helpers; el módulo queda como enrutador fino | 🟡 Medio |
+| 12.2 | **`routers/share.py`** (970) | Ya templated (Jinja2). Lo que queda es Python montando dicts de contexto → extraer a `share_context.py`/`services/` y dejar el router como orquestador | 🟡 Medio |
+| 12.3 | **`events.py`** (648) | Separar el clustering puro (reglas de episodio: gap, frontera por reapertura, corroboración) de la parte con DB. El más delicado: tests de caracterización primero | 🟡 Medio |
+| 12.4 | `queries.py` (581) y `news_sources.py` (489) | Cohesivos hoy — solo si crecen: `news/` como paquete por fuente (Google/municipal/media/guía) | 🟢 Trivial |
+
 
 
 ### Estado actual
