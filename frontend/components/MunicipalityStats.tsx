@@ -89,6 +89,9 @@ export default function MunicipalityStats({
   const [muniQuery, setMuniQuery] = useState('');
   // Filtro de chips de la vista Temporada: cierres | avisos | activas
   const [seasonFilter, setSeasonFilter] = useState<SeasonFilter>('all');
+  // Filtro de causa de la vista Temporada (familias: contaminación,
+  // riesgo estructural…) — segundo nivel tras cierres/avisos/activas
+  const [seasonCause, setSeasonCause] = useState<string>('all');
   // Filtro de chips de la vista "Este año": por causa ('all' = todas)
   const [yearCause, setYearCause] = useState<string>(initialCause ?? 'all');
   // Chips de año plegadas tras "Más años ›" cuando hay más de
@@ -101,6 +104,7 @@ export default function MunicipalityStats({
     if (!visible) return;
     setView(initialView);
     setYearCause(initialCause ?? 'all');
+    setSeasonCause('all');
     // Ranking abre en "Este año" si hay datos; si el año vigente aún
     // no tiene episodios cae al último año con datos, y sin años al
     // histórico completo
@@ -117,6 +121,13 @@ export default function MunicipalityStats({
       ),
     [episodes, selYear],
   );
+  // Familias de causa presentes en los cierres de la temporada —
+  // alimentan las chips que dividen cierres en contaminación vs
+  // estructural (misma taxonomía que las chips de "Este año")
+  const seasonCauses = useMemo(
+    () => causeFamilyCounts(seasonRows.filter((e) => e.kind === 'closure')),
+    [seasonRows],
+  );
   // Las que siguen abiertas van primero — una playa cerrada hoy
   // importa más que su fecha de inicio (Benijo: abierta desde 2024)
   const seasonRowsFiltered = useMemo(
@@ -129,12 +140,20 @@ export default function MunicipalityStats({
               ? e.closed_at === null
               : e.kind === seasonFilter,
         )
+        .filter((e) =>
+          seasonCause === 'all'
+            ? true
+            : e.kind === 'closure' &&
+              (seasonCause === 'sin causa'
+                ? !e.cause
+                : causeFamily(e.cause) === seasonCause),
+        )
         .sort(
           (a, b) =>
             (a.closed_at === null ? 0 : 1) - (b.closed_at === null ? 0 : 1) ||
             b.opened_at.localeCompare(a.opened_at),
         ),
-    [seasonRows, seasonFilter],
+    [seasonRows, seasonFilter, seasonCause],
   );
   const seasonCounts = useMemo(
     () => ({
@@ -354,6 +373,13 @@ export default function MunicipalityStats({
                 counts={seasonCounts}
                 filter={seasonFilter}
                 onChange={setSeasonFilter}
+              />
+            )}
+            {view === 'temporada' && seasonCauses.length > 0 && (
+              <CauseChips
+                causes={seasonCauses}
+                active={seasonCause}
+                onChange={setSeasonCause}
               />
             )}
             {view !== 'temporada' && yearCauses.length > 0 && (
