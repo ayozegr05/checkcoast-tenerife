@@ -1,4 +1,4 @@
-"""Sondeo puntual: cobertura de prensa de 2025 por playa.
+"""Sondeo puntual: cobertura de prensa de un año por playa.
 
 Solo lectura — no escribe en la DB. Usa el mismo fetcher que el
 backfill (queries temáticas + una por clave de prensa base, con
@@ -6,7 +6,8 @@ after:/before: y prefiltro local) y luego casa por titular con
 match_beaches y extracción vacía — conservador y sin gasto de Gemini.
 Los que no casan ninguna playa se listan aparte para revisión manual.
 
-Uso: .venv\\Scripts\\python -m scripts.probe_2025
+Uso: .venv\\Scripts\\python -m scripts.probe_backfill AÑO
+       [--from-file FICHERO]   (volcado de `ingest_news --dump`)
 """
 
 import sys
@@ -21,7 +22,7 @@ from app.news_sources import (
     fetch_backfill,
     source_excluded,
 )
-from scripts.ingest_news import _backfill_keys
+from scripts.ingest_news import _backfill_keys, load_articles
 
 
 def _norm_text(s: str) -> str:
@@ -32,14 +33,23 @@ def _norm_text(s: str) -> str:
 def main() -> None:
     # Consola Windows: titulares con caracteres fuera de cp1252
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    argv = sys.argv[1:]
+    year = int(argv[0]) if argv and argv[0].isdigit() else 2025
+    dump = (
+        argv[argv.index("--from-file") + 1] if "--from-file" in argv else None
+    )
     with SessionLocal() as db:
         beaches = db.query(Beach).all()
         known_titles = {
             _norm_text(n.title) for n in db.query(NewsItem.title).all()
         }
 
-    articles = fetch_backfill(
-        2025, _backfill_keys(beaches), backfill_geo_terms(beaches)
+    articles = (
+        load_articles(dump)
+        if dump
+        else fetch_backfill(
+            year, _backfill_keys(beaches), backfill_geo_terms(beaches)
+        )
     )
     print(f"{len(articles)} artículos locales únicos (prefiltro)")
 
@@ -54,7 +64,7 @@ def main() -> None:
         if a.published_at is None:
             undated += 1
             continue
-        if a.published_at.year != 2025:
+        if a.published_at.year != year:
             wrong_year += 1
             continue
         hits = match_beaches(empty, beaches, title=a.title)
@@ -66,7 +76,7 @@ def main() -> None:
             unmatched.append(a)
 
     print(
-        f"2025: {sum(len(v) for v in matched.values())} casados en "
+        f"{year}: {sum(len(v) for v in matched.values())} casados en "
         f"{len(matched)} playas · {len(unmatched)} sin casar · "
         f"{undated} sin fecha · {wrong_year} fuera de año\n"
     )

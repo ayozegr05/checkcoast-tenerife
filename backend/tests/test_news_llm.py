@@ -83,3 +83,39 @@ def test_extract_malformed_json_returns_none():
 
     with patch("app.news_llm.requests.post", return_value=BadJson()):
         assert extract_event(ARTICLE, GeminiExtractor("key", "model")) is None
+
+
+def _quota_resp():
+    class R:
+        ok = False
+        status_code = 429
+        text = '{"error": {"details": "GenerateRequestsPerDayPerProject"}}'
+
+    return R()
+
+
+def test_daily_quota_switches_to_fallback_before_exhausting():
+    ex = GeminiExtractor("key", "main-model", fallback_model="lite-model")
+    with patch(
+        "app.news_llm.requests.post",
+        side_effect=[_quota_resp(), _fake_resp(EXTRACTION)],
+    ):
+        assert extract_event(ARTICLE, ex) is not None
+    assert "lite-model" in ex.url
+    assert ex.exhausted is False
+
+
+def test_daily_quota_on_every_model_marks_exhausted():
+    ex = GeminiExtractor("key", "main-model", fallback_model="lite-model")
+    with patch("app.news_llm.requests.post", return_value=_quota_resp()):
+        assert extract_event(ARTICLE, ex) is None
+    assert ex.exhausted is True
+
+
+def test_http_error_does_not_mark_exhausted():
+    ex = GeminiExtractor("key", "model")
+    with patch(
+        "app.news_llm.requests.post", return_value=_fake_resp({}, status=400)
+    ):
+        assert extract_event(ARTICLE, ex) is None
+    assert ex.exhausted is False

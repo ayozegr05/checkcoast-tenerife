@@ -104,7 +104,13 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     `fetch_backfill` en news_sources, prefiltro local `backfill_geo_terms`
     + vocabulario de evento para no gastar Gemini en homónimos
     mundiales; sin topes de llamadas, sin guías, sin rematch y NUNCA
-    push — noticias viejas no despiertan el móvil),
+    push — noticias viejas no despiertan el móvil; `--dump FICHERO`
+    solo descarga+prefiltra a JSON sin Gemini ni escribir en la DB y
+    `--from-file FICHERO` ingesta ese volcado; con la cuota diaria
+    agotada en todos los modelos (`GeminiExtractor.exhausted`) la
+    pasada se corta y relanzar el mismo comando reanuda — lo ya
+    guardado en `news_items` se omite; `scripts/probe_backfill.py AÑO`
+    audita la cobertura por titular sin gastar Gemini),
     `reextract_news.py` (refresca extracciones guardadas: `--beach`,
     `--max`, `--all`; re-casa `beach_id` si la nueva extracción
     identifica otra playa, creando/limpiando réplicas por PM; NO toca

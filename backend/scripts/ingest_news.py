@@ -17,6 +17,7 @@ Por pasada:
 Uso: python -m scripts.ingest_news
 """
 
+import json
 import re
 import sys
 import time
@@ -461,13 +462,59 @@ def _backfill_keys(beaches: list[Beach]) -> list[str]:
     )
 
 
-def run(backfill_year: int | None = None) -> tuple[int, int, int]:
+def dump_articles(articles: list[RawArticle], path: str) -> None:
+    rows = [
+        {
+            "title": a.title,
+            "url": a.url,
+            "source": a.source,
+            "published_at": (
+                a.published_at.isoformat() if a.published_at else None
+            ),
+        }
+        for a in articles
+    ]
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(rows, f, ensure_ascii=False, indent=1)
+
+
+def load_articles(path: str) -> list[RawArticle]:
+    with open(path, encoding="utf-8") as f:
+        rows = json.load(f)
+    return [
+        RawArticle(
+            title=r["title"],
+            url=r["url"],
+            source=r.get("source"),
+            published_at=(
+                datetime.fromisoformat(r["published_at"])
+                if r.get("published_at")
+                else None
+            ),
+        )
+        for r in rows
+    ]
+
+
+def fetch_backfill_for(db, year: int) -> list[RawArticle]:
+    beaches = db.query(Beach).all()
+    return fetch_backfill(
+        year, _backfill_keys(beaches), backfill_geo_terms(beaches)
+    )
+
+
+def run(
+    backfill_year: int | None = None, articles_file: str | None = None
+) -> tuple[int, int, int]:
     """(relevantes insertadas, titulares procesados, recasadas).
 
     backfill_year: ingesta histórica de un año concreto vía operadores
     de fecha de Google News. Sin topes de llamadas (el volumen lo acota
     el prefiltro local), sin sweep de guías, sin rematch y SIN push:
-    noticias de hace un año no despiertan el móvil."""
+    noticias de hace un año no despiertan el móvil.
+
+    articles_file: titulares ya descargados con `--dump` (se salta
+    Google News). Reanudable: lo ya guardado en news_items se omite."""
     if not settings.gemini_api_key:
         print("[news] GEMINI_API_KEY no configurada, se omite la ingesta")
         return 0, 0, 0
@@ -486,12 +533,10 @@ def run(backfill_year: int | None = None) -> tuple[int, int, int]:
     ] = {}
     try:
         beaches = db.query(Beach).all()
-        if backfill:
-            articles = fetch_backfill(
-                backfill_year,
-                _backfill_keys(beaches),
-                backfill_geo_terms(beaches),
-            )
+        if backfill and articles_file:
+            articles = load_articles(articles_file)
+        elif backfill:
+            articles = fetch_backfill_for(db, backfill_year)
         else:
             articles = fetch_news()
 
@@ -533,6 +578,14 @@ def run(backfill_year: int | None = None) -> tuple[int, int, int]:
             processed += 1
             ext = extract_event(art, extractor)
             if ext is None:
+                if extractor.exhausted:
+                    processed -= 1
+                    print(
+                        "[news] cuota diaria de Gemini agotada: se corta "
+                        "la pasada; relanza el mismo comando mañana y "
+                        "seguirá donde lo dejó"
+                    )
+                    break
                 continue  # fallo del proveedor: se reintenta la próxima pasada
             hits = (
                 match_beaches(ext, beaches, title=art.title)
@@ -637,13 +690,30 @@ def run(backfill_year: int | None = None) -> tuple[int, int, int]:
         db.close()
 
 
+def _arg(argv: list[str], flag: str) -> str | None:
+    return argv[argv.index(flag) + 1] if flag in argv else None
+
+
 def main() -> None:
-    # Uso: python -m scripts.ingest_news [--backfill AÑO]
-    year = None
+    # Uso: python -m scripts.ingest_news
+    #        [--backfill AÑO [--dump FICHERO | --from-file FICHERO]]
+    # --dump: solo descarga y prefiltra los titulares (sin Gemini, sin
+    # escribir en la DB); --from-file: ingesta desde ese volcado
     argv = sys.argv[1:]
-    if "--backfill" in argv:
-        year = int(argv[argv.index("--backfill") + 1])
-    inserted, processed, rematched = run(backfill_year=year)
+    year_arg = _arg(argv, "--backfill")
+    year = int(year_arg) if year_arg else None
+    dump_path = _arg(argv, "--dump")
+    if dump_path:
+        if year is None:
+            sys.exit("--dump requiere --backfill AÑO")
+        with SessionLocal() as db:
+            articles = fetch_backfill_for(db, year)
+        dump_articles(articles, dump_path)
+        print(f"{len(articles)} titulares de {year} volcados en {dump_path}")
+        return
+    inserted, processed, rematched = run(
+        backfill_year=year, articles_file=_arg(argv, "--from-file")
+    )
     print(
         f"News: {inserted} relevantes insertadas ({processed} procesados, "
         f"{rematched} recasadas)"

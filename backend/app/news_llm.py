@@ -147,6 +147,9 @@ class GeminiExtractor:
             base.format(fallback_model) if fallback_model else None
         )
         self.api_key = api_key
+        # Cuota diaria agotada en todos los modelos: seguir llamando
+        # solo gasta tiempo, el llamador puede cortar la pasada
+        self.exhausted = False
 
     def _post(self, text: str):
         """POST con retries ante 429/5xx. La cuota DIARIA agotada no se
@@ -209,6 +212,12 @@ class GeminiExtractor:
         ):
             self.url = self.fallback_url
             resp = self._post(text)
+        if (
+            resp is not None
+            and resp.status_code == 429
+            and "PerDay" in resp.text
+        ):
+            self.exhausted = True
         if resp is None or not resp.ok:
             return None
         try:

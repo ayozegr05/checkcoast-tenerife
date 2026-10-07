@@ -6,6 +6,7 @@ import requests
 from app import news_sources
 from app.news_sources import (
     GUIA_SOURCE,
+    RawArticle,
     fetch_guia_sitemap,
     fetch_municipal_feeds,
 )
@@ -129,3 +130,27 @@ def test_municipal_feeds_dead_feed_no_abort(monkeypatch):
     arts = fetch_municipal_feeds()
     assert len(arts) == 1
     assert arts[0].source == "Vivo"
+
+
+def test_backfill_dump_roundtrip(tmp_path):
+    from datetime import UTC, datetime
+
+    from scripts.ingest_news import dump_articles, load_articles
+
+    arts = [
+        RawArticle(
+            title="Cerrada la playa de La Jaquita «por vertido»",
+            url="https://news.google.com/rss/articles/a?x=1&y=2",
+            source="Diario de Avisos",
+            published_at=datetime(2024, 5, 10, 7, tzinfo=UTC),
+        ),
+        RawArticle(
+            title="Sin fecha",
+            url="https://e.com/b",
+            source=None,
+            published_at=None,
+        ),
+    ]
+    path = tmp_path / "dump.json"
+    dump_articles(arts, str(path))
+    assert load_articles(str(path)) == arts
