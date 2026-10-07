@@ -91,6 +91,16 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     exacto gana a contenciones del mismo municipio ("El Médano"→PM3,
     no a Chica/Leocadio); titulares multi-playa casan cada nombre
     literal; ambiguo entre municipios → no se muestra
+  - `app/news_zones.py` — mapa curado cala↔PM en complejos multi-PM
+    (Jardín: PM1=El Castillo, PM5=El Charcón, PM4=Punta Brava/María
+    Jiménez/Playa Grande); `narrow_hits_by_zone` acota el match a los
+    PMs cuya zona nombra el texto — alias fuertes valen en cuerpo, los
+    contextuales ("Punta Brava" es también barrio/emisario) solo en
+    titular/extracted; sin mención de zona se replican todos los PMs
+    (conservador). `scripts/rezone_news.py` reasigna el histórico —
+    borra réplicas en PMs no nombrados, `beach_id=NULL` las recasaría
+    `_rematch_pending`. El frontend espeja el mapa en `lib/zones.ts`
+    para mostrar el nombre común ("Punta Brava", no "zona 4")
   - `scripts/` — `ingest_outfalls.py`, `ingest_beaches.py` (censo MITECO
     + solver ALTCHA), `ingest_beach_status.py` (scraper Náyade),
     `ingest_osm_beaches.py` (Overpass), `ingest_news.py` (prensa → LLM

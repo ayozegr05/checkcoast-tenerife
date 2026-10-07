@@ -377,7 +377,7 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
         if ext is None:
             continue  # fallo del proveedor: reintento la próxima pasada
         hits = match_beaches(ext, beaches, title=title) if ext.relevant else []
-        hits = narrow_hits_by_zone(hits, ext.beach_name, title, body)
+        hits = narrow_hits_by_zone(hits, ext.beach_name, title, body=body)
         if rows:
             # Ficha ya vista: actualizamos la extracción en las filas
             # que existan (la misma URL replicada por PM)
@@ -567,7 +567,7 @@ def run(
                 body_left -= 1
                 if body:
                     hits = narrow_hits_by_zone(
-                        hits, body, ext.beach_name, art.title
+                        hits, ext.beach_name, art.title, body=body
                     )
             for beach in hits or [None]:  # una fila por PM de la playa
                 item = NewsItem(

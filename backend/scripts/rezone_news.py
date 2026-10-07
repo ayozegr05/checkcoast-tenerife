@@ -87,7 +87,7 @@ def main() -> int:
                     time.sleep(1)
                     if body:
                         wanted = narrow_hits_by_zone(
-                            beaches, body, r0.extracted_beach, r0.title
+                            beaches, r0.extracted_beach, r0.title, body=body
                         )
                 wanted_ids = {b.id for b in wanted}
                 have_ids = {r.beach_id for r in group}

@@ -1130,6 +1130,56 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
         attributed_pm = _sibling_pm_attribution(
             beach, db, ep_begin, date.today(), live=True
         )
+        if attributed_pm:
+            # El episodio vivo es de la zona hermana: el "desde" que
+            # narra el banner es el inicio de SU episodio, no el viejo
+            # de este punto (PM1 de Jardín diría "la cala Punta Brava
+            # sigue cerrada desde junio" con sus items de verano)
+            sib = (
+                db.query(Beach)
+                .filter(
+                    Beach.municipality == beach.municipality,
+                    Beach.name == f"{base_name(beach.name)} {attributed_pm}",
+                )
+                .first()
+            )
+            if sib is not None:
+                live_ev = next(
+                    (
+                        e
+                        for e in synthesize_events(sib)
+                        if e.kind == "closure" and e.closed_at is None
+                    ),
+                    None,
+                )
+                if live_ev is not None:
+                    since = datetime(
+                        live_ev.opened_at.year,
+                        live_ev.opened_at.month,
+                        live_ev.opened_at.day,
+                        tzinfo=UTC,
+                    )
+                    if live_ev.closed_since:
+                        closed_since = live_ev.closed_since
+                else:
+                    # Sin episodio de prensa vivo en la hermana: su
+                    # incidencia oficial abierta marca el inicio
+                    sib_inc = (
+                        db.query(BeachIncident)
+                        .filter(
+                            BeachIncident.beach_id == sib.id,
+                            BeachIncident.closed_at.is_(None),
+                        )
+                        .order_by(BeachIncident.opened_at)
+                        .first()
+                    )
+                    if sib_inc is not None:
+                        since = datetime(
+                            sib_inc.opened_at.year,
+                            sib_inc.opened_at.month,
+                            sib_inc.opened_at.day,
+                            tzinfo=UTC,
+                        )
     return BeachNewsOut(
         summary=NewsSummaryOut(
             event_type=dominant,

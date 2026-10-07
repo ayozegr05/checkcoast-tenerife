@@ -1123,7 +1123,12 @@ def test_press_episode_attributed_when_own_episode_resolved(seed_data):
     try:
         r = client.get(f"/beaches/{beach_id}/news")
         assert r.status_code == 200
-        assert r.json()["summary"]["attributed_pm"] == "PM3"
+        summary = r.json()["summary"]
+        assert summary["attributed_pm"] == "PM3"
+        # El "desde" del banner es el inicio del episodio de la
+        # hermana (su incidencia abierta del 25-sep), no el del
+        # episodio ya resuelto de este punto (cierre del 20-sep)
+        assert summary["since"].startswith("2026-09-25")
     finally:
         for it in items:
             db.delete(it)

@@ -61,9 +61,27 @@ def test_zone_alias_in_body():
         "derecha del complejo turístico de Playa Jardín."
     )
     hits = narrow_hits_by_zone(
-        JARDIN, "Playa Jardín", "Cierran Playa Jardín", body
+        JARDIN, "Playa Jardín", "Cierran Playa Jardín", body=body
     )
     assert [b.id for b in hits] == [43]
+
+
+def test_body_ignores_contextual_aliases():
+    """"Punta Brava" en el cuerpo suele ser el barrio/emisario, no la
+    cala — alias débil: no cuenta en cuerpo, sí en titular."""
+    body = (
+        "El emisario de Punta Brava, gestionado por la EDAR de Valle "
+        "de La Orotava, sigue vertiendo junto al complejo."
+    )
+    hits = narrow_hits_by_zone(
+        JARDIN, "Playa Jardín", "Cerrada Playa Jardín", body=body
+    )
+    assert {b.id for b in hits} == {41, 42, 43}  # sin zona → todas
+    # En el titular sí es la cala
+    hits = narrow_hits_by_zone(
+        JARDIN, "Punta Brava", "Cierre de la zona de baño de Punta Brava"
+    )
+    assert [b.id for b in hits] == [42]
 
 
 def test_no_zone_mentioned_keeps_all_pms():
