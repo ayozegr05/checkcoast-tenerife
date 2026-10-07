@@ -449,6 +449,9 @@ cuerpo de las noticias, no en su fecha de publicación.
 | 10.10 | **CD — deploy automático**: job en `.github/workflows/` sobre `main` que despliega por SSH a la VM (clave en GitHub Secrets, rsync + restart del contenedor). Elimina el deploy manual por scp+docker cp — evita olvidos tipo `events.py` | Pendiente | 🟡 Medio |
 | 10.11 | **Landing más viva de lo que parece**: ya sirve datos en tiempo real (192 dots + alertas vivas por petición), pero los cierres estructurales largos leen como dato rancio ("hace 212 días" en "Alertas activas") y los 3 dots de alerta se pierden entre 192. Mejoras: dots de alerta destacados/pulsantes, "cerrada desde sep-2025" para cierres largos, y opcional mapa interactivo MapLibre | Pendiente | 🟢 Trivial / 🟡 Medio |
 | 10.12 | **Firebase App Check**: atestación de que las llamadas a Firebase vienen de la app real (Play Integrity en Android) — la API key es pública por diseño y la restricción por API (10.6) solo acota qué servicios puede tocar; sin App Check cualquiera con la key puede registrar tokens o gastar cuota FCM. Probar primero en modo *monitor* antes de *enforce* | Pendiente | 🟡 Medio |
+| 10.13 | **Badge de CI en README**: `ci.yml` corre verde pero el README no lo muestra — una línea, visible en 2 s para quien abre el repo | Pendiente | 🟢 Trivial |
+| 10.14 | **Typecheck backend (mypy/pyright)**: Ruff cubre lint+format; añadir typecheck en modo laxo + step en `ci.yml` suma una puerta de calidad más | Pendiente | 🟡 Medio |
+| 10.15 | **Coverage badge (codecov)**: `pytest --cov` + upload + badge en README | Opcional | 🟢 Trivial |
 
 ## Hito 11 — Ficha de emisario enriquecida ⬜ *(propuesta 2026-09-30, aplazada: primero arreglar episodios de playas)*
 
@@ -477,7 +480,7 @@ antes de subir a la VM.
 |---|-------|---------|----------|
 | 12.1 | **`routers/beaches.py`** (1.158) | Separar endpoints de listado/stats de los de detalle (`/beaches/{id}/status`, `/news`, `/episodes`) o extraer serialización/parseo a helpers; el módulo queda como enrutador fino | 🟡 Medio |
 | 12.2 | **`routers/share.py`** (970) | Ya templated (Jinja2). Lo que queda es Python montando dicts de contexto → extraer a `share_context.py`/`services/` y dejar el router como orquestador | 🟡 Medio |
-| 12.3 | **`events.py`** (648) | Separar el clustering puro (reglas de episodio: gap, frontera por reapertura, corroboración) de la parte con DB. El más delicado: tests de caracterización primero | 🟡 Medio |
+| 12.3 | **`events.py`** (648) | Ya es lógica pura — no toca DB (solo lee `beach.measurements`/`incidents` del objeto que carga el router). Lo que queda es solo dividir el archivo: `synth_events.py` (ventanas de prohibición + NewsItems) vs `episodes.py` (clustering/merge). Mismo valor cosmético que 12.1 | � Trivial |
 | 12.4 | `queries.py` (581) y `news_sources.py` (489) | Cohesivos hoy — solo si crecen: `news/` como paquete por fuente (Google/municipal/media/guía) | 🟢 Trivial |
 
 
