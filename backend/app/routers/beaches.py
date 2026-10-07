@@ -681,20 +681,42 @@ def beach_incidents(
     synth_id = -1
     live_closed = _latest_closed(db, beach_id)
     # Ventanas oficiales de esta playa: un episodio de prensa que las
-    # solapa es el MISMO suceso — la fila oficial ya lo narra con los
-    # titulares embebidos como corroboración; duplicarlo confundía
-    # ("2 cierres el 22/06 de distinta fuente" en Playa Jardín PM5)
-    official_windows = [
-        (inc.opened_at, inc.closed_at or today)
-        for inc in rows
+    # solapa es el MISMO suceso — una sola fila, la oficial, con los
+    # titulares del episodio absorbido sumados a los suyos como
+    # corroboración (Jardín PM5: "2 cierres el 22/06 de distinta
+    # fuente" era UN suceso — el de prensa retrofechado por
+    # closed_since con cobertura hasta agosto)
+    official_rows = [
+        (inc, o)
+        for inc, o in zip(rows, out)
         if not is_ungraded_note(inc.observations)
     ]
     for ev in synthesize_events(beach):
-        if ev.via == "press" and any(
-            ev.opened_at <= hi and lo <= (ev.closed_at or today)
-            for lo, hi in official_windows
-        ):
-            continue
+        if ev.via == "press":
+            hit = next(
+                (
+                    (inc, o)
+                    for inc, o in official_rows
+                    if ev.opened_at <= (inc.closed_at or today)
+                    and inc.opened_at <= (ev.closed_at or today)
+                ),
+                None,
+            )
+            if hit is not None:
+                _, o = hit
+                have = {p.id for p in o.press_items}
+                extra = [
+                    _news_out(n) for n in ev.press_items
+                    if n.id not in have
+                ]
+                if extra:
+                    o.press_items = sorted(
+                        [*o.press_items, *extra],
+                        key=lambda p: p.published_at
+                        or datetime.min.replace(tzinfo=UTC),
+                        reverse=True,
+                    )
+                continue
         obs = _synth_observations(ev)
         # Prensa aún abierta y Náyade también la da por cerrada: no es
         # "solo prensa" — el cierre tiene respaldo oficial de estado
