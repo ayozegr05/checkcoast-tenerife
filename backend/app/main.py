@@ -157,7 +157,9 @@ def _job_health(db: Session, job: str, interval_s: int) -> dict:
     }
 
 
-@app.get("/health")
+# HEAD además de GET: los monitores de uptime (UptimeRobot free) sondean
+# con HEAD y un 405 les marcaría el sitio como caído estando vivo
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health(db: Session = Depends(get_db)) -> dict:
     """Liveness + readiness para el monitor externo (ROADMAP 10.8).
 
