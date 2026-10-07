@@ -178,12 +178,11 @@ export default function BeachDetail({
   // ya no se puede atribuir a este episodio
   const pressStillClosed = p.status === 'closed';
   // Cuando el episodio es de una zona hermana (attributed_pm), este
-  // punto está 'open' aunque el episodio siga vivo — el tiempo verbal
-  // debe mirar si el episodio tiene fin, no el estado del punto:
-  // "la zona 4 SIGUE cerrada", no "estuvo"
-  const pressEpisodeOpen =
-    !!news?.summary.attributed_pm &&
-    (incidents ?? []).some((i) => i.via === 'press' && i.closed_at === null);
+  // punto está 'open' aunque la hermana siga oficialmente cerrada —
+  // el backend solo emite attributed_pm mientras eso sea cierto, así
+  // que el banner puede decir "la zona 4 SIGUE cerrada" sin mirar
+  // filas del historial propio
+  const pressEpisodeOpen = !!news?.summary.attributed_pm;
   const pressReopenedAt = useMemo(() => {
     if (pressStillClosed || !news?.summary.since) return null;
     const since = news.summary.since.slice(0, 10);

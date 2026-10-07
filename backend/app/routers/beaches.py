@@ -100,21 +100,25 @@ def _latest_closed(db: Session, beach_id: int) -> bool:
 
 
 def _sibling_pm_attribution(
-    beach: Beach, db: Session, start: date, end: date | None
+    beach: Beach, db: Session, start: date, end: date, *, live: bool = False
 ) -> str | None:
-    """PM hermano del arenal con evidencia oficial en la ventana, si
-    la playa pedida no tiene ninguna — el episodio de prensa (que se
-    replica a todos los PM) es realmente del hermano, no de este
-    punto. `end=None` = episodio aún abierto → también vale que el
-    hermano siga oficialmente cerrado hoy."""
+    """PM hermano del arenal con evidencia oficial, si la playa
+    pedida no tiene ninguna — el episodio de prensa (que se replica
+    a todos los PM) es realmente del hermano, no de este punto.
+
+    `live=True` (banner del summary): el hermano debe seguir
+    oficialmente cerrado HOY — "la zona 4 sigue cerrada". Un punto
+    con episodio propio abierto nunca llega aquí (cierre general:
+    cada PM narra el suyo). `live=False` (historial): basta que el
+    hermano tuviera la evidencia oficial en la ventana del episodio.
+    """
     if _pm_label(beach.name) is None:
         return None
-    end_d = end or date.today()
     own = (
         db.query(BeachIncident)
         .filter(
             BeachIncident.beach_id == beach.id,
-            BeachIncident.opened_at <= end_d,
+            BeachIncident.opened_at <= end,
             or_(
                 BeachIncident.closed_at.is_(None),
                 BeachIncident.closed_at >= start,
@@ -122,7 +126,7 @@ def _sibling_pm_attribution(
         )
         .first()
     )
-    if own or (end is None and _latest_closed(db, beach.id)):
+    if own or _latest_closed(db, beach.id):
         return None
     sibs = (
         db.query(Beach)
@@ -134,11 +138,25 @@ def _sibling_pm_attribution(
         .all()
     )
     for sib in sibs:
+        if live:
+            # El hermano debe seguir oficialmente cerrado hoy:
+            # incidencia abierta o último estado 'closed'
+            open_inc = (
+                db.query(BeachIncident)
+                .filter(
+                    BeachIncident.beach_id == sib.id,
+                    BeachIncident.closed_at.is_(None),
+                )
+                .first()
+            )
+            if open_inc or _latest_closed(db, sib.id):
+                return _pm_label(sib.name)
+            continue
         hit = (
             db.query(BeachIncident)
             .filter(
                 BeachIncident.beach_id == sib.id,
-                BeachIncident.opened_at <= end_d,
+                BeachIncident.opened_at <= end,
                 or_(
                     BeachIncident.closed_at.is_(None),
                     BeachIncident.closed_at >= start,
@@ -146,7 +164,7 @@ def _sibling_pm_attribution(
             )
             .first()
         )
-        if hit or (end is None and _latest_closed(db, sib.id)):
+        if hit:
             return _pm_label(sib.name)
     return None
 
@@ -662,7 +680,21 @@ def beach_incidents(
     ]
     synth_id = -1
     live_closed = _latest_closed(db, beach_id)
+    # Ventanas oficiales de esta playa: un episodio de prensa que las
+    # solapa es el MISMO suceso — la fila oficial ya lo narra con los
+    # titulares embebidos como corroboración; duplicarlo confundía
+    # ("2 cierres el 22/06 de distinta fuente" en Playa Jardín PM5)
+    official_windows = [
+        (inc.opened_at, inc.closed_at or today)
+        for inc in rows
+        if not is_ungraded_note(inc.observations)
+    ]
     for ev in synthesize_events(beach):
+        if ev.via == "press" and any(
+            ev.opened_at <= hi and lo <= (ev.closed_at or today)
+            for lo, hi in official_windows
+        ):
+            continue
         obs = _synth_observations(ev)
         # Prensa aún abierta y Náyade también la da por cerrada: no es
         # "solo prensa" — el cierre tiene respaldo oficial de estado
@@ -684,7 +716,11 @@ def beach_incidents(
                     _sibling_pm_attribution(
                         beach, db, ev.opened_at, ev.closed_at
                     )
-                    if ev.via == "press"
+                    # Episodio abierto = este punto también está
+                    # afectado ahora (cierre general de prensa): la
+                    # atribución a hermano solo aplica a episodios
+                    # ya resueltos en este punto
+                    if ev.via == "press" and ev.closed_at is not None
                     else None
                 ),
                 press_items=[
@@ -874,7 +910,10 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
             if r.published_at > last_reopen and _is_new_episode_closure(r)
         ]
         if post_reopen:
-            dates = post_reopen
+            # dominant_rows viene del orden DESC de `rows`: sin
+            # re-ordenar, `since` anclaría al titular más NUEVO del
+            # episodio en vez del primero (Jardín oct-2026)
+            dates = sorted(post_reopen)
     # Un episodio estructural ABIERTO no se parte por hueco de
     # cobertura: nadie repite la misma noticia mientras dura la obra
     # (Gaviotas: cierre jun-2026 y titular de sep es el mismo episodio
@@ -1045,10 +1084,14 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
         and r.published_at >= ep_start
     ]
     attributed_pm = None
-    if dominant == "closure" and since is not None:
+    # Solo si este punto NO tiene episodio vivo propio: un cierre
+    # general de prensa replica la noticia a todos los PM y cada uno
+    # narra SU episodio — "la zona 4 sigue cerrada" solo informa
+    # cuando esta zona ya resolvió la suya y la hermana sigue abierta
+    if dominant == "closure" and since is not None and not still_open:
         ep_begin = _closed_since_date(closed_since) or since.date()
         attributed_pm = _sibling_pm_attribution(
-            beach, db, ep_begin, None if still_open else date.today()
+            beach, db, ep_begin, date.today(), live=True
         )
     return BeachNewsOut(
         summary=NewsSummaryOut(

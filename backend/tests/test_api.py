@@ -1,4 +1,4 @@
-from datetime import UTC
+from datetime import UTC, date
 
 import pytest
 from fastapi.testclient import TestClient
@@ -936,5 +936,256 @@ def test_island_episodes(seed_data):
     finally:
         db.delete(item_c)
         db.delete(item_r)
+        db.commit()
+        db.close()
+
+
+def _news(
+    beach_id, event_type, published_at, url, title="Titular de test"
+):
+    from app.models import NewsItem
+
+    return NewsItem(
+        url=url,
+        title=title,
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type=event_type,
+        published_at=published_at,
+    )
+
+
+def test_press_episode_since_anchors_episode_start(seed_data):
+    """Bug: `post_reopen` heredaba el orden DESC de `rows` y `since`
+    anclaba al titular más nuevo del episodio en vez del primero
+    (Jardín oct-2026: el banner decía "desde el 7-oct" siendo 30-sep)."""
+    from datetime import datetime
+
+    from app.db import SessionLocal
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    items = [
+        _news(
+            beach_id,
+            "reopening",
+            datetime(2026, 9, 4, tzinfo=UTC),
+            "https://news.test/since-reopen",
+            "Reabre la playa",
+        ),
+        _news(
+            beach_id,
+            "closure",
+            datetime(2026, 9, 30, tzinfo=UTC),
+            "https://news.test/since-close-1",
+            "Cierran la playa",
+        ),
+        _news(
+            beach_id,
+            "closure",
+            datetime(2026, 10, 7, tzinfo=UTC),
+            "https://news.test/since-close-2",
+            "Sigue cerrada la playa",
+        ),
+    ]
+    db.add_all(items)
+    db.commit()
+    try:
+        r = client.get(f"/beaches/{beach_id}/news")
+        assert r.status_code == 200
+        since = r.json()["summary"]["since"]
+        # El episodio empieza con el PRIMER cierre post-reapertura,
+        # no con el último titular de la ola
+        assert since is not None and since.startswith("2026-09-30")
+    finally:
+        for it in items:
+            db.delete(it)
+        db.commit()
+        db.close()
+
+
+def test_press_general_closure_not_attributed_to_sibling(seed_data):
+    """Cierre general de prensa (replicado a todos los PM): un punto
+    con episodio VIVO narra su propio episodio — `attributed_pm` solo
+    informa de la zona hermana cuando este punto ya resolvió la suya
+    (Jardín oct-2026: PM1/PM5 decían "la zona 4 sigue cerrada" estando
+    ellos mismos marcados cerrados por prensa)."""
+    from datetime import datetime
+
+    from geoalchemy2.elements import WKTElement
+
+    from app.db import SessionLocal
+    from app.models import Beach, BeachIncident
+
+    beach_id = seed_data["beach_id"]  # PLAYA TEST CI (LA) PM1
+    db = SessionLocal()
+    sibling = Beach(
+        external_id="ci-seed-beach-pm2",
+        name="PLAYA TEST CI (LA) PM2",
+        municipality="Santa Cruz de Tenerife",
+        monitored=True,
+        geom=WKTElement("POINT(-16.26 28.46)", srid=4326),
+    )
+    db.add(sibling)
+    db.flush()
+    # La hermana tiene evidencia oficial del mismo episodio
+    sib_inc = BeachIncident(
+        beach_id=sibling.id,
+        opened_at=date(2026, 9, 30),
+        closed_at=None,
+        observations="Prohibido el baño",
+    )
+    items = [
+        _news(
+            beach_id,
+            "closure",
+            datetime(2026, 9, 30, tzinfo=UTC),
+            "https://news.test/gen-close-1",
+            "Cierran la playa",
+        ),
+        _news(
+            beach_id,
+            "closure",
+            datetime(2026, 10, 7, tzinfo=UTC),
+            "https://news.test/gen-close-2",
+            "Sigue cerrada la playa",
+        ),
+    ]
+    db.add(sib_inc)
+    db.add_all(items)
+    db.commit()
+    try:
+        # Episodio propio vivo -> NO se atribuye a la hermana
+        r = client.get(f"/beaches/{beach_id}/news")
+        assert r.status_code == 200
+        assert r.json()["summary"]["attributed_pm"] is None
+        # El historial tampoco lo presenta como "ocurrió en la zona 2"
+        incs = client.get(f"/beaches/{beach_id}/incidents").json()
+        press = [i for i in incs if i["via"] == "press"]
+        assert press and all(i["attributed_pm"] is None for i in press)
+    finally:
+        for it in items:
+            db.delete(it)
+        db.delete(sibling)
+        db.commit()
+        db.close()
+
+
+def test_press_episode_attributed_when_own_episode_resolved(seed_data):
+    """El caso inverso sigue funcionando: si el episodio de este punto
+    ya se resolvió pero el de la hermana sigue abierto, la ficha sí
+    nombra a la zona hermana."""
+    from datetime import datetime
+
+    from geoalchemy2.elements import WKTElement
+
+    from app.db import SessionLocal
+    from app.models import Beach, BeachIncident
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    sibling = Beach(
+        external_id="ci-seed-beach-pm3",
+        name="PLAYA TEST CI (LA) PM3",
+        municipality="Santa Cruz de Tenerife",
+        monitored=True,
+        geom=WKTElement("POINT(-16.27 28.46)", srid=4326),
+    )
+    db.add(sibling)
+    db.flush()
+    # La hermana sigue oficialmente cerrada hoy
+    sib_inc = BeachIncident(
+        beach_id=sibling.id,
+        opened_at=date(2026, 9, 25),
+        closed_at=None,
+        observations="Prohibido el baño",
+    )
+    items = [
+        _news(
+            beach_id,
+            "closure",
+            datetime(2026, 9, 20, tzinfo=UTC),
+            "https://news.test/res-close",
+            "Cierran la playa",
+        ),
+        _news(
+            beach_id,
+            "reopening",
+            datetime(2026, 9, 28, tzinfo=UTC),
+            "https://news.test/res-reopen",
+            "Reabre la playa",
+        ),
+    ]
+    db.add(sib_inc)
+    db.add_all(items)
+    db.commit()
+    try:
+        r = client.get(f"/beaches/{beach_id}/news")
+        assert r.status_code == 200
+        assert r.json()["summary"]["attributed_pm"] == "PM3"
+    finally:
+        for it in items:
+            db.delete(it)
+        db.delete(sibling)
+        db.commit()
+        db.close()
+
+
+def test_press_episode_overlapping_official_incident_not_duplicated(
+    seed_data,
+):
+    """Un episodio de prensa que solapa una incidencia oficial de la
+    MISMA playa es el mismo suceso real: una sola fila, la oficial, con
+    los titulares embebidos (Jardín PM5: dos filas el 22/06)."""
+    from datetime import datetime
+
+    from app.db import SessionLocal
+    from app.models import BeachIncident
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    inc = BeachIncident(
+        beach_id=beach_id,
+        opened_at=date(2026, 6, 22),
+        closed_at=date(2026, 6, 24),
+        observations="Prohibido el baño",
+    )
+    items = [
+        _news(
+            beach_id,
+            "closure",
+            datetime(2026, 6, 22, tzinfo=UTC),
+            "https://news.test/dup-close",
+            "Cierran la playa por bacterias",
+        ),
+        _news(
+            beach_id,
+            "reopening",
+            datetime(2026, 8, 14, tzinfo=UTC),
+            "https://news.test/dup-reopen",
+            "Reabre la playa",
+        ),
+    ]
+    db.add(inc)
+    db.add_all(items)
+    db.commit()
+    try:
+        r = client.get(f"/beaches/{beach_id}/incidents")
+        assert r.status_code == 200
+        rows = r.json()
+        # Solo UNA fila para el episodio de junio: la oficial
+        june = [
+            i for i in rows if i["opened_at"].startswith("2026-06-22")
+        ]
+        assert len(june) == 1
+        assert june[0]["via"] == "official"
+        # Y los titulares quedan embebidos como corroboración
+        titles = [p["title"] for p in june[0].get("press_items", [])]
+        assert "Cierran la playa por bacterias" in titles
+    finally:
+        for it in items:
+            db.delete(it)
+        db.delete(inc)
         db.commit()
         db.close()
