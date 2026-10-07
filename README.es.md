@@ -146,8 +146,8 @@ npx expo start --dev-client --port 8082
 ## Testing y CI
 
 ```bash
-cd backend && .venv\Scripts\python -m pytest tests/ -q   # 126 tests
-cd frontend && npx tsc --noEmit && npm test              # typecheck + 48 tests
+cd backend && .venv\Scripts\python -m pytest tests/ -q   # 134 tests
+cd frontend && npx tsc --noEmit && npm test              # typecheck + 86 tests
 cd backend && ruff check . && ruff format --check .      # lint + formato Python
 cd frontend && npm run format:check                      # formato Prettier
 ```
