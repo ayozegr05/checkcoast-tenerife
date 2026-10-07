@@ -8,7 +8,9 @@ import { groupNewsItems } from '../../lib/news';
 import { news } from '../../test/fixtures';
 
 describe('<NewsGroupList />', () => {
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   const items = [
     news({ id: 1, title: 'Cierran Playa Jardín', source: 'El Día' }),

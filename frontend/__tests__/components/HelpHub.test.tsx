@@ -6,7 +6,9 @@ import { BackHandler } from 'react-native';
 import HelpHub from '../../components/HelpHub';
 
 describe('<HelpHub />', () => {
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   it('muestra el índice de temas y la tarjeta de bienvenida', async () => {
     const onShowIntro = jest.fn();
@@ -56,19 +58,19 @@ describe('<HelpHub />', () => {
   });
 
   it('el atrás del sistema vuelve al índice desde un tema', async () => {
-    const handlers: (() => boolean | null | undefined)[] = [];
+    const handlers: Parameters<typeof BackHandler.addEventListener>[1][] = [];
     jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_e, h) => {
       handlers.push(h);
       return { remove: jest.fn() };
     });
     await render(<HelpHub onClose={jest.fn()} />);
-    expect(handlers.at(-1)!()).toBe(false);
+    expect(handlers.at(-1)!({} as never)).toBe(false);
     await fireEvent.press(
       screen.getByRole('button', { name: 'Ayuda sobre Noticias' }),
     );
     let handled: boolean | null | undefined;
     await act(async () => {
-      handled = handlers.at(-1)!();
+      handled = handlers.at(-1)!({} as never);
     });
     expect(handled).toBe(true);
     expect(
