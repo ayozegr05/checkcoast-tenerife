@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import DeviceToken
-from app.schemas import DeviceIn
+from app.models import ClientEvent, DeviceToken
+from app.schemas import ClientEventIn, DeviceIn
 
 router = APIRouter(tags=["devices"])
 
@@ -24,4 +24,23 @@ def register_device(payload: DeviceIn, db: Session = Depends(get_db)) -> dict:
     elif payload.platform and exists.platform != payload.platform:
         exists.platform = payload.platform
         db.commit()
+    return {"ok": True}
+
+
+@router.post("/client-events", status_code=201)
+def report_client_event(
+    payload: ClientEventIn, db: Session = Depends(get_db)
+) -> dict:
+    """La app reporta un error de cliente (p.ej. push no activado).
+
+    Write-only y sin auth: es telemetría que el propio cliente emite —
+    un campo truncado no vale un token de admin."""
+    db.add(
+        ClientEvent(
+            kind=payload.kind[:40],
+            platform=(payload.platform or "")[:20] or None,
+            message=(payload.message or "")[:500] or None,
+        )
+    )
+    db.commit()
     return {"ok": True}

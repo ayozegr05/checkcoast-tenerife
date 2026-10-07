@@ -115,6 +115,9 @@ export default function App() {
   const [sheetCoversControls, setSheetCoversControls] = useState(false);
   // Doble atrás para salir: marca temporal del último atrás en el mapa
   const lastBackRef = useRef(0);
+  // Registro push fallido (permiso denegado, sin projectId o error de
+  // red): Ayuda lo muestra con opción de reintentar
+  const [pushFailed, setPushFailed] = useState(false);
 
   const loadData = () => {
     setError(null);
@@ -254,7 +257,7 @@ export default function App() {
   openBeachRef.current = openBeachById;
 
   useEffect(() => {
-    setupPushNotifications();
+    setupPushNotifications().then((ok) => setPushFailed(!ok));
     const sub = Notifications.addNotificationResponseReceivedListener(
       (resp) => {
         const id = (
@@ -574,6 +577,10 @@ export default function App() {
       {helpOpen && (
         <HelpHub
           onClose={() => setHelpOpen(false)}
+          pushFailed={pushFailed}
+          onRetryPush={() =>
+            setupPushNotifications().then((ok) => setPushFailed(!ok))
+          }
           onShowIntro={() => {
             setHelpOpen(false);
             setIntroRevisit(true);

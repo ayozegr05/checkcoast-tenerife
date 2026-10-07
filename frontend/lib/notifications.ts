@@ -3,7 +3,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-import { registerDevice } from './api';
+import { registerDevice, reportClientEvent } from './api';
 
 // Con la app en primer plano: banner + bandeja + sonido
 Notifications.setNotificationHandler({
@@ -16,8 +16,10 @@ Notifications.setNotificationHandler({
 });
 
 // Pide permiso, obtiene el Expo push token y lo registra en el backend.
-// Silencioso ante cualquier fallo: la app funciona igual sin push.
-export async function setupPushNotifications(): Promise<void> {
+// Devuelve true si los avisos quedan activos — los fallos se reportan
+// al backend (/client-events) y la app los muestra en Ayuda con
+// opción de reintentar.
+export async function setupPushNotifications(): Promise<boolean> {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('alerts', {
       name: 'Alertas de playas',
@@ -26,28 +28,39 @@ export async function setupPushNotifications(): Promise<void> {
       lightColor: '#0288d1',
     });
   }
-  if (!Device.isDevice) return; // sin push en emulador/Expo Go
+  if (!Device.isDevice) return true; // sin push en emulador/Expo Go
 
   const { status: existing } = await Notifications.getPermissionsAsync();
   let status = existing;
   if (existing !== 'granted') {
     ({ status } = await Notifications.requestPermissionsAsync());
   }
-  if (status !== 'granted') return;
+  if (status !== 'granted') return false;
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId as
     string | undefined;
   if (!projectId) {
     console.warn('Push: projectId no encontrado en expoConfig');
-    return;
+    reportClientEvent(
+      'push_register_failed',
+      Platform.OS,
+      'projectId ausente en expoConfig',
+    );
+    return false;
   }
 
   try {
     const token = (await Notifications.getExpoPushTokenAsync({ projectId }))
       .data;
     await registerDevice(token, Platform.OS);
+    return true;
   } catch (e) {
-    // Sin push la app sigue funcionando; el aviso al usuario va en 10.8
     console.warn('Push: registro fallido', e);
+    reportClientEvent(
+      'push_register_failed',
+      Platform.OS,
+      e instanceof Error ? e.message : String(e),
+    );
+    return false;
   }
 }

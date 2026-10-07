@@ -177,6 +177,15 @@ class DeviceIn(BaseModel):
     platform: str | None = None
 
 
+class ClientEventIn(BaseModel):
+    """Error/evento reportado por la app instalada — /health lo cuenta
+    en errors_24h.client (kind libre, p.ej. "push-register-failed")."""
+
+    kind: str
+    platform: str | None = None
+    message: str | None = None
+
+
 class AlertOut(BaseModel):
     beach_id: int
     beach_name: str

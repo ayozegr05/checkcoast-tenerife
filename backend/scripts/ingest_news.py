@@ -461,8 +461,11 @@ def _backfill_keys(beaches: list[Beach]) -> list[str]:
     )
 
 
-def run(backfill_year: int | None = None) -> tuple[int, int, int]:
-    """(relevantes insertadas, titulares procesados, recasadas).
+def run(
+    backfill_year: int | None = None,
+) -> tuple[int, int, int, int]:
+    """(relevantes insertadas, titulares procesados, recasadas, errores
+    LLM del proveedor — pasada principal).
 
     backfill_year: ingesta histórica de un año concreto vía operadores
     de fecha de Google News. Sin topes de llamadas (el volumen lo acota
@@ -470,7 +473,7 @@ def run(backfill_year: int | None = None) -> tuple[int, int, int]:
     noticias de hace un año no despiertan el móvil."""
     if not settings.gemini_api_key:
         print("[news] GEMINI_API_KEY no configurada, se omite la ingesta")
-        return 0, 0, 0
+        return 0, 0, 0, 0
 
     backfill = backfill_year is not None
     extractor = GeminiExtractor(
@@ -480,7 +483,7 @@ def run(backfill_year: int | None = None) -> tuple[int, int, int]:
     )
 
     db = SessionLocal()
-    inserted = processed = 0
+    inserted = processed = llm_errors = 0
     to_notify: dict[
         tuple[str, str, str], tuple[Beach, str, list[NewsItem]]
     ] = {}
@@ -533,7 +536,8 @@ def run(backfill_year: int | None = None) -> tuple[int, int, int]:
             processed += 1
             ext = extract_event(art, extractor)
             if ext is None:
-                continue  # fallo del proveedor: se reintenta la próxima pasada
+                llm_errors += 1  # fallo del proveedor (cuota, 5xx, parse)
+                continue  # se reintenta la próxima pasada
             hits = (
                 match_beaches(ext, beaches, title=art.title)
                 if ext.relevant
@@ -629,7 +633,7 @@ def run(backfill_year: int | None = None) -> tuple[int, int, int]:
                         it.pushed_at = now
                         it.push_pending = False
                     db.commit()
-        return inserted, processed, rematched
+        return inserted, processed, rematched, llm_errors
     except Exception:
         db.rollback()
         raise
@@ -643,10 +647,10 @@ def main() -> None:
     argv = sys.argv[1:]
     if "--backfill" in argv:
         year = int(argv[argv.index("--backfill") + 1])
-    inserted, processed, rematched = run(backfill_year=year)
+    inserted, processed, rematched, llm_errors = run(backfill_year=year)
     print(
         f"News: {inserted} relevantes insertadas ({processed} procesados, "
-        f"{rematched} recasadas)"
+        f"{rematched} recasadas, {llm_errors} errores LLM)"
     )
 
 

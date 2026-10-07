@@ -138,9 +138,15 @@ const TOPICS: Topic[] = [
 export default function HelpHub({
   onClose,
   onShowIntro,
+  pushFailed,
+  onRetryPush,
 }: {
   onClose: () => void;
   onShowIntro?: () => void;
+  // Registro push fallido al arrancar — la fila ofrece reintentar
+  // (permiso denegado antes, corte de red al pedir el token…)
+  pushFailed?: boolean;
+  onRetryPush?: () => void;
 }) {
   const [topic, setTopic] = useState<Topic | null>(null);
 
@@ -212,6 +218,30 @@ export default function HelpHub({
             ))
           ) : (
             <>
+              {pushFailed && onRetryPush && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.topicRow,
+                    styles.pushWarnRow,
+                    pressed && styles.pressFx,
+                  ]}
+                  onPress={onRetryPush}
+                  accessibilityRole="button"
+                  accessibilityLabel="Reintentar activar los avisos push"
+                >
+                  <Image
+                    source={require('../assets/icons/icon-alert.png')}
+                    style={styles.hintIcon}
+                  />
+                  <View style={styles.topicTextWrap}>
+                    <Text style={styles.topicTitle}>Avisos push</Text>
+                    <Text style={styles.topicSub}>
+                      No se pudieron activar · Reintentar
+                    </Text>
+                  </View>
+                  <Text style={styles.topicChevron}>›</Text>
+                </Pressable>
+              )}
               {onShowIntro && (
                 <Pressable
                   style={({ pressed }) => [
@@ -401,6 +431,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 1,
+  },
+  // Fila de aviso: el registro push falló al arrancar (ámbar suave,
+  // no error grave — la app funciona sin push)
+  pushWarnRow: {
+    borderColor: '#f0b429',
+    backgroundColor: '#fff8e6',
   },
   topicChevron: {
     fontSize: 20,

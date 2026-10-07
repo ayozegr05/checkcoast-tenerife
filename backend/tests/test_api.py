@@ -11,7 +11,29 @@ client = TestClient(app)
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    data = r.json()
+    assert data["db"] == "ok"
+    # Sin job_runs registrados los syncs figuran stale → "degraded" es
+    # un estado legítimo en la DB de tests; lo que importa es la forma
+    assert data["status"] in ("ok", "degraded")
+    for job in ("nayade-sync", "news-sync"):
+        assert job in data["jobs"]
+        assert "stale" in data["jobs"][job]
+    assert set(data["errors_24h"]) == {"llm", "job_runs", "client"}
+
+
+def test_client_events():
+    r = client.post(
+        "/client-events",
+        json={
+            "kind": "push_register_failed",
+            "platform": "android",
+            "message": "test",
+        },
+    )
+    assert r.status_code == 201
+    data = client.get("/health").json()
+    assert data["errors_24h"]["client"] >= 1
 
 
 def test_outfalls_geojson():

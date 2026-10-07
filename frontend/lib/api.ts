@@ -248,3 +248,16 @@ export const registerDevice = (token: string, platform: string) =>
   }).then((res) => {
     if (!res.ok) throw new Error(`API /devices: HTTP ${res.status}`);
   });
+
+// Telemetría de errores de la app instalada — write-only, fire and
+// forget: si el envío falla no hay nada mejor que hacer con el error
+export const reportClientEvent = (
+  kind: string,
+  platform: string,
+  message?: string,
+) =>
+  fetch(`${API_URL}/client-events`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind, platform, message }),
+  }).catch(() => {});

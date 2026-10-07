@@ -891,7 +891,11 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
     open_struct_spans = [
         (
             min(
-                (i.published_at.date() for i in e.press_items if i.published_at),
+                (
+                    i.published_at.date()
+                    for i in e.press_items
+                    if i.published_at
+                ),
                 default=e.opened_at,
             ),
             e.last_closure or e.opened_at,
