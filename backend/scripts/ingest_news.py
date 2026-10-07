@@ -30,6 +30,7 @@ from app.models import Beach, BeachState, BeachStatus, NewsItem
 from app.news_llm import EventExtraction, GeminiExtractor, extract_event
 from app.news_matching import _MIN_NAME_LEN, _press_key, match_beaches
 from app.news_resolve import resolve_and_fetch
+from app.news_zones import narrow_hits_by_zone
 from app.news_sources import (
     GUIA_SOURCE,
     MEDIA_FEEDS,
@@ -278,6 +279,7 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
             municipality=item.extracted_municipality,
         )
         hits = match_beaches(ext, beaches, title=item.title)
+        hits = narrow_hits_by_zone(hits, item.extracted_beach, item.title)
         if not hits:
             continue
         # La URL puede tener ya réplicas casadas a algunos de los hits
@@ -375,6 +377,7 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
         if ext is None:
             continue  # fallo del proveedor: reintento la próxima pasada
         hits = match_beaches(ext, beaches, title=title) if ext.relevant else []
+        hits = narrow_hits_by_zone(hits, ext.beach_name, title, body)
         if rows:
             # Ficha ya vista: actualizamos la extracción en las filas
             # que existan (la misma URL replicada por PM)
@@ -549,6 +552,23 @@ def run(
                     art, ext, hits, beaches, extractor
                 )
                 body_left -= used
+            # Complejo multi-cala: si el titular o el nombre extraído
+            # ya nombran la zona ("Playa Grande", "Charcón") se asigna
+            # solo a su PM; si no, el cuerpo del artículo suele citar
+            # el bando con las calas — un fetch sin LLM basta. Sin
+            # mención de zona quedan todos los PMs (conservador)
+            hits = narrow_hits_by_zone(hits, ext.beach_name, art.title)
+            if (
+                len(hits) > 1
+                and ext.event_type in _PRESS_PUSH_EVENTS
+                and body_left > 0
+            ):
+                body = resolve_and_fetch(art.url)
+                body_left -= 1
+                if body:
+                    hits = narrow_hits_by_zone(
+                        hits, body, ext.beach_name, art.title
+                    )
             for beach in hits or [None]:  # una fila por PM de la playa
                 item = NewsItem(
                     url=art.url,

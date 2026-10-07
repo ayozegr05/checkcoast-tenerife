@@ -245,6 +245,7 @@ export default function BeachDetail({
           stillClosed: pressStillClosed || pressEpisodeOpen,
           reopenedAt: pressReopenedAt,
           siblingPm: news.summary.attributed_pm,
+          beachName: p.name,
         })
       : null;
   const pressReopened = press?.tone === 'reopened';
@@ -357,6 +358,7 @@ export default function BeachDetail({
           incidents={incidents}
           openIncs={openIncs}
           onToggleIncident={toggleInc}
+          beachName={p.name}
         />
       )}
 

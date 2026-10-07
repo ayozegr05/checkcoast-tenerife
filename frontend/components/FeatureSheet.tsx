@@ -18,6 +18,7 @@ import type { Selection } from './CoastMap';
 import type { GeoFeature } from '../lib/api';
 import { beachBaseName, displayBeachName } from '../lib/format';
 import { beachStatusKey } from '../lib/beachStatus';
+import { zoneName } from '../lib/zones';
 import { colors, fonts } from '../lib/theme';
 
 // Ficha flotante sobre el mapa: el shell (asa arrastrable, cabecera,
@@ -144,7 +145,10 @@ export default function FeatureSheet({
     new Set(members.map((m) => stripPm(m.properties.name))).size === 1;
   const pmSuffix =
     chosenPm && sameBase
-      ? ` · Zona ${chosenPm.properties.name.match(/PM(\d+)$/)?.[1] ?? ''}`
+      ? ` · ${
+          zoneName(chosenPm.properties.name) ??
+          `Zona ${chosenPm.properties.name.match(/PM(\d+)$/)?.[1] ?? ''}`
+        }`
       : '';
   const muni = isBeach ? beachFeature.properties.municipality : null;
   const title =

@@ -59,7 +59,7 @@ const jardin1 = beach(1, 'Playa Jardín PM1', {
   municipality: 'Puerto de la Cruz',
   status: 'closed',
 });
-const jardin2 = beach(2, 'Playa Jardín PM2', {
+const jardin2 = beach(2, 'Playa Jardín PM4', {
   municipality: 'Puerto de la Cruz',
   status: 'open',
 });
@@ -156,15 +156,15 @@ describe('<FeatureSheet />', () => {
     expect(screen.getByText('2 zonas de esta playa')).toBeTruthy();
     expect(screen.getByText('Playa Jardín · Puerto de la Cruz')).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Zona 1, Cierre activo' }),
+      screen.getByRole('button', { name: 'El Castillo, Cierre activo' }),
     ).toBeTruthy();
 
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Zona 2, Sin alertas activas' }),
+      screen.getByRole('button', { name: 'Punta Brava, Sin alertas activas' }),
     );
-    expect(screen.getByText('ficha: Playa Jardín PM2')).toBeTruthy();
+    expect(screen.getByText('ficha: Playa Jardín PM4')).toBeTruthy();
     expect(
-      screen.getByText('Playa Jardín · Zona 2 · Puerto de la Cruz'),
+      screen.getByText('Playa Jardín · Punta Brava · Puerto de la Cruz'),
     ).toBeTruthy();
     expect(onZoneShown).toHaveBeenLastCalledWith(jardin2);
 
@@ -175,7 +175,7 @@ describe('<FeatureSheet />', () => {
 
     // Igual con el botón atrás de Android
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Zona 1, Cierre activo' }),
+      screen.getByRole('button', { name: 'El Castillo, Cierre activo' }),
     );
     let handled: boolean | null | undefined;
     await act(async () => {

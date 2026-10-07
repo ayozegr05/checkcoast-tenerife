@@ -4,6 +4,7 @@
 
 import type { BeachNewsSummary } from './api';
 import { fmtDate, fmtPartialDate, formatDays } from './format';
+import { siblingZoneRef } from './zones';
 
 // Línea-resumen: motivo primero, fecha del primer titular, atribución
 // abajo — "Cerrada por riesgo de desprendimientos · desde el 03/06".
@@ -25,8 +26,11 @@ export const pressSummary = (
     now?: Date;
     // El episodio es de un PM hermano del arenal ("PM4") — este
     // punto no registró cierre; el banner nombra al hermano en
-    // lenguaje llano ("la zona 4")
+    // lenguaje llano ("la cala Punta Brava" / "la zona 4")
     siblingPm?: string | null;
+    // Nombre de la playa de esta ficha — resuelve el nombre común
+    // de la cala hermana cuando el complejo está mapeado
+    beachName?: string;
   },
 ) => {
   const [noun, prep, dmark] = NEWS_EVENT_LINE[s.event_type ?? 'other'] ?? [
@@ -34,9 +38,10 @@ export const pressSummary = (
     'sobre',
     'el',
   ];
-  // "PM4" → "zona 4" — nunca exponemos la sigla interna
+  // "PM4" → "cala Punta Brava" (o "zona 4" si el complejo no está
+  // mapeado) — nunca exponemos la sigla interna
   const pmShort = opts.siblingPm
-    ? `zona ${opts.siblingPm.replace(/^PM/i, '')}`
+    ? siblingZoneRef(opts.beachName ?? '', opts.siblingPm)
     : null;
   const medios =
     s.outlets_count === 1 ? '1 medio' : `${s.outlets_count} medios`;

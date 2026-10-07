@@ -7,6 +7,8 @@
 //   (el paréntesis solo se mueve si es un artículo suelto; un alias
 //   como "Los Abriguitos" se queda donde está)
 
+import { zoneName } from './zones';
+
 const CONNECTORS = new Set(['de', 'del', 'y', 'e', 'en', 'a', 'o', 'u']);
 const ARTICLES = new Set(['el', 'la', 'los', 'las']);
 // Números romanos de nombres compuestos ("Troya II", "Américas I"):
@@ -190,8 +192,12 @@ export const beachPointLabel = (name: string) => {
 
 // Versión legible para el usuario: "PM3" -> "Zona 3";
 // "II · PM3" -> "II · zona 3". "PM" solo lo entiende quien conoce
-// el censo de Náyade
+// el censo de Náyade. Si la cala tiene nombre común (zonas curadas:
+// Jardín PM4 = Punta Brava) ese es el rótulo — es como la gente
+// nombra la zona
 export const pointLongLabel = (name: string) => {
+  const z = zoneName(name);
+  if (z) return z;
   const l = beachPointLabel(name);
   if (!l) return null;
   const s = l.replace(/PM(\d+)/, 'zona $1');

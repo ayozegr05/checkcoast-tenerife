@@ -47,7 +47,7 @@ const jardin1 = beach(1, 'Playa Jardín PM1', {
   municipality: 'Puerto de la Cruz',
   status: 'closed',
 });
-const jardin2 = beach(2, 'Playa Jardín PM2', {
+const jardin2 = beach(2, 'Playa Jardín PM4', {
   municipality: 'Puerto de la Cruz',
   status: 'open',
 });
@@ -213,10 +213,12 @@ describe('<BeachList />', () => {
     expect(row).toBeExpanded();
     expect(await screen.findByText('12/08 · Apta')).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Zona 2, Apta' }));
-    expect(screen.getByText('ficha: Playa Jardín PM2')).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Punta Brava, Apta' }),
+    );
+    expect(screen.getByText('ficha: Playa Jardín PM4')).toBeTruthy();
     expect(
-      screen.getByText('Playa Jardín · Zona 2 · Puerto de la Cruz'),
+      screen.getByText('Playa Jardín · Punta Brava · Puerto de la Cruz'),
     ).toBeTruthy();
 
     await fireEvent.press(
@@ -225,7 +227,7 @@ describe('<BeachList />', () => {
     expect(screen.queryByText(/^ficha:/)).toBeNull();
     // Al volver, el grupo sigue desplegado
     expect(
-      screen.getByRole('button', { name: 'Zona 1, Cerrada' }),
+      screen.getByRole('button', { name: 'El Castillo, Cerrada' }),
     ).toBeTruthy();
   });
 

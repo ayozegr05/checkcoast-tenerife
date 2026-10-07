@@ -11,6 +11,7 @@ import {
 } from '../../lib/incidents';
 import { groupNewsItems } from '../../lib/news';
 import { colors, fonts } from '../../lib/theme';
+import { siblingZoneRef } from '../../lib/zones';
 import NewsGroupList from './NewsGroupList';
 
 type IncidentHistoryProps = {
@@ -18,6 +19,9 @@ type IncidentHistoryProps = {
   // Filas con los titulares desplegados (varias a la vez)
   openIncs: ReadonlySet<number>;
   onToggleIncident: (id: number) => void;
+  // Nombre de la playa de esta ficha — resuelve el nombre común de
+  // la cala hermana ("la cala Punta Brava") en complejos mapeados
+  beachName?: string;
 };
 
 // Historial de incidencias oficiales + episodios reconstruidos:
@@ -27,6 +31,7 @@ export default function IncidentHistory({
   incidents,
   openIncs,
   onToggleIncident,
+  beachName = '',
 }: IncidentHistoryProps) {
   const renderInc = (inc: BeachIncident) => {
     const closure = isClosure(inc);
@@ -73,7 +78,7 @@ export default function IncidentHistory({
         </View>
         {inc.attributed_pm ? (
           <Text style={styles.incidentObs}>
-            {`Ocurrió en la zona ${inc.attributed_pm.replace(/^PM/i, '')}`}
+            {`Ocurrió en la ${siblingZoneRef(beachName, inc.attributed_pm)}`}
           </Text>
         ) : null}
         {inc.observations ? (
@@ -214,7 +219,7 @@ export default function IncidentHistory({
               {sib.length > 0 && (
                 <>
                   <Text style={styles.historySubGroupTitle}>
-                    En la zona {sib[0].attributed_pm!.replace(/^PM/i, '')}
+                    En la {siblingZoneRef(beachName, sib[0].attributed_pm!)}
                   </Text>
                   {sib.map(renderInc)}
                 </>
