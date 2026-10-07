@@ -72,11 +72,15 @@ const emisario = outfall(9, 'EMISARIO LOS LLANOS', {
 });
 
 describe('<FeatureSheet />', () => {
+  // Fake timers: las animaciones (spring/timing) avanzan dentro de act
+  // en vez de disparar frames sueltos entre aserciones
   beforeEach(() => {
+    jest.useFakeTimers();
     jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
     nearbyMock.mockReset().mockResolvedValue([]);
   });
   afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
