@@ -5,6 +5,7 @@ import {
   causeBreakdown,
   closuresThisYear,
   episodeYears,
+  latestEpisodeYear,
   seasonEpisodes,
   yearEpisodes,
 } from '../lib/episodes';
@@ -103,6 +104,39 @@ describe('episodeYears — años con datos para el selector', () => {
     expect(
       episodeYears([ep({ opened_at: '2024-07-01', closed_at: null })]),
     ).toEqual(cur === 2026 ? [2026, 2025, 2024] : expect.anything());
+  });
+});
+
+describe('latestEpisodeYear — dónde abre el ranking', () => {
+  const cur = new Date().getFullYear();
+
+  it('el año en curso si tiene episodios', () => {
+    expect(
+      latestEpisodeYear([
+        ep({ opened_at: `${cur}-07-01`, closed_at: `${cur}-07-02` }),
+      ]),
+    ).toBe(cur);
+  });
+
+  it('si el año en curso está vacío, el último año con datos', () => {
+    expect(
+      latestEpisodeYear([
+        ep({ opened_at: `${cur - 3}-07-01`, closed_at: `${cur - 3}-07-02` }),
+        ep({ opened_at: `${cur - 2}-07-01`, closed_at: `${cur - 2}-07-02` }),
+      ]),
+    ).toBe(cur - 2);
+  });
+
+  it('un episodio abierto toca hasta el año en curso', () => {
+    expect(
+      latestEpisodeYear([
+        ep({ opened_at: `${cur - 2}-07-01`, closed_at: null }),
+      ]),
+    ).toBe(cur);
+  });
+
+  it('sin episodios devuelve null', () => {
+    expect(latestEpisodeYear([])).toBeNull();
   });
 });
 

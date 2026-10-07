@@ -208,11 +208,24 @@ describe('<MunicipalityStats />', () => {
     expect(screen.getByText('Incidencias por municipio')).toBeTruthy();
   });
 
-  it('sin episodios: sin chips de año, lista vacía y la ✕ cierra', async () => {
+  it('si el año en curso no tiene episodios abre el último con datos', async () => {
+    jest.setSystemTime(new Date('2026-03-01T12:00:00Z'));
+    await render(<MunicipalityStats {...props()} />);
+    expect(
+      screen.getByText('Ranking de 2025 · episodios del año por municipio'),
+    ).toBeTruthy();
+    expect(muniNames()).toEqual(['Arona', 'Puerto de la Cruz']);
+    expect(screen.getByRole('button', { name: 'Ver año 2026' })).toBeTruthy();
+  });
+
+  it('sin episodios abre el histórico; la ✕ cierra', async () => {
     const p = props({ episodes: [] });
     await render(<MunicipalityStats {...p} />);
     expect(screen.queryByRole('button', { name: /^Ver año/ })).toBeNull();
-    expect(screen.getByText('Sin episodios en 2025')).toBeTruthy();
+    expect(
+      screen.getByText('Ranking por afectación actual e histórica'),
+    ).toBeTruthy();
+    expect(screen.queryByText(/^Sin episodios en/)).toBeNull();
     await fireEvent.press(screen.getByText('✕'));
     expect(p.onClose).toHaveBeenCalled();
   });

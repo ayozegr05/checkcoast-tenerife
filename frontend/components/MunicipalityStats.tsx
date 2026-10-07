@@ -20,6 +20,7 @@ import {
   causeFamily,
   causeFamilyCounts,
   episodeYears,
+  latestEpisodeYear,
   seasonEpisodes,
   seasonYear,
   yearEpisodes,
@@ -103,10 +104,9 @@ export default function MunicipalityStats({
     // Ranking abre en "Este año" si hay datos; si el año vigente aún
     // no tiene episodios cae al último año con datos, y sin años al
     // histórico completo
-    const ys = episodeYears(episodes);
-    const cy = new Date().getFullYear();
-    setSelYear(ys.includes(cy) ? cy : (ys[0] ?? seasonYear()));
-    setHistMode(ys.length === 0);
+    const latest = latestEpisodeYear(episodes);
+    setSelYear(latest ?? seasonYear());
+    setHistMode(latest === null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initialView, initialCause]);
 
