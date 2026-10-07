@@ -8,9 +8,12 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
 
 - `backend/` — FastAPI + SQLAlchemy 2 + GeoAlchemy2 + Alembic, Python 3.12
   - `app/models.py` — `Outfall`, `Beach` (+`monitored`), `BeachStatus`,
-    `BeachIncident`, `BeachMeasurement`, `DeviceToken`, `NewsItem`
+    `BeachIncident`, `BeachMeasurement`, `DeviceToken`, `NewsItem`,
+    `JobRun` (pasadas del scheduler persistidas para `/health`),
+    `ClientEvent` (telemetría de errores de la app instalada)
   - `app/routers/` — `outfalls.py`, `beaches.py`, `alerts.py`,
-    `devices.py` (`POST /devices` registra Expo push tokens);
+    `devices.py` (`POST /devices` registra Expo push tokens;
+    `POST /client-events` recibe errores de la app, write-only sin auth);
     `GET /episodes` = episodios insulares agregados (oficiales +
     reconstruidos, agrupados por playa base + municipio)
   - `app/notify.py` — push vía Expo Push Service al cambiar estado de
@@ -38,7 +41,11 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     matriz de caducidad de prensa por causa (ver reglas de negocio)
   - `app/main.py` — lifespan con APScheduler (`_sync_beach_statuses` cada
     `NAYADE_SYNC_SECONDS`, 1 h; `_sync_news` cada `NEWS_SYNC_SECONDS`,
-    6 h; ambos envueltos en try/except)
+    6 h; ambos envueltos en `_run_job` que persiste el run en `job_runs`)
+    + `GET /health`: `db`, `jobs.<job>.{last_ok_at,stale,last_error}`
+    (stale = >2× intervalo sin éxito), `errors_24h{llm,job_runs,client}`
+    y `status` ok|degraded — siempre 200, el estado va en el payload
+    (monitor externo: alertar si `"status":"degraded"`)
   - `app/news_sources.py` — fetchers de prensa → `RawArticle` (Google
     News RSS como fuente; feeds por cabecera como respaldo) +
     `fetch_guia_sitemap`/`fetch_guia_page`: fichas evergreen de Guía
