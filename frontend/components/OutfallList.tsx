@@ -16,14 +16,11 @@ import {
 import ScrollChips from './ScrollChips';
 import { GeoFeature } from '../lib/api';
 import { searchNorm } from '../lib/format';
-import { outfallRisk, RISK_LABEL } from '../lib/outfallRisk';
+import { outfallRisk, RISK_LABEL, RISK_COLORS } from '../lib/outfallRisk';
+import { OUTFALL_STATUS_LABELS } from '../lib/outfallSheet';
 import { colors, fonts } from '../lib/theme';
 
-const STATUS_LABELS: Record<string, string> = {
-  illegal: 'No autorizado',
-  unknown: 'En trámite',
-  legal: 'Autorizado',
-};
+const STATUS_LABELS = OUTFALL_STATUS_LABELS;
 
 const STATUS_PLURALS: Record<string, string> = {
   illegal: 'No autorizados',
@@ -32,13 +29,6 @@ const STATUS_PLURALS: Record<string, string> = {
 };
 
 const STATUS_COLORS = colors.outfall;
-
-// Nivel de preocupación → color de la píldora de la fila
-const RISK_COLORS: Record<string, string> = {
-  alto: '#d84315',
-  medio: '#f9a825',
-  bajo: '#0d9488',
-};
 
 // Grupo de sustancia para los chips de filtro — el censo junta
 // "residual urbana e industrial" y "residual industrial" aparte

@@ -1,4 +1,5 @@
 import { GeoFeature } from './api';
+import { colors } from './theme';
 
 // Índice de riesgo del vertido (bañista y ecosistema) — calculado
 // sobre datos del censo, no una opinión. Ordena la lista de
@@ -107,4 +108,11 @@ export const RISK_LABEL: Record<RiskLevel, string> = {
   alto: 'Riesgo alto',
   medio: 'Riesgo medio',
   bajo: 'Riesgo bajo',
+};
+
+// Nivel de riesgo → tinte de la banda de síntesis
+export const RISK_COLORS: Record<RiskLevel, string> = {
+  alto: '#d84315',
+  medio: '#f9a825',
+  bajo: '#0d9488',
 };

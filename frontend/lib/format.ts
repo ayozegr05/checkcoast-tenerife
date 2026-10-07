@@ -61,6 +61,9 @@ export const fmtDate = (iso: string) => {
   return `${d}/${m}/${y}`;
 };
 
+export const fmtDistance = (m: number) =>
+  m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
+
 // Duración legible: bajo el año, días a secas ("45 días"); a partir
 // de 365 días (Benijo, Los Patos — miles) se desglosa en años y
 // meses: "2 años", "1 año y 3 meses". A esa escala la precisión de

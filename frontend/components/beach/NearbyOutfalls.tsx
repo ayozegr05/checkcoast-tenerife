@@ -2,16 +2,9 @@ import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { BeachNearbyOutfall, GeoFeature } from '../../lib/api';
+import { fmtDistance } from '../../lib/format';
+import { OUTFALL_STATUS_LABELS } from '../../lib/outfallSheet';
 import { colors, fonts } from '../../lib/theme';
-
-const OUTFALL_STATUS_LABELS: Record<string, string> = {
-  legal: 'Autorizado',
-  illegal: 'No autorizado',
-  unknown: 'En trámite',
-};
-
-const fmtDistance = (m: number) =>
-  m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
 
 type NearbyOutfallsProps = {
   nearby: BeachNearbyOutfall[];

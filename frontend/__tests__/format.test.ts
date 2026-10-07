@@ -7,6 +7,7 @@ import {
   beachPointLabel,
   displayBeachName,
   fmtDate,
+  fmtDistance,
 } from '../lib/format';
 
 describe('displayBeachName', () => {
@@ -49,5 +50,13 @@ describe('beachBaseName / beachPointLabel', () => {
 describe('fmtDate', () => {
   it('formatea ISO a dd/mm/aaaa', () => {
     expect(fmtDate('2026-09-14')).toBe('14/09/2026');
+  });
+});
+
+describe('fmtDistance', () => {
+  it('metros bajo el km, km con decimal a partir de ahí', () => {
+    expect(fmtDistance(300)).toBe('300 m');
+    expect(fmtDistance(999)).toBe('999 m');
+    expect(fmtDistance(1500)).toBe('1.5 km');
   });
 });

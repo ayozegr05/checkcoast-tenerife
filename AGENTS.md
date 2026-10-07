@@ -141,8 +141,11 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     avisos activos, incidentes, muestras no aptas) con barra de severidad;
     agrega `/beaches/stats` en cliente; al tocar un municipio abre
     `BeachList` filtrada
-  - `components/FeatureSheet.tsx` — hoja overlay sobre el mapa: emisarios
-    inline; playas delega en `BeachDetail`
+  - `components/FeatureSheet.tsx` — shell de la hoja overlay sobre el
+    mapa (asa arrastrable, cabecera, ✕, "Ver más"); el cuerpo delega en
+    `components/sheet/` (`OutfallSheet` para emisarios, `ZonePicker`
+    para playas multi-PM, `useSheetDrag` para geometría/gesto); playas
+    delega en `BeachDetail`. Textos del censo en `lib/outfallSheet.ts`
   - `lib/api.ts` — tipos + fetchers (+`registerDevice`)
   - `lib/notifications.ts` — `setupPushNotifications`: canal `alerts`,
     permiso, Expo push token → `POST /devices`; handler foreground
