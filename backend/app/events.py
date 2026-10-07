@@ -458,6 +458,18 @@ def synthesize_events(
         and (fresh or structural)
     )
     if still_closed:
+        # Un clúster transitorio abierto tampoco puede absorber
+        # episodios futuros: si lleva >PRESS_STALE sin mención se da
+        # por terminado en su última mención (mismo criterio que el
+        # caso frío). Sin esto un cierre viejo sin reapertura publicada
+        # se fusiona con el episodio vivo y el "desde" miente años
+        # atrás (Punta Larga: vertido ago-2021 ≠ socavación may-2026)
+        for ev in press_evs:
+            if ev.closed_at is None and not _is_structural(ev):
+                last = ev.last_closure or ev.opened_at
+                if today - last > PRESS_STALE:
+                    ev.closed_at = last
+                    ev.end_estimated = True
 
         def _reopen_confirmed(ev: SynthEvent, bound: date) -> bool:
             """La reapertura que cerró el episodio es real: hay prueba
@@ -489,7 +501,11 @@ def synthesize_events(
         ordered = sorted(press_evs, key=lambda e: e.opened_at)
         runs: list[list[SynthEvent]] = [[ordered[0]]]
         for prev, ev in zip(ordered, ordered[1:]):
-            if _reopen_confirmed(prev, ev.first_pub or ev.opened_at):
+            # end_estimated también es frontera: el episodio transitorio
+            # murió por silencio, el siguiente clúster es otro suceso
+            if prev.end_estimated or _reopen_confirmed(
+                prev, ev.first_pub or ev.opened_at
+            ):
                 runs.append([ev])
             else:
                 runs[-1].append(ev)
@@ -504,6 +520,7 @@ def synthesize_events(
                 press_count=sum(e.press_count for e in run),
                 sources=sorted({s for e in run for s in e.sources}),
                 closed_since=_min_closed_since(e.closed_since for e in run),
+                end_estimated=run[-1].end_estimated,
                 causes=[c for e in run for c in e.causes],
                 first_pub=min(e.first_pub or e.opened_at for e in run),
                 press_items=[i for e in run for i in e.press_items],

@@ -883,20 +883,37 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
     # cobertura
     beach = db.get(Beach, beach_id)
     evs = synthesize_events(beach) if beach else []
-    open_structural = dominant == "closure" and any(
-        e.via == "press" and e.closed_at is None and _is_structural(e)
+    # Ventana de cobertura de cada episodio estructural ABIERTO: un
+    # hueco >GAP dentro de su propia cobertura no parte el episodio
+    # (Gaviotas: jun y sep-2026 son la misma obra) — pero el hueco
+    # ENTRE un episodio muerto y el vivo sí separa (Punta Larga: el
+    # vertido de 2021 no es la socavación de 2026)
+    open_struct_spans = [
+        (
+            min(
+                (i.published_at.date() for i in e.press_items if i.published_at),
+                default=e.opened_at,
+            ),
+            e.last_closure or e.opened_at,
+        )
         for e in evs
-    )
+        if e.via == "press" and e.closed_at is None and _is_structural(e)
+    ]
     since = None
     prev = None
     for d in dates:
+        inside_open_struct = prev is not None and any(
+            lo <= prev.date() <= hi and lo <= d.date() <= hi
+            for lo, hi in open_struct_spans
+        )
         boundary = prev is not None and (
-            (d - prev > PRESS_CLUSTER_GAP and not open_structural)
+            (d - prev > PRESS_CLUSTER_GAP and not inside_open_struct)
             or any(prev < r < d for r in reopen_dates)
         )
         if since is None or boundary:
             since = d
         prev = d
+    coverage_since = since
     # El inicio del episodio es la evidencia MÁS ANTIGUA disponible:
     # si una incidencia oficial cubre la ventana, su opened_at manda
     # sobre la primera cobertura de prensa (El Socorro: Náyade dice
@@ -928,17 +945,20 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
     )
     if dominant == "closure":
         if still_open:
-            # Solo los cierres posteriores a la última reapertura: una
-            # playa que reabrió de verdad no puede "seguir cerrada
-            # desde" antes de ella — Jardín reabrió en jun-2025 y un
-            # cierre de sep-2026 no arrastra el "2024-07" del episodio
-            # viejo. Sin reaperturas vale todo (Benijo)
+            # Solo los cierres del episodio vivo: posteriores a la
+            # última reapertura Y dentro de su cadena de cobertura —
+            # Punta Larga: la socavación de 2026 no hereda el "desde
+            # 2021" del vertido viejo; Jardín: el cierre de sep-2026 no
+            # arrastra el "2024-07" del episodio ya reabierto
             pool = [
                 r
                 for r in rows
                 if r.event_type == "closure"
                 and r.published_at
                 and (last_reopen is None or r.published_at > last_reopen)
+                and (
+                    coverage_since is None or r.published_at >= coverage_since
+                )
             ]
         else:
             pool = [
@@ -1004,7 +1024,10 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
         if (
             prev_d is not None
             and d - prev_d > PRESS_CLUSTER_GAP
-            and not open_structural
+            and not any(
+                lo <= prev_d.date() <= hi and lo <= d.date() <= hi
+                for lo, hi in open_struct_spans
+            )
         ):
             ep_start = d
         elif ep_start is None:
