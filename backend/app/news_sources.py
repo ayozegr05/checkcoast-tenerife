@@ -486,4 +486,13 @@ def fetch_backfill(
                 seen.add(a.url)
                 articles.append(a)
         time.sleep(0.5)
-    return [a for a in articles if _looks_local(a, geo_terms)]
+    # after:/before: no es estricto: ~80% de lo que devuelve Google cae
+    # fuera del año pedido (2024 trajo piezas de 2007 a 2026). Fuera de
+    # año = una llamada de Gemini que corresponde a otro backfill
+    return [
+        a
+        for a in articles
+        if a.published_at
+        and a.published_at.year == year
+        and _looks_local(a, geo_terms)
+    ]

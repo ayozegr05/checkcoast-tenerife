@@ -154,3 +154,28 @@ def test_backfill_dump_roundtrip(tmp_path):
     path = tmp_path / "dump.json"
     dump_articles(arts, str(path))
     assert load_articles(str(path)) == arts
+
+
+def test_fetch_backfill_keeps_only_target_year(monkeypatch):
+    from datetime import UTC, datetime
+
+    def art(title, year):
+        return RawArticle(
+            title=title,
+            url=f"https://e.com/{year}",
+            source="Diario de Avisos",
+            published_at=datetime(year, 6, 1, tzinfo=UTC),
+        )
+
+    monkeypatch.setattr(
+        news_sources,
+        "fetch_google_news",
+        lambda q: [
+            art("Cerrada la playa de La Jaquita", 2024),
+            art("Cerrada la playa de La Jaquita", 2026),
+            art("Cerrada la playa de La Jaquita", 2018),
+        ],
+    )
+    monkeypatch.setattr(news_sources.time, "sleep", lambda s: None)
+    got = news_sources.fetch_backfill(2024, ["la jaquita"], {"tenerife"})
+    assert [a.published_at.year for a in got] == [2024]
