@@ -48,6 +48,12 @@ export const episodeYears = (eps: MunicipalityIncident[]): number[] => {
   return years;
 };
 
+// Año más reciente con algún episodio que lo toque, o null si no hay
+// ninguno — episodeYears siempre incluye el año en curso aunque esté
+// vacío, así que no sirve para decidir dónde abrir el ranking
+export const latestEpisodeYear = (eps: MunicipalityIncident[]): number | null =>
+  episodeYears(eps).find((y) => yearEpisodes(eps, y).length > 0) ?? null;
+
 // Pares [causa, nº episodios] ordenados por frecuencia — para las
 // cabeceras y las chips-filtro de la vista "Este año". Los episodios
 // sin causa van al final como etiqueta "sin causa".
