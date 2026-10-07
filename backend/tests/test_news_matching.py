@@ -84,6 +84,17 @@ BEACHES = [
         name="PLAYA CHARCON (EL) PM1",
         municipality="La Guancha",
     ),
+    # Playa de Masca (no monitorizada): el barranco homónimo es un
+    # sendero, no la playa — y una playa que SÍ lleva "Barranco" en el
+    # nombre para no vetar de más
+    SimpleNamespace(
+        id=90, name="Playa de Masca", municipality="Buenavista del Norte"
+    ),
+    SimpleNamespace(
+        id=91,
+        name="Playa del Barranco de Erques",
+        municipality="Guía de Isora",
+    ),
 ]
 
 
@@ -268,3 +279,29 @@ def test_ambiguous_name_flags_body_fetch():
     hits2 = match_beaches(e2, BEACHES)
     assert [b.id for b in hits2] == [32]
     assert _name_is_ambiguous(e2, hits2, BEACHES) is False
+
+
+def test_non_beach_geo_feature_never_matches():
+    """Caso real oct-2024: "Cierran el Barranco de Masca por un
+    desprendimiento de rocas" habla del sendero — casó con Playa de
+    Masca por contención "MASCA" ⊂ "BARRANCO DE MASCA" y la caja de
+    prensa mostró la playa cerrada años. El veto de accidente
+    geográfico impide ambas vías (extracción y rescate por titular)."""
+    title = "Cierran el Barranco de Masca por un desprendimiento"
+    assert ids(ext("Barranco de Masca"), title=title) == []
+    # ni siquiera la vía de rescate por nombre literal en el titular
+    assert ids(ext(None), title=title) == []
+    # el mismo sendero con municipio tampoco cuela
+    assert (
+        ids(ext("Barranco de Masca", "Buenavista del Norte"), title=title)
+        == []
+    )
+    # pero una playa cuyo nombre real lleva "Barranco" sigue casando
+    assert ids(
+        ext("Barranco de Erques", "Guía de Isora"),
+        title="Cierran la playa del Barranco de Erques",
+    ) == [91]
+    # y la playa de Masca nombrada como tal también
+    assert ids(ext("Playa de Masca"), title="Cerrada la playa de Masca") == [
+        90
+    ]

@@ -78,12 +78,36 @@ def _norm_muni(name: str | None) -> str | None:
     return MUNICIPALITY_ALIASES.get(n, n)
 
 
+# Accidente geográfico que NO es playa encabezando un nombre propio:
+# "Barranco de Masca" habla del sendero, no de "Playa de Masca" — la
+# contención "MASCA" ⊂ "BARRANCO DE MASCA" no vale ni en extracción ni
+# en titular. Los match exactos siguen sirviendo ("Playa del Barranco
+# de Erques" SÍ es playa y su clave incluye el BARRANCO)
+_NON_BEACH_FEATURE = re.compile(
+    r"^(?:BARRANCO|CAMINO|SENDERO|SENDA|MIRADOR|PARQUE)\s+"
+    r"(?:DEL\s+|DE\s+(?:LA\s+|LOS\s+|LAS\s+)?|DE\s+)"
+)
+# Misma idea mirando hacia atrás desde la ocurrencia de la clave en el
+# titular: "DE MASCA" tras BARRANCO/CAMINO/… (pero no tras "PLAYA DEL
+# BARRANCO DE…", que sí nombra una playa)
+_FEATURE_BEFORE = re.compile(
+    r"(?:^|\s)(PLAYA\s+(?:DEL\s+|DE\s+(?:LA\s+|LOS\s+|LAS\s+)?|DE\s+)?)?"
+    r"(?:BARRANCO|CAMINO|SENDERO|SENDA|MIRADOR|PARQUE)\s+"
+    r"(?:DEL\s+|DE\s+(?:LA\s+|LOS\s+|LAS\s+)?|DE\s+)$"
+)
+
+
 def _name_in_title(key: str, title_norm: str) -> bool:
     """La clave aparece como nombre literal en el titular (límites de
-    palabra: "LA ARENA" no casa dentro de "ARENITA")."""
-    return bool(
-        re.search(rf"(?<![A-Z0-9]){re.escape(key)}(?![A-Z0-9])", title_norm)
-    )
+    palabra: "LA ARENA" no casa dentro de "ARENITA"; y no cuenta dentro
+    de un accidente no-playa: "Barranco de Masca" ≠ "Playa de Masca")."""
+    for m in re.finditer(
+        rf"(?<![A-Z0-9]){re.escape(key)}(?![A-Z0-9])", title_norm
+    ):
+        feat = _FEATURE_BEFORE.search(title_norm[: m.start()])
+        if not feat or feat.group(1):
+            return True
+    return False
 
 
 def _multi_beach_hits(
@@ -220,7 +244,12 @@ def match_beaches(
             (
                 k
                 for k in keys
-                if target in k or (len(k) >= _MIN_NAME_LEN and k in target)
+                if target in k
+                or (
+                    len(k) >= _MIN_NAME_LEN
+                    and k in target
+                    and not _NON_BEACH_FEATURE.match(target)
+                )
             ),
             None,
         )
