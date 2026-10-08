@@ -165,3 +165,17 @@ def test_cross_base_complex_narrows_both():
         all_beaches=VALLESECO,
     )
     assert {b.id for b in hits} == {58, 59}
+
+
+def test_push_display_name_uses_zone():
+    """El push muestra la cala, no el PM censal: 'Playa Jardin · El
+    Charcón' en vez de 'Playa Jardin PM5'."""
+    from app.notify import _display_name
+
+    assert _display_name(JARDIN[2]) == "Playa Jardin · El Charcón"
+    assert _display_name(JARDIN[1]) == "Playa Jardin · Punta Brava"
+    # sin mapa de zonas se conserva el nombre censal
+    assert (
+        _display_name(GUIMAR[0])
+        == "Playa Cabezo (El)-Paseo De Las Palmeras PM1"
+    )
