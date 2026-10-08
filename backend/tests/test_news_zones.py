@@ -44,7 +44,7 @@ def test_extracted_beach_names_a_zone():
 
 
 def test_title_names_two_zones():
-    """"restricciones en Playa Grande y Charcón" → PM4 + PM5."""
+    """ "restricciones en Playa Grande y Charcón" → PM4 + PM5."""
     hits = narrow_hits_by_zone(
         JARDIN,
         "Playa Jardín",
@@ -67,7 +67,7 @@ def test_zone_alias_in_body():
 
 
 def test_body_ignores_contextual_aliases():
-    """"Punta Brava" en el cuerpo suele ser el barrio/emisario, no la
+    """ "Punta Brava" en el cuerpo suele ser el barrio/emisario, no la
     cala — alias débil: no cuenta en cuerpo, sí en titular."""
     body = (
         "El emisario de Punta Brava, gestionado por la EDAR de Valle "
@@ -97,7 +97,9 @@ def test_aliases_of_siblings():
     Brava son PM4; San Felipe y El Castillo son PM1."""
     assert [b.id for b in narrow_hits_by_zone(JARDIN, "María Jiménez")] == [42]
     assert [b.id for b in narrow_hits_by_zone(JARDIN, "Punta Brava")] == [42]
-    assert [b.id for b in narrow_hits_by_zone(JARDIN, None, "playa de San Felipe")] == [41]
+    assert [
+        b.id for b in narrow_hits_by_zone(JARDIN, None, "playa de San Felipe")
+    ] == [41]
 
 
 def test_unmapped_multi_pm_group_untouched():

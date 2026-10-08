@@ -72,7 +72,9 @@ def main() -> int:
             urls: dict[str, list[NewsItem]] = defaultdict(list)
             for r in rows:
                 urls[r.url].append(r)
-            print(f"== {base} ({muni}): {len(urls)} URLs en {len(beaches)} PMs")
+            print(
+                f"== {base} ({muni}): {len(urls)} URLs en {len(beaches)} PMs"
+            )
 
             for url, group in sorted(urls.items()):
                 r0 = group[0]
@@ -95,7 +97,9 @@ def main() -> int:
                     continue
                 drop = [r for r in group if r.beach_id not in wanted_ids]
                 add = [by_id[i] for i in wanted_ids - have_ids]
-                named = " · ".join(by_id[i].name.split()[-1] for i in sorted(wanted_ids))
+                named = " · ".join(
+                    by_id[i].name.split()[-1] for i in sorted(wanted_ids)
+                )
                 print(
                     f"  {'APPLY' if args.apply else 'dry  '} {r0.title[:60]!r}\n"
                     f"       -> {named or '(sin zona)'} "
