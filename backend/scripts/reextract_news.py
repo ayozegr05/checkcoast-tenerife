@@ -119,7 +119,9 @@ def main() -> None:
             bodies += used
             if ext is not None:
                 # Complejo multi-cala: solo los PMs cuya zona aparece
-                hits = narrow_hits_by_zone(hits, ext.beach_name, art.title)
+                hits = narrow_hits_by_zone(
+                    hits, ext.beach_name, art.title, all_beaches=beaches
+                )
             if ext is None:
                 print(
                     f"  [keep] {rows[0].title[:70]} "

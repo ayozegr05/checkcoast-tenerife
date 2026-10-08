@@ -118,3 +118,50 @@ def test_zone_display_name():
     assert zone_display_name(JARDIN[1]) == "Punta Brava"
     assert zone_display_name(JARDIN[2]) == "El Charcón"
     assert zone_display_name(GUIMAR[0]) is None
+
+
+VALLESECO = [
+    SimpleNamespace(
+        id=59,
+        name="PLAYA VALLESECO PM1",
+        municipality="Santa Cruz de Tenerife",
+    ),
+    SimpleNamespace(
+        id=58,
+        name="PLAYA VALLESECO- EL BLOQUE PM1",
+        municipality="Santa Cruz de Tenerife",
+    ),
+]
+
+
+def test_cross_base_complex_reassigns_named_zone():
+    """Complejo cross-base (Valleseco ↔ El Bloque): la extracción casa
+    'Valleseco' pero el titular nombra 'El Bloque' → la noticia se
+    asigna a El Bloque, no a Valleseco."""
+    hits = narrow_hits_by_zone(
+        VALLESECO[:1],
+        "Valleseco",
+        "Prohibido el baño en la zona de El Bloque, en Valleseco",
+        all_beaches=VALLESECO,
+    )
+    assert [b.id for b in hits] == [58]
+
+
+def test_cross_base_complex_narrows_both():
+    """Los dos tramos en hits y solo uno nombrado → se queda el
+    nombrado."""
+    hits = narrow_hits_by_zone(
+        VALLESECO,
+        None,
+        "Prohibido el baño en la zona de El Bloque, en Valleseco",
+        all_beaches=VALLESECO,
+    )
+    assert [b.id for b in hits] == [58]
+    # sin mención de cala, se conservan todos (conservador)
+    hits = narrow_hits_by_zone(
+        VALLESECO,
+        "Valleseco",
+        "Prohibido el baño en Valleseco por peces muertos",
+        all_beaches=VALLESECO,
+    )
+    assert {b.id for b in hits} == {58, 59}

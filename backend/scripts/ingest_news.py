@@ -277,7 +277,9 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
             municipality=item.extracted_municipality,
         )
         hits = match_beaches(ext, beaches, title=item.title)
-        hits = narrow_hits_by_zone(hits, item.extracted_beach, item.title)
+        hits = narrow_hits_by_zone(
+            hits, item.extracted_beach, item.title, all_beaches=beaches
+        )
         if not hits:
             continue
         # La URL puede tener ya réplicas casadas a algunos de los hits
@@ -375,7 +377,9 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
         if ext is None:
             continue  # fallo del proveedor: reintento la próxima pasada
         hits = match_beaches(ext, beaches, title=title) if ext.relevant else []
-        hits = narrow_hits_by_zone(hits, ext.beach_name, title, body=body)
+        hits = narrow_hits_by_zone(
+            hits, ext.beach_name, title, body=body, all_beaches=beaches
+        )
         if rows:
             # Ficha ya vista: actualizamos la extracción en las filas
             # que existan (la misma URL replicada por PM)
@@ -556,7 +560,9 @@ def run(
             # solo a su PM; si no, el cuerpo del artículo suele citar
             # el bando con las calas — un fetch sin LLM basta. Sin
             # mención de zona quedan todos los PMs (conservador)
-            hits = narrow_hits_by_zone(hits, ext.beach_name, art.title)
+            hits = narrow_hits_by_zone(
+                hits, ext.beach_name, art.title, all_beaches=beaches
+            )
             if (
                 len(hits) > 1
                 and ext.event_type in _PRESS_PUSH_EVENTS
@@ -566,7 +572,11 @@ def run(
                 body_left -= 1
                 if body:
                     hits = narrow_hits_by_zone(
-                        hits, ext.beach_name, art.title, body=body
+                        hits,
+                        ext.beach_name,
+                        art.title,
+                        body=body,
+                        all_beaches=beaches,
                     )
             for beach in hits or [None]:  # una fila por PM de la playa
                 item = NewsItem(
