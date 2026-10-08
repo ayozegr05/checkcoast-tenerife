@@ -12,6 +12,7 @@ import requests
 from sqlalchemy.orm import Session
 
 from app.models import Beach, BeachState, DeviceToken
+from app.news_zones import zone_display_name
 
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 
@@ -22,9 +23,14 @@ _STATE_LABEL = {
 }
 
 
-def _display_name(name: str) -> str:
-    """'PLAYA JARDIN PM4' -> 'Playa Jardin PM4'."""
-    return re.sub(r"Pm(\d+)", r"PM\1", name.title())
+def _display_name(beach: Beach) -> str:
+    """'PLAYA JARDIN PM4' -> 'Playa Jardin · Punta Brava' cuando la
+    cala está en el mapa de zonas; si no, 'Playa Jardin PM4'."""
+    name = re.sub(r"Pm(\d+)", r"PM\1", beach.name.title())
+    zone = zone_display_name(beach)
+    if zone is None:
+        return name
+    return f"{re.sub(r'\s+PM\d+\s*$', '', name)} · {zone}"
 
 
 _PRESS_LABEL = {
@@ -71,7 +77,7 @@ def _messages(
     return tokens, [
         {
             "to": token,
-            "title": _display_name(beach.name),
+            "title": _display_name(beach),
             "body": body.format(muni=muni),
             "data": {"beach_id": beach.id},
             "sound": "default",
@@ -104,7 +110,7 @@ _AGG_LABEL = {
 
 
 def _batch_body(beaches: list[Beach]) -> str:
-    names = [_display_name(b.name) for b in beaches]
+    names = [_display_name(b) for b in beaches]
     body = ", ".join(names[:_AGG_LIST_MAX])
     extra = len(names) - _AGG_LIST_MAX
     return f"{body} y {extra} más" if extra > 0 else body
