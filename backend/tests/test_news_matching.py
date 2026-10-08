@@ -305,6 +305,27 @@ def test_non_beach_geo_feature_never_matches():
     assert ids(ext("Playa de Masca"), title="Cerrada la playa de Masca") == [
         90
     ]
+    # el rescate por titular no cuela playas homónimas de OTRO
+    # municipio: "El Barranco de Masca" (Buenavista) no es "Playa El
+    # Barranco" de San Miguel de Abona
+    beaches = [
+        SimpleNamespace(
+            id=154,
+            name="Playa El Barranco",
+            municipality="San Miguel de Abona",
+        ),
+        SimpleNamespace(
+            id=90, name="Playa de Masca", municipality="Buenavista del Norte"
+        ),
+    ]
+    assert (
+        ids(
+            ext("Barranco de Masca", "Buenavista del Norte"),
+            beaches=beaches,
+            title=title,
+        )
+        == []
+    )
 
 
 def test_press_key_keeps_initial_d():
@@ -401,6 +422,16 @@ def test_inner_preposition_variants():
             municipality="San Cristóbal de La Laguna",
         ),
         SimpleNamespace(
+            id=51,
+            name="PLAYA PISCINAS NATURALES DE BAJAMAR PM1",
+            municipality="San Cristóbal de La Laguna",
+        ),
+        SimpleNamespace(
+            id=52,
+            name="PLAYA PISCINAS NATURALES DE BAJAMAR PM2",
+            municipality="San Cristóbal de La Laguna",
+        ),
+        SimpleNamespace(
             id=87,
             name="Playa de la Viuda (playa chica)",
             municipality="Candelaria",
@@ -416,3 +447,11 @@ def test_inner_preposition_variants():
         beaches=beaches,
         title="El mar derrumba una casa en la playa La Viuda",
     ) == [87]
+    # La extracción solo devuelve "Bajamar" pero el titular enumera
+    # las dos: la segunda playa debe sumarse aunque conserve el "del"
+    assert ids(
+        ext("Bajamar", "La Laguna"),
+        beaches=beaches,
+        title="El fuerte oleaje obliga a cerrar las piscinas naturales "
+        "de Bajamar y Punta del Hidalgo",
+    ) == [48, 51, 52]

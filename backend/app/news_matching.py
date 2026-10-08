@@ -68,17 +68,34 @@ _PAREN_NOISE = re.compile(r"\s*\((?!EL|LA|LAS|LOS\))[^)]*\)")
 # Preposición interior que la prensa añade o quita: "Punta del
 # Hidalgo" ↔ "… PISCINA NATURAL PUNTA HIDALGO"
 _INNER_PREP = re.compile(r"\s+(?:DE\s+LA|DE\s+LOS|DE\s+LAS|DEL|DE)\s+")
+# Prefijo de instalación que la prensa omite al nombrar el lugar:
+# "PISCINAS NATURALES DE BAJAMAR" → "BAJAMAR", "PISCINA NATURAL DE
+# JOVER" → "JOVER". En claves compuestas se aplica a la cola tras
+# " - " ("EL ARENISCO - PISCINA NATURAL PUNTA HIDALGO" → "PUNTA
+# HIDALGO")
+_FACILITY_PREFIX = re.compile(
+    r"^PISCINAS?\s+NATURAL(?:ES)?\s+(?:DE\s+|DEL\s+)?"
+)
 
 
 def _key_variants(name: str) -> list[str]:
     """Claves alternativas de un mismo nombre: con y sin paréntesis
-    no-artículo, y sin preposiciones interiores."""
+    no-artículo, sin preposiciones interiores y sin el prefijo de
+    instalación ("PISCINA NATURAL …") del censo."""
     keys = []
     for n in (name, _PAREN_NOISE.sub("", name)):
-        key = _press_key(n)
-        for k in (key, _INNER_PREP.sub(" ", key)):
-            if k and k not in keys:
-                keys.append(k)
+        for key in (
+            _press_key(n),
+            _INNER_PREP.sub(" ", _press_key(n)),
+        ):
+            variants = {key}
+            tail = key.split(" - ")[-1]
+            short = _FACILITY_PREFIX.sub("", tail)
+            if short and short != key:
+                variants.add(short)
+            for k in variants:
+                if k and k not in keys:
+                    keys.append(k)
     return keys
 
 
@@ -144,10 +161,15 @@ def _name_in_title(key: str, title_norm: str) -> bool:
     """La clave aparece como nombre literal en el titular (límites de
     palabra: "LA ARENA" no casa dentro de "ARENITA"; y no cuenta dentro
     de un accidente no-playa — "Barranco de Masca" ≠ "Playa de Masca" —
-    ni nombrando el municipio/ayuntamiento ni como color de bandera)."""
-    for m in re.finditer(
-        rf"(?<![A-Z0-9]){re.escape(key)}(?![A-Z0-9])", title_norm
-    ):
+    ni nombrando el municipio/ayuntamiento ni como color de bandera).
+    Entre palabras de la clave el titular puede añadir la preposición
+    ("PUNTA HIDALGO" casa "Punta del Hidalgo") — se tolera sobre el
+    titular ORIGINAL: deprepsionarlo perdería el "DE" que delata los
+    contextos vetados ("BARRANCO DE", "MUNICIPIO DE")."""
+    flex = r"(?:\s+(?:DE\s+LA|DE\s+LOS|DE\s+LAS|DEL|DE)\s+|\s+)".join(
+        re.escape(w) for w in key.split() if w not in {"DE", "DEL"}
+    )
+    for m in re.finditer(rf"(?<![A-Z0-9]){flex}(?![A-Z0-9])", title_norm):
         before = title_norm[: m.start()]
         if _SPURIOUS_BEFORE.search(before):
             continue
@@ -210,12 +232,13 @@ def _title_key_hits(
 def _conjoined(key: str, title_norm: str) -> bool:
     """El nombre va en enumeración multi-playa ("X y El Socorro",
     "El Médano, La Tejita"): precedido de 'y'/'e'/','. Así no se
-    confunde con referencias locativas ("El Cabezo, en El Médano")."""
+    confunde con referencias locativas ("El Cabezo, en El Médano").
+    Misma tolerancia a la preposición interior que _name_in_title."""
+    flex = r"(?:\s+(?:DE\s+LA|DE\s+LOS|DE\s+LAS|DEL|DE)\s+|\s+)".join(
+        re.escape(w) for w in key.split() if w not in {"DE", "DEL"}
+    )
     return bool(
-        re.search(
-            rf"(?:\b[YE]\s+|,\s*){re.escape(key)}(?![A-Z0-9])",
-            title_norm,
-        )
+        re.search(rf"(?:\b[YE]\s+|,\s*){flex}(?![A-Z0-9])", title_norm)
     )
 
 
@@ -238,7 +261,19 @@ def match_beaches(
         seen = {b.id for b in found}
         found_bases = {_base_key(b) for b in found}
         out = list(found)
+        # Rescate sin match de extracción: si el municipio extraído no
+        # coincide con el de la playa literal, ese nombre del titular
+        # no era la playa ("El Barranco de Masca" ≠ "Playa El Barranco"
+        # de otro municipio). Con found no vacío no se filtra: las
+        # enumeraciones multi-playa sí cruzan municipios.
+        emuni = _norm_muni(ext.municipality)
         for key, members in title_map.items():
+            if emuni and not found:
+                members = [
+                    b for b in members if _norm_muni(b.municipality) == emuni
+                ]
+                if not members:
+                    continue
             k_bases = {_base_key(b) for b in members}
             if (
                 not found
