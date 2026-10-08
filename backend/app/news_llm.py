@@ -76,6 +76,10 @@ Marca relevant=false cuando:
   es un fenómeno natural") — presta especial atención a estas
   negaciones: el titular puede contener la palabra del problema
   ("vertido", "contaminación") pero decir justo lo contrario
+- lo que cierra o se restringe es un servicio anexo y NO el baño:
+  aparcamiento por aforo completo, chiringuito, paseo marítimo,
+  duchas. Si el texto dice que la playa o el baño siguen abiertos,
+  relevant=false — p.ej. "cierran el parking de la playa por aforo"
 
 Si relevant=true extrae:
 - beach_name: nombre de la playa tal como aparece en el titular

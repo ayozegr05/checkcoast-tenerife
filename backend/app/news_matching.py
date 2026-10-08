@@ -54,10 +54,43 @@ MUNICIPALITY_ALIASES = {
 
 _MIN_NAME_LEN = 5
 
+# El "D " final solo vale si va seguido de espacio ("PLAYA D X"):
+# "D\s*" sin espacio se comía la D inicial del nombre
+# ("PLAYA DUQUE" → "UQUE", "PLAYA DIEGO HERNANDEZ" → "IEGO…")
 _GENERIC_PREFIX = re.compile(
-    r"^PLAYA\s+(DE\s+(LA|LOS|LAS)\s+|DEL\s+|DE\s+|D\s*)?|^PLAYA\s*"
+    r"^PLAYA\s+(DE\s+(LA|LOS|LAS)\s+|DEL\s+|DE\s+|D\s+)?|^PLAYA\s*"
 )
 _PAREN_ARTICLE = re.compile(r"\s*\((EL|LA|LAS|LOS)\)")
+# Paréntesis que NO es el artículo invertido del censo ("(playa
+# chica)", "(San Juan)"): la variante sin él casa el nombre popular
+# de la prensa ("La Viuda" ↔ "Playa de la Viuda (playa chica)")
+_PAREN_NOISE = re.compile(r"\s*\((?!EL|LA|LAS|LOS\))[^)]*\)")
+# Preposición interior que la prensa añade o quita: "Punta del
+# Hidalgo" ↔ "… PISCINA NATURAL PUNTA HIDALGO"
+_INNER_PREP = re.compile(r"\s+(?:DE\s+LA|DE\s+LOS|DE\s+LAS|DEL|DE)\s+")
+
+
+def _key_variants(name: str) -> list[str]:
+    """Claves alternativas de un mismo nombre: con y sin paréntesis
+    no-artículo, y sin preposiciones interiores."""
+    keys = []
+    for n in (name, _PAREN_NOISE.sub("", name)):
+        key = _press_key(n)
+        for k in (key, _INNER_PREP.sub(" ", key)):
+            if k and k not in keys:
+                keys.append(k)
+    return keys
+
+
+def _beach_keys(b: Beach) -> list[str]:
+    """Todas las claves que aporta una playa: nombre del censo y
+    aliases de prensa, cada uno con sus variantes."""
+    keys = []
+    for n in [b.name, *(getattr(b, "press_aliases", None) or [])]:
+        for k in _key_variants(n):
+            if k not in keys:
+                keys.append(k)
+    return keys
 
 
 def _press_key(name: str) -> str:
@@ -96,15 +129,29 @@ _FEATURE_BEFORE = re.compile(
     r"(?:DEL\s+|DE\s+(?:LA\s+|LOS\s+|LAS\s+)?|DE\s+)$"
 )
 
+# La clave aparece literal pero NO nombra la playa: es el nombre del
+# municipio/ayuntamiento ("en el municipio tinerfeño de Candelaria") o
+# el color de la bandera ("con bandera amarilla" ≠ Playa Amarilla).
+# Solo cuenta si tras el sustantivo vienen conectores hasta la clave
+_SPURIOUS_BEFORE = re.compile(
+    r"(?:MUNICIPIOS?|AYUNTAMIENTO|VILLA|PUEBLO|BANDERA)"
+    r"(?:\s+(?:DE|DEL|LA|EL|LOS|LAS|EN|AL|A|PARA|POR|CON|"
+    r"TINERFEN[AO]S?|CANARI[OA]S?|SITUAD[AO]S?|UBICAD[AO]S?))*\s*$"
+)
+
 
 def _name_in_title(key: str, title_norm: str) -> bool:
     """La clave aparece como nombre literal en el titular (límites de
     palabra: "LA ARENA" no casa dentro de "ARENITA"; y no cuenta dentro
-    de un accidente no-playa: "Barranco de Masca" ≠ "Playa de Masca")."""
+    de un accidente no-playa — "Barranco de Masca" ≠ "Playa de Masca" —
+    ni nombrando el municipio/ayuntamiento ni como color de bandera)."""
     for m in re.finditer(
         rf"(?<![A-Z0-9]){re.escape(key)}(?![A-Z0-9])", title_norm
     ):
-        feat = _FEATURE_BEFORE.search(title_norm[: m.start()])
+        before = title_norm[: m.start()]
+        if _SPURIOUS_BEFORE.search(before):
+            continue
+        feat = _FEATURE_BEFORE.search(before)
         if not feat or feat.group(1):
             return True
     return False
@@ -145,10 +192,7 @@ def _title_key_hits(
     un único municipio (los homónimos entre municipios se rechazan)."""
     groups: dict[str, list[Beach]] = {}
     for b in beaches:
-        keys = [_press_key(b.name)] + [
-            _press_key(a) for a in (getattr(b, "press_aliases", None) or [])
-        ]
-        for k in keys:
+        for k in _beach_keys(b):
             # Un mismo beach puede aportar la misma clave por nombre y
             # alias ("Playa de Tabaiba" + alias "Tabaiba") — una vez
             if len(k) >= _MIN_NAME_LEN:
@@ -211,6 +255,12 @@ def match_beaches(
     if len(target) < _MIN_NAME_LEN:
         return _merge([])
     muni = _norm_muni(ext.municipality)
+    # La prensa añade/quita la preposición interior ("Punta del
+    # Hidalgo" vs "PUNTA HIDALGO" en el censo): ambas formas casan
+    targets = [target]
+    deprepped = _INNER_PREP.sub(" ", target)
+    if deprepped != target:
+        targets.append(deprepped)
 
     # Extracción multi-playa ("El Socorro y El Médano"): cada parte se
     # casa por separado — "EL SOCORRO" no es substring contiguo del
@@ -232,24 +282,23 @@ def match_beaches(
     candidates = []
     for b in beaches:
         # La playa aporta todas sus claves: nombre del censo + aliases
-        # de prensa ("Los Guanches" → PLAYA CANDELARIA)
-        keys = [_press_key(b.name)] + [
-            _press_key(a) for a in (getattr(b, "press_aliases", None) or [])
-        ]
+        # de prensa ("Los Guanches" → PLAYA CANDELARIA), con variantes
+        keys = _beach_keys(b)
         # El exacto (nombre o alias) gana a las contenciones: si no,
         # "Bajamar" casaría por substring contra "PISCINAS NATURALES DE
         # BAJAMAR" antes de llegar a su alias exacto y la contención
         # con "CASTILLO-BAJAMAR" dejaría el match ambiguo
-        hit = next((k for k in keys if k == target), None) or next(
+        # El veto de accidente no-playa se evalúa sobre el target
+        # original: la variante sin preposición ("BARRANCO MASCA")
+        # perdería el "DE" que delata el "BARRANCO DE …"
+        not_feature = not _NON_BEACH_FEATURE.match(target)
+        hit = next((k for k in keys if k in targets), None) or next(
             (
                 k
                 for k in keys
-                if target in k
-                or (
-                    len(k) >= _MIN_NAME_LEN
-                    and k in target
-                    and not _NON_BEACH_FEATURE.match(target)
-                )
+                for t in targets
+                if t in k
+                or (len(k) >= _MIN_NAME_LEN and k in t and not_feature)
             ),
             None,
         )
@@ -265,13 +314,13 @@ def match_beaches(
         munis = {_norm_muni(b.municipality) for b, _ in candidates}
         pool = candidates
         if len(munis) == 1:
-            exact = [(b, k) for b, k in candidates if k == target]
+            exact = [(b, k) for b, k in candidates if k in targets]
             if exact:
                 pool = exact
         keys = {k for _, k in pool}
         munis = {_norm_muni(b.municipality) for b, _ in pool}
         if len(pool) >= 1 and len(keys) == 1 and len(munis) == 1:
-            if any(k == target for k in keys):
+            if any(k in targets for k in keys):
                 return _merge([b for b, _ in pool])
         return _merge(_multi_beach_hits(pool, _normalize(title)))
 
@@ -297,7 +346,7 @@ def match_beaches(
         if not muni_in_title:
             return _merge([])
     # Dentro del municipio el exacto también gana a las contenciones
-    exact = [(b, k) for b, k in hits if k == target]
+    exact = [(b, k) for b, k in hits if k in targets]
     pool = exact or hits
     keys = {k for _, k in pool}
     if len(pool) >= 1 and len(keys) == 1:
