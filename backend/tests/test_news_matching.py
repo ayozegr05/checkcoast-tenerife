@@ -305,3 +305,187 @@ def test_non_beach_geo_feature_never_matches():
     assert ids(ext("Playa de Masca"), title="Cerrada la playa de Masca") == [
         90
     ]
+    # el rescate por titular no cuela playas homónimas de OTRO
+    # municipio: "El Barranco de Masca" (Buenavista) no es "Playa El
+    # Barranco" de San Miguel de Abona
+    beaches = [
+        SimpleNamespace(
+            id=154,
+            name="Playa El Barranco",
+            municipality="San Miguel de Abona",
+        ),
+        SimpleNamespace(
+            id=90, name="Playa de Masca", municipality="Buenavista del Norte"
+        ),
+    ]
+    assert (
+        ids(
+            ext("Barranco de Masca", "Buenavista del Norte"),
+            beaches=beaches,
+            title=title,
+        )
+        == []
+    )
+
+
+def test_rescue_does_not_use_municipality_name():
+    """Regresión oct-2026: las noticias de 'playas de Candelaria' se
+    pegaban a PLAYA CANDELARIA solo porque el titular menciona el
+    pueblo — 'Los Guanches' y 'Olegario' son playas distintas."""
+    beaches = [
+        SimpleNamespace(
+            id=23, name="PLAYA CANDELARIA PM4", municipality="Candelaria"
+        )
+    ]
+    assert (
+        ids(
+            ext("Los Guanches", "Candelaria"),
+            beaches=beaches,
+            title="Cierra al baño la playa de Los Guanches en Candelaria",
+        )
+        == []
+    )
+    assert (
+        ids(
+            ext(None, "Candelaria"),
+            beaches=beaches,
+            title="Prohibido el baño en dos playas de Candelaria",
+        )
+        == []
+    )
+    # pero una extracción que sí nombra la playa sigue casando por
+    # la vía normal
+    assert ids(
+        ext("Playa de Candelaria", "Candelaria"),
+        beaches=beaches,
+        title="Cierra la playa de Candelaria por vertido",
+    ) == [23]
+
+
+def test_press_key_keeps_initial_d():
+    """Regresión oct-2026: "PLAYA DUQUE" perdia la D ("D\\s*" del
+    prefijo genérico) → clave "EL UQUE" y "Playa del Duque" no casaba
+    nunca. Igual "PLAYA DIEGO HERNANDEZ" → "IEGO…"."""
+    beaches = [
+        SimpleNamespace(
+            id=5, name="PLAYA DUQUE (EL) PM3", municipality="Adeje"
+        ),
+        SimpleNamespace(
+            id=6, name="PLAYA DUQUE (EL) PM4", municipality="Adeje"
+        ),
+        SimpleNamespace(
+            id=114,
+            name="Playa Diego Hernandez",
+            municipality="Adeje",
+        ),
+    ]
+    assert ids(
+        ext("Playa del Duque", "Adeje"),
+        beaches=beaches,
+        title="Reabre Playa del Duque tras confirmarse que la calidad "
+        "del agua es óptima",
+    ) == [5, 6]
+    assert ids(
+        ext("Playa Diego Hernández", "Adeje"),
+        beaches=beaches,
+        title="Cierran la playa Diego Hernández por vertido",
+    ) == [114]
+
+
+def test_municipality_named_in_title_is_not_the_beach():
+    """Caso real dic-2024: "El mar derrumba una casa en la playa La
+    Viuda, en el municipio tinerfeño de Candelaria" casó con PLAYA
+    CANDELARIA por el rescate de nombres literales del titular — la
+    clave "CANDELARIA" aparece en el titular pero nombra el municipio."""
+    beaches = [
+        SimpleNamespace(
+            id=23,
+            name="PLAYA CANDELARIA PM4",
+            municipality="Candelaria",
+        ),
+        SimpleNamespace(
+            id=87,
+            name="Playa de la Viuda (playa chica)",
+            municipality="Candelaria",
+        ),
+    ]
+    title = (
+        "El mar derrumba una casa en la playa La Viuda, en el "
+        "municipio tinerfeño de Candelaria"
+    )
+    # la extracción nombra La Viuda y el rescate por titular también
+    # debe ignorar el "Candelaria" que solo es el municipio
+    assert ids(
+        ext("La Viuda", "Candelaria"), beaches=beaches, title=title
+    ) == [87]
+    # sin nombre extraído, el rescate literal no debe casar Candelaria
+    assert ids(ext(None), beaches=beaches, title=title) == [87]
+
+
+def test_flag_color_is_not_a_beach_name():
+    """Caso real 2024: "…en Los Charcos, Valleseco (Santa Cruz), con
+    bandera amarilla" casó también con Playa Amarilla (San Miguel de
+    Abona) porque "AMARILLA" aparece literal tras "bandera"."""
+    beaches = [
+        SimpleNamespace(
+            id=95, name="Playa Amarilla", municipality="San Miguel de Abona"
+        ),
+        SimpleNamespace(
+            id=59,
+            name="PLAYA VALLESECO PM1",
+            municipality="Santa Cruz de Tenerife",
+            press_aliases=["Los Charcos"],
+        ),
+    ]
+    title = (
+        "Reabierta el área de baño en Los Charcos, Valleseco (Santa "
+        "Cruz), con bandera amarilla"
+    )
+    assert ids(ext("Los Charcos"), beaches=beaches, title=title) == [59]
+
+
+def test_inner_preposition_variants():
+    """La prensa añade/quita la preposición interior: "Punta del
+    Hidalgo" debe casar con "… PISCINA NATURAL PUNTA HIDALGO", y el
+    paréntesis no-artículo de OSM "(playa chica)" no debe impedir el
+    match con el nombre popular."""
+    beaches = [
+        SimpleNamespace(
+            id=48,
+            name="PLAYA ARENISCO (EL) - PISCINA NATURAL PUNTA HIDALGO PM3",
+            municipality="San Cristóbal de La Laguna",
+        ),
+        SimpleNamespace(
+            id=51,
+            name="PLAYA PISCINAS NATURALES DE BAJAMAR PM1",
+            municipality="San Cristóbal de La Laguna",
+        ),
+        SimpleNamespace(
+            id=52,
+            name="PLAYA PISCINAS NATURALES DE BAJAMAR PM2",
+            municipality="San Cristóbal de La Laguna",
+        ),
+        SimpleNamespace(
+            id=87,
+            name="Playa de la Viuda (playa chica)",
+            municipality="Candelaria",
+        ),
+    ]
+    assert ids(
+        ext("Punta del Hidalgo", "La Laguna"),
+        beaches=beaches,
+        title="Cierran la piscina natural de Punta del Hidalgo",
+    ) == [48]
+    assert ids(
+        ext("La Viuda", "Candelaria"),
+        beaches=beaches,
+        title="El mar derrumba una casa en la playa La Viuda",
+    ) == [87]
+    # La extracción solo devuelve "Bajamar" pero el titular enumera
+    # las dos: la segunda playa debe sumarse aunque conserve el "del"
+    assert ids(
+        ext("Bajamar", "La Laguna"),
+        beaches=beaches,
+        title="El fuerte oleaje obliga a cerrar las piscinas naturales "
+        "de Bajamar y Punta del Hidalgo",
+    ) == [48, 51, 52]

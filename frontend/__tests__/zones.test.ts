@@ -1,3 +1,5 @@
+import { describe, expect, it } from '@jest/globals';
+
 import { pointLongLabel } from '../lib/format';
 import { siblingZoneRef, zoneName } from '../lib/zones';
 
