@@ -940,9 +940,7 @@ def test_island_episodes(seed_data):
         db.close()
 
 
-def _news(
-    beach_id, event_type, published_at, url, title="Titular de test"
-):
+def _news(beach_id, event_type, published_at, url, title="Titular de test"):
     from app.models import NewsItem
 
     return NewsItem(
@@ -1180,9 +1178,7 @@ def test_press_episode_overlapping_official_incident_not_duplicated(
         assert r.status_code == 200
         rows = r.json()
         # Solo UNA fila para el episodio de junio: la oficial
-        june = [
-            i for i in rows if i["opened_at"].startswith("2026-06-22")
-        ]
+        june = [i for i in rows if i["opened_at"].startswith("2026-06-22")]
         assert len(june) == 1
         assert june[0]["via"] == "official"
         # Y los titulares quedan embebidos como corroboración

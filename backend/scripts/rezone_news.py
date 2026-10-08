@@ -30,7 +30,11 @@ from app.db import SessionLocal
 from app.models import Beach, NewsItem
 from app.news_matching import _norm_muni
 from app.news_resolve import resolve_and_fetch
-from app.news_zones import _ZONE_GROUPS, narrow_hits_by_zone
+from app.news_zones import (
+    _ZONE_COMPLEXES,
+    _ZONE_GROUPS,
+    narrow_hits_by_zone,
+)
 
 _STATE_EVENTS = {"closure", "reopening", "warning"}
 
@@ -56,28 +60,54 @@ def main() -> int:
 
     db = SessionLocal()
     bodies = 0
+    all_beach_rows = db.query(Beach).all()
+    # Cada tarea es un complejo: (municipio, {bases}). Los complejos
+    # cross-base (Valleseco ↔ El Bloque) se procesan como una sola
+    # unidad; un complejo normal es su propio base
+    tasks: list[tuple[str, frozenset[str]]] = []
+    seen_complexes: set[tuple[str, frozenset[str]]] = set()
+    for base, muni in _ZONE_GROUPS:
+        ckey = (muni, frozenset({base}))
+        for group in _ZONE_COMPLEXES.get(muni, []):
+            if base in group:
+                ckey = (muni, group)
+                break
+        if ckey not in seen_complexes:
+            seen_complexes.add(ckey)
+            tasks.append(ckey)
     try:
-        for base, muni in _ZONE_GROUPS:
-            beaches = _group_beaches(db, base, muni)
+        for muni, bases in tasks:
+            beaches = [
+                b for base in bases for b in _group_beaches(db, base, muni)
+            ]
             if len(beaches) < 2:
                 continue
-            by_id = {b.id: b for b in beaches}
+            # by_id cubre todas las playas: una cala hermana de otro
+            # nombre base puede ganar la reasignación (El Bloque)
+            by_id = {b.id: b for b in all_beach_rows}
             rows = (
                 db.query(NewsItem)
                 .filter(
-                    NewsItem.beach_id.in_(by_id), NewsItem.relevant.is_(True)
+                    NewsItem.beach_id.in_({b.id for b in beaches}),
+                    NewsItem.relevant.is_(True),
                 )
                 .all()
             )
             urls: dict[str, list[NewsItem]] = defaultdict(list)
             for r in rows:
                 urls[r.url].append(r)
-            print(f"== {base} ({muni}): {len(urls)} URLs en {len(beaches)} PMs")
+            print(
+                f"== {'+'.join(sorted(bases))} ({muni}): "
+                f"{len(urls)} URLs en {len(beaches)} PMs"
+            )
 
             for url, group in sorted(urls.items()):
                 r0 = group[0]
                 wanted = narrow_hits_by_zone(
-                    beaches, r0.extracted_beach, r0.title
+                    beaches,
+                    r0.extracted_beach,
+                    r0.title,
+                    all_beaches=all_beach_rows,
                 )
                 if len(wanted) == len(beaches) and (
                     r0.event_type in _STATE_EVENTS and bodies < args.max_bodies
@@ -87,7 +117,11 @@ def main() -> int:
                     time.sleep(1)
                     if body:
                         wanted = narrow_hits_by_zone(
-                            beaches, r0.extracted_beach, r0.title, body=body
+                            beaches,
+                            r0.extracted_beach,
+                            r0.title,
+                            body=body,
+                            all_beaches=all_beach_rows,
                         )
                 wanted_ids = {b.id for b in wanted}
                 have_ids = {r.beach_id for r in group}
@@ -95,7 +129,9 @@ def main() -> int:
                     continue
                 drop = [r for r in group if r.beach_id not in wanted_ids]
                 add = [by_id[i] for i in wanted_ids - have_ids]
-                named = " · ".join(by_id[i].name.split()[-1] for i in sorted(wanted_ids))
+                named = " · ".join(
+                    by_id[i].name.split()[-1] for i in sorted(wanted_ids)
+                )
                 print(
                     f"  {'APPLY' if args.apply else 'dry  '} {r0.title[:60]!r}\n"
                     f"       -> {named or '(sin zona)'} "

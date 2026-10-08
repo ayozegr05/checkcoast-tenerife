@@ -30,11 +30,8 @@ from app.models import Beach, BeachState, BeachStatus, NewsItem
 from app.news_llm import EventExtraction, GeminiExtractor, extract_event
 from app.news_matching import _MIN_NAME_LEN, _press_key, match_beaches
 from app.news_resolve import resolve_and_fetch
-from app.news_zones import narrow_hits_by_zone
 from app.news_sources import (
     GUIA_SOURCE,
-    MEDIA_FEEDS,
-    MUNICIPAL_FEEDS,
     RawArticle,
     backfill_geo_terms,
     fetch_backfill,
@@ -43,6 +40,7 @@ from app.news_sources import (
     fetch_news,
     source_excluded,
 )
+from app.news_zones import narrow_hits_by_zone
 from app.queries import _short_cause
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
@@ -279,7 +277,9 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
             municipality=item.extracted_municipality,
         )
         hits = match_beaches(ext, beaches, title=item.title)
-        hits = narrow_hits_by_zone(hits, item.extracted_beach, item.title)
+        hits = narrow_hits_by_zone(
+            hits, item.extracted_beach, item.title, all_beaches=beaches
+        )
         if not hits:
             continue
         # La URL puede tener ya réplicas casadas a algunos de los hits
@@ -377,7 +377,9 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
         if ext is None:
             continue  # fallo del proveedor: reintento la próxima pasada
         hits = match_beaches(ext, beaches, title=title) if ext.relevant else []
-        hits = narrow_hits_by_zone(hits, ext.beach_name, title, body=body)
+        hits = narrow_hits_by_zone(
+            hits, ext.beach_name, title, body=body, all_beaches=beaches
+        )
         if rows:
             # Ficha ya vista: actualizamos la extracción en las filas
             # que existan (la misma URL replicada por PM)
@@ -503,12 +505,11 @@ def run(
 
         seen = {url for (url,) in db.query(NewsItem.url).all()}
         # Mismo artículo por dos vías (redirect Google News + URL directa
-        # del feed del medio): dedup extra por (título, medio, día). El
-        # source se compara por contención normalizada — Google guarda
+        # del feed del medio): dedup extra por (título, medio, día) en
+        # TODAS las fuentes — el artículo ya guardado por el feed debe
+        # bloquear también su réplica vía Google. El source se compara
+        # por contención normalizada — Google guarda
         # "diariodeavisos.elespanol.com" y el feed "Diario de Avisos".
-        # En backfill se aplica a TODAS las fuentes: el mismo artículo
-        # viejo pudo entrar ya por el feed del medio con otra URL
-        feed_labels = set(MUNICIPAL_FEEDS) | set(MEDIA_FEEDS)
         seen_triples = {
             (_norm_key(t), _norm_key(s), p.date() if p else None)
             for t, s, p in db.query(
@@ -519,14 +520,16 @@ def run(
         for a in articles:
             if not a.url or a.url in seen or source_excluded(a.source):
                 continue
-            if backfill or a.source in feed_labels:
-                tk, sk = _norm_key(a.title), _norm_key(a.source)
-                day = a.published_at.date() if a.published_at else None
-                if any(
-                    et == tk and ed == day and (ek in sk or sk in ek)
-                    for et, ek, ed in seen_triples
-                ):
-                    continue
+            tk, sk = _norm_key(a.title), _norm_key(a.source)
+            day = a.published_at.date() if a.published_at else None
+            if any(
+                et == tk and ed == day and (ek in sk or sk in ek)
+                for et, ek, ed in seen_triples
+            ):
+                continue
+            # también dentro del lote: el mismo artículo puede llegar
+            # por dos URLs en la misma pasada
+            seen_triples.add((tk, sk, day))
             fresh.append(a)
         fresh.sort(key=lambda a: a.published_at or _EPOCH, reverse=True)
         # Backfill sin tope de extracciones ni de cuerpos: el prefiltro
@@ -557,7 +560,9 @@ def run(
             # solo a su PM; si no, el cuerpo del artículo suele citar
             # el bando con las calas — un fetch sin LLM basta. Sin
             # mención de zona quedan todos los PMs (conservador)
-            hits = narrow_hits_by_zone(hits, ext.beach_name, art.title)
+            hits = narrow_hits_by_zone(
+                hits, ext.beach_name, art.title, all_beaches=beaches
+            )
             if (
                 len(hits) > 1
                 and ext.event_type in _PRESS_PUSH_EVENTS
@@ -567,7 +572,11 @@ def run(
                 body_left -= 1
                 if body:
                     hits = narrow_hits_by_zone(
-                        hits, ext.beach_name, art.title, body=body
+                        hits,
+                        ext.beach_name,
+                        art.title,
+                        body=body,
+                        all_beaches=beaches,
                     )
             for beach in hits or [None]:  # una fila por PM de la playa
                 item = NewsItem(

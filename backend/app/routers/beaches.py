@@ -706,14 +706,14 @@ def beach_incidents(
                 _, o = hit
                 have = {p.id for p in o.press_items}
                 extra = [
-                    _news_out(n) for n in ev.press_items
-                    if n.id not in have
+                    _news_out(n) for n in ev.press_items if n.id not in have
                 ]
                 if extra:
                     o.press_items = sorted(
                         [*o.press_items, *extra],
-                        key=lambda p: p.published_at
-                        or datetime.min.replace(tzinfo=UTC),
+                        key=lambda p: (
+                            p.published_at or datetime.min.replace(tzinfo=UTC)
+                        ),
                         reverse=True,
                     )
                 continue
@@ -1004,9 +1004,7 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
                 and inc.closed_at <= reopen_d
             ):
                 continue
-            if _in_window(
-                anchor, inc.opened_at, inc.closed_at, date.today()
-            ):
+            if _in_window(anchor, inc.opened_at, inc.closed_at, date.today()):
                 if official_start is None or inc.opened_at < official_start:
                     official_start = inc.opened_at
                 opened = datetime.combine(

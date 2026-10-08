@@ -638,6 +638,4 @@ def test_min_closed_since_picks_earliest_same_precision():
     # A igual año sigue ganando la más precisa
     assert _min_closed_since(["2026", "2026-09"]) == "2026-09"
     # Y el año más antiguo manda sobre precisión
-    assert (
-        _min_closed_since(["2026-09-29", "2024"]) == "2024"
-    )
+    assert _min_closed_since(["2026-09-29", "2024"]) == "2024"

@@ -126,9 +126,7 @@ def _min_closed_since(vals) -> str | None:
     que llegan DESC): Jardín oct-2026 afirmaba "desde el 07/10"
     teniendo "2026-09-29" en el pool."""
     vals = [v for v in vals if v]
-    return min(
-        vals, key=lambda v: (v[:4], -len(v), v), default=None
-    )
+    return min(vals, key=lambda v: (v[:4], -len(v), v), default=None)
 
 
 def _is_structural(ev: "SynthEvent") -> bool:
