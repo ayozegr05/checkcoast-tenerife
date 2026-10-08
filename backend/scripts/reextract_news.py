@@ -7,15 +7,18 @@ URL (la misma noticia replicada por PM se extrae una sola vez). Al
 final re-casa los pendientes con los campos nuevos — sin push, las
 ventanas temporales ya filtran noticias viejas.
 
-Uso: python -m scripts.reextract_news [--max N] [--all] [--beach TXT]
+Uso: python -m scripts.reextract_news [--max N] [--all] [--beach TXT] [--year AAAA]
   --max N      tope de URLs distintas a procesar (defecto 40)
   --all        incluir también las marcadas no relevantes (pueden volver)
   --beach TXT  solo ítems de playas cuyo nombre contiene TXT
+  --year AAAA  solo ítems publicados ese año (p.ej. rehacer el backfill 2024)
 """
 
 import argparse
 import sys
 import time
+
+from sqlalchemy import extract
 
 from app.config import settings
 from app.db import SessionLocal
@@ -39,6 +42,12 @@ def main() -> None:
         "--beach",
         default=None,
         help="solo ítems de playas cuyo nombre contiene TXT",
+    )
+    ap.add_argument(
+        "--year",
+        type=int,
+        default=None,
+        help="solo ítems publicados en ese año",
     )
     args = ap.parse_args()
 
@@ -66,6 +75,8 @@ def main() -> None:
             q = q.join(Beach, NewsItem.beach_id == Beach.id).filter(
                 Beach.name.ilike(f"%{args.beach}%")
             )
+        if args.year:
+            q = q.filter(extract("year", NewsItem.published_at) == args.year)
         # El filtro por playa elige QUÉ URLs se procesan, pero cada
         # URL se actualiza con TODAS sus réplicas (la misma noticia
         # casada a varios PMs/playas) — si solo cargáramos las filas
