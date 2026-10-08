@@ -32,8 +32,6 @@ from app.news_matching import _MIN_NAME_LEN, _press_key, match_beaches
 from app.news_resolve import resolve_and_fetch
 from app.news_sources import (
     GUIA_SOURCE,
-    MEDIA_FEEDS,
-    MUNICIPAL_FEEDS,
     RawArticle,
     backfill_geo_terms,
     fetch_backfill,
@@ -503,12 +501,11 @@ def run(
 
         seen = {url for (url,) in db.query(NewsItem.url).all()}
         # Mismo artículo por dos vías (redirect Google News + URL directa
-        # del feed del medio): dedup extra por (título, medio, día). El
-        # source se compara por contención normalizada — Google guarda
+        # del feed del medio): dedup extra por (título, medio, día) en
+        # TODAS las fuentes — el artículo ya guardado por el feed debe
+        # bloquear también su réplica vía Google. El source se compara
+        # por contención normalizada — Google guarda
         # "diariodeavisos.elespanol.com" y el feed "Diario de Avisos".
-        # En backfill se aplica a TODAS las fuentes: el mismo artículo
-        # viejo pudo entrar ya por el feed del medio con otra URL
-        feed_labels = set(MUNICIPAL_FEEDS) | set(MEDIA_FEEDS)
         seen_triples = {
             (_norm_key(t), _norm_key(s), p.date() if p else None)
             for t, s, p in db.query(
@@ -519,14 +516,16 @@ def run(
         for a in articles:
             if not a.url or a.url in seen or source_excluded(a.source):
                 continue
-            if backfill or a.source in feed_labels:
-                tk, sk = _norm_key(a.title), _norm_key(a.source)
-                day = a.published_at.date() if a.published_at else None
-                if any(
-                    et == tk and ed == day and (ek in sk or sk in ek)
-                    for et, ek, ed in seen_triples
-                ):
-                    continue
+            tk, sk = _norm_key(a.title), _norm_key(a.source)
+            day = a.published_at.date() if a.published_at else None
+            if any(
+                et == tk and ed == day and (ek in sk or sk in ek)
+                for et, ek, ed in seen_triples
+            ):
+                continue
+            # también dentro del lote: el mismo artículo puede llegar
+            # por dos URLs en la misma pasada
+            seen_triples.add((tk, sk, day))
             fresh.append(a)
         fresh.sort(key=lambda a: a.published_at or _EPOCH, reverse=True)
         # Backfill sin tope de extracciones ni de cuerpos: el prefiltro
