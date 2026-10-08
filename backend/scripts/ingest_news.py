@@ -30,7 +30,6 @@ from app.models import Beach, BeachState, BeachStatus, NewsItem
 from app.news_llm import EventExtraction, GeminiExtractor, extract_event
 from app.news_matching import _MIN_NAME_LEN, _press_key, match_beaches
 from app.news_resolve import resolve_and_fetch
-from app.news_zones import narrow_hits_by_zone
 from app.news_sources import (
     GUIA_SOURCE,
     MEDIA_FEEDS,
@@ -43,6 +42,7 @@ from app.news_sources import (
     fetch_news,
     source_excluded,
 )
+from app.news_zones import narrow_hits_by_zone
 from app.queries import _short_cause
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
