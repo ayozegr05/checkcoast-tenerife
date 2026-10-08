@@ -171,8 +171,19 @@ def main() -> None:
                                     body_verified=verified,
                                 )
                             )
+                    # (url, beach_id) es unique con NULLS NOT DISTINCT:
+                    # solo puede quedar una fila libre por URL. Si ya hay
+                    # una (o la creamos ahora), el resto de réplicas
+                    # sobrantes se borran — son copias del mismo artículo
+                    already_free = any(r.beach_id is None for r in rows)
                     for row in free_rows:
-                        row.beach_id = None
+                        if row.beach_id is None:
+                            continue
+                        if already_free:
+                            db.delete(row)
+                        else:
+                            row.beach_id = None
+                            already_free = True
             db.commit()
             updated += 1
             print(
