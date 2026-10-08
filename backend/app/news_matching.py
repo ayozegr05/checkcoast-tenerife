@@ -268,10 +268,21 @@ def match_beaches(
         # enumeraciones multi-playa sí cruzan municipios.
         emuni = _norm_muni(ext.municipality)
         for key, members in title_map.items():
-            if emuni and not found:
+            if not found:
+                # Una clave igual al nombre del municipio casi siempre
+                # nombra el pueblo, no la playa: en rescate no vale
+                # ("Los Guanches, en Candelaria" ≠ "PLAYA CANDELARIA").
+                # Si la extracción casa por vía normal, no pasa por
+                # aquí — solo se filtra el rescate literal.
                 members = [
-                    b for b in members if _norm_muni(b.municipality) == emuni
+                    b for b in members if key != _norm_muni(b.municipality)
                 ]
+                if emuni:
+                    members = [
+                        b
+                        for b in members
+                        if _norm_muni(b.municipality) == emuni
+                    ]
                 if not members:
                     continue
             k_bases = {_base_key(b) for b in members}

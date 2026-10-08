@@ -328,6 +328,40 @@ def test_non_beach_geo_feature_never_matches():
     )
 
 
+def test_rescue_does_not_use_municipality_name():
+    """Regresión oct-2026: las noticias de 'playas de Candelaria' se
+    pegaban a PLAYA CANDELARIA solo porque el titular menciona el
+    pueblo — 'Los Guanches' y 'Olegario' son playas distintas."""
+    beaches = [
+        SimpleNamespace(
+            id=23, name="PLAYA CANDELARIA PM4", municipality="Candelaria"
+        )
+    ]
+    assert (
+        ids(
+            ext("Los Guanches", "Candelaria"),
+            beaches=beaches,
+            title="Cierra al baño la playa de Los Guanches en Candelaria",
+        )
+        == []
+    )
+    assert (
+        ids(
+            ext(None, "Candelaria"),
+            beaches=beaches,
+            title="Prohibido el baño en dos playas de Candelaria",
+        )
+        == []
+    )
+    # pero una extracción que sí nombra la playa sigue casando por
+    # la vía normal
+    assert ids(
+        ext("Playa de Candelaria", "Candelaria"),
+        beaches=beaches,
+        title="Cierra la playa de Candelaria por vertido",
+    ) == [23]
+
+
 def test_press_key_keeps_initial_d():
     """Regresión oct-2026: "PLAYA DUQUE" perdia la D ("D\\s*" del
     prefijo genérico) → clave "EL UQUE" y "Playa del Duque" no casaba
