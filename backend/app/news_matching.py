@@ -96,6 +96,19 @@ _ISLAND_MUNICIPALITIES = frozenset(
 )
 
 _MIN_NAME_LEN = 5
+# Primera palabra de un municipio que NO sirve para nombrarlo en un
+# titular ("EL Tanque", "SANTA Cruz…", "PUERTO de la Cruz")
+_GENERIC_MUNI_WORD = {
+    "EL",
+    "LA",
+    "LOS",
+    "LAS",
+    "SAN",
+    "SANTA",
+    "PUERTO",
+    "DE",
+    "DEL",
+}
 
 # El "D " final solo vale si va seguido de espacio ("PLAYA D X"):
 # "D\s*" sin espacio se comía la D inicial del nombre
@@ -450,10 +463,12 @@ def match_beaches(
     hits = [
         (b, k) for b, k in candidates if _norm_muni(b.municipality) == muni
     ]
-    # El LLM a veces deduce el municipio y se equivoca (El Cabezo de
-    # Güímar adjudicado a Granadilla). Con playas homónimas en varios
-    # municipios solo se confía en el municipio extraído si aparece
-    # literalmente en el titular.
+    # El municipio extraído desambigua homónimos entre municipios
+    # ("El Cabezo" en Güímar vs Granadilla). Solo se duda de él cuando
+    # el titular aporta contra-evidencia — el LLM a veces lo deduce
+    # mal (El Cabezo de Güímar adjudicado a Granadilla), pero ese
+    # error se delata si el texto nombra otro municipio de la isla o
+    # una cala hermana de otro municipio ("…y Paseo de las Palmeras").
     cand_munis = {_norm_muni(b.municipality) for b, _ in candidates}
     if len(cand_munis) > 1:
         norm_title = _normalize(title)
@@ -467,7 +482,44 @@ def match_beaches(
             )
         )
         if not muni_in_title:
-            return _merge([])
+            # El titular nombra otro municipio candidato →
+            # contradicción literal con la extracción. "La Orotava"
+            # cuenta por nombre completo; la primera palabra solo si
+            # es distintiva ("GRANADILLA" sí, "EL"/"SANTA"/"PUERTO" no)
+            def _muni_named(om: str) -> bool:
+                w = om.split()[0]
+                return (
+                    om in norm_title
+                    or (
+                        len(w) >= _MIN_NAME_LEN
+                        and w not in _GENERIC_MUNI_WORD
+                        and w in norm_title
+                    )
+                    or any(
+                        a in norm_title
+                        for a, off in MUNICIPALITY_ALIASES.items()
+                        if off == om
+                    )
+                )
+
+            if any(_muni_named(om) for om in cand_munis - {muni}):
+                # Sin rescate: el municipio extraído está desmentido
+                # por el titular y _merge confiaría en él de nuevo
+                return []
+            # Claves distintivas de las candidatas de otros
+            # municipios: no vale la clave compartida que creó la
+            # ambigüedad ("EL CABEZO"), solo las que distinguen a la
+            # hermana ("PASEO DE LAS PALMERAS")
+            artless_targets = {_LEADING_ARTICLE.sub("", t) for t in targets}
+            other_keys = {
+                k
+                for b, _ in candidates
+                if _norm_muni(b.municipality) != muni
+                for k in _beach_keys(b)
+                if _LEADING_ARTICLE.sub("", k) not in artless_targets
+            }
+            if any(_name_in_title(k, norm_title) for k in other_keys):
+                return []
     # Dentro del municipio el exacto también gana a las contenciones
     exact = [(b, k) for b, k in hits if k in targets]
     pool = exact or hits
