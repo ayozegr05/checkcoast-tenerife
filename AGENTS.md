@@ -519,19 +519,14 @@ puede quedar una fila NULL por URL (marcador de dedup).
   (3 medios). Fix backend desplegado: `closed_since` del summary solo
   mira cierres tras la última reapertura. `groupNewsItems` ya usa
   especificidad (family+rank)
-- **Re-extracción histórica en curso (2026-10-09)**: tras mergear #13
-  (fixes matching) y #14 (calas en push) se desplegó a prod y se lanzó
-  `reextract_news --all` para recolocar el histórico. Estado: ~355 URLs
-  ya reprocesadas; la cuota free de Gemini se agotó a mitad (ver gotcha
-  Gemini). **Cron en la VM** (`crontab -l`): `10 8 * * *
-  /home/ubuntu/reextract_daily.sh` corre los años viejos + pasada
-  general cada mañana tras el reset de cuota hasta converger — logs en
-  `~/logs/reextract_*.log` (host). Cuando el resumen diario deje de
-  mover filas: quitar el cron y correr `python -m scripts.rezone_news
-  --apply` dentro de `checkcoast-api` para cerrar la reasignación de
-  calas (Jardín/Valleseco-El Bloque). Verificación esperada: La Viuda→id
-  87, artículos "Los Guanches y Olegario" repartidos PM4+215,
-  "El Alcalde"→92, Candelaria sin episodios espurios de municipio
+- **Re-extracción histórica cerrada (2026-10-09)**: tras mergear #13
+  (fixes matching) y #14 (calas en push) se recolocó el histórico con
+  `reextract_news --all` (la cuota free de Gemini lo hizo por días) y
+  `rezone_news --apply`. Cron `reextract_daily.sh` eliminado.
+  Verificado: La Viuda→87, "Los Guanches y Olegario" en PM4+215,
+  "El Alcalde"→92, Valleseco/El Bloque en sus PM1, Jardín repartido
+  por PM según zona nombrada. Backup de `news_items` previo en la VM:
+  `~/news_items_backup_20261009_1349.sql.gz`
 - Hito 9 (portfolio): capturas/vídeo del APK, repo público en GitHub
   (activa CI), post LinkedIn; opcional ficha Google Play
 - Verificación E2E de App Links con build firmada por EAS (8.8)
