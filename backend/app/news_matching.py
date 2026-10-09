@@ -119,6 +119,11 @@ _INNER_PREP = re.compile(r"\s+(?:DE\s+LA|DE\s+LOS|DE\s+LAS|DEL|DE)\s+")
 _FACILITY_PREFIX = re.compile(
     r"^PISCINAS?\s+NATURAL(?:ES)?\s+(?:DE\s+|DEL\s+)?"
 )
+# Artículo inicial del nombre censal: la prensa lo omite a menudo
+# ("playa del Bollullo" ↔ "PLAYA BOLLULLO (EL)") — el match por clave
+# exacta tolera su ausencia
+_LEADING_ARTICLE = re.compile(r"^(?:EL|LA|LOS|LAS)\s+")
+_HYPHEN = re.compile(r"\s*-\s*")
 
 
 def _key_variants(name: str) -> list[str]:
@@ -132,7 +137,11 @@ def _key_variants(name: str) -> list[str]:
             _INNER_PREP.sub(" ", _press_key(n)),
         ):
             variants = {key}
-            tail = key.split(" - ")[-1]
+            # Cola tras guion como clave propia: el censo compone
+            # "COMPLEJO - CALA" ("VALLESECO- EL BLOQUE", "CABEZO
+            # (EL)-PASEO DE LAS PALMERAS") y la prensa nombra la cala
+            # sola — se toleran guion con/sin espacios
+            tail = _HYPHEN.split(key)[-1]
             short = _FACILITY_PREFIX.sub("", tail)
             if short and short != key:
                 variants.add(short)
@@ -418,7 +427,12 @@ def match_beaches(
         keys = {k for _, k in pool}
         munis = {_norm_muni(b.municipality) for b, _ in pool}
         if len(pool) >= 1 and len(keys) == 1 and len(munis) == 1:
-            if any(k in targets for k in keys):
+            artless_targets = {_LEADING_ARTICLE.sub("", t) for t in targets}
+            # "Clave exacta" tolera el artículo censal que la prensa
+            # omite: "Bollullo" extraído ↔ "EL BOLLULLO" en el censo
+            if any(
+                _LEADING_ARTICLE.sub("", k) in artless_targets for k in keys
+            ):
                 return _merge([b for b, _ in pool])
         return _merge(_multi_beach_hits(pool, _normalize(title)))
 
