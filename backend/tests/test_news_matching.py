@@ -122,9 +122,9 @@ def test_containment_requires_municipality():
     # "Playa del Cabezo" contiene "CABEZO": sin municipio hay dos
     # municipios candidatos → no casa
     assert ids(ext("Playa del Cabezo")) == []
-    # con municipio extraído hay que verlo en el titular: el LLM a
-    # veces lo deduce mal
-    assert ids(ext("Playa del Cabezo", "Güímar")) == []
+    # con municipio extraído desambigua aunque el titular no lo
+    # nombre: solo se duda si el titular aporta contra-evidencia
+    assert ids(ext("Playa del Cabezo", "Güímar")) == [7, 8]
     assert ids(
         ext("Playa del Cabezo", "Güímar"),
         title="Güímar reabre la playa de El Cabezo",
@@ -571,3 +571,25 @@ def test_numeral_list_expands():
         beaches=beaches,
         title="El Médano y El Socorro cierran temporalmente al baño",
     ) == [30, 40]
+
+
+def test_municipio_disambigua_sin_confirmacion_en_titular():
+    """Regresión auditoría: piezas de "El Cabezo" de Güímar con
+    muni=Güímar extraído (por el cuerpo) se perdían porque el titular
+    no nombraba Güímar. Ahora el municipio extraído desambigua salvo
+    que el titular nombre otro municipio o una playa hermana."""
+    # sin mención municipal ni de la hermana → confía en la extracción
+    assert ids(
+        ext("El Cabezo", "Güímar"),
+        title="Cierran la playa de El Cabezo por aguas residuales",
+    ) == [7, 8]
+    # titular que nombra otro municipio de la isla → contradicción
+    assert ids(
+        ext("El Cabezo", "Güímar"),
+        title="Granadilla cierra la playa de El Cabezo",
+    ) == []
+    # titular que nombra la hermana de otro municipio → contra-evidencia
+    assert ids(
+        ext("El Cabezo", "Granadilla de Abona"),
+        title="Cierran El Cabezo y Paseo de las Palmeras",
+    ) == []
