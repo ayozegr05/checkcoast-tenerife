@@ -502,3 +502,43 @@ def test_municipio_inventado_se_ignora():
     assert ids(ext("Playa del Cabezo", "Adeje")) == []
     # Inventado en playa ambigua: queda ambigua, no fuerza match
     assert ids(ext("El Cabezo", "Valleseco")) == []
+
+
+def test_playa_del_prefix_matches_inverted_article():
+    """Regresión auditoría: "playa del Bollullo" (prensa, sin artículo)
+    no casaba con "PLAYA BOLLULLO (EL) PM1" — la clave contenida con
+    artículo invertido moría en la puerta de exactitud."""
+    beaches = [
+        SimpleNamespace(
+            id=40,
+            name="PLAYA BOLLULLO (EL) PM1",
+            municipality="La Orotava",
+        )
+    ]
+    assert ids(
+        ext("Playa del Bollullo"),
+        beaches=beaches,
+        title="Cierra la playa del Bollullo por contaminación",
+    ) == [40]
+
+
+def test_hyphen_tail_is_a_key():
+    """Las calas censadas como "COMPLEJO- CALA" aportan la cola como
+    clave propia: "El Bloque" casa "PLAYA VALLESECO- EL BLOQUE PM1"."""
+    beaches = [
+        SimpleNamespace(
+            id=58,
+            name="PLAYA VALLESECO- EL BLOQUE PM1",
+            municipality="Santa Cruz de Tenerife",
+        ),
+        SimpleNamespace(
+            id=59,
+            name="PLAYA VALLESECO PM1",
+            municipality="Santa Cruz de Tenerife",
+        ),
+    ]
+    assert ids(
+        ext("El Bloque"),
+        beaches=beaches,
+        title="Prohibido el baño en la zona de El Bloque, en Valleseco",
+    ) == [58]
