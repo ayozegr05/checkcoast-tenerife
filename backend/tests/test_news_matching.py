@@ -489,3 +489,16 @@ def test_inner_preposition_variants():
         title="El fuerte oleaje obliga a cerrar las piscinas naturales "
         "de Bajamar y Punta del Hidalgo",
     ) == [48, 51, 52]
+
+
+def test_municipio_inventado_se_ignora():
+    """El LLM extrae municipios que no existen ("Tenerife", un barrio)
+    o se equivoca: si ningún candidato vive ahí se ignora y se resuelve
+    por nombre/titular en vez de vetar el match."""
+    # Regresión real: "Prohíben el baño en El Médano (Tenerife)"
+    assert ids(ext("El Médano", "Tenerife")) == [30]
+    # Municipio REAL pero erróneo sigue vetando (test existente:
+    # puede ser un lugar homónimo que no es la playa)
+    assert ids(ext("Playa del Cabezo", "Adeje")) == []
+    # Inventado en playa ambigua: queda ambigua, no fuerza match
+    assert ids(ext("El Cabezo", "Valleseco")) == []
