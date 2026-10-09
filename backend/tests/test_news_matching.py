@@ -122,9 +122,9 @@ def test_containment_requires_municipality():
     # "Playa del Cabezo" contiene "CABEZO": sin municipio hay dos
     # municipios candidatos → no casa
     assert ids(ext("Playa del Cabezo")) == []
-    # con municipio extraído hay que verlo en el titular: el LLM a
-    # veces lo deduce mal
-    assert ids(ext("Playa del Cabezo", "Güímar")) == []
+    # con municipio extraído desambigua aunque el titular no lo
+    # nombre: solo se duda si el titular aporta contra-evidencia
+    assert ids(ext("Playa del Cabezo", "Güímar")) == [7, 8]
     assert ids(
         ext("Playa del Cabezo", "Güímar"),
         title="Güímar reabre la playa de El Cabezo",
@@ -489,3 +489,167 @@ def test_inner_preposition_variants():
         title="El fuerte oleaje obliga a cerrar las piscinas naturales "
         "de Bajamar y Punta del Hidalgo",
     ) == [48, 51, 52]
+
+
+def test_municipio_inventado_se_ignora():
+    """El LLM extrae municipios que no existen ("Tenerife", un barrio)
+    o se equivoca: si ningún candidato vive ahí se ignora y se resuelve
+    por nombre/titular en vez de vetar el match."""
+    # Regresión real: "Prohíben el baño en El Médano (Tenerife)"
+    assert ids(ext("El Médano", "Tenerife")) == [30]
+    # Municipio REAL pero erróneo sigue vetando (test existente:
+    # puede ser un lugar homónimo que no es la playa)
+    assert ids(ext("Playa del Cabezo", "Adeje")) == []
+    # Inventado en playa ambigua: queda ambigua, no fuerza match
+    assert ids(ext("El Cabezo", "Valleseco")) == []
+
+
+def test_playa_del_prefix_matches_inverted_article():
+    """Regresión auditoría: "playa del Bollullo" (prensa, sin artículo)
+    no casaba con "PLAYA BOLLULLO (EL) PM1" — la clave contenida con
+    artículo invertido moría en la puerta de exactitud."""
+    beaches = [
+        SimpleNamespace(
+            id=40,
+            name="PLAYA BOLLULLO (EL) PM1",
+            municipality="La Orotava",
+        )
+    ]
+    assert ids(
+        ext("Playa del Bollullo"),
+        beaches=beaches,
+        title="Cierra la playa del Bollullo por contaminación",
+    ) == [40]
+
+
+def test_hyphen_tail_is_a_key():
+    """Las calas censadas como "COMPLEJO- CALA" aportan la cola como
+    clave propia: "El Bloque" casa "PLAYA VALLESECO- EL BLOQUE PM1"."""
+    beaches = [
+        SimpleNamespace(
+            id=58,
+            name="PLAYA VALLESECO- EL BLOQUE PM1",
+            municipality="Santa Cruz de Tenerife",
+        ),
+        SimpleNamespace(
+            id=59,
+            name="PLAYA VALLESECO PM1",
+            municipality="Santa Cruz de Tenerife",
+        ),
+    ]
+    assert ids(
+        ext("El Bloque"),
+        beaches=beaches,
+        title="Prohibido el baño en la zona de El Bloque, en Valleseco",
+    ) == [58]
+
+
+def test_numeral_list_expands():
+    """Regresión auditoría: "Troya I y II" se troceaba en ["TROYA I",
+    "II"] y la parte corta invalidaba el split entero — la pieza se
+    quedaba con solo PM de Troya I o perdida."""
+    beaches = BEACHES + [
+        SimpleNamespace(
+            id=12,
+            name="PLAYA DE TROYA I PM1",
+            municipality="Adeje",
+        ),
+        SimpleNamespace(
+            id=13,
+            name="PLAYA DE TROYA II PM1",
+            municipality="Adeje",
+        ),
+    ]
+    assert ids(
+        ext("Troya I y II"),
+        beaches=beaches,
+        title="Cierran al baño las playas de Troya I y II en Adeje",
+    ) == [12, 13]
+    # la lista clásica de nombres completos sigue igual
+    assert ids(
+        ext("El Médano y El Socorro"),
+        beaches=beaches,
+        title="El Médano y El Socorro cierran temporalmente al baño",
+    ) == [30, 40]
+
+
+def test_municipio_disambigua_sin_confirmacion_en_titular():
+    """Regresión auditoría: piezas de "El Cabezo" de Güímar con
+    muni=Güímar extraído (por el cuerpo) se perdían porque el titular
+    no nombraba Güímar. Ahora el municipio extraído desambigua salvo
+    que el titular nombre otro municipio o una playa hermana."""
+    # sin mención municipal ni de la hermana → confía en la extracción
+    assert ids(
+        ext("El Cabezo", "Güímar"),
+        title="Cierran la playa de El Cabezo por aguas residuales",
+    ) == [7, 8]
+    # titular que nombra otro municipio de la isla → contradicción
+    assert (
+        ids(
+            ext("El Cabezo", "Güímar"),
+            title="Granadilla cierra la playa de El Cabezo",
+        )
+        == []
+    )
+    # titular que nombra la hermana de otro municipio → contra-evidencia
+    assert (
+        ids(
+            ext("El Cabezo", "Granadilla de Abona"),
+            title="Cierran El Cabezo y Paseo de las Palmeras",
+        )
+        == []
+    )
+
+
+def test_zone_alias_matches_complex_when_name_misses():
+    """Regresión auditoría: extracción "Punta Brava" (nombre de cala
+    del complejo Jardín, no del censo) no casaba nada — los alias de
+    zona solo acotaban un complejo ya casado. Ahora un alias de zona
+    que no colisiona con playas reales casa su PM."""
+    # Punta Brava solo nombra la cala de PM4
+    assert ids(
+        ext("Punta Brava", "Puerto de la Cruz"),
+        title="Cierran Punta Brava al baño por vertido",
+    ) == [41]
+    # María Jiménez (alias fuerte de PM4) igual
+    assert ids(
+        ext("Playa María Jiménez", "Puerto de la Cruz"),
+        title="Cierre de María Jiménez",
+    ) == [41]
+    # pero "Playa Grande" extraído sigue yendo a la playa real de
+    # Arico, no al alias de PM4 — el alias de zona no roba matches
+    assert ids(ext("Playa Grande", "Arico")) == [85]
+
+
+def test_multi_beach_toponym_prefers_context_municipality():
+    """Regresión auditoría: "Almáciga y el Roque" casó también con
+    Playa del Roque (Fasnia) cuando el Roque real es el de las
+    Bodegas, en el mismo contexto Anaga/Santa Cruz que Almáciga.
+    Claves que se contienen nombran el mismo topónimo y el contexto
+    municipal del titular decide."""
+    beaches = [
+        SimpleNamespace(
+            id=175,
+            name="PLAYA ALMACIGA PM1",
+            municipality="Santa Cruz de Tenerife",
+        ),
+        SimpleNamespace(
+            id=172,
+            name="ROQUE DE LAS BODEGAS",
+            municipality="Santa Cruz de Tenerife",
+            press_aliases=["El Roque"],
+        ),
+        SimpleNamespace(
+            id=137,
+            name="PLAYA DEL ROQUE",
+            municipality="Fasnia",
+        ),
+    ]
+    title = "Prohibido el baño en Almáciga y el Roque por contaminación"
+    # extracción conjunta y solo del Roque: ambas resuelven por
+    # contexto hacia las Bodegas (Santa Cruz), no Fasnia
+    assert ids(ext("Almáciga y el Roque"), beaches=beaches, title=title) == [
+        172,
+        175,
+    ]
+    assert ids(ext("El Roque"), beaches=beaches, title=title) == [172]
