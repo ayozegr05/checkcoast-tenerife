@@ -175,6 +175,26 @@ def _beach_keys(b: Beach) -> list[str]:
     return keys
 
 
+def _weak_beach_keys(b: Beach) -> set[str]:
+    """Claves derivadas de cola/instalación de UNA sola palabra
+    (topónimos de localidad: "BAJAMAR" tras "CASTILLO-BAJAMAR" o
+    "PISCINAS NATURALES DE BAJAMAR", "JOVER"…). Sirven contra el
+    nombre extraído, pero no para rescatar por titular: ahí suelen
+    ser contexto locativo ("la reapertura del Neptuno en Bajamar"
+    habla del hotel, no de las piscinas)."""
+    weak = set()
+    for n in [b.name, *(getattr(b, "press_aliases", None) or [])]:
+        for base in (n, _PAREN_NOISE.sub("", n)):
+            for key in (
+                _press_key(base),
+                _INNER_PREP.sub(" ", _press_key(base)),
+            ):
+                short = _FACILITY_PREFIX.sub("", _HYPHEN.split(key)[-1])
+                if short and short != key and len(short.split()) == 1:
+                    weak.add(short)
+    return weak
+
+
 def _press_key(name: str) -> str:
     """Clave comparable playa↔titular: normaliza el censo invertido
     ("CABEZO (EL)" → "EL CABEZO") y el prefijo "PLAYA DE…"."""
@@ -335,10 +355,13 @@ def _title_key_hits(
     un único municipio (los homónimos entre municipios se rechazan)."""
     groups: dict[str, list[Beach]] = {}
     for b in beaches:
+        weak = _weak_beach_keys(b)
         for k in _beach_keys(b):
             # Un mismo beach puede aportar la misma clave por nombre y
-            # alias ("Playa de Tabaiba" + alias "Tabaiba") — una vez
-            if len(k) >= _MIN_NAME_LEN:
+            # alias ("Playa de Tabaiba" + alias "Tabaiba") — una vez.
+            # Las claves débiles de una palabra (topónimos de localidad)
+            # no rescatan por titular: "en Bajamar" nombra el pueblo
+            if len(k) >= _MIN_NAME_LEN and k not in weak:
                 members = groups.setdefault(k, [])
                 if all(m.id != b.id for m in members):
                     members.append(b)
@@ -454,7 +477,7 @@ def match_beaches(
     # casa por separado — "EL SOCORRO" no es substring contiguo del
     # conjunto y se perdería. Titulares genéricos ("Se cierran dos
     # playas") dependen de esta vía porque el titular no nombra.
-    parts = re.split(r"\s+[YE]\s+", target)
+    parts = re.split(r"\s+[YE]\s+|,\s*", target)
     # Listas de numeración ("Troya I y II"): la parte corta no es un
     # nombre propio sino el numerador que completa a la anterior —
     # "II" expande a "TROYA II" heredando la base
