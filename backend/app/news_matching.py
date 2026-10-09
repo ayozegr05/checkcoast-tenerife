@@ -245,21 +245,77 @@ def _name_in_title(key: str, title_norm: str) -> bool:
 
 
 def _multi_beach_hits(
-    cands: list[tuple[Beach, str]], title_norm: str
+    cands: list[tuple[Beach, str]],
+    title_norm: str,
+    title_map: dict[str, list[Beach]],
 ) -> list[Beach]:
     """Titulares con varias playas ("El Médano y El Socorro cierran"):
     cada clave distinta casa si aparece literal en el titular y sus
-    candidatas están en un solo municipio."""
+    candidatas están en un solo municipio. Claves que se contienen
+    nombran el mismo topónimo ("ROQUE" ⊂ "EL ROQUE") y si cruzan
+    municipios decide el contexto: los municipios de las demás playas
+    nombradas en el titular."""
     keys = {k for _, k in cands}
     if len(keys) <= 1:
         return []
-    ok = []
+    hits: dict[str, list[Beach]] = {}
     for k in keys:
         members = [(b, kk) for b, kk in cands if kk == k]
-        munis = {_norm_muni(b.municipality) for b, _ in members}
-        if len(munis) == 1 and _name_in_title(k, title_norm):
-            ok.extend(b for b, _ in members)
-    return ok
+        if len(
+            {_norm_muni(b.municipality) for b, _ in members}
+        ) == 1 and _name_in_title(k, title_norm):
+            hits[k] = [b for b, _ in members]
+    out: list[Beach] = []
+    for g in _toponym_groups(hits):
+        members = []
+        seen_ids: set[int] = set()
+        for k in g:
+            for b in hits[k]:
+                if b.id not in seen_ids:
+                    seen_ids.add(b.id)
+                    members.append(b)
+        if len({_norm_muni(b.municipality) for b in members}) > 1:
+            narrowed = _narrow_by_context(members, g, title_map, [])
+            if not narrowed:
+                continue
+            members = narrowed
+        out.extend(members)
+    return out
+
+
+def _toponym_groups(keys) -> list[list[str]]:
+    """Agrupa claves que se contienen una a otra: nombran el mismo
+    lugar en el titular ("ROQUE" dentro de "EL ROQUE") y compiten
+    por la misma mención, no son dos playas distintas."""
+    groups: list[list[str]] = []
+    for k in keys:
+        for g in groups:
+            if any(k in kk or kk in k for kk in g):
+                g.append(k)
+                break
+        else:
+            groups.append([k])
+    return groups
+
+
+def _narrow_by_context(
+    members: list[Beach],
+    group: list[str],
+    title_map: dict[str, list[Beach]],
+    out: list[Beach],
+) -> list[Beach]:
+    """Acota un topónimo homónimo entre municipios usando el contexto:
+    municipios de las playas ya casadas (`out`) y de las demás
+    playas nombradas literalmente en el titular. "Almáciga y el Roque"
+    habla del Roque de las Bodegas (Santa Cruz), no del de Fasnia."""
+    ctx = {_norm_muni(b.municipality) for b in out}
+    ctx |= {
+        _norm_muni(b.municipality)
+        for kk, bs in title_map.items()
+        if kk not in group
+        for b in bs
+    }
+    return [b for b in members if _norm_muni(b.municipality) in ctx]
 
 
 def _base_key(b: Beach) -> tuple[str, str | None]:
@@ -332,7 +388,8 @@ def match_beaches(
         # de otro municipio). Con found no vacío no se filtra: las
         # enumeraciones multi-playa sí cruzan municipios.
         emuni = _norm_muni(ext.municipality)
-        for key, members in title_map.items():
+        for g in _toponym_groups(title_map):
+            members = [b for k in g for b in title_map[k]]
             if not found:
                 # Una clave igual al nombre del municipio casi siempre
                 # nombra el pueblo, no la playa: en rescate no vale
@@ -340,7 +397,9 @@ def match_beaches(
                 # Si la extracción casa por vía normal, no pasa por
                 # aquí — solo se filtra el rescate literal.
                 members = [
-                    b for b in members if key != _norm_muni(b.municipality)
+                    b
+                    for b in members
+                    if not any(k == _norm_muni(b.municipality) for k in g)
                 ]
                 if emuni:
                     members = [
@@ -351,13 +410,22 @@ def match_beaches(
                 if not members:
                     continue
             k_bases = {_base_key(b) for b in members}
-            if (
+            if not (
                 not found
-                or _conjoined(key, title_norm)
+                or any(_conjoined(k, title_norm) for k in g)
                 or k_bases <= found_bases
             ):
-                out.extend(b for b in members if b.id not in seen)
-                seen.update(b.id for b in members)
+                continue
+            # Topónimo homónimo entre municipios: decide el contexto
+            # (playas ya casadas + otras del titular). "Almáciga y el
+            # Roque" es el Roque de las Bodegas, no el de Fasnia
+            if len({_norm_muni(b.municipality) for b in members}) > 1:
+                narrowed = _narrow_by_context(members, g, title_map, out)
+                if not narrowed:
+                    continue
+                members = narrowed
+            out.extend(b for b in members if b.id not in seen)
+            seen.update(b.id for b in members)
         return out
 
     if not ext.beach_name:
@@ -476,7 +544,7 @@ def match_beaches(
                 _LEADING_ARTICLE.sub("", k) in artless_targets for k in keys
             ):
                 return _merge([b for b, _ in pool])
-        return _merge(_multi_beach_hits(pool, _normalize(title)))
+        return _merge(_multi_beach_hits(pool, _normalize(title), title_map))
 
     hits = [
         (b, k) for b, k in candidates if _norm_muni(b.municipality) == muni
@@ -553,4 +621,4 @@ def match_beaches(
     }
     if len(pool) >= 1 and len(bases) == 1:
         return _merge([b for b, _ in pool])
-    return _merge(_multi_beach_hits(pool, _normalize(title)))
+    return _merge(_multi_beach_hits(pool, _normalize(title), title_map))

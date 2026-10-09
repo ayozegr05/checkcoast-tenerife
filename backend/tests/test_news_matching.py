@@ -613,3 +613,34 @@ def test_zone_alias_matches_complex_when_name_misses():
     # pero "Playa Grande" extraído sigue yendo a la playa real de
     # Arico, no al alias de PM4 — el alias de zona no roba matches
     assert ids(ext("Playa Grande", "Arico")) == [85]
+
+
+def test_multi_beach_toponym_prefers_context_municipality():
+    """Regresión auditoría: "Almáciga y el Roque" casó también con
+    Playa del Roque (Fasnia) cuando el Roque real es el de las
+    Bodegas, en el mismo contexto Anaga/Santa Cruz que Almáciga.
+    Claves que se contienen nombran el mismo topónimo y el contexto
+    municipal del titular decide."""
+    beaches = [
+        SimpleNamespace(
+            id=175,
+            name="PLAYA ALMACIGA PM1",
+            municipality="Santa Cruz de Tenerife",
+        ),
+        SimpleNamespace(
+            id=172,
+            name="ROQUE DE LAS BODEGAS",
+            municipality="Santa Cruz de Tenerife",
+            press_aliases=["El Roque"],
+        ),
+        SimpleNamespace(
+            id=137,
+            name="PLAYA DEL ROQUE",
+            municipality="Fasnia",
+        ),
+    ]
+    title = "Prohibido el baño en Almáciga y el Roque por contaminación"
+    # extracción conjunta y solo del Roque: ambas resuelven por
+    # contexto hacia las Bodegas (Santa Cruz), no Fasnia
+    assert ids(ext("Almáciga y el Roque"), beaches=beaches, title=title) == [172, 175]
+    assert ids(ext("El Roque"), beaches=beaches, title=title) == [172]
