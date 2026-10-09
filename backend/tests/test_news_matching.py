@@ -584,15 +584,21 @@ def test_municipio_disambigua_sin_confirmacion_en_titular():
         title="Cierran la playa de El Cabezo por aguas residuales",
     ) == [7, 8]
     # titular que nombra otro municipio de la isla → contradicción
-    assert ids(
-        ext("El Cabezo", "Güímar"),
-        title="Granadilla cierra la playa de El Cabezo",
-    ) == []
+    assert (
+        ids(
+            ext("El Cabezo", "Güímar"),
+            title="Granadilla cierra la playa de El Cabezo",
+        )
+        == []
+    )
     # titular que nombra la hermana de otro municipio → contra-evidencia
-    assert ids(
-        ext("El Cabezo", "Granadilla de Abona"),
-        title="Cierran El Cabezo y Paseo de las Palmeras",
-    ) == []
+    assert (
+        ids(
+            ext("El Cabezo", "Granadilla de Abona"),
+            title="Cierran El Cabezo y Paseo de las Palmeras",
+        )
+        == []
+    )
 
 
 def test_zone_alias_matches_complex_when_name_misses():
@@ -642,5 +648,8 @@ def test_multi_beach_toponym_prefers_context_municipality():
     title = "Prohibido el baño en Almáciga y el Roque por contaminación"
     # extracción conjunta y solo del Roque: ambas resuelven por
     # contexto hacia las Bodegas (Santa Cruz), no Fasnia
-    assert ids(ext("Almáciga y el Roque"), beaches=beaches, title=title) == [172, 175]
+    assert ids(ext("Almáciga y el Roque"), beaches=beaches, title=title) == [
+        172,
+        175,
+    ]
     assert ids(ext("El Roque"), beaches=beaches, title=title) == [172]
