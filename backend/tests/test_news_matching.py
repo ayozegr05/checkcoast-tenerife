@@ -653,3 +653,70 @@ def test_multi_beach_toponym_prefers_context_municipality():
         175,
     ]
     assert ids(ext("El Roque"), beaches=beaches, title=title) == [172]
+
+
+def test_single_word_locality_key_does_not_rescue_title():
+    """Regresión prod: "la reapertura del Neptuno en Bajamar" casó con
+    las playas de Bajamar por la clave de cola "BAJAMAR" (de
+    "CASTILLO-BAJAMAR" / "PISCINAS NATURALES DE BAJAMAR") — el
+    topónimo del pueblo es contexto locativo, no la playa. Las claves
+    de cola/instalación de una palabra no rescatan por titular."""
+    beaches = [
+        SimpleNamespace(
+            id=49,
+            name="PLAYA CASTILLO-BAJAMAR (SAN JUAN) PM1",
+            municipality="San Cristóbal de La Laguna",
+        ),
+        SimpleNamespace(
+            id=51,
+            name="PLAYA PISCINAS NATURALES DE BAJAMAR PM1",
+            municipality="San Cristóbal de La Laguna",
+        ),
+        SimpleNamespace(
+            id=52,
+            name="PLAYA PISCINAS NATURALES DE BAJAMAR PM2",
+            municipality="San Cristóbal de La Laguna",
+        ),
+    ]
+    assert (
+        ids(
+            ext("Neptuno", "Bajamar"),
+            beaches=beaches,
+            title="Urbanismo defiende la reapertura del Neptuno en "
+            "Bajamar al ser un emblema turístico",
+        )
+        == []
+    )
+    # el nombre extraído sí sigue casando por la clave débil: "las
+    # piscinas de Bajamar" cierran → todas las playas del topónimo
+    # Bajamar (mismo municipio) — el extractor nombró el lugar, no
+    # un contexto locativo del titular
+    assert ids(
+        ext("Piscinas de Bajamar", "La Laguna"),
+        beaches=beaches,
+        title="Cierran al baño las piscinas naturales de Bajamar",
+    ) == [49, 51, 52]
+
+
+def test_comma_list_expands():
+    """Extracciones en lista con comas ("Puntalarga, Las Caletillas,
+    Olegario, …, La Viuda y La Hornilla"): cada parte se casa por
+    separado igual que la conjunción 'y'."""
+    beaches = [
+        SimpleNamespace(
+            id=87, name="Playa de la Viuda", municipality="Candelaria"
+        ),
+        SimpleNamespace(
+            id=92, name="Playa de la Hornilla", municipality="Candelaria"
+        ),
+        SimpleNamespace(
+            id=95,
+            name="PLAYA PUNTALARGA PM1",
+            municipality="Candelaria",
+        ),
+    ]
+    assert ids(
+        ext("Puntalarga, La Viuda y La Hornilla", "Candelaria"),
+        beaches=beaches,
+        title="Las playas de Candelaria seguirán cerradas esta semana",
+    ) == [87, 92, 95]
