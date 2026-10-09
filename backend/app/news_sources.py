@@ -62,6 +62,41 @@ def source_excluded(source: str | None) -> bool:
     return any(x in s for x in EXCLUDED_SOURCES)
 
 
+# El mismo artículo entra por dos vías con el medio escrito distinto:
+# Google News pone la cabecera editorial ("Radio Televisión Canaria",
+# "Ayuntamiento | Puerto de la Cruz") y los feeds la sigla o el
+# dominio ("RTVC", "Ayto. Puerto de la Cruz", "eldia.es"). Para
+# deduplicarlos se comparan claves canónicas, no el literal.
+_OUTLET_TLD = {"es", "com", "net", "org", "info", "tv", "mx", "ec", "co", "pe"}
+_OUTLET_ALIAS = {
+    "radiotelevisioncanaria": "rtvc",
+    "rtvc": "rtvc",
+}
+
+
+def outlet_keys(source: str | None) -> set[str]:
+    """Claves canónicas del medio para dedup feed↔Google News.
+
+    Devuelve dos variantes — completa y sin "de/del" ("Ayuntamiento de
+    Candelaria" vs "Ayto. Candelaria") — que se comparan por contención:
+    "diariodeavisos" casa "diariodeavisos.elespanol.com" (sin TLD)."""
+    s = re.sub(r"\bayto\b", "ayuntamiento", _geo_norm(source))
+    toks = [t for t in re.findall(r"[a-z0-9]+", s) if t != "www"]
+    while toks and toks[-1] in _OUTLET_TLD:
+        toks.pop()
+    key = _OUTLET_ALIAS.get("".join(toks), "".join(toks))
+    flat = "".join(t for t in toks if t not in ("de", "del"))
+    return {key, _OUTLET_ALIAS.get(flat, flat)} - {""}
+
+
+def outlets_match(a: set[str], b: set[str]) -> bool:
+    return any(
+        len(x) >= 4 and len(y) >= 4 and (x in y or y in x)
+        for x in a
+        for y in b
+    )
+
+
 # Webs municipales y oficiales: fuente primaria — muchos avisos de
 # playa solo se publican ahí y nunca los agrega Google News (El Pris,
 # El Bobo...). Puerto de la Cruz tiene los feeds desactivados a
