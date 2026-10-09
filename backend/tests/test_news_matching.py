@@ -593,3 +593,23 @@ def test_municipio_disambigua_sin_confirmacion_en_titular():
         ext("El Cabezo", "Granadilla de Abona"),
         title="Cierran El Cabezo y Paseo de las Palmeras",
     ) == []
+
+
+def test_zone_alias_matches_complex_when_name_misses():
+    """Regresión auditoría: extracción "Punta Brava" (nombre de cala
+    del complejo Jardín, no del censo) no casaba nada — los alias de
+    zona solo acotaban un complejo ya casado. Ahora un alias de zona
+    que no colisiona con playas reales casa su PM."""
+    # Punta Brava solo nombra la cala de PM4
+    assert ids(
+        ext("Punta Brava", "Puerto de la Cruz"),
+        title="Cierran Punta Brava al baño por vertido",
+    ) == [41]
+    # María Jiménez (alias fuerte de PM4) igual
+    assert ids(
+        ext("Playa María Jiménez", "Puerto de la Cruz"),
+        title="Cierre de María Jiménez",
+    ) == [41]
+    # pero "Playa Grande" extraído sigue yendo a la playa real de
+    # Arico, no al alias de PM4 — el alias de zona no roba matches
+    assert ids(ext("Playa Grande", "Arico")) == [85]

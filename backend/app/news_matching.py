@@ -436,6 +436,24 @@ def match_beaches(
         if hit is not None:
             candidates.append((b, hit))
 
+    # Fallback por alias de zona: la prensa extrae nombres de cala que
+    # el censo no tiene ("Punta Brava" → PLAYA JARDIN PM4). Solo cuando
+    # ningún nombre/alias de playa casó — una playa real del mismo
+    # nombre siempre gana ("Playa Grande" de Arico vs alias de PM4)
+    if not candidates:
+        from app.news_zones import _zone_entry
+
+        artless_targets = {_LEADING_ARTICLE.sub("", t) for t in targets}
+        for b in beaches:
+            zone = _zone_entry(b)
+            if zone is None:
+                continue
+            aliases = (*zone["aliases"], *zone.get("weak_aliases", ()))
+            if any(
+                _LEADING_ARTICLE.sub("", a) in artless_targets for a in aliases
+            ):
+                candidates.append((b, target))
+
     if muni is None:
         # Un match exacto gana a las contenciones solo si no hay
         # ambigüedad entre municipios: "El Médano" es playa propia
