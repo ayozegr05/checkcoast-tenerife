@@ -374,6 +374,17 @@ def match_beaches(
     # conjunto y se perdería. Titulares genéricos ("Se cierran dos
     # playas") dependen de esta vía porque el titular no nombra.
     parts = re.split(r"\s+[YE]\s+", target)
+    # Listas de numeración ("Troya I y II"): la parte corta no es un
+    # nombre propio sino el numerador que completa a la anterior —
+    # "II" expande a "TROYA II" heredando la base
+    expanded = [parts[0]]
+    for p in parts[1:]:
+        if len(p) < _MIN_NAME_LEN and " " in expanded[-1]:
+            stem = expanded[-1].rsplit(" ", 1)[0]
+            expanded.append(f"{stem} {p}")
+        else:
+            expanded.append(p)
+    parts = expanded
     if len(parts) > 1 and all(len(p) >= _MIN_NAME_LEN for p in parts):
         out: list[Beach] = []
         seen_ids: set[int] = set()
