@@ -129,3 +129,48 @@ def test_municipal_feeds_dead_feed_no_abort(monkeypatch):
     arts = fetch_municipal_feeds()
     assert len(arts) == 1
     assert arts[0].source == "Vivo"
+
+
+# --- dedup feed↔Google: claves canónicas del medio -------------------------
+
+
+def test_outlet_keys_domain_vs_name():
+    """El dominio del feed y la cabecera de Google comparten clave."""
+    from app.news_sources import outlet_keys, outlets_match
+
+    assert outlets_match(
+        outlet_keys("diariodeavisos.elespanol.com"),
+        outlet_keys("Diario de Avisos"),
+    )
+    assert outlets_match(outlet_keys("eldia.es"), outlet_keys("Eldía"))
+    assert outlets_match(outlet_keys("rtvc.es"), outlet_keys("RTVC"))
+
+
+def test_outlet_keys_acronym_and_ayto():
+    """Siglas y 'Ayto.' casan con la forma larga que pone Google."""
+    from app.news_sources import outlet_keys, outlets_match
+
+    assert outlets_match(
+        outlet_keys("RTVC"), outlet_keys("Radio Televisión Canaria")
+    )
+    assert outlets_match(
+        outlet_keys("Ayto. Puerto de la Cruz"),
+        outlet_keys("Ayuntamiento | Puerto de la Cruz"),
+    )
+    assert outlets_match(
+        outlet_keys("Ayto. Candelaria"),
+        outlet_keys("Ayuntamiento de Candelaria"),
+    )
+
+
+def test_outlet_keys_no_falsos_positivos():
+    """Medios distintos no casan: cada corroboración cuenta por separado."""
+    from app.news_sources import outlet_keys, outlets_match
+
+    assert not outlets_match(
+        outlet_keys("Europa Press"), outlet_keys("El Confidencial")
+    )
+    assert not outlets_match(
+        outlet_keys("Diario de Avisos"), outlet_keys("Diario de Tenerife")
+    )
+    assert not outlets_match(outlet_keys("Eldía"), outlet_keys("RTVC"))
