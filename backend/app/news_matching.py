@@ -52,6 +52,48 @@ MUNICIPALITY_ALIASES = {
     "GRANADILLA": "GRANADILLA DE ABONA",
 }
 
+# Los 31 municipios de Tenerife, normalizados: el municipio que extrae
+# el LLM solo cuenta si es uno de ellos. "Tenerife", barrios como
+# "Valleseco" o cualquier invento se ignoran y se resuelve por
+# nombre/titular — mejor ambiguo que vetado. Un municipio REAL pero
+# contradictorio con la playa casada sigue vetando (puede ser un lugar
+# homónimo que no es la playa).
+_ISLAND_MUNICIPALITIES = frozenset(
+    _normalize(m)
+    for m in (
+        "Adeje",
+        "Arafo",
+        "Arico",
+        "Arona",
+        "Buenavista del Norte",
+        "Candelaria",
+        "Fasnia",
+        "Garachico",
+        "Granadilla de Abona",
+        "La Guancha",
+        "Guía de Isora",
+        "Güímar",
+        "Icod de los Vinos",
+        "La Matanza de Acentejo",
+        "La Orotava",
+        "Puerto de la Cruz",
+        "Los Realejos",
+        "El Rosario",
+        "San Cristóbal de La Laguna",
+        "San Juan de la Rambla",
+        "San Miguel de Abona",
+        "Santa Cruz de Tenerife",
+        "Santiago del Teide",
+        "El Sauzal",
+        "Los Silos",
+        "Tacoronte",
+        "El Tanque",
+        "Tegueste",
+        "La Victoria de Acentejo",
+        "Vilaflor de Chasna",
+    )
+)
+
 _MIN_NAME_LEN = 5
 
 # El "D " final solo vale si va seguido de espacio ("PLAYA D X"):
@@ -350,6 +392,9 @@ def match_beaches(
         )
         if hit is not None:
             candidates.append((b, hit))
+
+    if muni not in _ISLAND_MUNICIPALITIES:
+        muni = None
 
     if muni is None:
         # Un match exacto gana a las contenciones solo si no hay
