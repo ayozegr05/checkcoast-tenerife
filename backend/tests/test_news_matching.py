@@ -720,3 +720,65 @@ def test_comma_list_expands():
         beaches=beaches,
         title="Las playas de Candelaria seguirán cerradas esta semana",
     ) == [87, 92, 95]
+
+
+def test_weak_key_rescues_with_bathing_feature():
+    """Review PR#17: la clave débil de una palabra sí rescata cuando el
+    titular la precede con un rasgo de baño — "la playa Chica" nombra
+    la cala; "las piscinas naturales de Bajamar" las piscinas. Solo el
+    contexto locativo puro ("en Bajamar") queda vetado."""
+    beaches = [
+        SimpleNamespace(
+            id=30,
+            name="PLAYA MEDANO (EL) PM3",
+            municipality="Granadilla de Abona",
+        ),
+        SimpleNamespace(
+            id=31,
+            name="PLAYA MEDANO (EL)-CHICA PM1",
+            municipality="Granadilla de Abona",
+        ),
+        SimpleNamespace(
+            id=51,
+            name="PLAYA PISCINAS NATURALES DE BAJAMAR PM1",
+            municipality="San Cristóbal de La Laguna",
+        ),
+    ]
+    # extracción sin nombre: "la playa Chica" rescata la cala correcta
+    # además del topónimo Médano también nombrado
+    assert ids(
+        ext(None),
+        beaches=beaches,
+        title="Cierran la playa Chica de El Médano por vertido",
+    ) == [30, 31]
+    # "las piscinas naturales de Bajamar" sí rescata la clave débil
+    assert ids(
+        ext("Neptuno", "Bajamar"),
+        beaches=[
+            SimpleNamespace(
+                id=51,
+                name="PLAYA PISCINAS NATURALES DE BAJAMAR PM1",
+                municipality="San Cristóbal de La Laguna",
+            )
+        ],
+        title="Cierran al baño las piscinas naturales de Bajamar",
+    ) == [51]
+
+
+def test_trailing_comma_does_not_break_list():
+    """Review PR#17: una extracción con coma final ("X, Y,") dejaba una
+    parte vacía que invalidaba el split entero y perdía todas las
+    playas de la lista."""
+    beaches = [
+        SimpleNamespace(
+            id=87, name="Playa de la Viuda", municipality="Candelaria"
+        ),
+        SimpleNamespace(
+            id=92, name="Playa de la Hornilla", municipality="Candelaria"
+        ),
+    ]
+    assert ids(
+        ext("La Viuda, La Hornilla,", "Candelaria"),
+        beaches=beaches,
+        title="Las playas de Candelaria seguirán cerradas",
+    ) == [87, 92]
