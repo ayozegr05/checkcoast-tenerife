@@ -542,3 +542,32 @@ def test_hyphen_tail_is_a_key():
         beaches=beaches,
         title="Prohibido el baño en la zona de El Bloque, en Valleseco",
     ) == [58]
+
+
+def test_numeral_list_expands():
+    """Regresión auditoría: "Troya I y II" se troceaba en ["TROYA I",
+    "II"] y la parte corta invalidaba el split entero — la pieza se
+    quedaba con solo PM de Troya I o perdida."""
+    beaches = BEACHES + [
+        SimpleNamespace(
+            id=12,
+            name="PLAYA DE TROYA I PM1",
+            municipality="Adeje",
+        ),
+        SimpleNamespace(
+            id=13,
+            name="PLAYA DE TROYA II PM1",
+            municipality="Adeje",
+        ),
+    ]
+    assert ids(
+        ext("Troya I y II"),
+        beaches=beaches,
+        title="Cierran al baño las playas de Troya I y II en Adeje",
+    ) == [12, 13]
+    # la lista clásica de nombres completos sigue igual
+    assert ids(
+        ext("El Médano y El Socorro"),
+        beaches=beaches,
+        title="El Médano y El Socorro cierran temporalmente al baño",
+    ) == [30, 40]
