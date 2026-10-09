@@ -438,6 +438,17 @@ Candelaria). `match_beaches` prefiere clave exacta sobre contención —
 si no, el nombre del censo opaca al alias. Reparación de datos típica:
 UPDATE `relevant`/`press_aliases`/`closed_since` + `_rematch_pending`
 (sin LLM). Noticias multi-PM se replican por PM.
+Candelaria mapeada (2026-10-08, coords verificadas por el usuario):
+"Los Guanches" ES la playa urbana de PM4 (las estatuas de los menceyes
+están en la plaza encima) — alias real, no aproximación. `Playa
+Olegario` creada a mano (id 215, `external_id='manual-olegario'`,
+no monitorizada, 28.3584152/-16.3677859) — convención `manual-*` para
+playas que OSM no tiene. `Playa de la Hornilla` (id 92, 28.3601)
+lleva alias "El Alcalde"; el pin OSM duplicado de la misma playa
+(antigua id 86) se borró. La Viuda casa con su OSM (id 87).
+`news_items` tiene UNIQUE (url, beach_id) NULLS NOT DISTINCT: al
+des-asignar réplicas hay que BORRARLAS, no liberarlas a NULL — solo
+puede quedar una fila NULL por URL (marcador de dedup).
 
 ## Gotchas conocidos
 
@@ -478,8 +489,20 @@ UPDATE `relevant`/`press_aliases`/`closed_since` + `_rematch_pending`
 - **Gemini**: `gemini-2.5-flash` está deprecado para usuarios nuevos;
   `gemini-3.6-flash` tiene cuota free tier casi nula → por defecto
   `gemini-3.5-flash` (verificado 2026-09). 503 intermitentes: reintentar.
-  Free tier = ~20 req/día **por modelo** — 429 PerDay → fallback a
-  `GEMINI_FALLBACK_MODEL` (`gemini-3.5-flash-lite`, cuota aparte)
+  Free tier = **20 req/día por modelo** (3.5-flash, 3.5-flash-lite,
+  3.6-flash, 3.7-flash, 3-flash-preview — todos medidos iguales);
+  la excepción es `gemini-3.1-flash-lite-preview` con ~600+/día
+  (verificado 2026-10-08: aguantó backfill 2024 + reextract antes de
+  agotarse). `gemini-3.8-flash` da 503. Reset diario ~07:00 UTC
+  (medianoche Pacífico). 429 PerDay → fallback a
+  `GEMINI_FALLBACK_MODEL` (cuota aparte por modelo). Para trabajos
+  grandes pasar overrides por env al proceso
+  (`docker exec -e GEMINI_MODEL=…`), sin tocar config
+- **reextract masivo y cuota**: los errores LLM en
+  `reextract_news` se tragan en silencio (`continue` sin sleep ni
+  print) — un run puede "completar" procesando 0 URLs si la cuota
+  está muerta. Verificar siempre el resumen final; el número del
+  log solo cuenta éxitos
 - **Google News RSS**: los `<link>` son redirects de Google News (se
   abren bien; el medio va en `<source>`); la URL editorial se decodifica
   con `news_resolve` (ver Hito 8.9); `Teneriffa News` (SEO-farm diario)
@@ -496,10 +519,25 @@ UPDATE `relevant`/`press_aliases`/`closed_since` + `_rematch_pending`
   (3 medios). Fix backend desplegado: `closed_since` del summary solo
   mira cierres tras la última reapertura. `groupNewsItems` ya usa
   especificidad (family+rank)
+- **Re-extracción histórica en curso (2026-10-09)**: tras mergear #13
+  (fixes matching) y #14 (calas en push) se desplegó a prod y se lanzó
+  `reextract_news --all` para recolocar el histórico. Estado: ~355 URLs
+  ya reprocesadas; la cuota free de Gemini se agotó a mitad (ver gotcha
+  Gemini). **Cron en la VM** (`crontab -l`): `10 8 * * *
+  /home/ubuntu/reextract_daily.sh` corre los años viejos + pasada
+  general cada mañana tras el reset de cuota hasta converger — logs en
+  `~/logs/reextract_*.log` (host). Cuando el resumen diario deje de
+  mover filas: quitar el cron y correr `python -m scripts.rezone_news
+  --apply` dentro de `checkcoast-api` para cerrar la reasignación de
+  calas (Jardín/Valleseco-El Bloque). Verificación esperada: La Viuda→id
+  87, artículos "Los Guanches y Olegario" repartidos PM4+215,
+  "El Alcalde"→92, Candelaria sin episodios espurios de municipio
 - Hito 9 (portfolio): capturas/vídeo del APK, repo público en GitHub
   (activa CI), post LinkedIn; opcional ficha Google Play
 - Verificación E2E de App Links con build firmada por EAS (8.8)
 - Deploy a la VM: `ssh -i ~/Downloads/ssh-key-2026-09-20.key
-  ubuntu@130.110.233.198` (no hay repo git en la VM: scp de archivos +
-  `sudo docker cp` a `checkcoast-api:/app/app/...` + restart; la web
-  vive en `checkcoast.duckdns.org` detrás de `checkcoast-caddy`)
+  ubuntu@130.110.233.198`; la VM tiene repo git en `~/checkcoast`
+  (rama main) → `git pull && docker compose build api && docker
+  compose up -d api` (o `docker cp` de archivos sueltos al contenedor
+  `checkcoast-api` + restart para cambios sin rebuild; la web vive en
+  `checkcoast.duckdns.org` detrás de `checkcoast-caddy`)
