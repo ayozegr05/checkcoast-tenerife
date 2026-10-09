@@ -83,6 +83,7 @@ _ISLAND_MUNICIPALITIES = frozenset(
         "San Juan de la Rambla",
         "San Miguel de Abona",
         "Santa Cruz de Tenerife",
+        "Santa Úrsula",
         "Santiago del Teide",
         "El Sauzal",
         "Los Silos",
@@ -343,6 +344,15 @@ def match_beaches(
     if len(target) < _MIN_NAME_LEN:
         return _merge([])
     muni = _norm_muni(ext.municipality)
+    # Municipio extraído que no es municipio de Tenerife ("Tenerife"
+    # como si lo fuera, un barrio como "Valleseco", cualquier invento
+    # del LLM): se ignora también en el rescate por titular, que vuelve
+    # a leer ext.municipality en _merge. Un municipio REAL pero
+    # contradictorio con la playa casada sigue vetando (puede ser un
+    # lugar homónimo que no es la playa).
+    if muni not in _ISLAND_MUNICIPALITIES:
+        muni = None
+        ext = replace(ext, municipality=None)
     # La prensa añade/quita la preposición interior ("Punta del
     # Hidalgo" vs "PUNTA HIDALGO" en el censo): ambas formas casan
     targets = [target]
@@ -392,9 +402,6 @@ def match_beaches(
         )
         if hit is not None:
             candidates.append((b, hit))
-
-    if muni not in _ISLAND_MUNICIPALITIES:
-        muni = None
 
     if muni is None:
         # Un match exacto gana a las contenciones solo si no hay
