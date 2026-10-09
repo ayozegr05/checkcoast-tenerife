@@ -52,7 +52,63 @@ MUNICIPALITY_ALIASES = {
     "GRANADILLA": "GRANADILLA DE ABONA",
 }
 
+# Los 31 municipios de Tenerife, normalizados: el municipio que extrae
+# el LLM solo cuenta si es uno de ellos. "Tenerife", barrios como
+# "Valleseco" o cualquier invento se ignoran y se resuelve por
+# nombre/titular — mejor ambiguo que vetado. Un municipio REAL pero
+# contradictorio con la playa casada sigue vetando (puede ser un lugar
+# homónimo que no es la playa).
+_ISLAND_MUNICIPALITIES = frozenset(
+    _normalize(m)
+    for m in (
+        "Adeje",
+        "Arafo",
+        "Arico",
+        "Arona",
+        "Buenavista del Norte",
+        "Candelaria",
+        "Fasnia",
+        "Garachico",
+        "Granadilla de Abona",
+        "La Guancha",
+        "Guía de Isora",
+        "Güímar",
+        "Icod de los Vinos",
+        "La Matanza de Acentejo",
+        "La Orotava",
+        "Puerto de la Cruz",
+        "Los Realejos",
+        "El Rosario",
+        "San Cristóbal de La Laguna",
+        "San Juan de la Rambla",
+        "San Miguel de Abona",
+        "Santa Cruz de Tenerife",
+        "Santa Úrsula",
+        "Santiago del Teide",
+        "El Sauzal",
+        "Los Silos",
+        "Tacoronte",
+        "El Tanque",
+        "Tegueste",
+        "La Victoria de Acentejo",
+        "Vilaflor de Chasna",
+    )
+)
+
 _MIN_NAME_LEN = 5
+# Primera palabra de un municipio que NO sirve para nombrarlo en un
+# titular ("EL Tanque", "SANTA Cruz…", "PUERTO de la Cruz")
+_GENERIC_MUNI_WORD = {
+    "EL",
+    "LA",
+    "LOS",
+    "LAS",
+    "SAN",
+    "SANTA",
+    "PUERTO",
+    "DE",
+    "DEL",
+}
 
 # El "D " final solo vale si va seguido de espacio ("PLAYA D X"):
 # "D\s*" sin espacio se comía la D inicial del nombre
@@ -76,6 +132,11 @@ _INNER_PREP = re.compile(r"\s+(?:DE\s+LA|DE\s+LOS|DE\s+LAS|DEL|DE)\s+")
 _FACILITY_PREFIX = re.compile(
     r"^PISCINAS?\s+NATURAL(?:ES)?\s+(?:DE\s+|DEL\s+)?"
 )
+# Artículo inicial del nombre censal: la prensa lo omite a menudo
+# ("playa del Bollullo" ↔ "PLAYA BOLLULLO (EL)") — el match por clave
+# exacta tolera su ausencia
+_LEADING_ARTICLE = re.compile(r"^(?:EL|LA|LOS|LAS)\s+")
+_HYPHEN = re.compile(r"\s*-\s*")
 
 
 def _key_variants(name: str) -> list[str]:
@@ -89,7 +150,11 @@ def _key_variants(name: str) -> list[str]:
             _INNER_PREP.sub(" ", _press_key(n)),
         ):
             variants = {key}
-            tail = key.split(" - ")[-1]
+            # Cola tras guion como clave propia: el censo compone
+            # "COMPLEJO - CALA" ("VALLESECO- EL BLOQUE", "CABEZO
+            # (EL)-PASEO DE LAS PALMERAS") y la prensa nombra la cala
+            # sola — se toleran guion con/sin espacios
+            tail = _HYPHEN.split(key)[-1]
             short = _FACILITY_PREFIX.sub("", tail)
             if short and short != key:
                 variants.add(short)
@@ -180,21 +245,77 @@ def _name_in_title(key: str, title_norm: str) -> bool:
 
 
 def _multi_beach_hits(
-    cands: list[tuple[Beach, str]], title_norm: str
+    cands: list[tuple[Beach, str]],
+    title_norm: str,
+    title_map: dict[str, list[Beach]],
 ) -> list[Beach]:
     """Titulares con varias playas ("El Médano y El Socorro cierran"):
     cada clave distinta casa si aparece literal en el titular y sus
-    candidatas están en un solo municipio."""
+    candidatas están en un solo municipio. Claves que se contienen
+    nombran el mismo topónimo ("ROQUE" ⊂ "EL ROQUE") y si cruzan
+    municipios decide el contexto: los municipios de las demás playas
+    nombradas en el titular."""
     keys = {k for _, k in cands}
     if len(keys) <= 1:
         return []
-    ok = []
+    hits: dict[str, list[Beach]] = {}
     for k in keys:
         members = [(b, kk) for b, kk in cands if kk == k]
-        munis = {_norm_muni(b.municipality) for b, _ in members}
-        if len(munis) == 1 and _name_in_title(k, title_norm):
-            ok.extend(b for b, _ in members)
-    return ok
+        if len(
+            {_norm_muni(b.municipality) for b, _ in members}
+        ) == 1 and _name_in_title(k, title_norm):
+            hits[k] = [b for b, _ in members]
+    out: list[Beach] = []
+    for g in _toponym_groups(hits):
+        members = []
+        seen_ids: set[int] = set()
+        for k in g:
+            for b in hits[k]:
+                if b.id not in seen_ids:
+                    seen_ids.add(b.id)
+                    members.append(b)
+        if len({_norm_muni(b.municipality) for b in members}) > 1:
+            narrowed = _narrow_by_context(members, g, title_map, [])
+            if not narrowed:
+                continue
+            members = narrowed
+        out.extend(members)
+    return out
+
+
+def _toponym_groups(keys) -> list[list[str]]:
+    """Agrupa claves que se contienen una a otra: nombran el mismo
+    lugar en el titular ("ROQUE" dentro de "EL ROQUE") y compiten
+    por la misma mención, no son dos playas distintas."""
+    groups: list[list[str]] = []
+    for k in keys:
+        for g in groups:
+            if any(k in kk or kk in k for kk in g):
+                g.append(k)
+                break
+        else:
+            groups.append([k])
+    return groups
+
+
+def _narrow_by_context(
+    members: list[Beach],
+    group: list[str],
+    title_map: dict[str, list[Beach]],
+    out: list[Beach],
+) -> list[Beach]:
+    """Acota un topónimo homónimo entre municipios usando el contexto:
+    municipios de las playas ya casadas (`out`) y de las demás
+    playas nombradas literalmente en el titular. "Almáciga y el Roque"
+    habla del Roque de las Bodegas (Santa Cruz), no del de Fasnia."""
+    ctx = {_norm_muni(b.municipality) for b in out}
+    ctx |= {
+        _norm_muni(b.municipality)
+        for kk, bs in title_map.items()
+        if kk not in group
+        for b in bs
+    }
+    return [b for b in members if _norm_muni(b.municipality) in ctx]
 
 
 def _base_key(b: Beach) -> tuple[str, str | None]:
@@ -267,7 +388,8 @@ def match_beaches(
         # de otro municipio). Con found no vacío no se filtra: las
         # enumeraciones multi-playa sí cruzan municipios.
         emuni = _norm_muni(ext.municipality)
-        for key, members in title_map.items():
+        for g in _toponym_groups(title_map):
+            members = [b for k in g for b in title_map[k]]
             if not found:
                 # Una clave igual al nombre del municipio casi siempre
                 # nombra el pueblo, no la playa: en rescate no vale
@@ -275,7 +397,9 @@ def match_beaches(
                 # Si la extracción casa por vía normal, no pasa por
                 # aquí — solo se filtra el rescate literal.
                 members = [
-                    b for b in members if key != _norm_muni(b.municipality)
+                    b
+                    for b in members
+                    if not any(k == _norm_muni(b.municipality) for k in g)
                 ]
                 if emuni:
                     members = [
@@ -286,13 +410,22 @@ def match_beaches(
                 if not members:
                     continue
             k_bases = {_base_key(b) for b in members}
-            if (
+            if not (
                 not found
-                or _conjoined(key, title_norm)
+                or any(_conjoined(k, title_norm) for k in g)
                 or k_bases <= found_bases
             ):
-                out.extend(b for b in members if b.id not in seen)
-                seen.update(b.id for b in members)
+                continue
+            # Topónimo homónimo entre municipios: decide el contexto
+            # (playas ya casadas + otras del titular). "Almáciga y el
+            # Roque" es el Roque de las Bodegas, no el de Fasnia
+            if len({_norm_muni(b.municipality) for b in members}) > 1:
+                narrowed = _narrow_by_context(members, g, title_map, out)
+                if not narrowed:
+                    continue
+                members = narrowed
+            out.extend(b for b in members if b.id not in seen)
+            seen.update(b.id for b in members)
         return out
 
     if not ext.beach_name:
@@ -301,6 +434,15 @@ def match_beaches(
     if len(target) < _MIN_NAME_LEN:
         return _merge([])
     muni = _norm_muni(ext.municipality)
+    # Municipio extraído que no es municipio de Tenerife ("Tenerife"
+    # como si lo fuera, un barrio como "Valleseco", cualquier invento
+    # del LLM): se ignora también en el rescate por titular, que vuelve
+    # a leer ext.municipality en _merge. Un municipio REAL pero
+    # contradictorio con la playa casada sigue vetando (puede ser un
+    # lugar homónimo que no es la playa).
+    if muni not in _ISLAND_MUNICIPALITIES:
+        muni = None
+        ext = replace(ext, municipality=None)
     # La prensa añade/quita la preposición interior ("Punta del
     # Hidalgo" vs "PUNTA HIDALGO" en el censo): ambas formas casan
     targets = [target]
@@ -313,6 +455,17 @@ def match_beaches(
     # conjunto y se perdería. Titulares genéricos ("Se cierran dos
     # playas") dependen de esta vía porque el titular no nombra.
     parts = re.split(r"\s+[YE]\s+", target)
+    # Listas de numeración ("Troya I y II"): la parte corta no es un
+    # nombre propio sino el numerador que completa a la anterior —
+    # "II" expande a "TROYA II" heredando la base
+    expanded = [parts[0]]
+    for p in parts[1:]:
+        if len(p) < _MIN_NAME_LEN and " " in expanded[-1]:
+            stem = expanded[-1].rsplit(" ", 1)[0]
+            expanded.append(f"{stem} {p}")
+        else:
+            expanded.append(p)
+    parts = expanded
     if len(parts) > 1 and all(len(p) >= _MIN_NAME_LEN for p in parts):
         out: list[Beach] = []
         seen_ids: set[int] = set()
@@ -351,6 +504,24 @@ def match_beaches(
         if hit is not None:
             candidates.append((b, hit))
 
+    # Fallback por alias de zona: la prensa extrae nombres de cala que
+    # el censo no tiene ("Punta Brava" → PLAYA JARDIN PM4). Solo cuando
+    # ningún nombre/alias de playa casó — una playa real del mismo
+    # nombre siempre gana ("Playa Grande" de Arico vs alias de PM4)
+    if not candidates:
+        from app.news_zones import _zone_entry
+
+        artless_targets = {_LEADING_ARTICLE.sub("", t) for t in targets}
+        for b in beaches:
+            zone = _zone_entry(b)
+            if zone is None:
+                continue
+            aliases = (*zone["aliases"], *zone.get("weak_aliases", ()))
+            if any(
+                _LEADING_ARTICLE.sub("", a) in artless_targets for a in aliases
+            ):
+                candidates.append((b, target))
+
     if muni is None:
         # Un match exacto gana a las contenciones solo si no hay
         # ambigüedad entre municipios: "El Médano" es playa propia
@@ -366,17 +537,24 @@ def match_beaches(
         keys = {k for _, k in pool}
         munis = {_norm_muni(b.municipality) for b, _ in pool}
         if len(pool) >= 1 and len(keys) == 1 and len(munis) == 1:
-            if any(k in targets for k in keys):
+            artless_targets = {_LEADING_ARTICLE.sub("", t) for t in targets}
+            # "Clave exacta" tolera el artículo censal que la prensa
+            # omite: "Bollullo" extraído ↔ "EL BOLLULLO" en el censo
+            if any(
+                _LEADING_ARTICLE.sub("", k) in artless_targets for k in keys
+            ):
                 return _merge([b for b, _ in pool])
-        return _merge(_multi_beach_hits(pool, _normalize(title)))
+        return _merge(_multi_beach_hits(pool, _normalize(title), title_map))
 
     hits = [
         (b, k) for b, k in candidates if _norm_muni(b.municipality) == muni
     ]
-    # El LLM a veces deduce el municipio y se equivoca (El Cabezo de
-    # Güímar adjudicado a Granadilla). Con playas homónimas en varios
-    # municipios solo se confía en el municipio extraído si aparece
-    # literalmente en el titular.
+    # El municipio extraído desambigua homónimos entre municipios
+    # ("El Cabezo" en Güímar vs Granadilla). Solo se duda de él cuando
+    # el titular aporta contra-evidencia — el LLM a veces lo deduce
+    # mal (El Cabezo de Güímar adjudicado a Granadilla), pero ese
+    # error se delata si el texto nombra otro municipio de la isla o
+    # una cala hermana de otro municipio ("…y Paseo de las Palmeras").
     cand_munis = {_norm_muni(b.municipality) for b, _ in candidates}
     if len(cand_munis) > 1:
         norm_title = _normalize(title)
@@ -390,7 +568,44 @@ def match_beaches(
             )
         )
         if not muni_in_title:
-            return _merge([])
+            # El titular nombra otro municipio candidato →
+            # contradicción literal con la extracción. "La Orotava"
+            # cuenta por nombre completo; la primera palabra solo si
+            # es distintiva ("GRANADILLA" sí, "EL"/"SANTA"/"PUERTO" no)
+            def _muni_named(om: str) -> bool:
+                w = om.split()[0]
+                return (
+                    om in norm_title
+                    or (
+                        len(w) >= _MIN_NAME_LEN
+                        and w not in _GENERIC_MUNI_WORD
+                        and w in norm_title
+                    )
+                    or any(
+                        a in norm_title
+                        for a, off in MUNICIPALITY_ALIASES.items()
+                        if off == om
+                    )
+                )
+
+            if any(_muni_named(om) for om in cand_munis - {muni}):
+                # Sin rescate: el municipio extraído está desmentido
+                # por el titular y _merge confiaría en él de nuevo
+                return []
+            # Claves distintivas de las candidatas de otros
+            # municipios: no vale la clave compartida que creó la
+            # ambigüedad ("EL CABEZO"), solo las que distinguen a la
+            # hermana ("PASEO DE LAS PALMERAS")
+            artless_targets = {_LEADING_ARTICLE.sub("", t) for t in targets}
+            other_keys = {
+                k
+                for b, _ in candidates
+                if _norm_muni(b.municipality) != muni
+                for k in _beach_keys(b)
+                if _LEADING_ARTICLE.sub("", k) not in artless_targets
+            }
+            if any(_name_in_title(k, norm_title) for k in other_keys):
+                return []
     # Dentro del municipio el exacto también gana a las contenciones
     exact = [(b, k) for b, k in hits if k in targets]
     pool = exact or hits
@@ -406,4 +621,4 @@ def match_beaches(
     }
     if len(pool) >= 1 and len(bases) == 1:
         return _merge([b for b, _ in pool])
-    return _merge(_multi_beach_hits(pool, _normalize(title)))
+    return _merge(_multi_beach_hits(pool, _normalize(title), title_map))
