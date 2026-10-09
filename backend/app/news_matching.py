@@ -242,6 +242,27 @@ _SPURIOUS_BEFORE = re.compile(
 )
 
 
+# Rasgo de baño precediendo a una clave débil de localidad: "la playa
+# Chica", "las piscinas naturales de Bajamar" nombran el lugar, no el
+# pueblo — contexto en el que la clave débil sí resalta en titular
+_LOCALITY_CONTEXT = re.compile(
+    r"(?:PLAYAS?|PISCINAS?|CHARCOS?|CALAS?|ARENAL|LITORAL)\s+"
+    r"(?:(?:DE|DEL|LA|EL|LOS|LAS|NATURAL(?:ES)?)\s+)*$"
+)
+
+
+def _weak_in_title(key: str, title_norm: str) -> bool:
+    """Clave débil de una palabra presente como rasgo de baño nombrado:
+    exige un rasgo (playa/piscina/cala/charco…) delante — "en Bajamar"
+    solo es contexto locativo y no rescata."""
+    for m in re.finditer(
+        rf"(?<![A-Z0-9]){re.escape(key)}(?![A-Z0-9])", title_norm
+    ):
+        if _LOCALITY_CONTEXT.search(title_norm[: m.start()]):
+            return True
+    return False
+
+
 def _name_in_title(key: str, title_norm: str) -> bool:
     """La clave aparece como nombre literal en el titular (límites de
     palabra: "LA ARENA" no casa dentro de "ARENITA"; y no cuenta dentro
@@ -353,24 +374,35 @@ def _title_key_hits(
     """Claves de playa (nombre + alias) presentes literales en el
     titular. Una clave solo cuenta si todas sus candidatas están en
     un único municipio (los homónimos entre municipios se rechazan)."""
+    weak = {b.id: _weak_beach_keys(b) for b in beaches}
     groups: dict[str, list[Beach]] = {}
     for b in beaches:
-        weak = _weak_beach_keys(b)
         for k in _beach_keys(b):
             # Un mismo beach puede aportar la misma clave por nombre y
-            # alias ("Playa de Tabaiba" + alias "Tabaiba") — una vez.
-            # Las claves débiles de una palabra (topónimos de localidad)
-            # no rescatan por titular: "en Bajamar" nombra el pueblo
-            if len(k) >= _MIN_NAME_LEN and k not in weak:
+            # alias ("Playa de Tabaiba" + alias "Tabaiba") — una vez
+            if len(k) >= _MIN_NAME_LEN:
                 members = groups.setdefault(k, [])
                 if all(m.id != b.id for m in members):
                     members.append(b)
-    return {
-        k: members
-        for k, members in groups.items()
-        if len({_norm_muni(b.municipality) for b in members}) == 1
-        and _name_in_title(k, title_norm)
-    }
+    out: dict[str, list[Beach]] = {}
+    for k, members in groups.items():
+        if len({_norm_muni(b.municipality) for b in members}) != 1:
+            continue
+        # Clave débil por miembro: el topónimo de localidad solo cuenta
+        # nombrando un rasgo de baño ("la playa Chica" sí, "en Bajamar"
+        # no); una clave que es nombre/alias propio usa la vía normal
+        bs = [
+            b
+            for b in members
+            if (
+                _weak_in_title(k, title_norm)
+                if k in weak[b.id]
+                else _name_in_title(k, title_norm)
+            )
+        ]
+        if bs:
+            out[k] = bs
+    return out
 
 
 def _conjoined(key: str, title_norm: str) -> bool:
@@ -447,8 +479,10 @@ def match_beaches(
                 if not narrowed:
                     continue
                 members = narrowed
-            out.extend(b for b in members if b.id not in seen)
-            seen.update(b.id for b in members)
+            for b in members:
+                if b.id not in seen:
+                    seen.add(b.id)
+                    out.append(b)
         return out
 
     if not ext.beach_name:
@@ -477,7 +511,7 @@ def match_beaches(
     # casa por separado — "EL SOCORRO" no es substring contiguo del
     # conjunto y se perdería. Titulares genéricos ("Se cierran dos
     # playas") dependen de esta vía porque el titular no nombra.
-    parts = re.split(r"\s+[YE]\s+|,\s*", target)
+    parts = [p for p in re.split(r"\s+[YE]\s+|,\s*", target) if p.strip()]
     # Listas de numeración ("Troya I y II"): la parte corta no es un
     # nombre propio sino el numerador que completa a la anterior —
     # "II" expande a "TROYA II" heredando la base
