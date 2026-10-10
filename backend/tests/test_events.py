@@ -586,7 +586,11 @@ def test_cluster_episodes_merges_pms_same_window():
     assert merged.start == date(2026, 1, 10)
     assert merged.end == date(2026, 1, 22)
     assert merged.via == "official"
-    assert merged.beach_id == 1
+    # El PM representativo es el del último tramo de cierre (PM2,
+    # cierre 12-ene), no el de menor id — la ficha abierta desde la
+    # fila muestra la zona que cerró por última vez
+    assert merged.beach_id == 2
+    assert merged.last_leg_start == date(2026, 1, 12)
 
 
 def test_cluster_episodes_merges_mixed_via_same_window():
