@@ -29,6 +29,7 @@ import type {
   MunicipalityIncident,
 } from '../lib/api';
 import { beachBaseName, displayBeachName } from '../lib/format';
+import { groupKeyOf } from '../lib/beachGroups';
 
 import { recentlyResolved } from '../lib/episodes';
 
@@ -300,8 +301,12 @@ export default function CoastMap({
     savedView.current = null;
     // El pin se dibuja en el centroide del grupo, no en las coords del
     // PM: la cámara apunta al mismo punto o queda descolocado
-    const gk = (f.properties as { groupKey?: string }).groupKey;
-    const g = gk ? beachGroups.get(gk) : undefined;
+    // La feature puede venir cruda de `beaches` (fila de episodio):
+    // sin groupKey inyectado el grupo no resolvía, la ficha quedaba
+    // sin zonas y su cabecera perdía el nombre de la cala
+    const gk =
+      (f.properties as { groupKey?: string }).groupKey ?? groupKeyOf(f);
+    const g = beachGroups.get(gk);
     const [lon, lat] = (g?.center ??
       (f.geometry as { coordinates: [number, number] }).coordinates) as [
       number,

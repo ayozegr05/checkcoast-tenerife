@@ -39,7 +39,7 @@ import {
   fetchEpisodes,
   fetchOutfalls,
 } from './lib/api';
-import { beachPointLabel } from './lib/format';
+import { beachPointLabel, pointLongLabel } from './lib/format';
 import { groupKeyOf } from './lib/beachGroups';
 import { setupPushNotifications } from './lib/notifications';
 import { colors, fonts } from './lib/theme';
@@ -214,13 +214,10 @@ export default function App() {
             ...m,
             properties: {
               ...m.properties,
-              // "PM3" → "Zona 3": coherente con el lenguaje de la
-              // ficha ("la zona 4"), nada de siglas del censo
-              pointLabel:
-                beachPointLabel(m.properties.name)?.replace(
-                  /PM(\d+)/,
-                  'Zona $1',
-                ) ?? '',
+              // Nombre común de la cala si existe (Punta Brava, El
+              // Castillo) — como la ficha; si no, "Zona N", nunca
+              // siglas "PM" del censo
+              pointLabel: pointLongLabel(m.properties.name) ?? '',
             },
           })),
         }
