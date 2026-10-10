@@ -317,11 +317,16 @@ export default function CoastMap({
         duration: 1200,
       });
     }
+    const members = pmMembersOf(gk ? beachGroups.get(gk)?.members : undefined);
     onSelect({
       type: 'beach',
       feature: f,
       hasAlert: true,
-      members: pmMembersOf(gk ? beachGroups.get(gk)?.members : undefined),
+      members,
+      // La fila de alerta/episodio apunta a un PM concreto: abre la
+      // ficha de esa zona directamente (atrás → picker), no el picker
+      // genérico con cabecera de playa sin indicar cuál reabrió
+      ...(members.length > 1 ? { pm: f } : {}),
     });
     setAlertsOpen(false);
   };
