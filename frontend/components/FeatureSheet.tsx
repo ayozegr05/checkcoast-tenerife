@@ -69,12 +69,19 @@ export default function FeatureSheet({
   // Selector de PMs: si la playa agrupada tiene varios puntos de
   // muestreo, la card muestra primero la lista y el usuario elige
   const members = isBeach ? (selection.members ?? []) : [];
-  const [chosenPm, setChosenPm] = useState<GeoFeature | null>(null);
+  // PM pre-elegido (deep-link, push, fila de episodio): se abre la
+  // ficha de esa zona directamente, no el selector del complejo
+  const initialPm = isBeach ? (selection.pm ?? null) : null;
+  const [chosenPm, setChosenPm] = useState<GeoFeature | null>(initialPm);
   // Ref espejo: el PanResponder se crea una sola vez y capturaría el
-  // chosenPm inicial (siempre null)
+  // chosenPm inicial
   const chosenPmRef = useRef<GeoFeature | null>(null);
   chosenPmRef.current = chosenPm;
-  useEffect(() => setChosenPm(null), [selection]);
+  useEffect(
+    () => setChosenPm(initialPm),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selection],
+  );
   useEffect(() => onZoneShown?.(chosenPm), [chosenPm, onZoneShown]);
   const showPmPicker = isBeach && members.length > 1 && !chosenPm;
 

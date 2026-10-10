@@ -106,6 +106,10 @@ export type Selection =
       // Puntos de muestreo del grupo (si la playa tiene varios PMs):
       // la card muestra primero un selector para elegir cuál ver
       members?: GeoFeature[];
+      // PM concreto a abrir directamente (sin pasar por el selector):
+      // deep-links, pushes y filas de episodio apuntan a un PM —
+      // la ficha debe abrirse en esa zona, no en el selector genérico
+      pm?: GeoFeature;
     };
 
 type CoastMapProps = {

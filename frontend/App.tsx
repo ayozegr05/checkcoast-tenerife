@@ -40,6 +40,7 @@ import {
   fetchOutfalls,
 } from './lib/api';
 import { beachPointLabel } from './lib/format';
+import { groupKeyOf } from './lib/beachGroups';
 import { setupPushNotifications } from './lib/notifications';
 import { colors, fonts } from './lib/theme';
 
@@ -230,6 +231,23 @@ export default function App() {
   const beachesRef = useRef(beachesFC);
   beachesRef.current = beachesFC;
 
+  // Selección de una playa concreta por feature: si pertenece a un
+  // complejo multi-PM (Jardín, Teresitas…) se pasan los miembros del
+  // grupo y el PM ya elegido — la ficha abre directamente en esa zona
+  // ("Playa Jardín · El Castillo") en vez del selector genérico, con
+  // la opción de volver atrás para ver las demás
+  const beachSelection = (f: GeoFeature): Selection => {
+    const members = beachesRef.current.features.filter(
+      (b) => groupKeyOf(b) === groupKeyOf(f),
+    );
+    return {
+      type: 'beach',
+      feature: f,
+      hasAlert: f.properties.alert === true,
+      ...(members.length > 1 ? { members, pm: f } : {}),
+    };
+  };
+
   // Abre la ficha de una playa por id: cierra modales y vuela el mapa
   // al punto. Compartido por push y por deep-links checkcoast://beach/ID
   const openBeachById = (id: number) => {
@@ -246,11 +264,7 @@ export default function App() {
     setReturnToOutfalls(false);
     setRestoreSel(null);
     setSheetHidden(false);
-    setSelection({
-      type: 'beach',
-      feature: f,
-      hasAlert: f.properties.alert === true,
-    });
+    setSelection(beachSelection(f));
     setFocus([...f.geometry.coordinates]);
   };
   const openBeachRef = useRef(openBeachById);
@@ -297,11 +311,7 @@ export default function App() {
     setReturnToOutfalls(false);
     setRestoreSel(null);
     setSheetHidden(true);
-    setSelection({
-      type: 'beach',
-      feature,
-      hasAlert: feature.properties.alert === true,
-    });
+    setSelection(beachSelection(feature));
     setFocus([...feature.geometry.coordinates, 15.5]);
   };
 
