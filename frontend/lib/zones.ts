@@ -9,6 +9,14 @@ const ZONE_NAMES: Record<string, Record<string, string>> = {
     PM5: 'El Charcón',
     PM4: 'Punta Brava',
   },
+  // Valleseco (Santa Cruz): el tramo de Los Charcos — su PM hermano
+  // "Valleseco-El Bloque" es otra playa base, no compite en el grupo
+  'PLAYA VALLESECO': {
+    PM1: 'Los Charcos',
+  },
+  'PLAYA VALLESECO- EL BLOQUE': {
+    PM1: 'El Bloque',
+  },
 };
 
 const normBase = (name: string) =>

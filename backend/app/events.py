@@ -649,15 +649,22 @@ def merged_episode(g: list[Episode]) -> Episode:
     # no supera el fin del episodio — un incidente oficial abierto
     # 110 días con reaperturas de prensa dentro muestra el tramo
     # real del último cierre, no el rato administrativo de Náyade
-    closure_starts = [
-        e.start
-        for e in g
-        if e.kind == "closure"
-        and (merged_end is None or e.start <= merged_end)
-    ]
-    last_leg_start = max(closure_starts, default=None)
+    leg = max(
+        (
+            e
+            for e in g
+            if e.kind == "closure"
+            and (merged_end is None or e.start <= merged_end)
+        ),
+        key=lambda e: e.start,
+        default=None,
+    )
+    last_leg_start = leg.start if leg else None
     return Episode(
-        beach_id=min(e.beach_id for e in g),
+        # El PM representativo es el del último tramo: al abrir la
+        # ficha desde la fila del episodio se ve la zona que cerró
+        # por última vez, no un PM arbitrario del complejo
+        beach_id=leg.beach_id if leg else min(e.beach_id for e in g),
         base=g[0].base,
         municipality=g[0].municipality,
         kind="closure" if any(e.kind == "closure" for e in g) else "warning",

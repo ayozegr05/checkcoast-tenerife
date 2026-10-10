@@ -266,6 +266,13 @@ export default function BeachList({
     [beaches, query, municipality, sortMode, statusFilter, stats],
   );
 
+  // PMs del complejo de la ficha abierta (los hermanos de `detail`)
+  const detailMembers = useMemo(
+    () =>
+      detail ? beaches.filter((b) => groupKeyOf(b) === groupKeyOf(detail)) : [],
+    [detail, beaches],
+  );
+
   return (
     <Modal
       animationType="slide"
@@ -726,8 +733,13 @@ export default function BeachList({
                       beachBaseName(detail.properties.name),
                     );
                     // En multipunto el título dice la zona, no la
-                    // sigla del censo: "Playa Jardín · Zona 1"
-                    const z = pointLongLabel(detail.properties.name);
+                    // sigla del censo: "Playa Jardín · Punta Brava".
+                    // En una playa de UN solo punto no hay zonas que
+                    // distinguir — "San Telmo · Zona 1" sería ruido
+                    const z =
+                      detailMembers.length > 1
+                        ? pointLongLabel(detail.properties.name)
+                        : null;
                     return z ? `${base} · ${z}` : base;
                   })()}
                   {detail.properties.municipality
@@ -761,9 +773,7 @@ export default function BeachList({
                   feature={detail}
                   hasAlert={detail.properties.alert === true}
                   outfalls={outfalls}
-                  members={beaches.filter(
-                    (b) => groupKeyOf(b) === groupKeyOf(detail),
-                  )}
+                  members={detailMembers}
                   onViewOnMap={() => onSelect(detail)}
                   onSelectOutfall={
                     onSelectOutfall
