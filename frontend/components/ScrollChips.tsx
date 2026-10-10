@@ -97,6 +97,7 @@ export default function ScrollChips({
           update();
         }}
         onContentSizeChange={(cw) => {
+          const prevCw = dims.current.cw;
           dims.current.cw = cw;
           // Anclado inicial al final: una vez al medir el contenido,
           // sin animación (no es scroll del usuario, es posición inicial)
@@ -104,6 +105,14 @@ export default function ScrollChips({
             anchoredRef.current = true;
             scrollRef.current?.scrollToEnd({ animated: false });
             dims.current.x = Math.max(0, cw - dims.current.w);
+          }
+          // Contenido encogido (p.ej. "Menos ›" pliega las chips de
+          // año): si el offset queda fuera del nuevo máximo la fila
+          // se ve en blanco — vuelve al inicio ella sola
+          const maxX = Math.max(0, cw - dims.current.w);
+          if (cw < prevCw && dims.current.x > maxX) {
+            dims.current.x = maxX;
+            scrollRef.current?.scrollTo({ x: maxX, animated: true });
           }
           update();
         }}
