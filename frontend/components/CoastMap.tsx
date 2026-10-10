@@ -326,7 +326,7 @@ export default function CoastMap({
       // La fila de alerta/episodio apunta a un PM concreto: abre la
       // ficha de esa zona directamente (atrás → picker), no el picker
       // genérico con cabecera de playa sin indicar cuál reabrió
-      ...(members.length > 1 ? { pm: f } : {}),
+      ...(members ? { pm: f } : {}),
     });
     setAlertsOpen(false);
   };
