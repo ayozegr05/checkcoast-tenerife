@@ -174,3 +174,10 @@ export const episodeDays = (e: MunicipalityIncident): number => {
     ) + 1
   );
 };
+
+// Días del ÚLTIMO tramo de cierre — cuando el incidente oficial
+// quedó abierto meses pero la prensa documentó cierres/reaperturas
+// intermedios, "estuvo cerrada" mide el tramo real, no el
+// administrativo de Náyade (Jardín jun→oct: último tramo 2 días)
+export const resolvedDays = (e: MunicipalityIncident): number =>
+  episodeDays({ ...e, opened_at: e.last_leg_start ?? e.opened_at });

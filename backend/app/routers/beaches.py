@@ -602,6 +602,7 @@ def _merged_episode_rows(
             via=m.via,
             cause=m.cause,
             end_estimated=m.end_estimated,
+            last_leg_start=m.last_leg_start,
         )
         for m in (merged_episode(g) for g in cluster_episodes(episodes))
     ]

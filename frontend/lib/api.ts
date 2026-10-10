@@ -100,6 +100,10 @@ export type MunicipalityIncident = {
   via?: 'official' | 'measurement' | 'press';
   // closed_at = última mención en prensa, no un cierre corroborado
   end_estimated?: boolean;
+  // Inicio del último tramo de cierre real dentro del episodio
+  // (incidente oficial largo con reaperturas de prensa dentro →
+  // "estuvo cerrada" se mide desde aquí, no desde opened_at)
+  last_leg_start?: string | null;
   // Causa normalizada ("Contaminación", "Desprendimientos"...) — el
   // backend la infiere de la prensa en ventana; un cierre de Sanidad
   // sin contexto es Contaminación por definición

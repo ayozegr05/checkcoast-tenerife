@@ -89,6 +89,11 @@ class MunicipalityIncidentOut(BaseModel):
     # closed_at = última mención en prensa (cota estimada), no cierre
     # corroborado — la UI lo marca "~"
     end_estimated: bool = False
+    # Inicio del último tramo de cierre real dentro del episodio
+    # (incidente oficial largo con cierres/reaperturas de prensa
+    # dentro → la UI muestra "estuvo cerrada" desde aquí, no desde
+    # el opened_at administrativo de Náyade)
+    last_leg_start: date | None = None
 
 
 class BeachMeasurementOut(BaseModel):
