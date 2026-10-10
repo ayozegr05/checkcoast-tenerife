@@ -12,7 +12,7 @@ import {
 
 import type { GeoFeature, MunicipalityIncident } from '../../lib/api';
 import { foldCount, foldSummary } from '../../lib/alertFold';
-import { episodeDays } from '../../lib/episodes';
+import { episodeDays, resolvedDays } from '../../lib/episodes';
 import {
   beachBaseName,
   displayBeachName,
@@ -279,7 +279,7 @@ export default function AlertsBanner({
                   </Text>
                   <Text style={styles.alertCause} numberOfLines={1}>
                     {ep.closed_at ? fmtDate(ep.closed_at) : ''} ·{' '}
-                    {formatDays(episodeDays(ep))} cerrada
+                    {formatDays(resolvedDays(ep))} cerrada
                   </Text>
                 </View>
               </Pressable>

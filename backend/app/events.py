@@ -577,6 +577,12 @@ class Episode:
     # Causa normalizada del episodio ("Contaminación",
     # "Desprendimientos"...) — la calcula quien lo construye
     cause: str | None = None
+    # Inicio del último tramo de cierre dentro del episodio
+    # fusionado — cuando el incidente oficial queda abierto meses
+    # pero la prensa documenta cierres/reaperturas intermedios, el
+    # tramo real del último cierre es lo que importa al bañista
+    # (Jardín: incidente jun-oct, último tramo 7→9 oct)
+    last_leg_start: date | None = None
 
 
 def base_name(name: str) -> str:
@@ -639,6 +645,17 @@ def merged_episode(g: list[Episode]) -> Episode:
         if any(e.end is None for e in g)
         else max(e.end for e in g if e.end)
     )
+    # Último tramo de cierre: el cierre más reciente del grupo que
+    # no supera el fin del episodio — un incidente oficial abierto
+    # 110 días con reaperturas de prensa dentro muestra el tramo
+    # real del último cierre, no el rato administrativo de Náyade
+    closure_starts = [
+        e.start
+        for e in g
+        if e.kind == "closure"
+        and (merged_end is None or e.start <= merged_end)
+    ]
+    last_leg_start = max(closure_starts, default=None)
     return Episode(
         beach_id=min(e.beach_id for e in g),
         base=g[0].base,
@@ -666,4 +683,5 @@ def merged_episode(g: list[Episode]) -> Episode:
             key=lambda cn: (_CAUSE_RANK.get(cn[0], 9), -cn[1]),
             default=(None, 0),
         )[0],
+        last_leg_start=last_leg_start,
     )
