@@ -54,17 +54,18 @@ import MapTopbar from './map/MapTopbar';
 const SEA_STYLE = seaStyle as unknown as StyleSpecification;
 
 // Estilo raster satélite con PNOA del IGN (ortofoto oficial española,
-// WMTS público sin key): cobertura uniforme — Esri World Imagery deja
-// tiles placeholder negros en Anaga/Teide a cualquier zoom. Las
-// etiquetas siguen siendo la capa transparente de Esri (híbrido).
+// sin key): cobertura uniforme — Esri World Imagery deja tiles
+// placeholder negros en Anaga/Teide a cualquier zoom. El TMS de IDEE
+// (endpoint canónico) es estable; el WMTS de www.ign.es responde 504
+// intermitentes y dejaba la tierra como mancha borrosa (tiles padre
+// estiradas). Las etiquetas siguen siendo la capa de Esri (híbrido).
 const SATELLITE_STYLE: StyleSpecification = {
   version: 8,
   sources: {
     pnoa: {
       type: 'raster',
-      tiles: [
-        'https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&LAYER=OI.OrthoimageCoverage&STYLE=default&TileMatrixSet=GoogleMapsCompatible&TileMatrix={z}&TileRow={y}&TileCol={x}&FORMAT=image/jpeg',
-      ],
+      tiles: ['https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{y}.jpeg'],
+      scheme: 'tms',
       tileSize: 256,
       maxzoom: 19,
       attribution: 'IGN España · PNOA',
