@@ -190,6 +190,34 @@ def narrow_hits_by_zone(
     return out
 
 
+def named_zones(
+    titles: list, base: str, municipality: str | None
+) -> set[str]:
+    """Etiquetas PM de las calas del complejo que los títulos nombran.
+
+    Sirve para saber QUÉ zona cubre un episodio fusionado: una pieza
+    que dice "la cala Punta Brava sigue cerrada" marca PM4 aunque la
+    noticia también haya acabado replicada en otros PMs. Alias fuertes
+    y débiles cuentan — el campo ya es titular, el contexto seguro."""
+    zones = _ZONE_GROUPS.get(
+        (_normalize(base), _norm_muni(municipality))
+    )
+    if not zones:
+        return set()
+    out: set[str] = set()
+    for t in titles:
+        nt = _normalize(t or "")
+        if not nt:
+            continue
+        for pm, z in zones.items():
+            if any(
+                len(a) >= _MIN_NAME_LEN and _name_in_title(a, nt)
+                for a in (*z["aliases"], *z.get("weak_aliases", ()))
+            ):
+                out.add(pm)
+    return out
+
+
 def zone_display_name(beach: Beach) -> str | None:
     """Nombre común de la cala para la UI ("Punta Brava" en vez de
     "zona 4"); None si el PM no pertenece a un complejo mapeado."""

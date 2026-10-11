@@ -19,6 +19,9 @@ export type ShotMarker = {
   icon?: ImageSourcePropType;
   // Número dentro del dot (zonas hermanas de una playa multipunto)
   label?: string;
+  // Nombre bajo el dot (zonas con nombre común: "Punta Brava") —
+  // un número dentro del punto no identifica la cala
+  tag?: string;
 };
 
 // Trazado arranque → punto de vertido (emisarios): línea discontinua
@@ -255,22 +258,38 @@ export default function SatelliteShot({
           />
         </>
       )}
-      {visible.map((m) => (
-        <View
-          key={m.id}
-          pointerEvents="none"
-          style={[
-            styles.marker,
-            { left: `${m.x}%`, top: `${m.y}%`, backgroundColor: m.color },
-          ]}
-        >
-          {m.label ? (
-            <Text style={styles.markerLabel}>{m.label}</Text>
-          ) : (
-            m.icon && <Image source={m.icon} style={styles.markerIcon} />
-          )}
-        </View>
-      ))}
+      {visible.map((m) =>
+        m.tag ? (
+          // Dot + píldora con el nombre de la zona: el contenedor
+          // (120 px centrados en el punto) deja sitio a nombres
+          // largos sin desplazar el dot
+          <View
+            key={m.id}
+            pointerEvents="none"
+            style={[styles.taggedWrap, { left: `${m.x}%`, top: `${m.y}%` }]}
+          >
+            <View style={[styles.taggedDot, { backgroundColor: m.color }]} />
+            <Text style={styles.markerTag} numberOfLines={1}>
+              {m.tag}
+            </Text>
+          </View>
+        ) : (
+          <View
+            key={m.id}
+            pointerEvents="none"
+            style={[
+              styles.marker,
+              { left: `${m.x}%`, top: `${m.y}%`, backgroundColor: m.color },
+            ]}
+          >
+            {m.label ? (
+              <Text style={styles.markerLabel}>{m.label}</Text>
+            ) : (
+              m.icon && <Image source={m.icon} style={styles.markerIcon} />
+            )}
+          </View>
+        ),
+      )}
       <View
         pointerEvents="none"
         style={[
@@ -421,6 +440,36 @@ const styles = StyleSheet.create({
   },
   markerLabel: {
     fontSize: 10,
+    fontFamily: fonts.extrabold,
+    color: '#fff',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  // Marcador con nombre: caja de 120 px centrada en el punto; el
+  // dot queda encima y la píldora cuelga justo debajo
+  taggedWrap: {
+    position: 'absolute',
+    width: 120,
+    marginLeft: -60,
+    marginTop: -7,
+    alignItems: 'center',
+  },
+  taggedDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  markerTag: {
+    marginTop: 3,
+    maxWidth: 116,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 7,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    overflow: 'hidden',
+    fontSize: 9,
     fontFamily: fonts.extrabold,
     color: '#fff',
     includeFontPadding: false,

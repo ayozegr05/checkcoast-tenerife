@@ -13,7 +13,12 @@ import {
   fetchBeachNews,
   fetchBeachQuality,
 } from '../lib/api';
-import { beachPointLabel, displayBeachName, fmtDate } from '../lib/format';
+import {
+  beachPointLabel,
+  displayBeachName,
+  fmtDate,
+  pointLongLabel,
+} from '../lib/format';
 import { groupNewsItems } from '../lib/news';
 import { pressSummary } from '../lib/press';
 import {
@@ -296,9 +301,9 @@ export default function BeachDetail({
         }
         markers={[
           ...shotMarkers,
-          // Todas las zonas numeradas en su posición real — la zona
-          // abierta también (el dot central se oculta: el centroide
-          // no es una posición real de ninguna zona)
+          // Todas las zonas en su posición real, con su nombre
+          // común bajo el dot (la zona abierta también — el dot
+          // central se oculta: el centroide no es posición real)
           ...(members ?? []).map((m) => ({
             id: `pm-${m.id}`,
             coords: m.geometry.coordinates as [number, number],
@@ -308,9 +313,7 @@ export default function BeachDetail({
                   ? (m.properties.status as string)
                   : 'unknown'
               ]?.color ?? colors.status.unknown,
-            label:
-              beachPointLabel(m.properties.name)?.replace(/PM(\d+)/, '$1') ??
-              '',
+            tag: pointLongLabel(m.properties.name) ?? '',
           })),
         ]}
         fitMarkers={(members?.length ?? 0) > 1}

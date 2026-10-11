@@ -34,6 +34,9 @@ type AlertsBannerProps = {
   onOpenAlertBeach: (f: GeoFeature) => void;
   onOpenEpisodeBeach: (beachId: number) => void;
   onOpenTemporada?: () => void;
+  // Nombre común de la zona de un PM en complejo multipunto
+  // ("Punta Brava"); null para playas de un solo punto
+  zoneLabelFor?: (beachId: number) => string | null;
 };
 
 // Pill de estado bajo la topbar + desplegable de playas en alerta
@@ -49,6 +52,7 @@ export default function AlertsBanner({
   onOpenAlertBeach,
   onOpenEpisodeBeach,
   onOpenTemporada,
+  zoneLabelFor,
 }: AlertsBannerProps) {
   const { height: winH } = useWindowDimensions();
   const hasAlerts = closedCount + warningCount > 0;
@@ -133,6 +137,9 @@ export default function AlertsBanner({
                   {shown.map((f) => {
                     const s =
                       f.properties.status === 'closed' ? 'closed' : 'warning';
+                    // Fila multipunto: "Playa Jardín · Punta Brava" —
+                    // el PM concreto importa tanto como la playa
+                    const zone = zoneLabelFor?.(f.id as number);
                     return (
                       <Pressable
                         key={
@@ -158,6 +165,7 @@ export default function AlertsBanner({
                         <View style={styles.alertText}>
                           <Text style={styles.alertName} numberOfLines={1}>
                             {displayBeachName(beachBaseName(f.properties.name))}
+                            {zone ? ` · ${zone}` : ''}
                           </Text>
                           <Text style={styles.alertSub} numberOfLines={1}>
                             {f.properties.municipality ?? ''}
@@ -244,7 +252,16 @@ export default function AlertsBanner({
                 Reabiertas recientemente · {resueltas.length}
               </Text>
             )}
-            {resueltas.map((ep) => (
+            {resueltas.map((ep) => {
+              // Zonas nombradas por la prensa en el episodio:
+              // "Playa Jardín · Punta Brava y El Charcón reabiertas";
+              // el nombre a secas solo si el suceso fue de la playa
+              // entera
+              const zone = (ep.zone_beach_ids ?? [])
+                .map((id) => zoneLabelFor?.(id))
+                .filter(Boolean)
+                .join(' y ');
+              return (
               <Pressable
                 key={`res-${ep.id}-${ep.beach_id}`}
                 style={({ pressed }) => [
@@ -255,7 +272,7 @@ export default function AlertsBanner({
                 accessibilityRole="button"
                 accessibilityLabel={`${displayBeachName(
                   ep.beach_name,
-                )}, reabierta`}
+                )}${zone ? ` · ${zone}` : ''}, reabierta`}
               >
                 <View
                   style={[
@@ -266,6 +283,7 @@ export default function AlertsBanner({
                 <View style={styles.alertText}>
                   <Text style={styles.alertName} numberOfLines={1}>
                     {displayBeachName(ep.beach_name)}
+                    {zone ? ` · ${zone}` : ''}
                   </Text>
                   <Text style={styles.alertSub} numberOfLines={1}>
                     {ep.municipality ?? ''}
@@ -283,7 +301,8 @@ export default function AlertsBanner({
                   </Text>
                 </View>
               </Pressable>
-            ))}
+            );
+            })}
           </ScrollView>
           {onOpenTemporada && (
             <Pressable
