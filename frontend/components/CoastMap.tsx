@@ -28,7 +28,11 @@ import type {
   GeoFeature,
   MunicipalityIncident,
 } from '../lib/api';
-import { beachBaseName, displayBeachName } from '../lib/format';
+import {
+  beachBaseName,
+  displayBeachName,
+  pointLongLabel,
+} from '../lib/format';
 import { groupKeyOf } from '../lib/beachGroups';
 
 import { recentlyResolved } from '../lib/episodes';
@@ -509,6 +513,19 @@ export default function CoastMap({
   const openEpisodeBeach = (beachId: number) => {
     const f = beaches.features.find((x) => x.id === beachId);
     if (f) openAlertBeach(f);
+  };
+
+  // Nombre común de la zona de un PM en un complejo multipunto
+  // ("Punta Brava"); null si la playa es de un solo punto — el
+  // banner lo usa para "Playa Jardín · Punta Brava"
+  const zoneLabelFor = (beachId: number) => {
+    const f = beaches.features.find((x) => x.id === beachId);
+    if (!f) return null;
+    const gk =
+      (f.properties as { groupKey?: string }).groupKey ?? groupKeyOf(f);
+    const g = gk ? beachGroups.get(gk) : undefined;
+    if (!g || g.members.length < 2) return null;
+    return pointLongLabel(f.properties.name);
   };
 
   // El pulso respeta el filtro; la lista del banner no (es global)
@@ -1148,6 +1165,7 @@ export default function CoastMap({
           onPress={pressBanner}
           onOpenAlertBeach={openAlertBeach}
           onOpenEpisodeBeach={openEpisodeBeach}
+          zoneLabelFor={zoneLabelFor}
           onOpenTemporada={
             onOpenTemporada &&
             (() => {

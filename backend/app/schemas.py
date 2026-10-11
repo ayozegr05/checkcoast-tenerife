@@ -94,6 +94,10 @@ class MunicipalityIncidentOut(BaseModel):
     # dentro → la UI muestra "estuvo cerrada" desde aquí, no desde
     # el opened_at administrativo de Náyade)
     last_leg_start: date | None = None
+    # PMs de las zonas que la prensa nombró en el episodio (complejo
+    # multipunto): la UI los muestra "Playa Jardín · Punta Brava";
+    # vacío si el episodio fue genérico — la playa se nombra a secas
+    zone_beach_ids: list[int] = []
 
 
 class BeachMeasurementOut(BaseModel):

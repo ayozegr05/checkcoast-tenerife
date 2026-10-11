@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from app.models import Beach
+from app.news_zones import named_zones
 from app.queries import (
     _CAUSE_RANK,
     _STRUCTURAL_CAUSES,
@@ -583,6 +584,16 @@ class Episode:
     # tramo real del último cierre es lo que importa al bañista
     # (Jardín: incidente jun-oct, último tramo 7→9 oct)
     last_leg_start: date | None = None
+    # Etiqueta PM del punto de muestreo ("PM4") — para mapear la
+    # zona nombrada por la prensa al beach_id concreto
+    pm_label: str | None = None
+    # Titulares de prensa del tramo — `named_zones` detecta qué zona
+    # de un complejo nombró la prensa en el episodio
+    titles: frozenset = frozenset()
+    # PMs de las zonas que la prensa nombró en el episodio (complejo
+    # multipunto): vacío si el episodio fue genérico — la fila dice
+    # la playa a secas solo si el suceso fue de toda la playa
+    zone_beach_ids: list = field(default_factory=list)
 
 
 def base_name(name: str) -> str:
@@ -660,11 +671,31 @@ def merged_episode(g: list[Episode]) -> Episode:
         default=None,
     )
     last_leg_start = leg.start if leg else None
+    # Zonas que la prensa nombró en el episodio: los alias de las
+    # calas del complejo (`named_zones`) detectan "la cala Punta
+    # Brava" o "Playa Grande y Charcón" en los titulares. Las zonas
+    # nombradas se listan en la fila; ninguna → episodio genérico
+    # (la fila dice la playa a secas)
+    zone_beach_ids: list[int] = []
+    if len({e.beach_id for e in g}) > 1:
+        named = named_zones(
+            [t for e in g for t in e.titles],
+            g[0].base,
+            g[0].municipality,
+        )
+        for e in g:
+            if e.pm_label in named and e.beach_id not in zone_beach_ids:
+                zone_beach_ids.append(e.beach_id)
     return Episode(
-        # El PM representativo es el del último tramo: al abrir la
-        # ficha desde la fila del episodio se ve la zona que cerró
-        # por última vez, no un PM arbitrario del complejo
-        beach_id=leg.beach_id if leg else min(e.beach_id for e in g),
+        # El PM representativo es la zona nombrada por la prensa (si
+        # solo nombró una) o, en su defecto, la del último tramo: al
+        # abrir la ficha desde la fila del episodio se ve la zona del
+        # suceso, no un PM arbitrario del complejo
+        beach_id=(
+            zone_beach_ids[0]
+            if len(zone_beach_ids) == 1
+            else leg.beach_id if leg else min(e.beach_id for e in g)
+        ),
         base=g[0].base,
         municipality=g[0].municipality,
         kind="closure" if any(e.kind == "closure" for e in g) else "warning",
@@ -691,4 +722,5 @@ def merged_episode(g: list[Episode]) -> Episode:
             default=(None, 0),
         )[0],
         last_leg_start=last_leg_start,
+        zone_beach_ids=zone_beach_ids,
     )

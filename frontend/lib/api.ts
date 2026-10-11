@@ -104,6 +104,10 @@ export type MunicipalityIncident = {
   // (incidente oficial largo con reaperturas de prensa dentro →
   // "estuvo cerrada" se mide desde aquí, no desde opened_at)
   last_leg_start?: string | null;
+  // PMs de las zonas que la prensa nombró en el episodio (complejo
+  // multipunto): la UI las lista "Playa Jardín · Punta Brava";
+  // vacío si el episodio fue genérico — la playa se nombra a secas
+  zone_beach_ids?: number[];
   // Causa normalizada ("Contaminación", "Desprendimientos"...) — el
   // backend la infiere de la prensa en ventana; un cierre de Sanidad
   // sin contexto es Contaminación por definición

@@ -541,6 +541,7 @@ def _collect_episodes(beaches: list[Beach], today: date) -> list[Episode]:
                     ref_id=inc.id,
                     obs=inc.observations,
                     press_count=len(press_items),
+                    pm_label=_pm_label(beach.name),
                     # Náyade no dice la causa: la toma la prensa de la
                     # ventana; si nadie la cubrió, un cierre de Sanidad
                     # es Contaminación por definición (solo mide agua)
@@ -548,6 +549,9 @@ def _collect_episodes(beaches: list[Beach], today: date) -> list[Episode]:
                         _short_cause(inc.observations)
                         or _press_cause(press_items)
                         or "Contaminación"
+                    ),
+                    titles=frozenset(
+                        n.title for n in press_items if n.title
                     ),
                 )
             )
@@ -565,6 +569,7 @@ def _collect_episodes(beaches: list[Beach], today: date) -> list[Episode]:
                     via=ev.via,
                     ref_id=synth_id,
                     obs=_synth_observations(ev),
+                    pm_label=_pm_label(beach.name),
                     press_count=(ev.press_count if ev.via == "press" else 0),
                     end_estimated=ev.end_estimated,
                     # prensa: voto de sus causas crudas; measurement:
@@ -577,6 +582,9 @@ def _collect_episodes(beaches: list[Beach], today: date) -> list[Episode]:
                             if ev.via == "measurement"
                             else None
                         )
+                    ),
+                    titles=frozenset(
+                        n.title for n in ev.press_items if n.title
                     ),
                 )
             )
@@ -603,6 +611,7 @@ def _merged_episode_rows(
             cause=m.cause,
             end_estimated=m.end_estimated,
             last_leg_start=m.last_leg_start,
+            zone_beach_ids=m.zone_beach_ids,
         )
         for m in (merged_episode(g) for g in cluster_episodes(episodes))
     ]
