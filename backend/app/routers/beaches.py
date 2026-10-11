@@ -550,9 +550,7 @@ def _collect_episodes(beaches: list[Beach], today: date) -> list[Episode]:
                         or _press_cause(press_items)
                         or "Contaminación"
                     ),
-                    titles=frozenset(
-                        n.title for n in press_items if n.title
-                    ),
+                    titles=frozenset(n.title for n in press_items if n.title),
                 )
             )
     synth_id = -1

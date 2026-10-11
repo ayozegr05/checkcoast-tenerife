@@ -694,7 +694,9 @@ def merged_episode(g: list[Episode]) -> Episode:
         beach_id=(
             zone_beach_ids[0]
             if len(zone_beach_ids) == 1
-            else leg.beach_id if leg else min(e.beach_id for e in g)
+            else leg.beach_id
+            if leg
+            else min(e.beach_id for e in g)
         ),
         base=g[0].base,
         municipality=g[0].municipality,
