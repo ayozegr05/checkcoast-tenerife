@@ -262,46 +262,46 @@ export default function AlertsBanner({
                 .filter(Boolean)
                 .join(' y ');
               return (
-              <Pressable
-                key={`res-${ep.id}-${ep.beach_id}`}
-                style={({ pressed }) => [
-                  styles.alertRow,
-                  pressed && styles.pressFx,
-                ]}
-                onPress={() => onOpenEpisodeBeach(ep.beach_id)}
-                accessibilityRole="button"
-                accessibilityLabel={`${displayBeachName(
-                  ep.beach_name,
-                )}${zone ? ` · ${zone}` : ''}, reabierta`}
-              >
-                <View
-                  style={[
-                    styles.alertDot,
-                    { backgroundColor: colors.status.open },
+                <Pressable
+                  key={`res-${ep.id}-${ep.beach_id}`}
+                  style={({ pressed }) => [
+                    styles.alertRow,
+                    pressed && styles.pressFx,
                   ]}
-                />
-                <View style={styles.alertText}>
-                  <Text style={styles.alertName} numberOfLines={1}>
-                    {displayBeachName(ep.beach_name)}
-                    {zone ? ` · ${zone}` : ''}
-                  </Text>
-                  <Text style={styles.alertSub} numberOfLines={1}>
-                    {ep.municipality ?? ''}
-                  </Text>
-                </View>
-                <View style={styles.alertStateCol}>
-                  <Text
-                    style={[styles.alertState, { color: colors.status.open }]}
-                  >
-                    Reabierta
-                  </Text>
-                  <Text style={styles.alertCause} numberOfLines={1}>
-                    {ep.closed_at ? fmtDate(ep.closed_at) : ''} ·{' '}
-                    {formatDays(resolvedDays(ep))} cerrada
-                  </Text>
-                </View>
-              </Pressable>
-            );
+                  onPress={() => onOpenEpisodeBeach(ep.beach_id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${displayBeachName(
+                    ep.beach_name,
+                  )}${zone ? ` · ${zone}` : ''}, reabierta`}
+                >
+                  <View
+                    style={[
+                      styles.alertDot,
+                      { backgroundColor: colors.status.open },
+                    ]}
+                  />
+                  <View style={styles.alertText}>
+                    <Text style={styles.alertName} numberOfLines={1}>
+                      {displayBeachName(ep.beach_name)}
+                      {zone ? ` · ${zone}` : ''}
+                    </Text>
+                    <Text style={styles.alertSub} numberOfLines={1}>
+                      {ep.municipality ?? ''}
+                    </Text>
+                  </View>
+                  <View style={styles.alertStateCol}>
+                    <Text
+                      style={[styles.alertState, { color: colors.status.open }]}
+                    >
+                      Reabierta
+                    </Text>
+                    <Text style={styles.alertCause} numberOfLines={1}>
+                      {ep.closed_at ? fmtDate(ep.closed_at) : ''} ·{' '}
+                      {formatDays(resolvedDays(ep))} cerrada
+                    </Text>
+                  </View>
+                </Pressable>
+              );
             })}
           </ScrollView>
           {onOpenTemporada && (
