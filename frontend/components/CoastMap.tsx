@@ -28,11 +28,7 @@ import type {
   GeoFeature,
   MunicipalityIncident,
 } from '../lib/api';
-import {
-  beachBaseName,
-  displayBeachName,
-  pointLongLabel,
-} from '../lib/format';
+import { beachBaseName, displayBeachName, pointLongLabel } from '../lib/format';
 import { groupKeyOf } from '../lib/beachGroups';
 
 import { recentlyResolved } from '../lib/episodes';
