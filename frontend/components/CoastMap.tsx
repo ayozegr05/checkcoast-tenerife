@@ -543,7 +543,15 @@ export default function CoastMap({
   // sobre la zona 5) y se mueve a las coordenadas reales de las
   // zonas que están cerradas o en aviso
   const alertPulse = useMemo<FeatureCollection>(() => {
-    if (!pmPoints || pmPoints.features.length === 0) return visibleAlertBeaches;
+    // El cierre estructural no late: el pulso es urgencia
+    // (contaminación), no un aviso viejo que todos conocen
+    if (!pmPoints || pmPoints.features.length === 0)
+      return {
+        type: 'FeatureCollection',
+        features: visibleAlertBeaches.features.filter(
+          (f) => !isStructuralClosure(f),
+        ),
+      };
     const memberIds = new Set(pmPoints.features.map((f) => f.id));
     return {
       type: 'FeatureCollection',
@@ -555,8 +563,6 @@ export default function CoastMap({
               f.properties.status === 'warning') &&
             beachSel.has(beachCategory(f)),
         ),
-        // El cierre estructural no late: el pulso es urgencia
-        // (contaminación), no un aviso viejo que todos conocen
       ].filter((f) => !isStructuralClosure(f)),
     };
   }, [visibleAlertBeaches, pmPoints, beachSel]);
@@ -961,10 +967,20 @@ export default function CoastMap({
                   [
                     'all',
                     ['==', ['get', 'status'], 'closed'],
+                    // Estructural lo decide el backend por mayoría de
+                    // prensa; sin el flag (API antigua) cae a la causa
                     [
-                      'in',
-                      ['get', 'alert_cause'],
-                      ['literal', [...STRUCTURAL_CAUSES]],
+                      'any',
+                      ['==', ['get', 'alert_structural'], true],
+                      [
+                        'all',
+                        ['!', ['has', 'alert_structural']],
+                        [
+                          'in',
+                          ['get', 'alert_cause'],
+                          ['literal', [...STRUCTURAL_CAUSES]],
+                        ],
+                      ],
                     ],
                   ],
                   'pin-structural',
@@ -1018,10 +1034,20 @@ export default function CoastMap({
                   [
                     'all',
                     ['==', ['get', 'status'], 'closed'],
+                    // Estructural lo decide el backend por mayoría de
+                    // prensa; sin el flag (API antigua) cae a la causa
                     [
-                      'in',
-                      ['get', 'alert_cause'],
-                      ['literal', [...STRUCTURAL_CAUSES]],
+                      'any',
+                      ['==', ['get', 'alert_structural'], true],
+                      [
+                        'all',
+                        ['!', ['has', 'alert_structural']],
+                        [
+                          'in',
+                          ['get', 'alert_cause'],
+                          ['literal', [...STRUCTURAL_CAUSES]],
+                        ],
+                      ],
                     ],
                   ],
                   'pin-structural',

@@ -6,6 +6,7 @@ import {
   beachCategory,
   buildAlertSections,
   buildBeachGroups,
+  isStructuralClosure,
   outfallCategory,
   pmMembersOf,
   searchMap,
@@ -136,6 +137,51 @@ describe('buildAlertSections', () => {
       ['Contaminación', [sinCausa]],
     ]);
     expect(buildAlertSections([])).toEqual([]);
+  });
+});
+
+describe('isStructuralClosure', () => {
+  it('el flag del backend manda sobre la causa visible', () => {
+    // alert_cause gana por especificidad y puede ser minoritaria:
+    // un episodio de contaminación con una mención de 'obras' no es
+    // estructural si el backend dice que no
+    expect(
+      isStructuralClosure(
+        feat('A', {
+          status: 'closed',
+          alert_cause: 'Obras',
+          alert_structural: false,
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isStructuralClosure(
+        feat('B', {
+          status: 'closed',
+          alert_cause: 'Contaminación',
+          alert_structural: true,
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('sin el flag cae a la causa visible (API antigua)', () => {
+    expect(
+      isStructuralClosure(
+        feat('A', { status: 'closed', alert_cause: 'Desprendimientos' }),
+      ),
+    ).toBe(true);
+    expect(
+      isStructuralClosure(
+        feat('B', { status: 'closed', alert_cause: 'Contaminación' }),
+      ),
+    ).toBe(false);
+    expect(isStructuralClosure(feat('C', { status: 'closed' }))).toBe(false);
+    expect(
+      isStructuralClosure(
+        feat('D', { status: 'warning', alert_structural: true }),
+      ),
+    ).toBe(false);
   });
 });
 
