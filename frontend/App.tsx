@@ -196,21 +196,30 @@ export default function App() {
   }, [beaches, alerts]);
 
   // Puntos de muestreo pintados en el mapa mientras la card de una
-  // playa agrupada está abierta (selector de PMs o ficha de un PM)
+  // playa agrupada está abierta (selector de PMs o ficha de un PM).
+  // selection.members es una foto del tap: se re-resuelven contra la
+  // colección viva por id — si el polling reabre una cala con la card
+  // abierta, su dot y su halo de pulso se apagan en vez de quedarse
+  // en "cerrada" para siempre
   const pmPointsFC = useMemo<FeatureCollection>(() => {
     // Solo miembros con etiqueta de PM: los duplicados OSM sin
     // monitorizar agrupados por nombre (p.ej. La Hornilla) no tienen
     // punto de muestreo — pintarlos dejaría dots grises huérfanos
-    const labeled =
+    const ids = new Set(
       selection?.type === 'beach'
-        ? (selection.members ?? []).filter((m) =>
-            beachPointLabel(m.properties.name),
-          )
+        ? (selection.members ?? [])
+            .filter((m) => beachPointLabel(m.properties.name))
+            .map((m) => m.id)
+        : [],
+    );
+    const live =
+      ids.size > 1
+        ? beachesFC.features.filter((m) => ids.has(m.id as number))
         : [];
-    return labeled.length > 1
+    return live.length > 1
       ? {
           type: 'FeatureCollection',
-          features: labeled.map((m) => ({
+          features: live.map((m) => ({
             ...m,
             properties: {
               ...m.properties,
@@ -222,7 +231,7 @@ export default function App() {
           })),
         }
       : EMPTY_FC;
-  }, [selection]);
+  }, [selection, beachesFC]);
 
   // Push: registro del token + al tocar la notificación abrir la playa
   const beachesRef = useRef(beachesFC);
