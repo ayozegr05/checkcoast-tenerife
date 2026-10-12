@@ -137,6 +137,13 @@ export default function AlertsBanner({
                   {shown.map((f) => {
                     const s =
                       f.properties.status === 'closed' ? 'closed' : 'warning';
+                    // Las filas de la sección estructural hablan el
+                    // idioma del mapa: granate = cerrada crónica, no
+                    // el rojo urgente de contaminación
+                    const tone =
+                      foldable && s === 'closed'
+                        ? colors.status.structural
+                        : colors.status[s];
                     // Fila multipunto: "Playa Jardín · Punta Brava" —
                     // el PM concreto importa tanto como la playa
                     const zone = zoneLabelFor?.(f.id as number);
@@ -157,10 +164,7 @@ export default function AlertsBanner({
                         )}, ${s === 'closed' ? 'cerrada' : 'aviso'}`}
                       >
                         <View
-                          style={[
-                            styles.alertDot,
-                            { backgroundColor: colors.status[s] },
-                          ]}
+                          style={[styles.alertDot, { backgroundColor: tone }]}
                         />
                         <View style={styles.alertText}>
                           <Text style={styles.alertName} numberOfLines={1}>
@@ -172,12 +176,7 @@ export default function AlertsBanner({
                           </Text>
                         </View>
                         <View style={styles.alertStateCol}>
-                          <Text
-                            style={[
-                              styles.alertState,
-                              { color: colors.status[s] },
-                            ]}
-                          >
+                          <Text style={[styles.alertState, { color: tone }]}>
                             {s === 'closed' ? 'Cerrada' : 'Aviso'}
                           </Text>
                           {f.properties.alert_cause ? (
@@ -402,7 +401,8 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.status.closed,
+    // Solo las usa la fila "N más" de la sección estructural
+    backgroundColor: colors.status.structural,
     borderWidth: 1,
     borderColor: '#fff',
   },
