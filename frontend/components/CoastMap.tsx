@@ -37,9 +37,11 @@ import {
   beachCategory,
   buildAlertSections,
   buildBeachGroups,
+  isStructuralClosure,
   outfallCategory,
   pmMembersOf,
   searchMap,
+  STRUCTURAL_CAUSES,
   type SearchItem,
 } from '../lib/mapData';
 import { colors } from '../lib/theme';
@@ -553,7 +555,9 @@ export default function CoastMap({
               f.properties.status === 'warning') &&
             beachSel.has(beachCategory(f)),
         ),
-      ],
+        // El cierre estructural no late: el pulso es urgencia
+        // (contaminación), no un aviso viejo que todos conocen
+      ].filter((f) => !isStructuralClosure(f)),
     };
   }, [visibleAlertBeaches, pmPoints, beachSel]);
 
@@ -820,6 +824,7 @@ export default function CoastMap({
             'pin-open': require('../assets/icons/pin-open.png'),
             'pin-warning': require('../assets/icons/pin-warning.png'),
             'pin-closed': require('../assets/icons/pin-closed.png'),
+            'pin-structural': require('../assets/icons/pin-structural.png'),
             'pin-unmonitored': require('../assets/icons/pin-unmonitored.png'),
             'pin-outfall-legal': require('../assets/icons/pin-outfall-legal.png'),
             'pin-outfall-illegal': require('../assets/icons/pin-outfall-illegal.png'),
@@ -954,6 +959,16 @@ export default function CoastMap({
                   ],
                   'pin-unmonitored',
                   [
+                    'all',
+                    ['==', ['get', 'status'], 'closed'],
+                    [
+                      'in',
+                      ['get', 'alert_cause'],
+                      ['literal', [...STRUCTURAL_CAUSES]],
+                    ],
+                  ],
+                  'pin-structural',
+                  [
                     'match',
                     ['get', 'status'],
                     'closed',
@@ -1000,6 +1015,16 @@ export default function CoastMap({
                     ['!=', ['get', 'alert'], true],
                   ],
                   'pin-unmonitored',
+                  [
+                    'all',
+                    ['==', ['get', 'status'], 'closed'],
+                    [
+                      'in',
+                      ['get', 'alert_cause'],
+                      ['literal', [...STRUCTURAL_CAUSES]],
+                    ],
+                  ],
+                  'pin-structural',
                   [
                     'match',
                     ['get', 'status'],
