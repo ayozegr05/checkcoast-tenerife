@@ -567,12 +567,15 @@ export default function CoastMap({
     };
   }, [visibleAlertBeaches, pmPoints, beachSel]);
 
-  // Halo que crece y se desvance ~1 ciclo/seg solo si hay alertas
+  // Halo que crece y se desvance ~1 ciclo/seg solo si hay algo que
+  // pulsar — con solo cierres estructurales alertPulse queda vacío y
+  // el timer re-renderizaría sin animación visible
+  const pulsing = alertPulse.features.length > 0;
   useEffect(() => {
-    if (!hasAlerts) return;
+    if (!pulsing) return;
     const t = setInterval(() => setPulse((p) => (p + 0.1) % 1), 110);
     return () => clearInterval(t);
-  }, [hasAlerts]);
+  }, [pulsing]);
 
   // Vuela a la playa elegida en la lista
   useEffect(() => {
@@ -925,7 +928,7 @@ export default function CoastMap({
           </GeoJSONSource>
         )}
 
-        {beachSel.size > 0 && hasAlerts && (
+        {beachSel.size > 0 && pulsing && (
           <GeoJSONSource id="beach-alerts" data={alertPulse}>
             <Layer
               id="beach-pulse"
