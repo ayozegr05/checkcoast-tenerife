@@ -210,6 +210,12 @@ def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
                         if eff.get(beach.id, {}).get("alerted")
                         else None
                     ),
+                    # Cierre por causa estructural mayoritaria (no la
+                    # ganadora por especificidad): pin apagado y sin
+                    # pulso en el mapa
+                    "alert_structural": eff.get(beach.id, {}).get(
+                        "structural", False
+                    ),
                     "reported_at": (
                         status.reported_at.isoformat() if status else None
                     ),

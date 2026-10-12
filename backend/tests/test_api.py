@@ -308,6 +308,66 @@ def test_press_closure_persistence_by_cause(seed_data):
         db.close()
 
 
+def test_alert_structural_requires_majority_cause(seed_data):
+    """'alert_structural' (pin apagado + sin pulso en el mapa) lo
+    decide la causa MAYORITARIA de prensa, no la ganadora por
+    especificidad: un episodio de contaminación con una mención
+    minoritaria de 'obras' muestra alert_cause='Obras' pero NO es
+    un cierre estructural."""
+    from datetime import datetime, timedelta
+
+    from app.db import SessionLocal
+    from app.models import NewsItem
+
+    mon_id = seed_data["beach_id"]  # oficial 'open'
+    osm_id = seed_data["osm_beach_id"]  # sin estado oficial
+    db = SessionLocal()
+    now = datetime.now(UTC)
+
+    def item(i, beach_id, cause):
+        return NewsItem(
+            url=f"https://news.google.com/rss/articles/pytest-maj-{i}-{beach_id}",
+            title="Cierran la playa",
+            source="Test Press",
+            relevant=True,
+            beach_id=beach_id,
+            event_type="closure",
+            cause=cause,
+            published_at=now - timedelta(hours=i),
+        )
+
+    items = [
+        # Mayoría contaminación + minoría 'obras': alert_cause gana
+        # por especificidad ('Obras') pero NO es estructural
+        item(0, mon_id, "vertido en el mar"),
+        item(1, mon_id, "mala calidad del agua"),
+        item(2, mon_id, "obras en el paseo"),
+        # Mayoría desprendimientos: estructural
+        item(0, osm_id, "desprendimientos en la ladera"),
+        item(1, osm_id, "riesgo de desprendimiento"),
+        item(2, osm_id, "vertido puntual"),
+    ]
+    db.add_all(items)
+    db.commit()
+    try:
+        feats = {
+            f["id"]: f["properties"]
+            for f in client.get("/beaches").json()["features"]
+        }
+        mon = feats[mon_id]
+        assert mon["status"] == "closed"
+        assert mon["alert_cause"] == "Obras"  # gana especificidad
+        assert mon["alert_structural"] is False  # la mayoría manda
+        osm = feats[osm_id]
+        assert osm["status"] == "closed"
+        assert osm["alert_structural"] is True
+    finally:
+        for i in items:
+            db.delete(i)
+        db.commit()
+        db.close()
+
+
 def test_effective_status_suppresses_stale_official(seed_data):
     """Estado efectivo: un oficial 'closed' derivado de evidencia
     anterior a una reapertura de prensa (mismo episodio que Náyade

@@ -578,4 +578,23 @@ def effective_states(db: Session) -> dict[int, dict]:
             elif press_cause.get(bid):
                 result[bid]["cause"] = press_cause[bid]
                 result[bid]["cause_via"] = "press"
+
+    # Cierre estructural (pin/pulso del mapa): lo decide la causa
+    # MAYORITARIA de prensa, no la ganadora por especificidad —
+    # una mención minoritaria de "obras" en un episodio de
+    # contaminación no lo convierte en estructural. Causa oficial
+    # (observaciones de la incidencia) basta por sí sola.
+    for bid, e in result.items():
+        structural_official = (
+            e["cause_via"] == "official" and e["cause"] in _STRUCTURAL_CAUSES
+        )
+        structural_press = (
+            e["cause_via"] == "press"
+            and _majority_cause(by_beach.get(bid, [])) in _STRUCTURAL_CAUSES
+        )
+        e["structural"] = (
+            e["status"] == "closed"
+            and e["alerted"]
+            and (structural_official or structural_press)
+        )
     return result

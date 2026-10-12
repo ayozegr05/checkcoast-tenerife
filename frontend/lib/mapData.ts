@@ -127,11 +127,14 @@ export function buildBeachGroups(
 export type AlertSection = [string, GeoFeature[]];
 
 // Cierre por causa estructural (desprendimientos/obras/colapso): sigue
-// rojo en la ficha pero en el mapa no late — pin propio sin pulso
+// rojo en la ficha pero en el mapa no late — pin propio sin pulso.
+// Lo decide el backend por mayoría de prensa (alert_structural); sin
+// el flag (API antigua) cae a alert_cause, que puede ser minoritaria
 export const isStructuralClosure = (f: GeoFeature) =>
   f.properties.status === 'closed' &&
-  !!f.properties.alert_cause &&
-  STRUCTURAL_CAUSES.has(f.properties.alert_cause);
+  (f.properties.alert_structural ??
+    (!!f.properties.alert_cause &&
+      STRUCTURAL_CAUSES.has(f.properties.alert_cause)));
 
 // Dos grandes categorías de alerta: contaminación (transitoria) y
 // cierre estructural (desprendimientos/obras/colapso — se mantiene

@@ -36,6 +36,10 @@ export type GeoFeature = {
     // y su procedencia — solo presentes con alerta activa
     alert_cause?: string | null;
     cause_via?: 'official' | 'press' | null;
+    // El episodio ES estructural (causa mayoritaria de prensa, o
+    // causa oficial) — distinto de alert_cause, que gana por
+    // especificidad y puede nombrar una causa minoritaria
+    alert_structural?: boolean | null;
     source_url?: string | null;
     fetched_at?: string | null;
     reported_at?: string | null;
