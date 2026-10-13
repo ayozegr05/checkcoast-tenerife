@@ -37,6 +37,7 @@ import {
   beachCategory,
   buildAlertSections,
   buildBeachGroups,
+  circleZone,
   isStructuralClosure,
   outfallCategory,
   pmMembersOf,
@@ -567,6 +568,20 @@ export default function CoastMap({
     };
   }, [visibleAlertBeaches, pmPoints, beachSel]);
 
+  // Zona clausurada (tramado diagonal = área restringida): con la
+  // card PM abierta la zona sigue a cada cala estructural, si no al
+  // centroide del grupo. Mismo recorrido que el pulso pero fijo
+  const structuralZones = useMemo(() => {
+    const src =
+      pmPoints && pmPoints.features.length > 0
+        ? pmPoints.features
+        : visibleAlertBeaches.features;
+    return {
+      type: 'FeatureCollection' as const,
+      features: src.filter(isStructuralClosure).map((f) => circleZone(f)),
+    };
+  }, [visibleAlertBeaches, pmPoints]);
+
   // Halo que crece y se desvance ~1 ciclo/seg solo si hay algo que
   // pulsar — con solo cierres estructurales alertPulse queda vacío y
   // el timer re-renderizaría sin animación visible
@@ -834,6 +849,7 @@ export default function CoastMap({
             'pin-warning': require('../assets/icons/pin-warning.png'),
             'pin-closed': require('../assets/icons/pin-closed.png'),
             'pin-structural': require('../assets/icons/pin-structural.png'),
+            'hatch-structural': require('../assets/icons/hatch-structural.png'),
             'pin-unmonitored': require('../assets/icons/pin-unmonitored.png'),
             'pin-outfall-legal': require('../assets/icons/pin-outfall-legal.png'),
             'pin-outfall-illegal': require('../assets/icons/pin-outfall-illegal.png'),
@@ -923,6 +939,30 @@ export default function CoastMap({
                 'text-color': colors.text,
                 'text-halo-color': '#ffffff',
                 'text-halo-width': 2.2,
+              }}
+            />
+          </GeoJSONSource>
+        )}
+
+        {/* Zona rayada de cierre estructural, bajo pins y pulso:
+            fill-pattern con el tile diagonal + borde granate */}
+        {beachSel.size > 0 && structuralZones.features.length > 0 && (
+          <GeoJSONSource id="structural-zones" data={structuralZones}>
+            <Layer
+              id="structural-zone-fill"
+              type="fill"
+              paint={{
+                'fill-pattern': 'hatch-structural',
+                'fill-opacity': 0.85,
+              }}
+            />
+            <Layer
+              id="structural-zone-outline"
+              type="line"
+              paint={{
+                'line-color': colors.status.structural,
+                'line-width': 1.5,
+                'line-opacity': 0.7,
               }}
             />
           </GeoJSONSource>
@@ -1128,6 +1168,25 @@ export default function CoastMap({
                     ['!=', ['get', 'alert'], true],
                   ],
                   BEACH_COLORS.unmonitored,
+                  // Granate = estructural, igual que el pin y el banner
+                  [
+                    'all',
+                    ['==', ['get', 'status'], 'closed'],
+                    [
+                      'any',
+                      ['==', ['get', 'alert_structural'], true],
+                      [
+                        'all',
+                        ['!', ['has', 'alert_structural']],
+                        [
+                          'in',
+                          ['get', 'alert_cause'],
+                          ['literal', [...STRUCTURAL_CAUSES]],
+                        ],
+                      ],
+                    ],
+                  ],
+                  BEACH_COLORS.structural,
                   [
                     'match',
                     ['get', 'status'],

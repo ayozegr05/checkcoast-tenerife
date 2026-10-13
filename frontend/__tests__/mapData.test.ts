@@ -6,6 +6,7 @@ import {
   beachCategory,
   buildAlertSections,
   buildBeachGroups,
+  circleZone,
   isStructuralClosure,
   outfallCategory,
   pmMembersOf,
@@ -182,6 +183,26 @@ describe('isStructuralClosure', () => {
         feat('D', { status: 'warning', alert_structural: true }),
       ),
     ).toBe(false);
+  });
+});
+
+describe('circleZone', () => {
+  it('genera un polígono cerrado centrado en el pin', () => {
+    const z = circleZone(feat('A', {}, [-16.5, 28.3]), 420);
+    expect(z.geometry.type).toBe('Polygon');
+    const ring = z.geometry.coordinates[0];
+    // anillo cerrado: primer punto = último
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
+    // todos los puntos a ~420 m del centro (tolerancia 5%)
+    const [lng, lat] = [-16.5, 28.3];
+    for (const [x, y] of ring.slice(0, -1)) {
+      const dx = (x - lng) * 111320 * Math.cos((lat * Math.PI) / 180);
+      const dy = (y - lat) * 111320;
+      expect(Math.hypot(dx, dy)).toBeCloseTo(420, -1);
+    }
+    // conserva el id y las properties del pin
+    expect(z.id).toBeDefined();
+    expect(z.properties.name).toBe('A');
   });
 });
 
