@@ -37,7 +37,6 @@ import {
   beachCategory,
   buildAlertSections,
   buildBeachGroups,
-  circleZone,
   isStructuralClosure,
   outfallCategory,
   pmMembersOf,
@@ -568,19 +567,32 @@ export default function CoastMap({
     };
   }, [visibleAlertBeaches, pmPoints, beachSel]);
 
-  // Zona clausurada (tramado diagonal = área restringida): con la
-  // card PM abierta la zona sigue a cada cala estructural, si no al
-  // centroide del grupo. Mismo recorrido que el pulso pero fijo
-  const structuralZones = useMemo(() => {
-    const src =
-      pmPoints && pmPoints.features.length > 0
-        ? pmPoints.features
-        : visibleAlertBeaches.features;
+  // Pulso estructural: mismo lenguaje que la contaminación pero lento
+  // y tenue — lo crónico late despacio, no grita. Con la card PM
+  // abierta sigue a cada cala, si no al centroide (igual que alertPulse)
+  const structuralPulse = useMemo(() => {
+    if (pmPoints && pmPoints.features.length > 0) {
+      return {
+        type: 'FeatureCollection' as const,
+        features: pmPoints.features.filter(
+          (f) => isStructuralClosure(f) && beachSel.has(beachCategory(f)),
+        ),
+      };
+    }
     return {
       type: 'FeatureCollection' as const,
-      features: src.filter(isStructuralClosure).map((f) => circleZone(f)),
+      features: visibleAlertBeaches.features.filter(isStructuralClosure),
     };
-  }, [visibleAlertBeaches, pmPoints]);
+  }, [visibleAlertBeaches, pmPoints, beachSel]);
+
+  // ~3,3 s/ciclo vs ~1,1 s del pulso de contaminación + menor opacidad
+  const pulsingStructural = structuralPulse.features.length > 0;
+  const [pulseSlow, setPulseSlow] = useState(0);
+  useEffect(() => {
+    if (!pulsingStructural) return;
+    const t = setInterval(() => setPulseSlow((p) => (p + 0.05) % 1), 165);
+    return () => clearInterval(t);
+  }, [pulsingStructural]);
 
   // Halo que crece y se desvance ~1 ciclo/seg solo si hay algo que
   // pulsar — con solo cierres estructurales alertPulse queda vacío y
@@ -849,7 +861,6 @@ export default function CoastMap({
             'pin-warning': require('../assets/icons/pin-warning.png'),
             'pin-closed': require('../assets/icons/pin-closed.png'),
             'pin-structural': require('../assets/icons/pin-structural.png'),
-            'hatch-structural': require('../assets/icons/hatch-structural.png'),
             'pin-unmonitored': require('../assets/icons/pin-unmonitored.png'),
             'pin-outfall-legal': require('../assets/icons/pin-outfall-legal.png'),
             'pin-outfall-illegal': require('../assets/icons/pin-outfall-illegal.png'),
@@ -944,25 +955,17 @@ export default function CoastMap({
           </GeoJSONSource>
         )}
 
-        {/* Zona rayada de cierre estructural, bajo pins y pulso:
-            fill-pattern con el tile diagonal + borde granate */}
-        {beachSel.size > 0 && structuralZones.features.length > 0 && (
-          <GeoJSONSource id="structural-zones" data={structuralZones}>
+        {/* Pulso estructural: lento y tenue — cierre crónico, no
+            urgencia. Mismo gesto que el de contaminación pero granate */}
+        {beachSel.size > 0 && pulsingStructural && (
+          <GeoJSONSource id="structural-pulse" data={structuralPulse}>
             <Layer
-              id="structural-zone-fill"
-              type="fill"
+              id="beach-pulse-structural"
+              type="circle"
               paint={{
-                'fill-pattern': 'hatch-structural',
-                'fill-opacity': 0.85,
-              }}
-            />
-            <Layer
-              id="structural-zone-outline"
-              type="line"
-              paint={{
-                'line-color': colors.status.structural,
-                'line-width': 1.5,
-                'line-opacity': 0.7,
+                'circle-radius': 12 + pulseSlow * 20,
+                'circle-color': BEACH_COLORS.structural,
+                'circle-opacity': 0.4 * (1 - pulseSlow),
               }}
             />
           </GeoJSONSource>
