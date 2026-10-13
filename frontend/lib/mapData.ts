@@ -136,32 +136,6 @@ export const isStructuralClosure = (f: GeoFeature) =>
     (!!f.properties.alert_cause &&
       STRUCTURAL_CAUSES.has(f.properties.alert_cause)));
 
-// Zona clausurada alrededor del pin: el tramado diagonal es la
-// convención cartográfica de "área restringida" — en MapLibre no hay
-// hatch nativo, así que se dibuja un polígono circular con un tile
-// de rayas como fill-pattern. Punto (pin) + causa (cartel) + área
-// (trama): cada canal aporta una cosa distinta
-export type ZoneFeature = Omit<GeoFeature, 'geometry'> & {
-  geometry: { type: 'Polygon'; coordinates: number[][][] };
-};
-
-export const circleZone = (
-  f: GeoFeature,
-  radiusM = 420,
-  steps = 48,
-): ZoneFeature => {
-  const [lng, lat] = f.geometry.coordinates;
-  const dLat = radiusM / 111320;
-  const cos = Math.cos((lat * Math.PI) / 180);
-  const dLng = radiusM / (111320 * (Math.abs(cos) > 1e-6 ? cos : 1));
-  const ring: number[][] = [];
-  for (let i = 0; i <= steps; i++) {
-    const a = (i / steps) * 2 * Math.PI;
-    ring.push([lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]);
-  }
-  return { ...f, geometry: { type: 'Polygon', coordinates: [ring] } };
-};
-
 // Dos grandes categorías de alerta: contaminación (transitoria) y
 // cierre estructural (desprendimientos/obras/colapso — se mantiene
 // en el tiempo), más los avisos. Dentro de cada sección, de la más
