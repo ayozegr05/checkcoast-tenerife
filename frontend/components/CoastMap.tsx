@@ -957,12 +957,36 @@ export default function CoastMap({
               id="beach-pulse-structural"
               type="circle"
               paint={{
-                'circle-radius': 10,
+                // radio + translate interpolados al zoom: el pin crece
+                // con icon-size y el anillo debe seguir envolviendo la
+                // cabeza (el punto de anclaje es la punta inferior)
+                'circle-radius': [
+                  'interpolate',
+                  ['linear'],
+                  ['zoom'],
+                  9,
+                  11,
+                  13,
+                  17,
+                  16,
+                  18,
+                ],
+                'circle-translate': [
+                  'interpolate',
+                  ['linear'],
+                  ['zoom'],
+                  9,
+                  ['literal', [0, -11]],
+                  13,
+                  ['literal', [0, -18]],
+                  16,
+                  ['literal', [0, -19]],
+                ],
                 'circle-color': BEACH_COLORS.structural,
-                'circle-opacity': 0.22,
+                'circle-opacity': 0.2,
                 'circle-stroke-color': BEACH_COLORS.structural,
                 'circle-stroke-width': 2,
-                'circle-stroke-opacity': 0.6,
+                'circle-stroke-opacity': 0.55,
               }}
             />
           </GeoJSONSource>
