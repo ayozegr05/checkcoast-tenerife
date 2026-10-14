@@ -68,17 +68,23 @@ cx, cy, r = 48 * SS, 27 * SS, 25 * SS
 d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=WHITE)
 d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=RED, width=7 * SS)
 
-# glifo: arista de talud + rocas cayendo
+# glifo: talud a la izquierda + cantos cayendo — poligonos tochos,
+# a tamano de pin solo leen formas grandes y con contraste
 rr = r * 0.62
-d.line([(cx - rr, cy - rr * 0.5), (cx - rr * 0.30, cy - rr * 0.5),
-        (cx - rr * 0.30, cy + rr * 0.95), (cx - rr, cy + rr * 0.95)],
-       fill=NAVY, width=int(2.2 * SS))
-for rx, ry, sz in ((0.18, -0.30, 0.20), (0.44, 0.10, 0.16),
-                   (0.24, 0.55, 0.13)):
-    px, py = cx + rx * rr, cy + ry * rr
-    d.polygon([(px - sz * rr, py + sz * rr * 0.7),
-               (px + sz * rr, py + sz * rr * 0.7),
-               (px, py - sz * rr * 1.1)], fill=STRUCT_DARK)
+cliff = [
+    (cx - rr * 0.95, cy + rr * 0.95),
+    (cx - rr * 0.95, cy - rr * 0.60),
+    (cx - rr * 0.55, cy - rr * 0.80),
+    (cx - rr * 0.35, cy - rr * 0.15),
+    (cx - rr * 0.05, cy + rr * 0.95),
+]
+d.polygon(cliff, fill=NAVY)
+for pts in (
+    [(0.20, -0.50), (0.55, -0.55), (0.62, -0.28), (0.40, -0.10), (0.15, -0.22)],
+    [(0.62, 0.02), (0.92, 0.00), (0.95, 0.28), (0.68, 0.40)],
+    [(0.30, 0.48), (0.58, 0.42), (0.62, 0.68), (0.35, 0.75)],
+):
+    d.polygon([(cx + x * rr, cy + y * rr) for x, y in pts], fill=NAVY)
 
 # barra diagonal roja del prohibido (dentro del aro)
 m = slash_mask(img.size, cx, cy, r * 0.72, 4.2 * SS)
