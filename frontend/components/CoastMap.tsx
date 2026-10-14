@@ -948,21 +948,21 @@ export default function CoastMap({
           </GeoJSONSource>
         )}
 
-        {/* Halo estructural fijo: anillo granate que marca la zona
-            crónica sin latir — la urgencia es solo de contaminación */}
+        {/* Halo estructural fijo: anillo granate pequeño que marca la
+            zona crónica sin latir — la urgencia es solo de
+            contaminación */}
         {beachSel.size > 0 && pulsingStructural && (
           <GeoJSONSource id="structural-pulse" data={structuralPulse}>
             <Layer
               id="beach-pulse-structural"
               type="circle"
-              minzoom={11}
               paint={{
-                'circle-radius': 20,
+                'circle-radius': 13,
                 'circle-color': BEACH_COLORS.structural,
-                'circle-opacity': 0.15,
+                'circle-opacity': 0.18,
                 'circle-stroke-color': BEACH_COLORS.structural,
                 'circle-stroke-width': 2,
-                'circle-stroke-opacity': 0.45,
+                'circle-stroke-opacity': 0.5,
               }}
             />
           </GeoJSONSource>
