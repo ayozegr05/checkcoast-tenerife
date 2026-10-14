@@ -957,12 +957,12 @@ export default function CoastMap({
               id="beach-pulse-structural"
               type="circle"
               paint={{
-                'circle-radius': 13,
+                'circle-radius': 10,
                 'circle-color': BEACH_COLORS.structural,
-                'circle-opacity': 0.18,
+                'circle-opacity': 0.22,
                 'circle-stroke-color': BEACH_COLORS.structural,
                 'circle-stroke-width': 2,
-                'circle-stroke-opacity': 0.5,
+                'circle-stroke-opacity': 0.6,
               }}
             />
           </GeoJSONSource>
