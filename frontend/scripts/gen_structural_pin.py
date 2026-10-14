@@ -1,39 +1,31 @@
-# Regenera assets/icons/pin-structural.png: pin granate + cartel
-# circular de prohibido (aro rojo + barra) con rocas dentro — la causa
-# sigue visible sin triangulo de aviso (que leia "aviso", no "cerrada").
+# Regenera assets/icons/pin-structural.png: pin granate cuyo disco
+# interior ES la senal de prohibido (aro rojo + barra) con rocas
+# dentro — mismo tamano que el resto de pines (96x96), la senal
+# ocupa todo el disco y se lee a zoom de isla. El cartel flotante
+# anterior encogia el pin y el glifo era ilegible.
 # Uso: python scripts/gen_structural_pin.py  (desde frontend/, con Pillow)
 from PIL import Image, ImageDraw
 import math
 
 STRUCT = (140, 50, 42)      # #8c322a granate
-STRUCT_DARK = (104, 36, 30)
 RED = (198, 40, 40)
 WHITE = (255, 255, 255)
 NAVY = (22, 50, 63)
 
 SS = 4
-W, H = 96, 154            # signo arriba + pin abajo (geometria actual)
+W = H = 96
 
 
-def pin_shape(d, s, scale, color, oy):
+def pin_shape(d, s, scale, color):
     c = s / 96
 
     def t(x, y):
         return (48 * c + (x - 48) * scale * c,
-                48 * c + (y - 48) * scale * c + oy)
+                48 * c + (y - 48) * scale * c)
 
     e = [t(10, 2), t(86, 78)]
     d.ellipse([e[0][0], e[0][1], e[1][0], e[1][1]], fill=color)
     d.polygon([t(26, 60), t(70, 60), t(48, 94)], fill=color)
-
-
-def beach_glyph(color, size=42):
-    src = Image.open("assets/icons/beach.png").convert("RGBA")
-    alpha = src.split()[3]
-    tinted = Image.new("RGBA", src.size, color)
-    tinted.putalpha(alpha)
-    tinted.thumbnail((size, size), Image.LANCZOS)
-    return tinted
 
 
 def slash_mask(size, cx, cy, half_len, half_w, deg=45):
@@ -55,22 +47,20 @@ def slash_mask(size, cx, cy, half_len, half_w, deg=45):
 img = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
 d = ImageDraw.Draw(img)
 
-# --- pin (parte baja) ---
-PIN_OY = 58 * SS
-pin_shape(d, W * SS, 1.0, STRUCT, PIN_OY)
-pin_shape(d, W * SS, 0.78, WHITE, PIN_OY)
-g = beach_glyph(STRUCT, 42 * SS)
-img.alpha_composite(
-    g, (48 * SS - g.width // 2, (34 * SS - g.height // 2) + PIN_OY))
+# pin granate + disco blanco, igual que el resto de pines
+pin_shape(d, W * SS, 1.0, STRUCT)
+pin_shape(d, W * SS, 0.78, WHITE)
 
-# --- cartel circular de prohibido ---
-cx, cy, r = 48 * SS, 27 * SS, 25 * SS
-d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=WHITE)
-d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=RED, width=7 * SS)
+# el disco blanco se convierte en la senal de prohibido:
+# aro rojo en el borde del disco + barra diagonal
+cx, cy = 48 * SS, 40 * SS
+r_disc = 30 * SS                       # radio del disco blanco
+d.ellipse([cx - r_disc, cy - r_disc, cx + r_disc, cy + r_disc],
+          outline=RED, width=int(7.5 * SS))
 
 # glifo: talud a la izquierda + cantos cayendo — poligonos tochos,
 # a tamano de pin solo leen formas grandes y con contraste
-rr = r * 0.62
+rr = r_disc * 0.62
 cliff = [
     (cx - rr * 0.95, cy + rr * 0.95),
     (cx - rr * 0.95, cy - rr * 0.60),
@@ -87,7 +77,7 @@ for pts in (
     d.polygon([(cx + x * rr, cy + y * rr) for x, y in pts], fill=NAVY)
 
 # barra diagonal roja del prohibido (dentro del aro)
-m = slash_mask(img.size, cx, cy, r * 0.72, 4.2 * SS)
+m = slash_mask(img.size, cx, cy, r_disc * 0.72, 4.5 * SS)
 img.paste(Image.new("RGBA", img.size, RED), (0, 0), m)
 
 img = img.resize((W, H), Image.LANCZOS)

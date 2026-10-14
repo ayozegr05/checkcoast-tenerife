@@ -955,13 +955,14 @@ export default function CoastMap({
             <Layer
               id="beach-pulse-structural"
               type="circle"
+              minzoom={11}
               paint={{
-                'circle-radius': 22,
+                'circle-radius': 20,
                 'circle-color': BEACH_COLORS.structural,
-                'circle-opacity': 0.18,
+                'circle-opacity': 0.15,
                 'circle-stroke-color': BEACH_COLORS.structural,
                 'circle-stroke-width': 2,
-                'circle-stroke-opacity': 0.5,
+                'circle-stroke-opacity': 0.45,
               }}
             />
           </GeoJSONSource>
