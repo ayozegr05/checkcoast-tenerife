@@ -585,14 +585,7 @@ export default function CoastMap({
     };
   }, [visibleAlertBeaches, pmPoints, beachSel]);
 
-  // ~3,3 s/ciclo vs ~1,1 s del pulso de contaminación + menor opacidad
   const pulsingStructural = structuralPulse.features.length > 0;
-  const [pulseSlow, setPulseSlow] = useState(0);
-  useEffect(() => {
-    if (!pulsingStructural) return;
-    const t = setInterval(() => setPulseSlow((p) => (p + 0.05) % 1), 165);
-    return () => clearInterval(t);
-  }, [pulsingStructural]);
 
   // Halo que crece y se desvance ~1 ciclo/seg solo si hay algo que
   // pulsar — con solo cierres estructurales alertPulse queda vacío y
@@ -955,17 +948,20 @@ export default function CoastMap({
           </GeoJSONSource>
         )}
 
-        {/* Pulso estructural: lento y tenue — cierre crónico, no
-            urgencia. Mismo gesto que el de contaminación pero granate */}
+        {/* Halo estructural fijo: anillo granate que marca la zona
+            crónica sin latir — la urgencia es solo de contaminación */}
         {beachSel.size > 0 && pulsingStructural && (
           <GeoJSONSource id="structural-pulse" data={structuralPulse}>
             <Layer
               id="beach-pulse-structural"
               type="circle"
               paint={{
-                'circle-radius': 12 + pulseSlow * 20,
+                'circle-radius': 22,
                 'circle-color': BEACH_COLORS.structural,
-                'circle-opacity': 0.4 * (1 - pulseSlow),
+                'circle-opacity': 0.18,
+                'circle-stroke-color': BEACH_COLORS.structural,
+                'circle-stroke-width': 2,
+                'circle-stroke-opacity': 0.5,
               }}
             />
           </GeoJSONSource>
