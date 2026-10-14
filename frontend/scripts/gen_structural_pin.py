@@ -1,16 +1,14 @@
 # Regenera assets/icons/pin-structural.png: pin granate #8c322a con la
-# misma geometria y glifo que el resto de pines (96x96). La diferencia
-# es solo el color — a tamano de mapa ningun glifo extra se lee, y el
-# "cierre estructural" lo explican banner/leyenda/ficha. El halo fijo
-# de CoastMap marca la zona cronica.
+# misma geometria y glifo que el resto de pines (96x96). Replica
+# make_pin de gen_icon.py a pelo (sin supersample: produce un trazado
+# ligeramente distinto). La diferencia es solo el color — a tamano de
+# mapa ningun glifo extra se lee, y el "cierre estructural" lo explican
+# banner/leyenda/ficha. El halo fijo de CoastMap marca la zona cronica.
 # Uso: python scripts/gen_structural_pin.py  (desde frontend/, con Pillow)
 from PIL import Image, ImageDraw
 
 STRUCT = (140, 50, 42)      # #8c322a granate
 WHITE = (255, 255, 255)
-
-SS = 4
-W = H = 96
 
 
 def pin_shape(d, s, scale, color):
@@ -25,7 +23,7 @@ def pin_shape(d, s, scale, color):
     d.polygon([t(26, 60), t(70, 60), t(48, 94)], fill=color)
 
 
-def beach_glyph(color, size):
+def beach_glyph(color, size=40):
     src = Image.open("assets/icons/beach.png").convert("RGBA")
     alpha = src.split()[3]
     tinted = Image.new("RGBA", src.size, color)
@@ -34,14 +32,12 @@ def beach_glyph(color, size):
     return tinted
 
 
-img = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
+s = 96
+img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
 d = ImageDraw.Draw(img)
-
-pin_shape(d, W * SS, 1.0, STRUCT)
-pin_shape(d, W * SS, 0.78, WHITE)
-g = beach_glyph(STRUCT, 42 * SS)
-img.alpha_composite(g, (48 * SS - g.width // 2, 34 * SS - g.height // 2))
-
-img = img.resize((W, H), Image.LANCZOS)
+pin_shape(d, s, 1.0, STRUCT)
+pin_shape(d, s, 0.78, WHITE)
+glyph = beach_glyph(STRUCT, 42)
+img.alpha_composite(glyph, (48 - glyph.width // 2, 34 - glyph.height // 2))
 img.save("assets/icons/pin-structural.png")
 print("pin-structural.png regenerado", img.size)
