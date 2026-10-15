@@ -8,6 +8,7 @@ import {
   Pressable,
   StatusBar,
   StyleSheet,
+  Text,
   TextInput,
   View,
   useWindowDimensions,
@@ -35,10 +36,12 @@ import { recentlyResolved } from '../lib/episodes';
 
 import {
   beachCategory,
+  BEACH_STATES,
   buildAlertSections,
   buildBeachGroups,
   isStructuralClosure,
   outfallCategory,
+  OUTFALL_STATES,
   pmMembersOf,
   searchMap,
   STRUCTURAL_CAUSES,
@@ -198,6 +201,10 @@ export default function CoastMap({
   const [outfallSel, setOutfallSel] = useState<Set<string>>(
     () => new Set(['illegal']),
   );
+  // Capas apagadas en el panel — badge del boton Capas
+  const hiddenLayers =
+    BEACH_STATES.filter(([, , k]) => !beachSel.has(k)).length +
+    OUTFALL_STATES.filter(([, , k]) => !outfallSel.has(k)).length;
   const [pulse, setPulse] = useState(0);
   // Dots PM visibles solo con la card de un grupo abierta: el pin del
   // centroide sería un duplicado sobre puntos oficiales → se retira
@@ -1050,11 +1057,11 @@ export default function CoastMap({
                   ['linear'],
                   ['zoom'],
                   9,
-                  0.2,
+                  0.17,
                   13,
-                  0.34,
+                  0.29,
                   16,
-                  0.36,
+                  0.34,
                 ],
                 'icon-anchor': 'bottom',
                 'icon-allow-overlap': true,
@@ -1099,11 +1106,11 @@ export default function CoastMap({
                   ['linear'],
                   ['zoom'],
                   9,
-                  0.2 * (136 / 96),
+                  0.17 * (136 / 96),
                   13,
-                  0.34 * (136 / 96),
+                  0.29 * (136 / 96),
                   16,
-                  0.36 * (136 / 96),
+                  0.34 * (136 / 96),
                 ],
                 'icon-anchor': 'bottom',
                 'icon-allow-overlap': true,
@@ -1440,6 +1447,13 @@ export default function CoastMap({
           source={require('../assets/icons/icon-layers.png')}
           style={styles.satIcon}
         />
+        {/* Puntito con el numero de capas ocultas: "hay mas cosas
+            que no estas viendo" sin abrir el panel */}
+        {hiddenLayers > 0 && (
+          <View style={styles.layersBadge}>
+            <Text style={styles.layersBadgeText}>{hiddenLayers}</Text>
+          </View>
+        )}
       </Pressable>
 
       {layersOpen && (
@@ -1536,6 +1550,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     elevation: 3,
     zIndex: 5,
+  },
+  // Badge de capas ocultas sobre el boton Capas
+  layersBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: colors.status.closed,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  layersBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
   },
   // Botones flotantes atenuados mientras hay un panel abierto
   // (alertas/capas) — se ven muertos, no se pueden pulsar
