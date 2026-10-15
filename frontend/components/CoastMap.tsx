@@ -54,7 +54,7 @@ import LayersPanel from './map/LayersPanel';
 import MapLegend from './map/MapLegend';
 
 // Flag de primer uso del bocadillo de capas
-const LAYERS_HINT_KEY = 'checkcoast.layers_hint_seen_v5';
+const LAYERS_HINT_KEY = 'checkcoast.layers_hint_seen_v6';
 import MapSearch from './map/MapSearch';
 import MapTopbar from './map/MapTopbar';
 
@@ -1502,10 +1502,10 @@ export default function CoastMap({
             resizeMode="cover"
           >
             <Text style={styles.layersHintText}>
-              ¿Quieres ver todas las playas y emisarios?
+              {'¿Quieres ver todas las playas\ny emisarios del mapa?'}
             </Text>
             <View style={styles.layersHintRow}>
-              <Text style={styles.layersHintText}>Pulsa aquí o</Text>
+              <Text style={styles.layersHintText}>Pulsa aquí o en</Text>
               {/* Mini-botón Capas: cuadradito blanco + icono, igual que
                   el flotante del mapa — se reconoce al instante */}
               <View style={styles.layersHintBtn}>
@@ -1514,7 +1514,7 @@ export default function CoastMap({
                   style={styles.layersHintIcon}
                 />
               </View>
-              <Text style={styles.layersHintText}>para verlas</Text>
+              <Text style={styles.layersHintText}>Capas</Text>
             </View>
           </ImageBackground>
           <View style={styles.layersHintTail} />
@@ -1633,8 +1633,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    marginTop: 3,
+    gap: 4,
+    marginTop: 4,
   },
   layersHintText: {
     color: '#fff',
