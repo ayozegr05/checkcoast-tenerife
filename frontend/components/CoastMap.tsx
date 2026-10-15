@@ -54,7 +54,7 @@ import LayersPanel from './map/LayersPanel';
 import MapLegend from './map/MapLegend';
 
 // Flag de primer uso del bocadillo de capas
-const LAYERS_HINT_KEY = 'checkcoast.layers_hint_seen';
+const LAYERS_HINT_KEY = 'checkcoast.layers_hint_seen_v2';
 import MapSearch from './map/MapSearch';
 import MapTopbar from './map/MapTopbar';
 
