@@ -1502,8 +1502,13 @@ export default function CoastMap({
             resizeMode="cover"
           >
             <Text style={styles.layersHintText}>
-              Toca aquí o «Capas» para ver playas sin monitorizar y más
-              emisarios
+              ¿Quieres ver todas las playas y emisarios? Pulsa aquí o
+              «Capas»{' '}
+              <Image
+                source={require('../assets/icons/icon-layers.png')}
+                style={styles.layersHintIcon}
+              />{' '}
+              para verlas
             </Text>
           </ImageBackground>
           <View style={styles.layersHintTail} />
@@ -1602,7 +1607,7 @@ const styles = StyleSheet.create({
   // Bocadillo de primer uso sobre la leyenda (la cola apunta a ella)
   layersHintWrap: {
     position: 'absolute',
-    bottom: Platform.OS === 'android' ? 160 : 124,
+    bottom: Platform.OS === 'android' ? 132 : 104,
     alignSelf: 'center',
     elevation: 6,
     zIndex: 6,
@@ -1610,6 +1615,7 @@ const styles = StyleSheet.create({
   layersHintBubble: {
     borderRadius: 10,
     overflow: 'hidden',
+    maxWidth: 240,
     paddingVertical: 8,
     paddingHorizontal: 14,
   },
@@ -1621,6 +1627,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.semibold,
     textAlign: 'center',
+  },
+  // Icono de capas inline en el texto del bocadillo
+  layersHintIcon: {
+    width: 12,
+    height: 12,
   },
   layersHintTail: {
     position: 'absolute',
