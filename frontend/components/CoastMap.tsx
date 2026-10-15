@@ -1502,7 +1502,7 @@ export default function CoastMap({
               {'¿Quieres ver todas las playas\ny emisarios del mapa?'}
             </Text>
             <View style={styles.layersHintRow}>
-              <Text style={styles.layersHintText}>Pulsa aquí o el botón Capas</Text>
+              <Text style={styles.layersHintRowText}>Pulsa aquí o el botón Capas</Text>
               {/* Mini-botón Capas: cuadradito blanco + icono, igual que
                   el flotante del mapa — se reconoce al instante */}
               <View style={styles.layersHintBtn}>
@@ -1638,6 +1638,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.semibold,
     textAlign: 'center',
+  },
+  // En la fila del botón el texto NO se encoge: el globo crece a su ancho
+  layersHintRowText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    textAlign: 'center',
+    flexShrink: 0,
   },
   // Réplica del botón Capas del mapa: cápsula blanca + icono
   layersHintBtn: {
