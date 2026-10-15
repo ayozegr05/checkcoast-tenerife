@@ -1502,8 +1502,8 @@ export default function CoastMap({
               {'¿Quieres ver todas las playas y emisarios\ndel mapa?'}
             </Text>
             <View style={styles.layersHintRow}>
-              <Text style={styles.layersHintRowText}>
-                Pulsa aquí o el botón Capas
+              <Text style={styles.layersHintRowText} numberOfLines={1}>
+                Pulsa el botón Capas
               </Text>
               {/* Mini-botón Capas: cuadradito blanco + icono, igual que
                   el flotante del mapa — se reconoce al instante */}
@@ -1513,6 +1513,9 @@ export default function CoastMap({
                   style={styles.layersHintIcon}
                 />
               </View>
+              <Text style={styles.layersHintRowText} numberOfLines={1}>
+                para verlas
+              </Text>
             </View>
           </ImageBackground>
           <View style={styles.layersHintTail} />
