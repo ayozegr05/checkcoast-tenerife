@@ -6,7 +6,7 @@ import LayersPanel from '../../components/map/LayersPanel';
 
 function Harness() {
   const [beachSel, setBeachSel] = useState(
-    new Set(['open', 'warning', 'closed', 'unmonitored']),
+    new Set(['open', 'warning', 'closed', 'structural', 'unmonitored']),
   );
   const [outfallSel, setOutfallSel] = useState(new Set(['illegal']));
   return (

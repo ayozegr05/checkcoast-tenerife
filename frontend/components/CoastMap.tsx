@@ -193,7 +193,7 @@ export default function CoastMap({
   // visible, desmarcado = oculto. Empiezan todas marcadas; el set
   // vacío equivale a la capa apagada (no hay switch aparte)
   const [beachSel, setBeachSel] = useState<Set<string>>(
-    () => new Set(['open', 'warning', 'closed', 'unmonitored']),
+    () => new Set(['open', 'warning', 'closed', 'structural', 'unmonitored']),
   );
   const [outfallSel, setOutfallSel] = useState<Set<string>>(
     () => new Set(['legal', 'illegal', 'unknown']),

@@ -46,6 +46,23 @@ describe('beachCategory', () => {
       ),
     ).toBe('closed');
   });
+
+  it('un cierre estructural tiene sub-capa propia', () => {
+    expect(
+      beachCategory(feat('A', { status: 'closed', alert_structural: true })),
+    ).toBe('structural');
+    expect(
+      beachCategory(
+        feat('B', { status: 'closed', alert_cause: 'Desprendimientos' }),
+      ),
+    ).toBe('structural');
+    // contaminación sigue siendo 'closed'
+    expect(
+      beachCategory(
+        feat('C', { status: 'closed', alert_cause: 'Contaminación' }),
+      ),
+    ).toBe('closed');
+  });
 });
 
 describe('outfallCategory', () => {

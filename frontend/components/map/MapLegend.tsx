@@ -36,24 +36,57 @@ export default function MapLegend({ beachSel, outfallSel }: MapLegendProps) {
             ))}
           </View>
         </View>
-        <View style={[styles.layerRow, { marginTop: 13 }]}>
+        <View style={[styles.layerRow, { marginTop: 10 }]}>
           <Image
             source={require('../../assets/icons/beach.png')}
             style={styles.legendIcon}
           />
           <View style={styles.legendSub}>
-            {BEACH_STATES.map(([color, label, key]) => (
-              <View
-                key={label}
-                style={[
-                  styles.swatchRow,
-                  !beachSel.has(key) && styles.swatchDimmed,
-                ]}
-              >
-                <View style={[styles.dot, { backgroundColor: color }]} />
-                <Text style={styles.swatchText}>{label}</Text>
-              </View>
-            ))}
+            {BEACH_STATES.map(([color, label, key]) => {
+              // Las dos subcapas de cierre comparten un solo chip:
+              // [pin emisario][pin rocas] Cerrada — cada miniatura se
+              // atenúa con su propia capa
+              if (key === 'structural') return null;
+              if (key === 'closed') {
+                const bothOff =
+                  !beachSel.has('closed') && !beachSel.has('structural');
+                return (
+                  <View
+                    key={key}
+                    style={[styles.swatchRow, bothOff && styles.swatchDimmed]}
+                  >
+                    <Image
+                      source={require('../../assets/icons/pin-closed.png')}
+                      style={[
+                        styles.pinMini,
+                        !beachSel.has('closed') && styles.swatchDimmed,
+                      ]}
+                    />
+                    <Image
+                      source={require('../../assets/icons/pin-structural.png')}
+                      style={[
+                        styles.pinMini,
+                        styles.pinMiniLast,
+                        !beachSel.has('structural') && styles.swatchDimmed,
+                      ]}
+                    />
+                    <Text style={styles.swatchText}>Cerrada</Text>
+                  </View>
+                );
+              }
+              return (
+                <View
+                  key={label}
+                  style={[
+                    styles.swatchRow,
+                    !beachSel.has(key) && styles.swatchDimmed,
+                  ]}
+                >
+                  <View style={[styles.dot, { backgroundColor: color }]} />
+                  <Text style={styles.swatchText}>{label}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
       </View>
@@ -76,8 +109,8 @@ const styles = StyleSheet.create({
     width: '97%', // ancho fijo: tapa las etiquetas de mar a los lados
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 6,
     elevation: 4,
     // Desplazada a la izquierda: tapa el logo de MapLibre (fijo
     // abajo-izquierda, independiente de attributionPosition)
@@ -95,7 +128,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     marginLeft: -4,
-    marginRight: 14,
+    marginRight: 8,
   },
   // Swatches informativos en línea (no interactivos — las capas se
   // controlan desde el panel del botón flotante). wrap + flexShrink
@@ -107,12 +140,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     flexShrink: 1,
     justifyContent: 'center',
-    gap: 14,
+    gap: 10,
     rowGap: 4,
   },
   swatchRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  // Miniaturas de pin en el chip "Cerrada": el pictograma explica la
+  // causa mejor que un punto de color
+  pinMini: {
+    width: 14,
+    height: 14,
+    marginRight: 1,
+  },
+  pinMiniLast: {
+    marginRight: 5,
   },
   // La leyenda refleja el filtro: estado desmarcado en el panel =
   // swatch atenuado ("esto es lo que estás viendo ahora")
