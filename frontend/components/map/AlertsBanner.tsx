@@ -130,7 +130,19 @@ export default function AlertsBanner({
               return (
                 <View key={sectionLabel}>
                   {alertSections.length > 1 && (
-                    <Text style={styles.alertSubsection}>
+                    <Text
+                      style={[
+                        styles.alertSubsection,
+                        {
+                          color:
+                            sectionLabel === STRUCTURAL_SECTION
+                              ? colors.status.structural
+                              : sectionLabel === 'Avisos'
+                                ? colors.status.warning
+                                : colors.status.closed,
+                        },
+                      ]}
+                    >
                       {sectionLabel} · {features.length}
                     </Text>
                   )}

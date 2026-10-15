@@ -29,7 +29,8 @@ export type LayerState = [string, string, string];
 export const BEACH_STATES: LayerState[] = [
   [colors.status.open, 'Apta', 'open'],
   [colors.status.warning, 'Aviso', 'warning'],
-  [colors.status.closed, 'Cerrada', 'closed'],
+  [colors.status.closed, 'Cerrada · contaminación', 'closed'],
+  [colors.status.structural, 'Cerrada · estructural', 'structural'],
   [colors.status.unmonitored, 'Sin monitorizar', 'unmonitored'],
 ];
 export const OUTFALL_STATES: LayerState[] = [
@@ -55,9 +56,11 @@ export const pmMembersOf = (members?: GeoFeature[]) => {
 export const beachCategory = (f: GeoFeature): string =>
   f.properties.monitored === false && f.properties.alert !== true
     ? 'unmonitored'
-    : f.properties.status && f.properties.status !== 'unknown'
-      ? (f.properties.status as string)
-      : 'unmonitored';
+    : isStructuralClosure(f)
+      ? 'structural'
+      : f.properties.status && f.properties.status !== 'unknown'
+        ? (f.properties.status as string)
+        : 'unmonitored';
 
 // Emisarios: todo lo que no es legal/illegal lleva el pin "en trámite"
 export const outfallCategory = (f: GeoFeature): string =>
