@@ -1501,15 +1501,20 @@ export default function CoastMap({
             imageStyle={styles.layersHintBubbleImg}
             resizeMode="cover"
           >
-            <Text style={styles.layersHintText}>
-              ¿Quieres ver todas las playas y emisarios? Pulsa aquí o
-              «Capas»{' '}
-              <Image
-                source={require('../assets/icons/icon-layers.png')}
-                style={styles.layersHintIcon}
-              />{' '}
-              para verlas
-            </Text>
+            <View style={styles.layersHintRow}>
+              <Text style={styles.layersHintText}>
+                ¿Quieres ver todas las playas y emisarios? Pulsa aquí o
+              </Text>
+              {/* Mini-botón Capas: cuadradito blanco + icono, igual que
+                  el flotante del mapa — se reconoce al instante */}
+              <View style={styles.layersHintBtn}>
+                <Image
+                  source={require('../assets/icons/icon-layers.png')}
+                  style={styles.layersHintIcon}
+                />
+              </View>
+              <Text style={styles.layersHintText}>para verlas</Text>
+            </View>
           </ImageBackground>
           <View style={styles.layersHintTail} />
         </Pressable>
@@ -1615,12 +1620,21 @@ const styles = StyleSheet.create({
   layersHintBubble: {
     borderRadius: 10,
     overflow: 'hidden',
-    maxWidth: 240,
-    paddingVertical: 8,
+    maxWidth: 300,
+    paddingVertical: 9,
     paddingHorizontal: 14,
   },
   layersHintBubbleImg: {
     borderRadius: 10,
+  },
+  // Texto + mini-botón en flujo con wrap: la fila se parte como un
+  // párrafo si no cabe en una línea
+  layersHintRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
   },
   layersHintText: {
     color: '#fff',
@@ -1628,10 +1642,18 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     textAlign: 'center',
   },
-  // Icono de capas inline en el texto del bocadillo
+  // Réplica del botón Capas del mapa: cápsula blanca + icono
+  layersHintBtn: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   layersHintIcon: {
-    width: 12,
-    height: 12,
+    width: 14,
+    height: 14,
   },
   layersHintTail: {
     position: 'absolute',
