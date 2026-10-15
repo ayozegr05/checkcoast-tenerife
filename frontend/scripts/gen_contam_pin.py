@@ -5,7 +5,7 @@
 # Uso: python scripts/gen_contam_pin.py  (desde frontend/, con Pillow)
 from PIL import Image, ImageDraw
 
-RED_C = (198, 40, 40)       # #c62828
+RED_C = (213, 0, 0)         # #d50000 — rojo puro, casa con theme.status.closed
 WHITE = (255, 255, 255)
 
 SS = 4
