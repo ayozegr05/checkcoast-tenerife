@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
   Image,
+  ImageBackground,
   Keyboard,
   NativeSyntheticEvent,
   Platform,
@@ -1488,14 +1489,23 @@ export default function CoastMap({
           abre el panel de capas */}
       {layersHint && !layersOpen && (
         <Pressable
-          style={styles.layersHintBubble}
+          style={styles.layersHintWrap}
           onPress={openLayers}
           accessibilityRole="button"
           accessibilityLabel="Abrir panel de capas"
         >
-          <Text style={styles.layersHintText}>
-            Toca la leyenda o «Capas» para ver capas ocultas
-          </Text>
+          {/* Mismo degradado mar que la cabecera de la IntroCard */}
+          <ImageBackground
+            source={require('../assets/gradient-sea.png')}
+            style={styles.layersHintBubble}
+            imageStyle={styles.layersHintBubbleImg}
+            resizeMode="cover"
+          >
+            <Text style={styles.layersHintText}>
+              Toca aquí o «Capas» para ver playas sin monitorizar y más
+              emisarios
+            </Text>
+          </ImageBackground>
           <View style={styles.layersHintTail} />
         </Pressable>
       )}
@@ -1590,21 +1600,27 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   // Bocadillo de primer uso sobre la leyenda (la cola apunta a ella)
-  layersHintBubble: {
+  layersHintWrap: {
     position: 'absolute',
     bottom: Platform.OS === 'android' ? 160 : 124,
     alignSelf: 'center',
-    backgroundColor: colors.primaryDark,
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
     elevation: 6,
     zIndex: 6,
+  },
+  layersHintBubble: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  layersHintBubbleImg: {
+    borderRadius: 10,
   },
   layersHintText: {
     color: '#fff',
     fontSize: 12,
     fontFamily: fonts.semibold,
+    textAlign: 'center',
   },
   layersHintTail: {
     position: 'absolute',
@@ -1617,7 +1633,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 8,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderTopColor: colors.primaryDark,
+    // Azul medio del degradado: casa con el borde inferior del globo
+    borderTopColor: colors.primary,
   },
   // Botones flotantes atenuados mientras hay un panel abierto
   // (alertas/capas) — se ven muertos, no se pueden pulsar

@@ -74,27 +74,26 @@ export default function MapLegend({
                     key={key}
                     style={[styles.swatchRow, bothOff && styles.swatchDimmed]}
                   >
-                    {/* Dots apilados: contaminación arriba, estructural
-                        debajo — cada uno se atenúa con su capa */}
-                    <View style={styles.dotStack}>
-                      <View
-                        style={[
-                          styles.dotMini,
-                          { backgroundColor: color },
-                          !beachSel.has('closed') && styles.swatchDimmed,
-                        ]}
-                      />
-                      <View
-                        style={[
-                          styles.dotMini,
-                          {
-                            backgroundColor: colors.status.structural,
-                            marginTop: 1,
-                          },
-                          !beachSel.has('structural') && styles.swatchDimmed,
-                        ]}
-                      />
-                    </View>
+                    {/* Dots en horizontal: contaminación + estructural
+                        pegados — cada uno se atenúa con su capa */}
+                    <View
+                      style={[
+                        styles.dot,
+                        styles.dotTight,
+                        { backgroundColor: color },
+                        !beachSel.has('closed') && styles.swatchDimmed,
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.dot,
+                        {
+                          backgroundColor: colors.status.structural,
+                          marginRight: 6,
+                        },
+                        !beachSel.has('structural') && styles.swatchDimmed,
+                      ]}
+                    />
                     <Text style={styles.swatchText}>Cerrada</Text>
                   </View>
                 );
@@ -172,19 +171,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  // Chip "Cerrada": columna de dos dots apilados ocupando el alto del
-  // texto — mismo ancho que un dot simple, no crece la fila
-  dotStack: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginRight: 6,
-  },
-  dotMini: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#fff',
+  // El primer dot del chip doble "Cerrada" va pegado al segundo
+  dotTight: {
+    marginRight: 2,
   },
   // La leyenda refleja el filtro: estado desmarcado en el panel =
   // swatch atenuado ("esto es lo que estás viendo ahora")
