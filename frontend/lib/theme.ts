@@ -31,7 +31,7 @@ export const colors = {
   // Emisarios (censo de vertidos — dominio aparte)
   outfall: {
     legal: '#2e7d32',
-    illegal: '#c62828',
+    illegal: '#d50000',
     unknown: '#f9a825',
   } as Record<string, string>,
 

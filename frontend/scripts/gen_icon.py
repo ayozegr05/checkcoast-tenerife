@@ -200,7 +200,7 @@ def make_pin(name, status_color):
 # --- pins de vertidos: misma chincheta + simbolo extraido de outfall.png ---
 OUTFALL_COLORS = {
     "legal": (46, 125, 50),
-    "illegal": (198, 40, 40),
+    "illegal": (213, 0, 0),
     "processing": (249, 168, 37),
 }
 

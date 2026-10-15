@@ -193,10 +193,10 @@ export default function CoastMap({
   // visible, desmarcado = oculto. Empiezan todas marcadas; el set
   // vacío equivale a la capa apagada (no hay switch aparte)
   const [beachSel, setBeachSel] = useState<Set<string>>(
-    () => new Set(['open', 'warning', 'closed', 'structural', 'unmonitored']),
+    () => new Set(['open', 'warning', 'closed', 'structural']),
   );
   const [outfallSel, setOutfallSel] = useState<Set<string>>(
-    () => new Set(['legal', 'illegal', 'unknown']),
+    () => new Set(['illegal']),
   );
   const [pulse, setPulse] = useState(0);
   // Dots PM visibles solo con la card de un grupo abierta: el pin del
