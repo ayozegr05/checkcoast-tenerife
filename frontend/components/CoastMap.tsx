@@ -1611,13 +1611,17 @@ const styles = StyleSheet.create({
   layersHintWrap: {
     position: 'absolute',
     bottom: Platform.OS === 'android' ? 132 : 104,
-    alignSelf: 'center',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
     elevation: 6,
     zIndex: 6,
   },
   layersHintBubble: {
     borderRadius: 10,
     overflow: 'hidden',
+    width: '86%',
+    maxWidth: 400,
     paddingVertical: 9,
     paddingHorizontal: 14,
   },
