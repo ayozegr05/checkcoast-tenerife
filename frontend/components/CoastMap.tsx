@@ -1622,6 +1622,11 @@ const styles = StyleSheet.create({
   layersHintBubble: {
     borderRadius: 10,
     overflow: 'hidden',
+    // Ancho porcentual: en Android el shrink-to-fit del ImageBackground
+    // medía mal los Text hijos y los cortaba — fijamos el ancho y punto
+    width: '88%',
+    maxWidth: 420,
+    alignItems: 'center',
     paddingVertical: 9,
     paddingHorizontal: 14,
   },
