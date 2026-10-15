@@ -1498,23 +1498,19 @@ export default function CoastMap({
             imageStyle={styles.layersHintBubbleImg}
             resizeMode="cover"
           >
-            {/* Cada segmento es más corto que la línea del botón:
-                el globo toma ese ancho y ningún texto envuelve */}
             <Text style={styles.layersHintText}>
-              {'¿Quieres ver todas las playas\ny emisarios?'}
+              ¿Quieres ver todas las playas y emisarios?
             </Text>
-            {/* Vista inline dentro del Text: la línea se mide como un
-                solo bloque — evita la fila flex que Android recortaba */}
-            <Text style={[styles.layersHintText, styles.layersHintRow]}>
-              Pulsa aquí o en Capas{' '}
+            <View style={styles.layersHintRow}>
+              <Text style={styles.layersHintText}>Pulsa aquí o en Capas</Text>
               <View style={styles.layersHintBtn}>
                 <Image
                   source={require('../assets/icons/icon-layers.png')}
                   style={styles.layersHintIcon}
                 />
-              </View>{' '}
-              para verlas
-            </Text>
+              </View>
+              <Text style={styles.layersHintText}>para verlas</Text>
+            </View>
           </ImageBackground>
           <View style={styles.layersHintTail} />
         </Pressable>
@@ -1626,15 +1622,18 @@ const styles = StyleSheet.create({
     // medía mal los Text hijos y los cortaba — fijamos el ancho y punto
     width: '88%',
     maxWidth: 420,
-    alignItems: 'center',
     paddingVertical: 9,
     paddingHorizontal: 14,
   },
   layersHintBubbleImg: {
     borderRadius: 10,
   },
-  // Segunda línea del bocadillo: mismo texto con el mini-botón inline
+  // Segunda línea del bocadillo: texto + mini-botón en fila centrada
   layersHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
     marginTop: 4,
   },
   layersHintText: {
