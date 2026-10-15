@@ -1,50 +1,24 @@
-# Regenera assets/icons/pin-closed.png: pin rojo #c62828 (cierre por
+# Regenera assets/icons/pin-closed.png: pin rojo (cierre por
 # contaminacion) con la ilustracion de un emisario vertiendo agua
-# turbia (assets/icons/contam-art.png) dentro del disco blanco,
-# recortada en circulo. Misma geometria 96x96 que el resto de pines.
-# El arte procede de una ilustracion generada con LLM — reproducible:
-# cualquier imagen apaisada sirve como fuente.
+# turbia — el pin viene YA DIBUJADO en assets/icons/contam-pin-art.png
+# (RGBA con fondo transparente); solo hay que escalarlo a 96x96
+# manteniendo el disco al mismo tamano que el resto de pines.
 # Uso: python scripts/gen_contam_pin.py  (desde frontend/, con Pillow)
-from PIL import Image, ImageDraw
-
-RED_C = (198, 40, 40)       # #c62828
-WHITE = (255, 255, 255)
+from PIL import Image
 
 SS = 4
 
+art = Image.open("assets/icons/contam-pin-art.png").convert("RGBA")
+aw, ah = art.size
 
-def pin_shape(d, s, scale, color):
-    c = s / 96
-
-    def t(x, y):
-        return (48 * c + (x - 48) * scale * c,
-                48 * c + (y - 48) * scale * c)
-
-    e = [t(10, 2), t(86, 78)]
-    d.ellipse([e[0][0], e[0][1], e[1][0], e[1][1]], fill=color)
-    d.polygon([t(26, 60), t(70, 60), t(48, 94)], fill=color)
-
+# El disco del arte ocupa ~el 76% superior; en los demas pines el
+# disco es ~79% de los 96px -> escala el arte para que coincida
+target_h = int(96 * SS * 0.79 / 0.76)
+target_w = int(aw * target_h / ah)
+art_r = art.resize((target_w, target_h), Image.LANCZOS)
 
 img = Image.new("RGBA", (96 * SS, 96 * SS), (0, 0, 0, 0))
-d = ImageDraw.Draw(img)
-pin_shape(d, 96 * SS, 1.0, RED_C)
-pin_shape(d, 96 * SS, 0.78, WHITE)
-
-# ilustracion recortada en circulo dentro del disco blanco — el eje
-# vertical llena el disco; el ancho se comprime para que la ventana
-# circular vea ~35% mas de la foto a cada lado (mas lodo visible)
-art = Image.open("assets/icons/contam-art.png").convert("RGBA")
-side = int(30 * 0.78 * SS) * 2
-h_art = side
-w_art = int(side * 1.35)
-art_r = art.resize((w_art, h_art), Image.LANCZOS)
-mask = Image.new("L", (w_art, h_art), 0)
-ImageDraw.Draw(mask).ellipse(
-    [(w_art - side) // 2, (h_art - side) // 2,
-     (w_art + side) // 2, (h_art + side) // 2], fill=255)
-cx, cy = 48 * SS, 34 * SS
-img.paste(art_r, (cx - w_art // 2, cy - h_art // 2), mask)
-
+img.paste(art_r, ((96 * SS - target_w) // 2, 0), art_r)
 img = img.resize((96, 96), Image.LANCZOS)
 img.save("assets/icons/pin-closed.png")
 print("pin-closed.png regenerado", img.size)
