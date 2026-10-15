@@ -1498,8 +1498,10 @@ export default function CoastMap({
             imageStyle={styles.layersHintBubbleImg}
             resizeMode="cover"
           >
+            {/* Cada segmento es más corto que la línea del botón:
+                el globo toma ese ancho y ningún texto envuelve */}
             <Text style={styles.layersHintText}>
-              ¿Quieres ver todas las playas y emisarios?
+              {'¿Quieres ver todas las playas\ny emisarios?'}
             </Text>
             {/* Vista inline dentro del Text: la línea se mide como un
                 solo bloque — evita la fila flex que Android recortaba */}
