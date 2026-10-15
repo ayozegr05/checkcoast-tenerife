@@ -31,6 +31,7 @@ import type {
 } from '../lib/api';
 import { beachBaseName, displayBeachName, pointLongLabel } from '../lib/format';
 import { groupKeyOf } from '../lib/beachGroups';
+import { storage } from '../lib/storage';
 
 import { recentlyResolved } from '../lib/episodes';
 
@@ -45,11 +46,14 @@ import {
   STRUCTURAL_CAUSES,
   type SearchItem,
 } from '../lib/mapData';
-import { colors } from '../lib/theme';
+import { colors, fonts } from '../lib/theme';
 import seaStyle from '../assets/mapstyle-sea.json';
 import AlertsBanner from './map/AlertsBanner';
 import LayersPanel from './map/LayersPanel';
 import MapLegend from './map/MapLegend';
+
+// Flag de primer uso del bocadillo de capas
+const LAYERS_HINT_KEY = 'checkcoast.layers_hint_seen';
 import MapSearch from './map/MapSearch';
 import MapTopbar from './map/MapTopbar';
 
@@ -186,6 +190,9 @@ export default function CoastMap({
   const [alertsOpen, setAlertsOpen] = useState(false);
   // Panel de capas por estado (botón flotante junto a la brújula)
   const [layersOpen, setLayersOpen] = useState(false);
+  // Bocadillo de primer uso sobre la leyenda: enseña una vez que hay
+  // capas ocultas y que la leyenda/botón las abre
+  const [layersHint, setLayersHint] = useState(false);
   const [query, setQuery] = useState('');
   // Ref del buscador: Keyboard.dismiss() solo no basta en Android —
   // el input conserva el foco y el teclado se queda tapando la card
@@ -272,6 +279,31 @@ export default function CoastMap({
         duration,
       },
     );
+  };
+
+  // Bocadillo de capas: solo el primer arranque del build — enseña
+  // que la leyenda/botón abren el panel. Se marca al tocarlo o al
+  // abrir Capas por cualquier vía
+  useEffect(() => {
+    if (!storage) return;
+    storage
+      .getItem(LAYERS_HINT_KEY)
+      .then((seen) => setLayersHint(!seen))
+      .catch(() => {});
+  }, []);
+
+  const dismissLayersHint = () => {
+    if (!layersHint) return;
+    setLayersHint(false);
+    storage?.setItem(LAYERS_HINT_KEY, '1').catch(() => {});
+  };
+
+  const openLayers = () => {
+    closeSearch();
+    setAlertsOpen(false);
+    onDismissSelection?.();
+    dismissLayersHint();
+    setLayersOpen(true);
   };
 
   // Card cerrada -> vuelve a la vista previa al toque del pin, SOLO si
@@ -1427,11 +1459,11 @@ export default function CoastMap({
         ]}
         disabled={controlsCovered}
         onPress={() => {
-          const next = !layersOpen;
-          closeSearch();
-          setAlertsOpen(false);
-          if (next) onDismissSelection?.();
-          setLayersOpen(next);
+          if (!layersOpen) {
+            openLayers();
+          } else {
+            setLayersOpen(false);
+          }
         }}
         accessibilityRole="button"
         accessibilityLabel="Abrir panel de capas"
@@ -1452,15 +1484,25 @@ export default function CoastMap({
         />
       )}
 
+      {/* Bocadillo de primer uso: apunta a la leyenda, que ahora
+          abre el panel de capas */}
+      {layersHint && !layersOpen && (
+        <Pressable
+          style={styles.layersHintBubble}
+          onPress={openLayers}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir panel de capas"
+        >
+          <Text style={styles.layersHintText}>
+            Toca la leyenda o «Capas» para ver capas ocultas
+          </Text>
+          <View style={styles.layersHintTail} />
+        </Pressable>
+      )}
       <MapLegend
         beachSel={beachSel}
         outfallSel={outfallSel}
-        onOpenLayers={() => {
-          closeSearch();
-          setAlertsOpen(false);
-          onDismissSelection?.();
-          setLayersOpen(true);
-        }}
+        onOpenLayers={openLayers}
       />
 
       {/* Sin backdrop: con alertas/capas abiertos el mapa sigue vivo
@@ -1546,6 +1588,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     elevation: 3,
     zIndex: 5,
+  },
+  // Bocadillo de primer uso sobre la leyenda (la cola apunta a ella)
+  layersHintBubble: {
+    position: 'absolute',
+    bottom: Platform.OS === 'android' ? 160 : 124,
+    alignSelf: 'center',
+    backgroundColor: colors.primaryDark,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    elevation: 6,
+    zIndex: 6,
+  },
+  layersHintText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+  },
+  layersHintTail: {
+    position: 'absolute',
+    bottom: -7,
+    alignSelf: 'center',
+    width: 0,
+    height: 0,
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderTopWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: colors.primaryDark,
   },
   // Botones flotantes atenuados mientras hay un panel abierto
   // (alertas/capas) — se ven muertos, no se pueden pulsar
