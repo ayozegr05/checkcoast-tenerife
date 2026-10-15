@@ -44,7 +44,7 @@ export default function MapLegend({ beachSel, outfallSel }: MapLegendProps) {
           <View style={styles.legendSub}>
             {BEACH_STATES.map(([color, label, key]) => {
               // Las dos subcapas de cierre comparten un solo chip:
-              // [pin emisario][pin rocas] Cerrada — cada miniatura se
+              // dot rojo + dot granate + "Cerrada" — cada dot se
               // atenúa con su propia capa
               if (key === 'structural') return null;
               if (key === 'closed') {
@@ -55,18 +55,21 @@ export default function MapLegend({ beachSel, outfallSel }: MapLegendProps) {
                     key={key}
                     style={[styles.swatchRow, bothOff && styles.swatchDimmed]}
                   >
-                    <Image
-                      source={require('../../assets/icons/pin-closed.png')}
+                    <View
                       style={[
-                        styles.pinMini,
+                        styles.dot,
+                        styles.dotTight,
+                        { backgroundColor: color },
                         !beachSel.has('closed') && styles.swatchDimmed,
                       ]}
                     />
-                    <Image
-                      source={require('../../assets/icons/pin-structural.png')}
+                    <View
                       style={[
-                        styles.pinMini,
-                        styles.pinMiniLast,
+                        styles.dot,
+                        {
+                          backgroundColor: colors.status.structural,
+                          marginRight: 6,
+                        },
                         !beachSel.has('structural') && styles.swatchDimmed,
                       ]}
                     />
@@ -147,15 +150,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  // Miniaturas de pin en el chip "Cerrada": el pictograma explica la
-  // causa mejor que un punto de color
-  pinMini: {
-    width: 14,
-    height: 14,
-    marginRight: 1,
-  },
-  pinMiniLast: {
-    marginRight: 5,
+  // El primer dot del chip doble "Cerrada" va pegado al segundo
+  dotTight: {
+    marginRight: 2,
   },
   // La leyenda refleja el filtro: estado desmarcado en el panel =
   // swatch atenuado ("esto es lo que estás viendo ahora")
