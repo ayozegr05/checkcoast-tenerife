@@ -1,5 +1,12 @@
 import React from 'react';
-import { Image, Platform, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { BEACH_STATES, OUTFALL_STATES } from '../../lib/mapData';
 import { colors, fonts } from '../../lib/theme';
@@ -7,15 +14,27 @@ import { colors, fonts } from '../../lib/theme';
 type MapLegendProps = {
   beachSel: Set<string>;
   outfallSel: Set<string>;
+  onOpenLayers: () => void;
 };
 
-// Leyenda fija abajo: atenúa los estados ocultos en el panel de capas
-export default function MapLegend({ beachSel, outfallSel }: MapLegendProps) {
+// Leyenda fija abajo: atenúa los estados ocultos en el panel de capas.
+// La tarjeta entera es la puerta al panel Capas — tocar un estado
+// atenuado ("esto existe pero no lo ves") abre el panel para activarlo
+export default function MapLegend({
+  beachSel,
+  outfallSel,
+  onOpenLayers,
+}: MapLegendProps) {
   return (
     <View style={styles.legend} pointerEvents="box-none">
       {/* Leyenda siempre visible: dos filas (Emisarios / Playas)
             pegadas abajo — sin botón Capas */}
-      <View style={styles.legendCard}>
+      <Pressable
+        style={styles.legendCard}
+        onPress={onOpenLayers}
+        accessibilityRole="button"
+        accessibilityLabel="Abrir panel de capas"
+      >
         <View style={styles.layerRow}>
           <Image
             source={require('../../assets/icons/icon-faucet.png')}
@@ -55,24 +74,27 @@ export default function MapLegend({ beachSel, outfallSel }: MapLegendProps) {
                     key={key}
                     style={[styles.swatchRow, bothOff && styles.swatchDimmed]}
                   >
-                    <View
-                      style={[
-                        styles.dot,
-                        styles.dotTight,
-                        { backgroundColor: color },
-                        !beachSel.has('closed') && styles.swatchDimmed,
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.dot,
-                        {
-                          backgroundColor: colors.status.structural,
-                          marginRight: 6,
-                        },
-                        !beachSel.has('structural') && styles.swatchDimmed,
-                      ]}
-                    />
+                    {/* Dots apilados: contaminación arriba, estructural
+                        debajo — cada uno se atenúa con su capa */}
+                    <View style={styles.dotStack}>
+                      <View
+                        style={[
+                          styles.dotMini,
+                          { backgroundColor: color },
+                          !beachSel.has('closed') && styles.swatchDimmed,
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.dotMini,
+                          {
+                            backgroundColor: colors.status.structural,
+                            marginTop: 1,
+                          },
+                          !beachSel.has('structural') && styles.swatchDimmed,
+                        ]}
+                      />
+                    </View>
                     <Text style={styles.swatchText}>Cerrada</Text>
                   </View>
                 );
@@ -92,7 +114,7 @@ export default function MapLegend({ beachSel, outfallSel }: MapLegendProps) {
             })}
           </View>
         </View>
-      </View>
+      </Pressable>
     </View>
   );
 }
@@ -150,9 +172,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  // El primer dot del chip doble "Cerrada" va pegado al segundo
-  dotTight: {
-    marginRight: 2,
+  // Chip "Cerrada": columna de dos dots apilados ocupando el alto del
+  // texto — mismo ancho que un dot simple, no crece la fila
+  dotStack: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  dotMini: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#fff',
   },
   // La leyenda refleja el filtro: estado desmarcado en el panel =
   // swatch atenuado ("esto es lo que estás viendo ahora")
