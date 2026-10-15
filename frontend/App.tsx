@@ -13,12 +13,10 @@ import {
   BackHandler,
   Linking,
   Modal,
-  NativeModules,
   Pressable,
   StyleSheet,
   Text,
   ToastAndroid,
-  TurboModuleRegistry,
   View,
 } from 'react-native';
 
@@ -42,6 +40,7 @@ import {
 import { beachPointLabel, pointLongLabel } from './lib/format';
 import { groupKeyOf } from './lib/beachGroups';
 import { setupPushNotifications } from './lib/notifications';
+import { storage } from './lib/storage';
 import { colors, fonts } from './lib/theme';
 
 const EMPTY_FC: FeatureCollection = {
@@ -49,18 +48,7 @@ const EMPTY_FC: FeatureCollection = {
   features: [],
 };
 
-// AsyncStorage es nativo: si el build instalado no lleva el módulo ni
-// se toca — la card de bienvenida sale en cada arranque, como antes.
-// Con New Architecture el módulo vive como TurboModule (NativeModules
-// puede no listarlo), así que se consultan ambos registros.
 const INTRO_SEEN_KEY = 'checkcoast.intro_seen';
-const storage: {
-  getItem: (k: string) => Promise<string | null>;
-  setItem: (k: string, v: string) => Promise<void>;
-} | null =
-  (NativeModules.RNCAsyncStorage ?? TurboModuleRegistry.get('RNCAsyncStorage'))
-    ? require('@react-native-async-storage/async-storage').default
-    : null;
 
 export default function App() {
   const [fontsLoaded] = useFonts({
