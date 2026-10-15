@@ -1501,10 +1501,11 @@ export default function CoastMap({
             imageStyle={styles.layersHintBubbleImg}
             resizeMode="cover"
           >
+            <Text style={styles.layersHintText}>
+              ¿Quieres ver todas las playas y emisarios?
+            </Text>
             <View style={styles.layersHintRow}>
-              <Text style={styles.layersHintText}>
-                ¿Quieres ver todas las playas y emisarios? Pulsa aquí o
-              </Text>
+              <Text style={styles.layersHintText}>Pulsa aquí o</Text>
               {/* Mini-botón Capas: cuadradito blanco + icono, igual que
                   el flotante del mapa — se reconoce al instante */}
               <View style={styles.layersHintBtn}>
@@ -1627,14 +1628,13 @@ const styles = StyleSheet.create({
   layersHintBubbleImg: {
     borderRadius: 10,
   },
-  // Texto + mini-botón en flujo con wrap: la fila se parte como un
-  // párrafo si no cabe en una línea
+  // Segunda línea del bocadillo: texto + mini-botón en una fila fija
   layersHintRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
+    marginTop: 3,
   },
   layersHintText: {
     color: '#fff',
