@@ -1498,25 +1498,21 @@ export default function CoastMap({
             imageStyle={styles.layersHintBubbleImg}
             resizeMode="cover"
           >
-            <Text style={styles.layersHintText} numberOfLines={1}>
+            <Text style={styles.layersHintText}>
               ¿Quieres ver todas las playas y emisarios?
             </Text>
-            <View style={styles.layersHintRow}>
-              <Text style={styles.layersHintRowText} numberOfLines={1}>
-                Pulsa aquí o en Capas
-              </Text>
-              {/* Mini-botón Capas: cuadradito blanco + icono, igual que
-                  el flotante del mapa — se reconoce al instante */}
+            {/* Vista inline dentro del Text: la línea se mide como un
+                solo bloque — evita la fila flex que Android recortaba */}
+            <Text style={[styles.layersHintText, styles.layersHintRow]}>
+              Pulsa aquí o en Capas{' '}
               <View style={styles.layersHintBtn}>
                 <Image
                   source={require('../assets/icons/icon-layers.png')}
                   style={styles.layersHintIcon}
                 />
-              </View>
-              <Text style={styles.layersHintRowText} numberOfLines={1}>
-                para verlas
-              </Text>
-            </View>
+              </View>{' '}
+              para verlas
+            </Text>
           </ImageBackground>
           <View style={styles.layersHintTail} />
         </Pressable>
@@ -1630,12 +1626,8 @@ const styles = StyleSheet.create({
   layersHintBubbleImg: {
     borderRadius: 10,
   },
-  // Segunda línea del bocadillo: texto + mini-botón en una fila fija
+  // Segunda línea del bocadillo: mismo texto con el mini-botón inline
   layersHintRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
     marginTop: 4,
   },
   layersHintText: {
@@ -1643,14 +1635,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.semibold,
     textAlign: 'center',
-  },
-  // En la fila del botón el texto NO se encoge: el globo crece a su ancho
-  layersHintRowText: {
-    color: '#fff',
-    fontSize: 12,
-    fontFamily: fonts.semibold,
-    textAlign: 'center',
-    flexShrink: 0,
   },
   // Réplica del botón Capas del mapa: cápsula blanca + icono
   layersHintBtn: {
