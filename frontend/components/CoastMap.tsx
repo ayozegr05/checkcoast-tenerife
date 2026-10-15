@@ -54,7 +54,7 @@ import LayersPanel from './map/LayersPanel';
 import MapLegend from './map/MapLegend';
 
 // Flag de primer uso del bocadillo de capas
-const LAYERS_HINT_KEY = 'checkcoast.layers_hint_seen_v8';
+const LAYERS_HINT_KEY = 'checkcoast.layers_hint_seen';
 import MapSearch from './map/MapSearch';
 import MapTopbar from './map/MapTopbar';
 
@@ -285,18 +285,15 @@ export default function CoastMap({
   // Bocadillo de capas: solo el primer arranque del build — enseña
   // que la leyenda/botón abren el panel. Se marca al tocarlo o al
   // abrir Capas por cualquier vía
+  // TODO preview: forzado a visible mientras iteramos el diseño —
+  // restaurar la lectura de storage antes de cerrar
   useEffect(() => {
-    if (!storage) return;
-    storage
-      .getItem(LAYERS_HINT_KEY)
-      .then((seen) => setLayersHint(!seen))
-      .catch(() => {});
+    setLayersHint(true);
+    storage?.setItem(LAYERS_HINT_KEY, '').catch(() => {});
   }, []);
 
   const dismissLayersHint = () => {
-    if (!layersHint) return;
     setLayersHint(false);
-    storage?.setItem(LAYERS_HINT_KEY, '1').catch(() => {});
   };
 
   const openLayers = () => {
