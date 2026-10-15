@@ -1021,7 +1021,11 @@ export default function CoastMap({
             <Layer
               id="beach-pins"
               type="symbol"
-              filter={['!=', ['get', 'sel'], true]}
+              filter={[
+                'all',
+                ['!=', ['get', 'sel'], true],
+                ['!=', ['get', 'status'], 'closed'],
+              ]}
               layout={{
                 'icon-image': [
                   'case',
@@ -1032,30 +1036,8 @@ export default function CoastMap({
                   ],
                   'pin-unmonitored',
                   [
-                    'all',
-                    ['==', ['get', 'status'], 'closed'],
-                    // Estructural lo decide el backend por mayoría de
-                    // prensa; sin el flag (API antigua) cae a la causa
-                    [
-                      'any',
-                      ['==', ['get', 'alert_structural'], true],
-                      [
-                        'all',
-                        ['!', ['has', 'alert_structural']],
-                        [
-                          'in',
-                          ['get', 'alert_cause'],
-                          ['literal', [...STRUCTURAL_CAUSES]],
-                        ],
-                      ],
-                    ],
-                  ],
-                  'pin-structural',
-                  [
                     'match',
                     ['get', 'status'],
-                    'closed',
-                    'pin-closed',
                     'warning',
                     'pin-warning',
                     'unknown',
@@ -1079,6 +1061,55 @@ export default function CoastMap({
                 'icon-ignore-placement': true,
               }}
             />
+            {/* Pines de cierre en capa propia: el asset es 96x136 (pin
+                + badge flotante de causa), asi que el icon-size se
+                compensa x136/96 para que el pin renderice al mismo
+                tamano que los demas */}
+            <Layer
+              id="beach-pins-closed"
+              type="symbol"
+              filter={[
+                'all',
+                ['!=', ['get', 'sel'], true],
+                ['==', ['get', 'status'], 'closed'],
+              ]}
+              layout={{
+                'icon-image': [
+                  'case',
+                  // Estructural lo decide el backend por mayoría de
+                  // prensa; sin el flag (API antigua) cae a la causa
+                  [
+                    'any',
+                    ['==', ['get', 'alert_structural'], true],
+                    [
+                      'all',
+                      ['!', ['has', 'alert_structural']],
+                      [
+                        'in',
+                        ['get', 'alert_cause'],
+                        ['literal', [...STRUCTURAL_CAUSES]],
+                      ],
+                    ],
+                  ],
+                  'pin-structural',
+                  'pin-closed',
+                ],
+                'icon-size': [
+                  'interpolate',
+                  ['linear'],
+                  ['zoom'],
+                  9,
+                  0.2 * (136 / 96),
+                  13,
+                  0.34 * (136 / 96),
+                  16,
+                  0.36 * (136 / 96),
+                ],
+                'icon-anchor': 'bottom',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              }}
+            />
             {/* Pin de la playa seleccionada: capa propia a tamaño
                 fijo grande — mismo tratamiento que el vertido
                 seleccionado. Con los dots PM visibles (grupo abierto)
@@ -1088,7 +1119,11 @@ export default function CoastMap({
             <Layer
               id="beach-pin-selected"
               type="symbol"
-              filter={['==', ['get', 'sel'], true]}
+              filter={[
+                'all',
+                ['==', ['get', 'sel'], true],
+                ['!=', ['get', 'status'], 'closed'],
+              ]}
               layout={{
                 'icon-image': [
                   'case',
@@ -1099,30 +1134,8 @@ export default function CoastMap({
                   ],
                   'pin-unmonitored',
                   [
-                    'all',
-                    ['==', ['get', 'status'], 'closed'],
-                    // Estructural lo decide el backend por mayoría de
-                    // prensa; sin el flag (API antigua) cae a la causa
-                    [
-                      'any',
-                      ['==', ['get', 'alert_structural'], true],
-                      [
-                        'all',
-                        ['!', ['has', 'alert_structural']],
-                        [
-                          'in',
-                          ['get', 'alert_cause'],
-                          ['literal', [...STRUCTURAL_CAUSES]],
-                        ],
-                      ],
-                    ],
-                  ],
-                  'pin-structural',
-                  [
                     'match',
                     ['get', 'status'],
-                    'closed',
-                    'pin-closed',
                     'warning',
                     'pin-warning',
                     'unknown',
@@ -1131,6 +1144,40 @@ export default function CoastMap({
                   ],
                 ],
                 'icon-size': 0.45,
+                'icon-anchor': 'bottom',
+                'icon-allow-overlap': true,
+                'icon-ignore-placement': true,
+              }}
+              paint={{ 'icon-opacity': pmShown ? 0 : 1 }}
+            />
+            <Layer
+              id="beach-pin-selected-closed"
+              type="symbol"
+              filter={[
+                'all',
+                ['==', ['get', 'sel'], true],
+                ['==', ['get', 'status'], 'closed'],
+              ]}
+              layout={{
+                'icon-image': [
+                  'case',
+                  [
+                    'any',
+                    ['==', ['get', 'alert_structural'], true],
+                    [
+                      'all',
+                      ['!', ['has', 'alert_structural']],
+                      [
+                        'in',
+                        ['get', 'alert_cause'],
+                        ['literal', [...STRUCTURAL_CAUSES]],
+                      ],
+                    ],
+                  ],
+                  'pin-structural',
+                  'pin-closed',
+                ],
+                'icon-size': 0.45 * (136 / 96),
                 'icon-anchor': 'bottom',
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
