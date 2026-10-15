@@ -180,9 +180,9 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   dotMini: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: '#fff',
   },
