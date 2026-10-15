@@ -1499,10 +1499,12 @@ export default function CoastMap({
             resizeMode="cover"
           >
             <Text style={styles.layersHintText}>
-              {'¿Quieres ver todas las playas\ny emisarios del mapa?'}
+              {'¿Quieres ver todas las playas y emisarios\ndel mapa?'}
             </Text>
             <View style={styles.layersHintRow}>
-              <Text style={styles.layersHintRowText}>Pulsa aquí o el botón Capas</Text>
+              <Text style={styles.layersHintRowText}>
+                Pulsa aquí o el botón Capas
+              </Text>
               {/* Mini-botón Capas: cuadradito blanco + icono, igual que
                   el flotante del mapa — se reconoce al instante */}
               <View style={styles.layersHintBtn}>
