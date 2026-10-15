@@ -1,38 +1,14 @@
-# Preview comparativo: siluetas para cierre estructural.
-# A ~25px de render solo leen FORMA+COLOR, no glifos internos.
-# Genera scripts/out/structural-silhouettes.png + index.html
-from PIL import Image, ImageDraw
-import math
+# Preview: pin granate con la ilustracion real (recorte de la captura
+# de ChatGPT, "A - Roca") dentro del disco blanco. El arte se recorta
+# en circulo al disco; el pin queda granate como el actual.
+from PIL import Image, ImageDraw, ImageFont
 
 STRUCT = (140, 50, 42)
-RED = (198, 40, 40)
 WHITE = (255, 255, 255)
-NAVY = (22, 50, 63)
 SEA = (90, 178, 196)
 SAND = (230, 215, 175)
 
 SS = 4
-
-
-def octagon(d, cx, cy, r, fill, outline=None, ow=0):
-    pts = []
-    for i in range(8):
-        a = math.radians(22.5 + i * 45)
-        pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
-    d.polygon(pts, fill=fill, outline=outline)
-    if outline and ow:
-        for i in range(ow):
-            d.polygon(pts, outline=outline)
-    return pts
-
-
-def beach_glyph(color, size):
-    src = Image.open("assets/icons/beach.png").convert("RGBA")
-    alpha = src.split()[3]
-    tinted = Image.new("RGBA", src.size, color)
-    tinted.putalpha(alpha)
-    tinted.thumbnail((size, size), Image.LANCZOS)
-    return tinted
 
 
 def pin_shape(d, s, scale, color):
@@ -47,91 +23,62 @@ def pin_shape(d, s, scale, color):
     d.polygon([t(26, 60), t(70, 60), t(48, 94)], fill=color)
 
 
-def slash_mask(size, cx, cy, half_len, half_w, deg=45):
-    m = Image.new("L", size, 0)
-    dm = ImageDraw.Draw(m)
-    a = math.radians(deg)
-    dx, dy = math.cos(a), math.sin(a)
-    px, py = -dy, dx
-    dm.polygon([
-        (cx - dx * half_len - px * half_w, cy - dy * half_len - py * half_w),
-        (cx + dx * half_len - px * half_w, cy + dy * half_len - py * half_w),
-        (cx + dx * half_len + px * half_w, cy + dy * half_len + py * half_w),
-        (cx - dx * half_len + px * half_w, cy - dy * half_len + py * half_w),
-    ], fill=255)
-    return m
-
-
-def rocks(d, cx, cy, rr):
-    cliff = [
-        (cx - rr * 0.95, cy + rr * 0.95),
-        (cx - rr * 0.95, cy - rr * 0.60),
-        (cx - rr * 0.55, cy - rr * 0.80),
-        (cx - rr * 0.35, cy - rr * 0.15),
-        (cx - rr * 0.05, cy + rr * 0.95),
-    ]
-    d.polygon(cliff, fill=NAVY)
-    for pts in (
-        [(0.20, -0.50), (0.55, -0.55), (0.62, -0.28), (0.40, -0.10), (0.15, -0.22)],
-        [(0.62, 0.02), (0.92, 0.00), (0.95, 0.28), (0.68, 0.40)],
-        [(0.30, 0.48), (0.58, 0.42), (0.62, 0.68), (0.35, 0.75)],
-    ):
-        d.polygon([(cx + x * rr, cy + y * rr) for x, y in pts], fill=NAVY)
-
-
-def make_opt(shape, inner):
-    """shape: 'octagon'|'pin'; inner: 'umbrella'|'rocks'|None"""
+def make_pin_art():
     img = Image.new("RGBA", (96 * SS, 96 * SS), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    cx, cy = 48 * SS, 48 * SS
-    if shape == "octagon":
-        # STOP: octogono con marco blanco — la silueta ya dice "cerrado"
-        octagon(d, cx, cy, 42 * SS, WHITE)
-        octagon(d, cx, cy, 40 * SS, STRUCT)
-    else:
-        pin_shape(d, W_SS, 1.0, STRUCT)
-        pin_shape(d, W_SS, 0.78, WHITE)
-    if inner == "umbrella":
-        g = beach_glyph(WHITE if shape == "octagon" else STRUCT, 40 * SS)
-        img.alpha_composite(g, (cx - g.width // 2, (cy if shape == "octagon" else 40 * SS) - g.height // 2))
-    elif inner == "rocks":
-        rr = (34 if shape == "octagon" else 19) * SS
-        rocks(d, cx, cy if shape == "octagon" else 40 * SS, rr)
-        if shape == "octagon":
-            # aro rojo + barra sobre las rocas
-            d.ellipse([cx - rr * 1.05, cy - rr * 1.05, cx + rr * 1.05, cy + rr * 1.05],
-                      outline=RED, width=7 * SS)
-            m = slash_mask(img.size, cx, cy, rr * 0.78, 5 * SS)
-            img.paste(Image.new("RGBA", img.size, RED), (0, 0), m)
+    pin_shape(d, 96 * SS, 1.0, STRUCT)
+    pin_shape(d, 96 * SS, 0.78, WHITE)
+    art = Image.open("scripts/out/rocks_A_art.png").convert("RGBA")
+    # cubrir el disco blanco: el disco mide ~60px*SS -> el arte a ~46px*SS
+    disc_r = int(30 * 0.78 * SS)  # aprox radio interior disco
+    side = disc_r * 2
+    # crop centrado del arte (es 125x102, cuadrado centrado)
+    w, h = art.size
+    m = min(w, h)
+    art_sq = art.crop(((w - m) // 2, (h - m) // 2, (w + m) // 2, (h + m) // 2))
+    art_sq = art_sq.resize((side, side), Image.LANCZOS)
+    mask = Image.new("L", (side, side), 0)
+    ImageDraw.Draw(mask).ellipse([0, 0, side, side], fill=255)
+    cx, cy = 48 * SS, 34 * SS
+    img.paste(art_sq, (cx - side // 2, cy - side // 2), mask)
     return img.resize((96, 96), Image.LANCZOS)
 
 
-W_SS = 96 * SS
+def scene(pin, px):
+    sc = Image.new("RGBA", (150, 90), SEA + (255,))
+    ImageDraw.Draw(sc).rectangle([0, 50, 150, 90], fill=SAND + (255,))
+    small = pin.resize((px, px), Image.LANCZOS)
+    sc.alpha_composite(small, (75 - px // 2, 45 - px))
+    return sc
+
+
+pin_art = make_pin_art()
+pin_art.save("scripts/out/pin-structural-art.png")
+
 opts = [
-    ("A · octagono STOP + sombrilla", make_opt("octagon", "umbrella")),
-    ("B · octagono STOP + rocas", make_opt("octagon", "rocks")),
-    ("C · pin granate puro", make_opt("pin", "umbrella")),
+    ("Pin + ilustracion real", pin_art),
+    ("Actual - sombrilla", Image.open("assets/icons/pin-closed.png").convert("RGBA")),
 ]
 
-# sheet: grande arriba, fila a tamano real (0.3x ~29px) sobre mar/arena
-big_w = 130
-sheet = Image.new("RGBA", (len(opts) * big_w + 20, big_w + 120), (245, 245, 245, 255))
-x = 10
-from PIL import ImageFont
+pad = 20
+big = 120
+W = pad + len(opts) * (big + pad)
+H = pad + big + 34 + 3 * 90 + 10
+sheet = Image.new("RGBA", (W, H), (245, 245, 245, 255))
+df = ImageDraw.Draw(sheet)
 try:
-    font = ImageFont.truetype("arial.ttf", 13)
+    font = ImageFont.truetype("arial.ttf", 14)
 except Exception:
     font = ImageFont.load_default()
-for label, im in opts:
-    sheet.alpha_composite(im.resize((110, 110), Image.LANCZOS), (x + 10, 10))
-    d = ImageDraw.Draw(sheet)
-    d.text((x + 10, big_w + 4), label, fill=(30, 30, 30), font=font)
-    # mini escena: mar arriba, arena abajo, pin a 0.3x
-    sc = Image.new("RGBA", (110, 80), SEA + (255,))
-    ImageDraw.Draw(sc).rectangle([0, 44, 110, 80], fill=SAND + (255,))
-    small = im.resize((29, 29), Image.LANCZOS)
-    sc.alpha_composite(small, (40, 38))
-    sheet.alpha_composite(sc, (x + 10, big_w + 22))
-    x += big_w
+
+for i, (label, pin) in enumerate(opts):
+    x = pad + i * (big + pad)
+    sheet.alpha_composite(pin.resize((big, big), Image.LANCZOS), (x, pad))
+    df.text((x, pad + big + 4), label, fill=(20, 20, 20), font=font)
+    y = pad + big + 34
+    for zl, px in (("19px", 19), ("33px", 33), ("35px", 35)):
+        sheet.alpha_composite(scene(pin, px), (x, y))
+        y += 90
+
 sheet.save("scripts/out/structural-silhouettes.png")
 print("ok")
