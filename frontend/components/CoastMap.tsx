@@ -1502,7 +1502,7 @@ export default function CoastMap({
               {'¿Quieres ver todas las playas\ny emisarios del mapa?'}
             </Text>
             <View style={styles.layersHintRow}>
-              <Text style={styles.layersHintText}>Pulsa aquí o en</Text>
+              <Text style={styles.layersHintText}>Pulsa aquí o el botón Capas</Text>
               {/* Mini-botón Capas: cuadradito blanco + icono, igual que
                   el flotante del mapa — se reconoce al instante */}
               <View style={styles.layersHintBtn}>
@@ -1511,7 +1511,6 @@ export default function CoastMap({
                   style={styles.layersHintIcon}
                 />
               </View>
-              <Text style={styles.layersHintText}>Capas</Text>
             </View>
           </ImageBackground>
           <View style={styles.layersHintTail} />
@@ -1620,8 +1619,6 @@ const styles = StyleSheet.create({
   layersHintBubble: {
     borderRadius: 10,
     overflow: 'hidden',
-    width: '86%',
-    maxWidth: 400,
     paddingVertical: 9,
     paddingHorizontal: 14,
   },
