@@ -137,7 +137,7 @@ def draw_mark(size, ring, scale=1.0, faucet=False):
 PIN_COLORS = {
     "open": (13, 148, 136),
     "warning": (230, 81, 0),
-    "closed": (198, 40, 40),
+    "closed": (213, 0, 0),
     "unmonitored": (143, 163, 173),
 }
 

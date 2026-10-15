@@ -20,7 +20,7 @@ export const colors = {
   status: {
     open: '#0d9488', // verde mar = apta
     warning: '#e65100',
-    closed: '#c62828',
+    closed: '#d50000',
     // Granate del pin estructural: cerrada crónica, no urgente —
     // solo lo usa el banner; en la ficha cerrada sigue siendo rojo
     structural: '#8c322a',
