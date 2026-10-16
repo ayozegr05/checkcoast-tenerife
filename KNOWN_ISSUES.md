@@ -145,7 +145,50 @@ abordarlo. Ir tachando conforme se arreglen.
       - `immutability` en CoastMap (closeOverlays usado antes de
         declararse) → declaración movida arriba del efecto
 
-## Pendientes
+## Revisión senior — checklist de pulido (17-oct)
+
+Autocrítica "como reclutador senior" sobre el repo. Ordenada por lo que
+se nota primero al revisar. Ir tachando poco a poco.
+
+### P0 — lo primero que encuentra un senior
+
+- [x] **`expo lint` no corría en CI** → añadido a `ci.yml` (prettier +
+      tsc + lint + jest). El badge 0/0 queda blindado
+- [x] **Dockerfile corría como root** → `USER appuser` +
+      `PYTHONDONTWRITEBYTECODE=1` (verificado: og:image se compone en
+      memoria, nada escribe en /app)
+- [ ] **`CoastMap.tsx` 1698 líneas / `App.tsx` 728** — god-components:
+      mezclan cámara, capas, buscador, panel y banner. Fix real =
+      extraer hooks (`useMapCamera`, `useMapLayers`), media jornada con
+      riesgo de regresión visual. Decisión probable: documentar como
+      tradeoff — la lógica ya está extraída a `lib/` (pura y testeada);
+      el componente es mayormente declarativo (JSX de capas MapLibre)
+
+### P1 — preguntas de entrevista (defender, no necesariamente arreglar)
+
+- [ ] **APScheduler dentro del proceso API** — con 2 réplicas duplicaría
+      scrapes y pushes. Tradeoff consciente: single-container hoy;
+      moverlo a worker aparte es complejidad innecesaria
+- [ ] **`alembic upgrade head` al arrancar** — dos réplicas
+      concurrentes podrían pelear en migraciones. Mismo tradeoff
+- [ ] **Sin E2E** — 395 tests unitarios/componente pero ningún smoke
+      del flujo crítico (mapa → pin → ficha). Maestro es la opción
+      barata para RN
+- [ ] **Telemetría casera `/client-events`** vs Sentry — vendible como
+      pragmatismo (cero deps externas, write-only, rate-limit) si se
+      explica bien
+
+### P2 — pulido fino
+
+- [ ] Sin versioning de API (`/v1/`) — duele solo si la API crece
+- [ ] Sin coverage report en CI (badge de %)
+- [ ] i18n hardcoded en español — defendible para app cívica local;
+      mencionar la decisión
+- [ ] Export web (`dist/`) — publicarlo solo si está pulido; una web
+      a medio hacer resta más que no tenerla
+- [ ] OTA frontend (`eas update`) — aplazado
+- [ ] Homónimas sin municipio — fallback `local[0]` no determinista
+      (ninguna existe hoy)
 
 ## Pendientes
 
