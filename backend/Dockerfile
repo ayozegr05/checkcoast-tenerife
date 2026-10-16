@@ -13,6 +13,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Non-root: el proceso solo lee código y conecta a Postgres (el
+# og:image se compone en memoria — nada escribe en /app)
+ENV PYTHONDONTWRITEBYTECODE=1
+RUN useradd --system --uid 10001 --no-create-home appuser
+USER appuser
+
 EXPOSE 8000
 
 # Migra la BD antes de servir: el contenedor es autosuficiente
