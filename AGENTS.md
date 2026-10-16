@@ -517,6 +517,44 @@ puede quedar una fila NULL por URL (marcador de dedup).
   con `news_resolve` (ver Hito 8.9); `Teneriffa News` (SEO-farm diario)
   está en blocklist `EXCLUDED_SOURCES`
 
+## Reglas para agentes (cómo trabajar en este repo)
+
+Aprendidas en la auditoría de oct-2026. Son para cualquier sesión
+futura — humana o de agente:
+
+- **Nunca declares un cambio terminado sin verificación real**: corre
+  `npx tsc --noEmit`, `npx expo lint`, `npx prettier --check .` y la
+  suite completa (`npx jest` / `pytest`). Si un test falla tras tu
+  cambio, el bug es tu cambio — no el test
+- **Pasos pequeños y commiteables**: cada cambio revertible con
+  `git checkout` en segundos. Si una tarea crece, divide y commitea
+  por partes en vez de acumular un diff gigante
+- **Refactors de estado/efectos: replica la semántica exacta** —
+  verifica explícitamente mount inicial, transiciones cerrado↔abierto
+  y props que cambian con el componente visible. El patrón nuevo debe
+  cubrir TODOS los casos del viejo (lección: un render-adjust que no
+  cubría "mount ya abierto" rompió `MunicipalityStats` — lo pilló su
+  test)
+- **Diagnósticos en cascada = señal de STOP**: si arreglar un
+  warning/lint genera dos nuevos, parar y evaluar el coste real antes
+  de seguir. No perseguir "0 errores" a costa de peor código (caso
+  real: los `preserve-manual-memoization` solo se silencian moviendo
+  la memoización a cachés de módulo — peor patrón; el disable
+  justificado era la respuesta correcta)
+- **Disables justificados > código contorsionado**: un
+  `eslint-disable` localizado con comentario explicando el falso
+  positivo es una decisión senior; reescribir arquitectura para
+  silenciar una regla, no
+- **Plan antes de refactor frágil**: en zonas con historia de bugs
+  sutiles (coreografía de cámara en `CoastMap`, gestos en
+  `useSheetDrag`), explicar el enfoque y esperar confirmación antes
+  de tocar — sin E2E que lo cubra, el riesgo de regresión visual es
+  real
+- **No tocar zonas aplazadas por el usuario** — consultar
+  `KNOWN_ISSUES.md` ("Revisión senior — checklist de pulido") antes
+  de proponer trabajo: ahí está qué se pospuso deliberadamente
+  (homónimas sin municipio, OTA) y por qué
+
 ## Pendiente inmediato
 
 - **Reparado el 30-sep**: datos de prod saneados tras la re-extracción
