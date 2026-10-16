@@ -9,6 +9,7 @@ import {
   yearBarColorOf,
   yearScoreOf,
 } from '../../lib/muniStats';
+import { colors } from '../../lib/theme';
 import { styles } from './statsStyles';
 
 // Fila del ranking de municipios: círculo de posición (podio con color
@@ -61,7 +62,7 @@ export default function MuniRow({
               backgroundColor: isYearMode
                 ? index < 3
                   ? yearBarColorOf(m)
-                  : '#8fa3ad'
+                  : colors.textFaint
                 : rankColorOf(m, index),
             },
           ]}

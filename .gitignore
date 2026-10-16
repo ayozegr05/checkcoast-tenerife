@@ -44,3 +44,6 @@ frontend/assets/sea-texture.png
 
 # Sitios Caddy de otros proyectos en la VM
 caddy-sites/
+
+# Salidas locales de los scripts de generación de assets
+frontend/scripts/out/

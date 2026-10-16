@@ -90,14 +90,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderLeftWidth: 3,
     borderLeftColor: colors.status.warning,
-    backgroundColor: '#fff3e0',
+    backgroundColor: colors.tintPress,
     borderRadius: 4,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
   pressBannerReopened: {
     borderLeftColor: colors.status.open,
-    backgroundColor: '#e6f4f1',
+    backgroundColor: colors.tintReopen,
   },
   pressBannerText: {
     fontSize: 13,

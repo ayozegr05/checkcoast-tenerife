@@ -2,7 +2,6 @@ import { describe, expect, it } from '@jest/globals';
 
 import type { MunicipalityIncident } from '../lib/api';
 import {
-  causeBreakdown,
   closuresThisYear,
   episodeYears,
   latestEpisodeYear,
@@ -137,23 +136,5 @@ describe('latestEpisodeYear — dónde abre el ranking', () => {
 
   it('sin episodios devuelve null', () => {
     expect(latestEpisodeYear([])).toBeNull();
-  });
-});
-
-describe('causeBreakdown — desglose de causas del año', () => {
-  it('cuenta por categoría, más frecuente primero', () => {
-    expect(
-      causeBreakdown([
-        ep({ cause: 'Contaminación' }),
-        ep({ cause: 'Contaminación' }),
-        ep({ cause: 'Desprendimientos' }),
-      ]),
-    ).toBe('2 contaminación · 1 desprendimientos');
-  });
-
-  it('episodios sin causa se agrupan como "sin causa"', () => {
-    expect(
-      causeBreakdown([ep({ cause: 'Contaminación' }), ep({ cause: null })]),
-    ).toBe('1 contaminación · 1 sin causa');
   });
 });

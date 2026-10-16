@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.3,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.22)',
   },
   navBackText: {
-    color: '#fff',
+    color: colors.onColor,
     fontSize: 22,
     fontFamily: fonts.bold,
     marginTop: -3,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontFamily: fonts.extrabold,
-    color: '#fff',
+    color: colors.onColor,
   },
   // En modo revisit (desde la Guía) los botones ‹ ✕ roban ancho —
   // título e icono un punto más pequeños para que respire, igual que
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   checkMark: {
-    color: '#fff',
+    color: colors.onColor,
     fontSize: 13,
     fontFamily: fonts.bold,
     marginTop: -1,
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   btnText: {
-    color: '#fff',
+    color: colors.onColor,
     fontSize: 14,
     fontFamily: fonts.bold,
   },

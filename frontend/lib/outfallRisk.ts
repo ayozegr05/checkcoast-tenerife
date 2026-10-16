@@ -111,8 +111,4 @@ export const RISK_LABEL: Record<RiskLevel, string> = {
 };
 
 // Nivel de riesgo → tinte de la banda de síntesis
-export const RISK_COLORS: Record<RiskLevel, string> = {
-  alto: '#d84315',
-  medio: '#f9a825',
-  bajo: '#0d9488',
-};
+export const RISK_COLORS: Record<RiskLevel, string> = colors.risk;

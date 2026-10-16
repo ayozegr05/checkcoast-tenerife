@@ -7,6 +7,7 @@
 //   (el paréntesis solo se mueve si es un artículo suelto; un alias
 //   como "Los Abriguitos" se queda donde está)
 
+import { PM_SUFFIX, pmTagOf } from './pm';
 import { zoneName } from './zones';
 
 const CONNECTORS = new Set(['de', 'del', 'y', 'e', 'en', 'a', 'o', 'u']);
@@ -147,7 +148,7 @@ export const displayBeachName = (name: string) => {
 // "PLAYA TROYA I (AMÉRICAS I) PM3" -> "PLAYA TROYA (AMÉRICAS)"
 export const beachBaseName = (name: string) =>
   name
-    .replace(/\s+PM\d+$/, '')
+    .replace(PM_SUFFIX, '')
     .replace(/\s+(I|II|III|IV)\s*(?=\))/, '')
     .replace(/\s+(I|II|III|IV)(?=\s*\(|\s*$)/, '');
 
@@ -180,9 +181,9 @@ export const searchNorm = (s: string) =>
 // Etiqueta del punto de muestreo dentro de su playa: "PM3"; si la
 // playa se subdivide por romano (Troya I/II) se antepone: "II · PM3"
 export const beachPointLabel = (name: string) => {
-  const pm = name.match(/\s+(PM\d+)$/)?.[1];
+  const pm = pmTagOf(name);
   const roman = name
-    .replace(/\s+PM\d+$/, '')
+    .replace(PM_SUFFIX, '')
     .split('(')[0]
     .trimEnd()
     .match(/\s+(I|II|III|IV)$/)?.[1];

@@ -10,28 +10,29 @@ import {
   displayBeachName,
   searchNorm,
 } from './format';
+import {
+  beachStateKey,
+  BEACH_STATE_LABEL,
+  isStructuralClosure,
+  STRUCTURAL_CAUSES,
+} from './structural';
 import { colors } from './theme';
 
 export const STRUCTURAL_SECTION = 'Cierre estructural';
 
-// Categorías de causa que el backend emite para cierres estructurales
-// (_STRUCTURAL_CAUSES en queries.py) — se mantienen en el tiempo, al
-// contrario que un episodio de contaminación
-export const STRUCTURAL_CAUSES = new Set([
-  'Desprendimientos',
-  'Obras',
-  'Colapso del terreno',
-]);
+// Re-exportados desde lib/structural (módulo hoja compartido con
+// beachGroups — evita el ciclo mapData↔beachGroups)
+export { isStructuralClosure, STRUCTURAL_CAUSES };
 
 // [color, etiqueta, clave] de cada estado en leyenda y panel de capas
 export type LayerState = [string, string, string];
 
 export const BEACH_STATES: LayerState[] = [
-  [colors.status.open, 'Apta', 'open'],
-  [colors.status.warning, 'Aviso', 'warning'],
+  [colors.status.open, BEACH_STATE_LABEL.open, 'open'],
+  [colors.status.warning, BEACH_STATE_LABEL.warning, 'warning'],
   [colors.status.closed, 'Cerrada · contaminación', 'closed'],
-  [colors.status.structural, 'Cerrada · estructural', 'structural'],
-  [colors.status.unmonitored, 'Sin monitorizar', 'unmonitored'],
+  [colors.status.structural, BEACH_STATE_LABEL.structural, 'structural'],
+  [colors.status.unmonitored, BEACH_STATE_LABEL.unmonitored, 'unmonitored'],
 ];
 export const OUTFALL_STATES: LayerState[] = [
   [colors.outfall.legal, 'Autorizado', 'legal'],
@@ -50,17 +51,14 @@ export const pmMembersOf = (members?: GeoFeature[]) => {
   return labeled.length > 1 ? labeled : undefined;
 };
 
-// Categoría visual del pin — la misma lógica que elige el icono:
-// OSM sin monitorizar y playas de estado desconocido comparten pin
-// gris, así que el filtro "Sin monitorizar" las cubre a ambas
-export const beachCategory = (f: GeoFeature): string =>
-  f.properties.monitored === false && f.properties.alert !== true
-    ? 'unmonitored'
-    : isStructuralClosure(f)
-      ? 'structural'
-      : f.properties.status && f.properties.status !== 'unknown'
-        ? (f.properties.status as string)
-        : 'unmonitored';
+// Categoría visual del pin — el resolutor único con una matiz propia
+// del mapa: 'unknown' (vigilada sin dato de Náyade) comparte el pin
+// gris de las no monitorizadas, así que el filtro "Sin monitorizar"
+// las cubre a ambas
+export const beachCategory = (f: GeoFeature): string => {
+  const s = beachStateKey(f);
+  return s === 'unknown' ? 'unmonitored' : s;
+};
 
 // Emisarios: todo lo que no es legal/illegal lleva el pin "en trámite"
 export const outfallCategory = (f: GeoFeature): string =>
@@ -128,16 +126,6 @@ export function buildBeachGroups(
 }
 
 export type AlertSection = [string, GeoFeature[]];
-
-// Cierre por causa estructural (desprendimientos/obras/colapso): sigue
-// rojo en la ficha pero en el mapa no late — pin propio sin pulso.
-// Lo decide el backend por mayoría de prensa (alert_structural); sin
-// el flag (API antigua) cae a alert_cause, que puede ser minoritaria
-export const isStructuralClosure = (f: GeoFeature) =>
-  f.properties.status === 'closed' &&
-  (f.properties.alert_structural ??
-    (!!f.properties.alert_cause &&
-      STRUCTURAL_CAUSES.has(f.properties.alert_cause)));
 
 // Dos grandes categorías de alerta: contaminación (transitoria) y
 // cierre estructural (desprendimientos/obras/colapso — se mantiene

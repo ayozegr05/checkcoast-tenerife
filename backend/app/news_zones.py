@@ -23,8 +23,8 @@ acentos) y se buscan con límites de palabra.
 import re
 
 from app.models import Beach
+from app.names import normalize_beach_name as _normalize
 from app.news_matching import _MIN_NAME_LEN, _name_in_title, _norm_muni
-from scripts.ingest_osm_beaches import _normalize
 
 # aliases: inequívocos, valen en titular/extracted Y en cuerpo.
 # weak_aliases: topónimos que el cuerpo suele citar como contexto — el

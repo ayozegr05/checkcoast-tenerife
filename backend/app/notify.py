@@ -23,14 +23,25 @@ _STATE_LABEL = {
 }
 
 
+# Preposiciones/artículos que no van en mayúscula en medio del nombre
+# ("Playa de las Teresitas", no "Playa De Las Teresitas")
+_LOWERCASE_WORDS = {"de", "del", "la", "las", "el", "los", "en", "y"}
+
+
 def _display_name(beach: Beach) -> str:
-    """'PLAYA JARDIN PM4' -> 'Playa Jardin · Punta Brava' cuando la
-    cala está en el mapa de zonas; si no, 'Playa Jardin PM4'."""
-    name = re.sub(r"Pm(\d+)", r"PM\1", beach.name.title())
+    """'PLAYA JARDIN PM4' -> 'Playa Jardín · Punta Brava'.
+
+    El sufijo de punto de muestreo (PM1, PM3…) es jerga de Sanidad —
+    al bañista le basta el nombre de la playa. Si la cala está en el
+    mapa de zonas se añade '· zona' para desambiguar playas multi-PM.
+    """
+    name = re.sub(r"\s+PM\d+\s*$", "", beach.name).title()
+    name = " ".join(
+        w if i == 0 or w.lower() not in _LOWERCASE_WORDS else w.lower()
+        for i, w in enumerate(name.split())
+    )
     zone = zone_display_name(beach)
-    if zone is None:
-        return name
-    return f"{re.sub(r'\s+PM\d+\s*$', '', name)} · {zone}"
+    return name if zone is None else f"{name} · {zone}"
 
 
 _PRESS_LABEL = {

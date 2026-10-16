@@ -9,7 +9,7 @@ mini-ficha — réplica web de la ficha de la app — con enlace profundo
 import io
 import math
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -29,6 +29,7 @@ from app.models import (
     NewsItem,
     Outfall,
 )
+from app.names import PM_SUFFIX
 from app.queries import beaches_with_latest_status, effective_states
 
 router = APIRouter(tags=["share"])
@@ -51,16 +52,42 @@ _MONTHS = [
 ]
 
 
-def _live_status_counts(db: Session) -> dict[str, int]:
+def _live_status_counts(effs: dict) -> dict[str, int]:
     """Recuento de estados efectivos AHORA (misma regla que el mapa de
     la app) — antes se contaban todas las filas históricas de
-    beach_statuses y el contador mentía (5 cerradas cuando hay 3)."""
+    beach_statuses y el contador mentía (5 cerradas cuando hay 3).
+    Recibe la matriz ya calculada: la portada/landing la usan además
+    para pintar playa y alertas — un solo barrido."""
     counts: dict[str, int] = {}
-    for e in effective_states(db).values():
+    for e in effs.values():
         s = e["status"]
         s = s.value if hasattr(s, "value") else s
         counts[s] = counts.get(s, 0) + 1
     return counts
+
+
+def _display_state(e: dict | None) -> str:
+    """Estado de la matriz → clave visual: el cierre estructural se
+    pinta granate (misma distinción que el pin/ficha de la app)."""
+    if e is None:
+        return "unknown"
+    if e.get("structural"):
+        return "structural"
+    s = e["status"]
+    return s.value if hasattr(s, "value") else s
+
+
+def _alert_entries(db: Session, effs: dict) -> list[tuple]:
+    """(Beach, entry) de las playas con alerta viva de la matriz —
+    mismo conjunto que /alerts sin recomputarla ni hacer un get+ST_X/Y
+    por playa (la landing y la portada lo usan para el panel lateral)."""
+    alert_ids = [bid for bid, e in effs.items() if e["alerted"]]
+    if not alert_ids:
+        return []
+    beaches = {
+        b.id: b for b in db.query(Beach).filter(Beach.id.in_(alert_ids))
+    }
+    return [(beaches[bid], effs[bid]) for bid in alert_ids if bid in beaches]
 
 
 def _alert_when(aword: str, rep: datetime | None, now: datetime) -> str:
@@ -108,9 +135,11 @@ _SHOT_LEVELS = [
     (0.015, 0.0083),  # lejos
 ]
 
-# Mismos textos que la ficha de la app
+# Mismos textos que la ficha de la app — "structural" es la variante
+# granate del cierre (desprendimientos/obras), no un estado propio
 _STATUS = {
     "closed": ("Cierre activo", "#c62828"),
+    "structural": ("Cierre estructural", "#8c322a"),
     "warning": ("Aviso activo", "#e65100"),
     "open": ("Apta", "#0d9488"),
     "unknown": ("Sin datos oficiales", "#8fa3ad"),
@@ -125,6 +154,7 @@ _OUTFALL_STATUS = {
 # Mismos PNG que el mapa de la app (servidos desde /icons)
 _PIN = {
     "closed": "pin-closed",
+    "structural": "pin-structural",
     "warning": "pin-warning",
     "open": "pin-open",
     "unknown": "pin-unmonitored",
@@ -210,9 +240,6 @@ _ACCENTS = {
     "camison": "camisón",
     "jaquita": "jaquita",
     "almaciga": "almáciga",
-    "amricas": "américas",
-    "camisn": "camisón",
-    "gimar": "güímar",
 }
 _ARTICLE_PAREN = re.compile(r"\s*\((EL|LA|LOS|LAS)\)", re.I)
 _DE_FORMS = {"el": "del", "la": "de la", "los": "de los", "las": "de las"}
@@ -224,7 +251,7 @@ def _cap_name(name: str) -> str:
     solo en minúscula tras 'de'; restaura acentos conocidos."""
     prev = ""
     out = []
-    for p in re.split(f"({_WORD.pattern})", name.lower().replace("", "")):
+    for p in re.split(f"({_WORD.pattern})", name.lower()):
         if not _WORD.fullmatch(p):
             out.append(p)
             continue
@@ -243,7 +270,7 @@ def _cap_name(name: str) -> str:
 
 def _display_name(name: str) -> str:
     """'PLAYA GAVIOTAS (LAS) PM1' -> 'Playa de las Gaviotas'."""
-    name = re.sub(r"\s+PM\d+$", "", name)
+    name = PM_SUFFIX.sub("", name)
     m = _ARTICLE_PAREN.search(name)
     if not m:
         return _cap_name(name)
@@ -296,108 +323,39 @@ def _dots(
     ]
 
 
-def _alert_cards(alerts, now: datetime) -> list[dict]:
+def _alert_cards(entries: list[tuple], now: datetime) -> list[dict]:
     """Filas de alerta viva enlazables a su /b/{id} — la misma regla
-    que /alerts, compartida por el panel lateral de /b/ y la portada."""
-    return [
-        {
-            "cls": "c" if a.status == "closed" else "w",
-            "beach_id": a.beach_id,
-            "color": _STATUS.get(a.status, _STATUS["unknown"])[1],
-            "name": _display_name(a.beach_name),
-            "meta": (
-                f"{
-                    _alert_when(
-                        'cerrada' if a.status == 'closed' else 'aviso',
-                        a.reported_at,
-                        now,
-                    )
-                } · {'según prensa' if a.via == 'press' else 'oficial'}"
-                f" · {a.municipality or ''}"
-            ),
-        }
-        for a in alerts
-    ]
-
-
-def _effective_state(
-    db: Session, beach: Beach, official: str | None, news_items: list
-) -> tuple[str, str | None]:
-    """(state, press_label) — replica la regla de /alerts: el oficial
-    manda, pero prensa fresca dominada por cierres escala
-    warning->closed y decide en playas sin monitorización."""
-    state = official or "unknown"
-    press_label: str | None = None
-    cutoff = datetime.now(UTC) - timedelta(days=21)
-    if (
-        news_items
-        and news_items[0].published_at
-        and news_items[0].published_at >= cutoff
-    ):
-        change = next(
-            (
-                i
-                for i in news_items
-                if i.event_type in ("closure", "reopening")
-            ),
-            None,
+    que /alerts, compartida por el panel lateral de /b/ y la portada.
+    `entries` = salida de _alert_entries (Beach, fila de la matriz)."""
+    cards = []
+    for beach, e in entries:
+        dstate = _display_state(e)
+        cards.append(
+            {
+                # "s" = estructural: el panel usa la variante granate
+                "cls": (
+                    "s"
+                    if dstate == "structural"
+                    else "c"
+                    if e["status"] == "closed"
+                    else "w"
+                ),
+                "beach_id": beach.id,
+                "color": _STATUS.get(dstate, _STATUS["unknown"])[1],
+                "name": _display_name(beach.name),
+                "meta": (
+                    f"{
+                        _alert_when(
+                            'cerrada' if e['status'] == 'closed' else 'aviso',
+                            e['reported_at'],
+                            now,
+                        )
+                    } · {'según prensa' if e['via'] == 'press' else 'oficial'}"
+                    f" · {beach.municipality or ''}"
+                ),
+            }
         )
-        warn = next(
-            (
-                i
-                for i in news_items
-                if i.event_type in ("warning", "pollution")
-            ),
-            None,
-        )
-        press_ev = None
-        if change and change.event_type == "closure":
-            press_ev = change
-        elif warn and (
-            change is None
-            or (warn.published_at or datetime.min.replace(tzinfo=UTC))
-            > (change.published_at or datetime.min.replace(tzinfo=UTC))
-        ):
-            press_ev = warn
-        counts: dict[str, int] = {}
-        for i in news_items:
-            if i.event_type and i.event_type != "other":
-                counts[i.event_type] = counts.get(i.event_type, 0) + 1
-        dominant = (
-            "closure"
-            if counts.get("closure")
-            else (max(counts, key=counts.get) if counts else None)
-        )
-        pstate = (
-            "closed"
-            if press_ev and press_ev.event_type == "closure"
-            else ("warning" if press_ev else None)
-        )
-        if official in ("closed", "warning"):
-            if pstate == "closed" or dominant == "closure":
-                state, press_label = "closed", "según prensa"
-        elif official == "open":
-            # ventana de gracia 14 días + sin reapertura formal posterior
-            grace = datetime.now(UTC) - timedelta(days=14)
-            resolved = (
-                db.query(func.max(BeachIncident.closed_at))
-                .filter(
-                    BeachIncident.beach_id == beach.id,
-                    BeachIncident.closed_at.isnot(None),
-                )
-                .scalar()
-            )
-            when = press_ev.published_at if press_ev else None
-            if (
-                pstate == "closed"
-                and when
-                and when >= grace
-                and not (resolved and resolved >= when.date())
-            ):
-                state, press_label = "closed", "según prensa"
-        elif pstate:
-            state, press_label = pstate, "según prensa"
-    return state, press_label
+    return cards
 
 
 def _og_png(
@@ -479,17 +437,17 @@ def share_og(beach_id: int, db: Session = Depends(get_db)) -> Response:
     if row is None:
         raise HTTPException(status_code=404, detail="Beach not found")
     beach, status, lon, lat = row
-    official = status.status.value if status else None
-    news_items = (
-        db.query(NewsItem)
-        .filter(NewsItem.beach_id == beach.id, NewsItem.relevant.is_(True))
-        .order_by(NewsItem.published_at.desc().nulls_last())
-        .limit(30)
-        .all()
-    )
-    state, _ = _effective_state(db, beach, official, news_items)
+    # La og:image pinta el estado efectivo — la misma matriz que la
+    # app, sin réplica a medias (antes contradecía /alerts: ignoraba
+    # la supresión de oficial rezagado y la persistencia estructural)
+    state = _display_state(effective_states(db).get(beach_id))
     key = (beach_id, state)
     if key not in _og_cache:
+        # Tope al caché: playas × estados es acotado, pero un fetch a
+        # ids inexistentes/rotación de estado podría inflarlo — LRU
+        # burdo: a partir de 500 entradas se vacía y se regenera
+        if len(_og_cache) >= 500:
+            _og_cache.clear()
         label, color = _STATUS.get(state, _STATUS["unknown"])
         _og_cache[key] = _og_png(beach, lon, lat, state, label, color)
     return Response(
@@ -516,7 +474,17 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         raise HTTPException(status_code=404, detail="Beach not found")
 
     beach, status, lon, lat = row
-    official = status.status.value if status else None
+
+    # Estado efectivo = matriz compartida con /alerts (oficial +
+    # prensa, supresión de rezagados, persistencia estructural). La
+    # réplica local se quedaba a medias y la landing podía enseñar lo
+    # contrario que la app (Benijo "sin datos" vs cerrada)
+    effs = effective_states(db)
+    eff = effs.get(beach.id)
+    state = _display_state(eff)
+    press_label = (
+        "según prensa" if eff is not None and eff["via"] == "press" else None
+    )
 
     news_items = (
         db.query(NewsItem)
@@ -525,7 +493,6 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         .limit(30)
         .all()
     )
-    state, press_label = _effective_state(db, beach, official, news_items)
 
     label, color = _STATUS.get(state, _STATUS["unknown"])
 
@@ -571,14 +538,20 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
 
     name = _display_name(beach.name)
     muni = beach.municipality or "Tenerife"
-    # Cabecera teñida por estado efectivo, como la ficha de la app
+    # Cabecera teñida por estado efectivo, como la ficha de la app —
+    # el cierre estructural va en granate, no en el rojo del vertido
     head_bg = {
         "closed": "linear-gradient(180deg,#7a1f1f,#c62828)",
+        "structural": "linear-gradient(180deg,#5e2320,#8c322a)",
         "warning": "linear-gradient(180deg,#8a3c00,#e65100)",
     }.get(state, "linear-gradient(180deg,#075276,#17b8ce)")
     # La ola que separa cabecera y foto sigue el color final del
     # degradado del header
-    wave_c = {"closed": "#c62828", "warning": "#e65100"}.get(state, "#17b8ce")
+    wave_c = {
+        "closed": "#c62828",
+        "structural": "#8c322a",
+        "warning": "#e65100",
+    }.get(state, "#17b8ce")
     title = f"{name} · {muni}"
     urls = [_shot_url(lon, lat, *d) for d in _SHOT_LEVELS]
     deep = f"checkcoast://beach/{beach.id}"
@@ -678,7 +651,9 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     # desde + nº medios; debajo hasta 3 titulares enlazables — venden el
     # "porqué" mejor que uno solo
     press_cls = (
-        "press n-closed"
+        "press n-structural"
+        if state == "structural"
+        else "press n-closed"
         if state == "closed"
         else "press n-warning"
         if state == "warning"
@@ -714,7 +689,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
             "pollution": "Contaminación en",
             "reopening": "Reabierta",
         }.get(dom or "", "Mencionada")
-        if dom == "closure" and state != "closed":
+        if dom == "closure" and state not in ("closed", "structural"):
             ev_word = "Estuvo cerrada" if state == "open" else "Cerrada"
         line = ev_word + (f" por {cause}" if cause else "")
         if since:
@@ -757,7 +732,7 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
     # si el estado lo decide la prensa, su banner sube arriba del todo;
     # si es oficial, se resume el incidente abierto
     notice = None
-    if state in ("closed", "warning"):
+    if state in ("closed", "structural", "warning"):
         if press and press_label:
             notice, press = press, None
         else:
@@ -765,7 +740,11 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
                 (i for i in incidents if i.closed_at is None), None
             )
             if active_inc:
-                verb = "Cerrada" if state == "closed" else "Aviso activo"
+                verb = (
+                    "Cerrada"
+                    if state in ("closed", "structural")
+                    else "Aviso activo"
+                )
                 obs = (active_inc.observations or "").strip()
                 nline = verb + (f" — {obs[:140]}" if obs else "")
                 nline += (
@@ -791,15 +770,11 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         "Foto: © Esri, Maxar, Earthstar Geographics"
     )
 
-    # Contadores vivos para el panel lateral desktop
-    status_counts = _live_status_counts(db)
+    # Contadores + alertas del panel lateral sobre la MISMA matriz ya
+    # calculada — antes eran dos barridos extra de effective_states
+    status_counts = _live_status_counts(effs)
     total_beaches = db.query(func.count(Beach.id)).scalar()
-
-    # Alertas vivas de la isla para el panel lateral: la misma regla
-    # que /alerts, enlazables a su propia landing
-    from app.routers.alerts import list_alerts
-
-    salerts = _alert_cards(list_alerts(db)[:4], datetime.now(UTC))
+    salerts = _alert_cards(_alert_entries(db, effs)[:4], datetime.now(UTC))
 
     return _page(
         "beach.html",
@@ -862,16 +837,18 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
 
     Hero + mapa vivo de la isla + alertas reales + playas de ejemplo
     enlazables a su /b/{id} — la demo completa sin instalar nada."""
-    from app.routers.alerts import list_alerts
-
-    status_counts = _live_status_counts(db)
+    # Una sola matriz para todo: contadores, puntos del mapa, tarjetas
+    # de alerta y playas de ejemplo — antes la portada pintaba el
+    # estado oficial crudo y podía contradecir a la app (una playa
+    # reabierta según prensa salía roja en el mapa)
+    effs = effective_states(db)
+    status_counts = _live_status_counts(effs)
     total_beaches = db.query(func.count(Beach.id)).scalar()
-    island_alerts = list_alerts(db)
-    alert_state = {a.beach_id: a.status for a in island_alerts}
+    island_alerts = _alert_entries(db, effs)
 
-    # Puntos del mapa isla: cada playa con su estado (oficial; las
-    # alertas vivas — incluidas las de prensa — pisan al oficial para
-    # que el mapa cuente lo mismo que la lista de alertas)
+    # Puntos del mapa isla: estado efectivo (igual que la app — una
+    # reapertura de prensa no se pinta cerrada; un cierre estructural
+    # va en granate)
     all_beaches = (
         beaches_with_latest_status(db)
         .add_columns(
@@ -882,24 +859,24 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
     )
     clon, clat, dlon, dlat = _ISLAND
     map_dots = []
-    for beach, status, lon, lat in all_beaches:
+    for beach, _status, lon, lat in all_beaches:
         if lon is None:
             continue
-        st = alert_state.get(
-            beach.id, status.status.value if status else "unknown"
-        )
+        eff = effs.get(beach.id)
         x, y = _px(lon, lat, clon, clat, dlon, dlat)
         if 0 <= x <= 100 and 0 <= y <= 100:
             map_dots.append(
                 {
                     "x": f"{x:.1f}",
                     "y": f"{y:.1f}",
-                    "col": _STATUS.get(st, _STATUS["unknown"])[1],
+                    "col": _STATUS.get(
+                        _display_state(eff), _STATUS["unknown"]
+                    )[1],
                     # Las playas con alerta viva pulsan (mismo gesto que
                     # los pines parpadeantes de la app) — entre 192 dots,
                     # lo único que el visitante necesita localizar es lo
                     # que pita
-                    "alert": beach.id in alert_state,
+                    "alert": eff["alerted"] if eff else False,
                     "name": _display_name(beach.name),
                 }
             )
@@ -909,7 +886,7 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
 
     # Playas de ejemplo: las alertas actuales + las monitorizadas con
     # más analíticas (su landing enseña la gráfica histórica)
-    example_ids = [a.beach_id for a in island_alerts[:3]]
+    example_ids = [b.id for b, _ in island_alerts[:3]]
     fillers = (
         db.query(BeachMeasurement.beach_id, func.count().label("n"))
         .group_by(BeachMeasurement.beach_id)
@@ -934,9 +911,8 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
         if not row:
             continue
         b, st, lon, lat = row
-        state = alert_state.get(bid, st.status.value if st else "unknown")
-        lbl, col = _STATUS.get(state, _STATUS["unknown"])
-        alert = next((a for a in island_alerts if a.beach_id == bid), None)
+        eff = effs.get(bid)
+        lbl, col = _STATUS.get(_display_state(eff), _STATUS["unknown"])
         cards.append(
             {
                 "beach_id": bid,
@@ -945,7 +921,7 @@ def home(db: Session = Depends(get_db)) -> HTMLResponse:
                 "color": col,
                 "name": _display_name(b.name),
                 "muni": b.municipality or "",
-                "via_press": bool(alert and alert.via == "press"),
+                "via_press": bool(eff and eff["via"] == "press"),
             }
         )
 

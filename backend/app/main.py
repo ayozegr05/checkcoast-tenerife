@@ -1,3 +1,4 @@
+import traceback
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
@@ -16,7 +17,6 @@ from app.routers import alerts, beaches, devices, outfalls, share
 # Un sync sin éxito durante >2× su intervalo se marca `stale` en
 # /health — un fallo aislado no degrada el servicio
 _JOB_STALE_FACTOR = 2
-_JOBS = ("nayade-sync", "news-sync")
 
 
 def _run_job(job: str, fn: Callable[[], dict]) -> None:
@@ -31,7 +31,10 @@ def _run_job(job: str, fn: Callable[[], dict]) -> None:
         ok, error = True, None
     except Exception as e:  # scraper/fuentes/LLM externos: no tumbar la API
         detail, ok, error = None, False, str(e)[:500]
+        # traceback completo a los logs del contenedor — el str(e) de
+        # job_runs a veces no basta para diagnosticar el fallo
         print(f"[{job}] error: {e}")
+        traceback.print_exc()
     try:
         db = SessionLocal()
         try:
@@ -54,7 +57,7 @@ def _run_job(job: str, fn: Callable[[], dict]) -> None:
 
 def _sync_beach_statuses() -> None:
     def _run() -> dict:
-        from scripts.ingest_beach_status import run
+        from app.ingest_beach_status import run
 
         updated, seen = run()
         print(f"[nayade-sync] {updated} estados nuevos ({seen} PMs)")
@@ -65,18 +68,23 @@ def _sync_beach_statuses() -> None:
 
 def _sync_news() -> None:
     def _run() -> dict:
-        from scripts.ingest_news import run
+        from app.ingest_news import run
 
         inserted, processed, rematched, llm_errors = run()
+        from app.news_sources import last_feed_failures
+
+        feeds_dead = list(last_feed_failures)
         print(
             f"[news-sync] {inserted} noticias ({processed} procesadas, "
-            f"{rematched} recasadas, {llm_errors} errores LLM)"
+            f"{rematched} recasadas, {llm_errors} errores LLM, "
+            f"{len(feeds_dead)} feeds caídos)"
         )
         return {
             "inserted": inserted,
             "processed": processed,
             "rematched": rematched,
             "llm_errors": llm_errors,
+            "feeds_dead": feeds_dead,
         }
 
     _run_job("news-sync", _run)
@@ -154,6 +162,11 @@ def _job_health(db: Session, job: str, interval_s: int) -> dict:
         # superado no es una señal activa
         "last_error": last.error if last and not last.ok else None,
         "stale": stale,
+        # news-sync guarda en detail los feeds caídos de la pasada —
+        # la señal que antes solo vivía en los logs
+        "feeds_dead": (last.detail or {}).get("feeds_dead", [])
+        if last
+        else [],
     }
 
 

@@ -1,4 +1,4 @@
-import type { GeoFeature, OutfallNearbyBeach } from './api';
+import type { OutfallNearbyBeach } from './api';
 import { beachBaseName } from './format';
 import { colors } from './theme';
 

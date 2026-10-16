@@ -99,10 +99,11 @@ _CAUSE_RULES = [
     (("gasoil", "hidrocarbur", "diesel", "fuel"), "Hidrocarburos"),
     (("alga",), "Algas"),
     (("obra",), "Obras"),
-    (
-        ("contamin", "vertido", "calidad del agua", "medusa"),
-        "Contaminación",
-    ),
+    # La fauna (medusas, carabelas) no es contaminación del agua —
+    # causa propia para no inflar el recuento de episodios de
+    # contaminación del ranking/estadísticas
+    (("medusa", "carabela", "fauna"), "Medusas"),
+    (("contamin", "vertido", "calidad del agua"), "Contaminación"),
 ]
 # Sin categoría "Acceso" ni "Mar agitado": "acceso prohibido",
 # "vallado", "oleaje", "temporal", "avance del mar"... describen el
@@ -119,6 +120,7 @@ _CAUSE_RANK = {
     "Desprendimientos": 0,
     "Hidrocarburos": 0,
     "Algas": 0,
+    "Medusas": 0,
     "Contaminación fecal": 1,
     "Obras": 1,
     "Contaminación": 2,
@@ -275,12 +277,9 @@ def stale_official_ids(db: Session) -> set[int]:
     if not rows:
         return set()
     reopens: dict[int, datetime] = {}
-    sources: dict[int, set] = {}
-    for bid, pub, src in rows:
+    for bid, pub, _src in rows:
         if bid not in reopens or pub > reopens[bid]:
             reopens[bid] = pub
-        if src:
-            sources.setdefault(bid, set()).add(src)
     ids = list(reopens)
     # Si hay un cierre de prensa posterior a la reapertura, la
     # reapertura ya no es el último evento: no suprime nada
@@ -305,31 +304,64 @@ def stale_official_ids(db: Session) -> set[int]:
         .all()
     ):
         open_incs.setdefault(bid, []).append(opened)
-    last_meas = dict(
+    last_meas: dict[int, tuple] = {}
+    for bid, sampled, ev in (
         db.query(
             BeachMeasurement.beach_id,
-            func.max(BeachMeasurement.sampled_at),
+            BeachMeasurement.sampled_at,
+            BeachMeasurement.evaluation,
         )
         .filter(BeachMeasurement.beach_id.in_(ids))
-        .group_by(BeachMeasurement.beach_id)
+        .order_by(BeachMeasurement.sampled_at.desc())
         .all()
-    )
+    ):
+        last_meas.setdefault(bid, (sampled, ev))
+    # Cobertura de ESTA reapertura (ventana del episodio): contar
+    # medios de reaperturas históricas distintas inflaba la
+    # corroboración — dos medios de años distintos no prueban nada
+    window = timedelta(days=30)
     stale = set()
     for bid, reopen in reopens.items():
         closure = last_closures.get(bid)
         if closure is not None and closure > reopen:
             continue
         evidence = list(open_incs.get(bid, []))
-        if last_meas.get(bid):
-            evidence.append(last_meas[bid])
+        meas = last_meas.get(bid)
+        # La última medición solo es evidencia de cierre si salió
+        # mal: una muestra apta posterior a la reapertura la
+        # CONFIRMA, no la contradice (misma regla que la ingesta)
+        if meas and _adverse_evaluation(meas[1]):
+            evidence.append(meas[0])
         if not evidence or not all(d <= reopen.date() for d in evidence):
             continue
         # Incidencia abierta = acto vigente: solo la suprime una
-        # reapertura corroborada por al menos 2 medios distintos
-        if open_incs.get(bid) and len(sources.get(bid, set())) < 2:
-            continue
+        # reapertura corroborada por >=2 medios distintos reportando
+        # ESTA reapertura
+        if open_incs.get(bid):
+            srcs = {
+                src
+                for rb, pub, src in rows
+                if rb == bid and src and pub >= reopen - window
+            }
+            if len(srcs) < 2:
+                continue
         stale.add(bid)
     return stale
+
+
+def _adverse_evaluation(ev: str | None) -> bool:
+    """Evaluación de muestra que indica agua no apta — misma lista
+    que _superseded_by_reopening en la ingesta."""
+    if not ev:
+        return False
+    t = "".join(
+        c
+        for c in unicodedata.normalize("NFD", ev.upper())
+        if unicodedata.category(c) != "Mn"
+    )
+    return any(
+        k in t for k in ("PROHIBID", "NO APTA", "SIN CALIFICAR", "RECOMEND")
+    )
 
 
 def _press_event(items: list[NewsItem]) -> NewsItem | None:
@@ -491,6 +523,33 @@ def effective_states(db: Session) -> dict[int, dict]:
 
     # Prensa en playas sin alerta oficial vigente
     grace = datetime.now(UTC) - PRESS_OPEN_GRACE
+    # Fechas de prueba de reapertura para las playas 'open' de golpe
+    # (antes: dos queries por playa dentro del bucle)
+    open_ids = [
+        bid
+        for bid in press_state
+        if official.get(bid) == BeachState.open.value
+        and not (bid in result and result[bid]["alerted"])
+        and _majority_cause(by_beach[bid]) not in _STRUCTURAL_CAUSES
+    ]
+    resolved_at: dict[int, object] = dict(
+        db.query(BeachIncident.beach_id, func.max(BeachIncident.closed_at))
+        .filter(
+            BeachIncident.beach_id.in_(open_ids or [-1]),
+            BeachIncident.closed_at.isnot(None),
+        )
+        .group_by(BeachIncident.beach_id)
+        .all()
+    )
+    last_meas_at: dict[int, object] = dict(
+        db.query(
+            BeachMeasurement.beach_id,
+            func.max(BeachMeasurement.sampled_at),
+        )
+        .filter(BeachMeasurement.beach_id.in_(open_ids or [-1]))
+        .group_by(BeachMeasurement.beach_id)
+        .all()
+    )
     for beach_id, state in press_state.items():
         if beach_id in result and result[beach_id]["alerted"]:
             continue
@@ -508,19 +567,8 @@ def effective_states(db: Session) -> dict[int, dict]:
             # siempre que haya prueba oficial de reapertura posterior a
             # la noticia: incidencia cerrada o muestra tomada después
             # (si fuera mala, el estado sería closed y no llegaría aquí)
-            resolved = (
-                db.query(func.max(BeachIncident.closed_at))
-                .filter(
-                    BeachIncident.beach_id == beach_id,
-                    BeachIncident.closed_at.isnot(None),
-                )
-                .scalar()
-            )
-            last_meas = (
-                db.query(func.max(BeachMeasurement.sampled_at))
-                .filter(BeachMeasurement.beach_id == beach_id)
-                .scalar()
-            )
+            resolved = resolved_at.get(beach_id)
+            last_meas = last_meas_at.get(beach_id)
             if last_meas is not None and (
                 resolved is None or last_meas > resolved
             ):

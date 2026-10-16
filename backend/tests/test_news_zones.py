@@ -174,8 +174,8 @@ def test_push_display_name_uses_zone():
 
     assert _display_name(JARDIN[2]) == "Playa Jardin · El Charcón"
     assert _display_name(JARDIN[1]) == "Playa Jardin · Punta Brava"
-    # sin mapa de zonas se conserva el nombre censal
+    # sin mapa de zonas el nombre censal va limpio: sin PM y con las
+    # preposiciones en minúscula
     assert (
-        _display_name(GUIMAR[0])
-        == "Playa Cabezo (El)-Paseo De Las Palmeras PM1"
+        _display_name(GUIMAR[0]) == "Playa Cabezo (El)-Paseo de las Palmeras"
     )

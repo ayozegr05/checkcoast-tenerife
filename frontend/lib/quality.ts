@@ -14,6 +14,17 @@ export const QUALITY_THRESHOLDS: Record<
   enterococci: { excellent: 100, good: 200, label: 'Enterococo' },
 };
 
+// Clase normativa de un valor medido + su color de estado (compartido
+// por el chip de la ficha y las barras de QualityChart)
+export const valueColor = (param: QualityParam, value: number) => {
+  const t = QUALITY_THRESHOLDS[param];
+  return value <= t.excellent
+    ? colors.status.open
+    : value <= t.good
+      ? colors.outfall.unknown
+      : colors.status.closed;
+};
+
 export const classifyValue = (param: QualityParam, raw: string | null) => {
   const value = parseFloat(raw ?? '');
   if (Number.isNaN(value)) return null;
@@ -24,14 +35,12 @@ export const classifyValue = (param: QualityParam, raw: string | null) => {
       : value <= t.good
         ? 'Buena'
         : 'Insuficiente';
-  const color =
-    cls === 'Excelente'
-      ? colors.status.open
-      : cls === 'Buena'
-        ? colors.outfall.unknown
-        : colors.status.closed;
-  const pct = Math.round((value / t.good) * 100);
-  return { value, cls, color, pct };
+  return {
+    value,
+    cls,
+    color: valueColor(param, value),
+    pct: Math.round((value / t.good) * 100),
+  };
 };
 
 // Valores tipo "<10" o ">24000 UFC/100 mL": quitar solo el prefijo no

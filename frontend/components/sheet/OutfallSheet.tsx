@@ -80,11 +80,19 @@ export default function OutfallSheet({
   // Playas en un radio de 1.5 km del vertido (proximidad geométrica,
   // no implica vínculo oficial con ningún cierre)
   const [nearby, setNearby] = useState<OutfallNearbyBeach[]>([]);
-  useEffect(() => {
+  const [prevFeatureId, setPrevFeatureId] = useState(feature.id);
+  if (prevFeatureId !== feature.id) {
+    setPrevFeatureId(feature.id);
     setNearby([]);
+  }
+  useEffect(() => {
+    let cancelled = false;
     fetchOutfallNearbyBeaches(feature.id)
-      .then((list) => setNearby(nearbyUniqueBeaches(list)))
-      .catch(() => setNearby([]));
+      .then((list) => !cancelled && setNearby(nearbyUniqueBeaches(list)))
+      .catch(() => !cancelled && setNearby([]));
+    return () => {
+      cancelled = true;
+    };
   }, [feature.id]);
 
   // Marcadores de la foto satélite del emisario: otros vertidos y las
@@ -440,7 +448,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   chipText: {
-    color: '#fff',
+    color: colors.onColor,
     fontSize: 12,
     fontFamily: fonts.bold,
   },

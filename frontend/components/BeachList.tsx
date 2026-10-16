@@ -39,19 +39,15 @@ import {
   worstEvalOf,
   worstStatusOf,
 } from '../lib/beachGroups';
+import { PM_SUFFIX } from '../lib/pm';
+import { BEACH_STATE_LABEL } from '../lib/structural';
 
-const STATUS_LABELS: Record<string, string> = {
-  closed: 'Cerrada',
-  warning: 'Aviso',
-  unknown: 'Sin datos',
-  open: 'Apta',
-  unmonitored: 'No monitorizada',
-};
+const STATUS_LABELS = BEACH_STATE_LABEL;
 
 const STATUS_COLORS = colors.status;
 
 const displayName = (name: string) =>
-  displayBeachName(name.replace(/\s+PM\d+$/, ''));
+  displayBeachName(name.replace(PM_SUFFIX, ''));
 
 const SORT_LABELS: Record<SortMode, string> = {
   estado: 'Estado',
@@ -151,18 +147,22 @@ export default function BeachList({
   };
 
   // El componente queda montado (Modal visible): búsqueda, filtro,
-  // expansión y orden se conservan entre aperturas. El municipio solo se
-  // impone cuando llega uno nuevo desde el ranking de municipios
-  useEffect(() => {
+  // expansión y orden se conservan entre aperturas. Ajustes de estado
+  // durante el render (patrón oficial de React — se procesan antes de
+  // pintar, sin cascada):
+  //  - el municipio solo se impone cuando llega uno nuevo del ranking
+  //  - al cerrarse el modal el detalle se descarta: reabrir debe
+  //    mostrar la lista, no la ficha anterior
+  const [prevMuni, setPrevMuni] = useState(initialMunicipality);
+  const [prevVisible, setPrevVisible] = useState(visible);
+  if (prevMuni !== initialMunicipality) {
+    setPrevMuni(initialMunicipality);
     if (initialMunicipality !== undefined) setMunicipality(initialMunicipality);
-  }, [initialMunicipality]);
-
-  // Al cerrarse el modal el detalle se descarta: reabrir la lista (p. ej.
-  // desde el ranking de municipios) debe mostrar la lista, no la ficha
-  // anterior
-  useEffect(() => {
+  }
+  if (prevVisible !== visible) {
+    setPrevVisible(visible);
     if (!visible) setDetail(null);
-  }, [visible]);
+  }
 
   // Stats frescas cada vez que se abre
   useEffect(() => {
@@ -185,7 +185,10 @@ export default function BeachList({
     }
     let mon = 0;
     let un = 0;
-    for (const v of seen.values()) v ? mon++ : un++;
+    for (const v of seen.values()) {
+      if (v) mon++;
+      else un++;
+    }
     return { mon, un };
   }, [beaches]);
 
@@ -849,7 +852,7 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 26,
     fontFamily: fonts.semibold,
-    color: '#fff',
+    color: colors.onColor,
     marginTop: -4,
   },
   detailScroll: {
@@ -879,7 +882,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 16,
     backgroundColor: colors.primary,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.25,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
@@ -888,12 +891,12 @@ const styles = StyleSheet.create({
   moreText: {
     fontSize: 12,
     fontFamily: fonts.bold,
-    color: '#fff',
+    color: colors.onColor,
   },
   title: {
     fontSize: 18,
     fontFamily: fonts.extrabold,
-    color: '#fff',
+    color: colors.onColor,
   },
   headerSub: {
     fontSize: 11,
@@ -1071,7 +1074,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   badgeText: {
-    color: '#fff',
+    color: colors.onColor,
     fontSize: 11,
     fontFamily: fonts.bold,
   },

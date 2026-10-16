@@ -18,6 +18,7 @@ import type { Selection } from './CoastMap';
 import type { GeoFeature } from '../lib/api';
 import { beachBaseName, displayBeachName } from '../lib/format';
 import { beachStatusKey } from '../lib/beachStatus';
+import { PM_SUFFIX, pmTagOf } from '../lib/pm';
 import { zoneName } from '../lib/zones';
 import { colors, fonts } from '../lib/theme';
 
@@ -77,11 +78,11 @@ export default function FeatureSheet({
   // chosenPm inicial
   const chosenPmRef = useRef<GeoFeature | null>(null);
   chosenPmRef.current = chosenPm;
-  useEffect(
-    () => setChosenPm(initialPm),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selection],
-  );
+  const [prevSelection, setPrevSelection] = useState(selection);
+  if (prevSelection !== selection) {
+    setPrevSelection(selection);
+    setChosenPm(initialPm);
+  }
   useEffect(() => onZoneShown?.(chosenPm), [chosenPm, onZoneShown]);
   const showPmPicker = isBeach && members.length > 1 && !chosenPm;
 
@@ -146,7 +147,7 @@ export default function FeatureSheet({
   // Título: el picker muestra el nombre de la playa; el detalle el
   // del punto elegido (Teresitas -> "… · Punto 2" porque sus PMs se
   // llaman igual; Troya ya se distingue por el romano)
-  const stripPm = (n: string) => n.replace(/\s+PM\d+$/, '');
+  const stripPm = (n: string) => n.replace(PM_SUFFIX, '');
   const sameBase =
     members.length > 1 &&
     new Set(members.map((m) => stripPm(m.properties.name))).size === 1;
@@ -154,7 +155,7 @@ export default function FeatureSheet({
     chosenPm && sameBase
       ? ` · ${
           zoneName(chosenPm.properties.name) ??
-          `Zona ${chosenPm.properties.name.match(/PM(\d+)$/)?.[1] ?? ''}`
+          `Zona ${pmTagOf(chosenPm.properties.name)?.replace(/^PM/i, '') ?? ''}`
         }`
       : '';
   const muni = isBeach ? beachFeature.properties.municipality : null;
@@ -284,8 +285,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#b9d3dd', // separa la card del mapa/leyenda
-    shadowColor: '#000',
+    borderColor: colors.cardBorder, // separa la card del mapa/leyenda
+    shadowColor: colors.shadow,
     shadowOpacity: 0.3,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: -4 },
@@ -302,7 +303,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#000',
+    backgroundColor: colors.shadow,
     marginTop: 8,
     marginBottom: 2,
   },
@@ -321,7 +322,7 @@ const styles = StyleSheet.create({
   close: {
     fontSize: 18,
     fontFamily: fonts.extrabold,
-    color: '#fff',
+    color: colors.onColor,
   },
   // ✕ fija en la esquina superior derecha de la zona tintada (al
   // lado del asa), con el color de estado — no se mueve aunque el
@@ -351,7 +352,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingVertical: 6,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.25,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
@@ -364,6 +365,6 @@ const styles = StyleSheet.create({
   moreText: {
     fontSize: 12,
     fontFamily: fonts.bold,
-    color: '#fff',
+    color: colors.onColor,
   },
 });

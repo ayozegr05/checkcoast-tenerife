@@ -36,15 +36,18 @@ export default function IncidentHistory({
   const renderInc = (inc: BeachIncident) => {
     const closure = isClosure(inc);
     const unclassified = isUnclassified(inc);
-    // Duración del episodio: hasta closed_at o hasta hoy
-    const days = Math.max(
-      1,
-      Math.round(
-        (Date.parse(inc.closed_at ?? new Date().toISOString().slice(0, 10)) -
-          Date.parse(inc.opened_at)) /
-          86400000,
-      ),
-    );
+    // Duración del episodio: hasta closed_at o hasta hoy, en días
+    // naturales incluyendo el inicial (misma convención que
+    // episodeDays/durationDays de las vistas de temporada)
+    const days =
+      Math.max(
+        0,
+        Math.round(
+          (Date.parse(inc.closed_at ?? new Date().toISOString().slice(0, 10)) -
+            Date.parse(inc.opened_at)) /
+            86400000,
+        ),
+      ) + 1;
     const accent = closure ? colors.status.closed : colors.outfall.unknown;
     // Analítica con respaldo de prensa = cierre real, mismo
     // cartel que el oficial; la procedencia va abajo en gris
@@ -323,7 +326,7 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
   },
   incidentTagText: {
-    color: '#fff',
+    color: colors.onColor,
     fontSize: 9,
     fontFamily: fonts.extrabold,
   },

@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 from app.models import Beach
+from app.names import PM_SUFFIX
 from app.news_zones import named_zones
 from app.queries import (
     _CAUSE_RANK,
@@ -128,6 +129,24 @@ def _min_closed_since(vals) -> str | None:
     teniendo "2026-09-29" en el pool."""
     vals = [v for v in vals if v]
     return min(vals, key=lambda v: (v[:4], -len(v), v), default=None)
+
+
+def _corroborated_closed_since(items) -> str | None:
+    """closed_since del episodio: el más antiguo afirmado por >=2
+    medios distintos. Un solo titular no puede retrotraer el inicio
+    cuando el resto del episodio afirma otra fecha (Gaviotas: "desde
+    jun-2024" lo decía UN medio — extracción errónea — contra 6 que
+    afirmaban jun-2026). Si ningún valor está corroborado se mantiene
+    el mínimo a secas: mejor un dato dudoso que ninguno."""
+    claims: dict[str, set[str]] = {}
+    for n in items:
+        cs = getattr(n, "closed_since", None)
+        if cs:
+            claims.setdefault(cs, set()).add(getattr(n, "source", None))
+    multi = [v for v, srcs in claims.items() if len(srcs) >= 2]
+    if multi:
+        return _min_closed_since(multi)
+    return _min_closed_since(claims)
 
 
 def _is_structural(ev: "SynthEvent") -> bool:
@@ -344,17 +363,19 @@ def synthesize_events(
                 )
                 press_evs.append(current)
             boundary = False
-            current.closed_since = _min_closed_since(
-                [current.closed_since, n.closed_since]
+            _add_press(current, n, pub)
+            # El inicio real es el del closed_since ganador: el más
+            # antiguo CORROBORADO por >=2 medios (un solo titular mal
+            # extraído no retrotrae el episodio años atrás — Gaviotas
+            # "desde jun-2024" vs los 6 medios que afirmaban jun-2026);
+            # sin closed_since, la primera fecha de cobertura
+            current.closed_since = _corroborated_closed_since(
+                current.press_items
             )
-            # El inicio real es el del closed_since ganador (el más
-            # preciso del año más antiguo: "2024-07" manda sobre
-            # "2024"); sin él, la primera fecha de cobertura
             current.opened_at = min(
                 current.first_pub or pub,
                 _closed_since_date(current.closed_since) or date.max,
             )
-            _add_press(current, n, pub)
             current.last_closure = max(current.last_closure or pub, pub)
             if n.cause:
                 current.causes.append(n.cause)
@@ -524,7 +545,9 @@ def synthesize_events(
                 press_confirmed=True,
                 press_count=sum(e.press_count for e in run),
                 sources=sorted({s for e in run for s in e.sources}),
-                closed_since=_min_closed_since(e.closed_since for e in run),
+                closed_since=_corroborated_closed_since(
+                    i for e in run for i in e.press_items
+                ),
                 end_estimated=run[-1].end_estimated,
                 causes=[c for e in run for c in e.causes],
                 first_pub=min(e.first_pub or e.opened_at for e in run),
@@ -598,9 +621,7 @@ class Episode:
 
 def base_name(name: str) -> str:
     """Nombre de playa sin el sufijo de punto de muestreo."""
-    import re
-
-    return re.sub(r"\s+PM\d+$", "", name)
+    return PM_SUFFIX.sub("", name)
 
 
 def _near(a_end: date | None, b_start: date, today: date) -> bool:

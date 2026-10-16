@@ -120,15 +120,6 @@ export const causeFamilyCounts = (
   return out;
 };
 
-// Desglose de causas de un conjunto de episodios:
-// "9 contaminación · 3 desprendimientos · 2 sin causa"
-export const causeBreakdown = (eps: MunicipalityIncident[]): string =>
-  causeCounts(eps)
-    .map(
-      ([cause, n]) => `${n} ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`,
-    )
-    .join(' · ');
-
 // Cierres (no avisos) que TOCARON el año en curso — misma semántica
 // de solape que la vista "Este año": un cierre abierto antes que sigue
 // (o siguió durante) el año cuenta igual (Benijo cerró todo 2026
@@ -139,11 +130,6 @@ export const closuresThisYear = (
   year: number = new Date().getFullYear(),
 ): MunicipalityIncident[] =>
   yearEpisodes(eps, year).filter((e) => e.kind === 'closure');
-
-// Episodios sin fecha de cierre: siguen vivos
-export const activeEpisodes = (
-  eps: MunicipalityIncident[],
-): MunicipalityIncident[] => eps.filter((e) => e.closed_at === null);
 
 // Resueltas en los últimos `days` — la sección verde del panel de
 // alertas (puente entre el push de reapertura y la ficha). Un fin

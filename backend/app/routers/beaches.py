@@ -13,9 +13,9 @@ from app.events import (
     Episode,
     SynthEvent,
     _closed_since_date,
+    _corroborated_closed_since,
     _in_window,
     _is_structural,
-    _min_closed_since,
     base_name,
     cluster_episodes,
     merged_episode,
@@ -30,6 +30,7 @@ from app.models import (
     NewsItem,
     Outfall,
 )
+from app.names import pm_label
 from app.queries import (
     _CAUSE_RANK,
     CONTAMINATION_CAUSES,
@@ -83,10 +84,7 @@ def _mes(d: date) -> str:
 
 def _pm_label(name: str) -> str | None:
     """'PLAYA JARDIN PM4' → 'PM4'; None si no es punto de muestreo."""
-    import re
-
-    m = re.search(r"\bPM(\d+)$", name)
-    return f"PM{m.group(1)}" if m else None
+    return pm_label(name)
 
 
 def _latest_closed(db: Session, beach_id: int) -> bool:
@@ -272,7 +270,15 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
     a la vez cuenta UNA vez — en el PM de menor id. Las playas no
     monitorizadas solo aportan episodios reconstruidos vía prensa."""
     year_ago = date.today() - timedelta(days=365)
-    beaches = list(db.query(Beach))
+    # selectinload: incidencias/mediciones/noticias de TODAS las
+    # playas en 3 queries — el lazy load por playa era ~600 queries
+    beaches = list(
+        db.query(Beach).options(
+            selectinload(Beach.incidents),
+            selectinload(Beach.measurements),
+            selectinload(Beach.news_items),
+        )
+    )
     episodes: list[Episode] = []
     # Conteo propio por PM (sin deduplicar entre hermanos): replica la
     # ficha — incidencia con "prohibido" o evento reconstruido =
@@ -517,7 +523,16 @@ def municipality_incidents(
     solapadas o a ≤14 días se fusionan sobre el nombre base); `beach_id`
     apunta al PM representativo — al abrir la ficha se ven los demás
     PMs del grupo."""
-    beaches = db.query(Beach).filter(Beach.municipality == municipality).all()
+    beaches = (
+        db.query(Beach)
+        .options(
+            selectinload(Beach.incidents),
+            selectinload(Beach.measurements),
+            selectinload(Beach.news_items),
+        )
+        .filter(Beach.municipality == municipality)
+        .all()
+    )
     out = _merged_episode_rows(_collect_episodes(beaches, date.today()))
     out.sort(key=lambda r: r.opened_at, reverse=True)
     return out
@@ -1061,7 +1076,10 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
                 and r.published_at
                 and r.published_at >= since
             ]
-        closed_since = _min_closed_since(r.closed_since for r in pool)
+        # Solo gana el closed_since corroborado por >=2 medios: un
+        # solo titular mal extraído no retrotrae el inicio (Gaviotas:
+        # "desde jun-2024" de 1 medio vs jun-2026 de 6)
+        closed_since = _corroborated_closed_since(pool)
         # Un "cerrada desde" anterior a la incidencia oficial que
         # cubre el episodio es imposible: el registro de Náyade
         # habría mostrado la playa cerrada. Es extracción errónea
@@ -1071,8 +1089,8 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
         if official_start is not None:
             cs_d = _closed_since_date(closed_since)
             if cs_d is not None and cs_d < official_start:
-                closed_since = _min_closed_since(
-                    r.closed_since
+                closed_since = _corroborated_closed_since(
+                    r
                     for r in pool
                     if (_d := _closed_since_date(r.closed_since)) is not None
                     and _d >= official_start

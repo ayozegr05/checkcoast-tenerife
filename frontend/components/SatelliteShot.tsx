@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Image,
   ImageSourcePropType,
@@ -144,11 +144,15 @@ export default function SatelliteShot({
 
   const dcLon = detailCenter?.[0];
   const dcLat = detailCenter?.[1];
-  useEffect(() => {
+  // Reset durante render al cambiar de punto/encuadre: recalcula el
+  // nivel de zoom y libera el skeleton antes de pintar, sin render extra
+  const shotKey = `${lon}|${lat}|${dcLon}|${dcLat}|${startLevel}|${fitMarkers}`;
+  const [prevShotKey, setPrevShotKey] = useState(shotKey);
+  if (prevShotKey !== shotKey) {
+    setPrevShotKey(shotKey);
     setLevel(fitLevel());
     setLoadedUri(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lon, lat, dcLon, dcLat, startLevel, fitMarkers]);
+  }
 
   const dLon = BASE_DLON * scales[level];
   const dLat = BASE_DLAT * scales[level];
@@ -412,14 +416,14 @@ const styles = StyleSheet.create({
     marginLeft: -9,
     borderRadius: 9,
     borderWidth: 3,
-    borderColor: '#fff',
+    borderColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   centerIcon: {
     width: 9,
     height: 9,
-    tintColor: '#fff',
+    tintColor: colors.onColor,
   },
   marker: {
     position: 'absolute',
@@ -429,19 +433,19 @@ const styles = StyleSheet.create({
     marginTop: -9,
     borderRadius: 9,
     borderWidth: 1.5,
-    borderColor: '#fff',
+    borderColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   markerIcon: {
     width: 10,
     height: 10,
-    tintColor: '#fff',
+    tintColor: colors.onColor,
   },
   markerLabel: {
     fontSize: 10,
     fontFamily: fonts.extrabold,
-    color: '#fff',
+    color: colors.onColor,
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
@@ -459,7 +463,7 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 1.5,
-    borderColor: '#fff',
+    borderColor: colors.surface,
   },
   markerTag: {
     marginTop: 3,
@@ -471,7 +475,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     fontSize: 9,
     fontFamily: fonts.extrabold,
-    color: '#fff',
+    color: colors.onColor,
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
@@ -483,7 +487,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 3,
     borderStyle: 'dashed',
     opacity: 0.95,
-    shadowColor: '#fff',
+    shadowColor: colors.onColor,
     shadowOpacity: 0.9,
     shadowRadius: 2,
     elevation: 1,
@@ -494,7 +498,7 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     borderWidth: 2.5,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   zoomCol: {
     position: 'absolute',
@@ -517,7 +521,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 17,
     fontFamily: fonts.bold,
-    color: '#fff',
+    color: colors.onColor,
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
@@ -527,7 +531,7 @@ const styles = StyleSheet.create({
   mapBtnIcon: {
     width: 14,
     height: 14,
-    tintColor: '#fff',
+    tintColor: colors.onColor,
   },
   credit: {
     position: 'absolute',
@@ -535,7 +539,7 @@ const styles = StyleSheet.create({
     right: 8,
     fontSize: 9,
     fontFamily: fonts.semibold,
-    color: '#fff',
+    color: colors.onColor,
     textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowRadius: 2,
   },

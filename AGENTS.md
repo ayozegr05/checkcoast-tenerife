@@ -101,9 +101,17 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     borra réplicas en PMs no nombrados, `beach_id=NULL` las recasaría
     `_rematch_pending`. El frontend espeja el mapa en `lib/zones.ts`
     para mostrar el nombre común ("Punta Brava", no "zona 4")
+  - `app/ingest_beach_status.py` — scraper Náyade (job del scheduler;
+    `python -m scripts.ingest_beach_status` sigue funcionando vía shim)
+  - `app/ingest_news.py` — prensa → LLM (job del scheduler; shim
+    `python -m scripts.ingest_news`)
+  - `app/names.py` — `normalize_beach_name` compartido (antes vivía en
+    scripts/; `app/` nunca debe importar de `scripts/` — la dirección
+    correcta es scripts → app)
   - `scripts/` — `ingest_outfalls.py`, `ingest_beaches.py` (censo MITECO
-    + solver ALTCHA), `ingest_beach_status.py` (scraper Náyade),
-    `ingest_osm_beaches.py` (Overpass), `ingest_news.py` (prensa → LLM
+    + solver ALTCHA),
+    `ingest_osm_beaches.py` (Overpass), `ingest_news.py`/`ingest_beach_status.py`
+    (shims CLI → `app/`; la lógica vive en app/), prensa → LLM
     → `news_items`, con segunda pasada cuerpo si el titular no aclara,
     la causa es genérica ("mala calidad del agua", "vertido" a secas
     — el cuerpo suele nombrar el parámetro o la sustancia real) o el
@@ -179,10 +187,11 @@ docker compose build api && docker compose up -d api    # rebuild tras cambios d
 cd backend
 .venv\Scripts\uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 .venv\Scripts\alembic upgrade head                      # migraciones
+.venv\Scripts\pip install -r requirements-dev.txt       # deps dev (pytest no va en prod)
 .venv\Scripts\python -m pytest tests/ -q                # tests backend
-.venv\Scripts\python -m scripts.ingest_beach_status     # scraper Náyade manual
+.venv\Scripts\python -m scripts.ingest_beach_status     # scraper Náyade manual (shim → app/)
 .venv\Scripts\python -m scripts.ingest_osm_beaches      # playas OSM manual
-.venv\Scripts\python -m scripts.ingest_news             # prensa → LLM manual
+.venv\Scripts\python -m scripts.ingest_news             # prensa → LLM manual (shim → app/)
 cd ../frontend
 npx expo start --dev-client --port 8082                 # OBLIGATORIO --port 8082
 npx tsc --noEmit                                        # typecheck
@@ -350,7 +359,7 @@ npx tsc --noEmit                                        # typecheck
 
 ## Extracción de prensa: protocolo LLM titular → cuerpo
 
-Pipeline en dos pasadas (`scripts/ingest_news.py::_enrich_with_body`):
+Pipeline en dos pasadas (`app/ingest_news.py::_enrich_with_body`):
 
 1. **Pasada 1**: `extract_event` solo con el titular (Gemini).
 2. **Pasada 2** (descarga de cuerpo) se dispara si el ítem es relevante Y:

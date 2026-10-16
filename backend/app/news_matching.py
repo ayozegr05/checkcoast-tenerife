@@ -43,8 +43,8 @@ import re
 from dataclasses import replace
 
 from app.models import Beach
+from app.names import normalize_beach_name as _normalize
 from app.news_llm import EventExtraction
-from scripts.ingest_osm_beaches import _normalize
 
 # Grafías que usa la prensa → municipio oficial (límites OSM en BD)
 MUNICIPALITY_ALIASES = {
