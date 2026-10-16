@@ -1,0 +1,47 @@
+# Smoke E2E: buscar playa → flyTo + ficha → cerrar.
+# Cubre la cadena que refactorizaría useMapCamera (pickResult →
+# cámara → ficha → cierre) sin tocar pins nativos del mapa.
+#
+# Requiere: emulador/device con el dev-client instalado + Metro en
+# 8082 (npx expo start --dev-client --port 8082). El emulador llega
+# a Metro por el alias 10.0.2.2 (host) y a la API de prod por internet.
+#
+# Correr: maestro test e2e/flows/smoke-search.yaml
+
+appId: com.checkcoast.tenerife
+name: Smoke — búsqueda de playa abre y cierra la ficha
+---
+# Deep-link al dev-client con la URL de Metro (el emulador ve el host
+# como 10.0.2.2). OJO: NO usar exp:// — Expo Go instalado captura ese
+# esquema. El dev-client responde a exp+<slug>://expo-development-client
+- openLink: exp+checkcoast-tenerife://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8082
+
+# Primera carga: Metro compila el bundle + fetch inicial — margen alto
+- extendedWaitUntil:
+    visible: Entendido
+    timeout: 120000
+
+# Intro de primer arranque → mapa
+- tapOn: Entendido
+- assertVisible: Buscar playa, emisario o municipio
+
+# Buscador: abrir, escribir, elegir resultado (ejercita pickResult →
+# flyTo al grupo + onSelect → ficha)
+- tapOn: Buscar playa, emisario o municipio
+- tapOn: Buscar playa, emisario o municipio\.\.\.
+- inputText: Jardín
+- extendedWaitUntil:
+    visible:
+      text: .*Jardín.*
+    timeout: 15000
+- tapOn:
+    text: .*Playa Jardín.*
+
+# La ficha abre (su ✕ lleva a11y label "Cerrar ficha")
+- extendedWaitUntil:
+    visible: Cerrar ficha
+    timeout: 15000
+
+# Cierre: la ficha se va y el mapa queda donde el usuario la dejó
+- tapOn: Cerrar ficha
+- assertNotVisible: Cerrar ficha
