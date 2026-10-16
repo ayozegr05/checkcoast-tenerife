@@ -1,0 +1,4 @@
+# Dependencias de desarrollo/CI — la imagen Docker instala solo
+# requirements.txt para no arrastrar pytest a producción
+-r requirements.txt
+pytest>=8.0,<9.0

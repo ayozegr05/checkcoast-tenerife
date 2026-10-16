@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PointGeometry(BaseModel):
@@ -182,7 +182,9 @@ class BeachNewsOut(BaseModel):
 
 
 class DeviceIn(BaseModel):
-    token: str
+    # La columna es String(255): un token más largo reventaba el INSERT
+    # con un 500 genérico en vez del 422 de validación
+    token: str = Field(max_length=255)
     platform: str | None = None
 
 

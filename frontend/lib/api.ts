@@ -184,13 +184,6 @@ export type BeachNewsResponse = {
   episode_items?: BeachNews[];
 };
 
-export type SamplingSummary = {
-  season_per_month: number; // media muestras/mes jun–sep (toda la isla)
-  offseason_per_month: number; // media muestras/mes oct–may
-  season_months: number;
-  offseason_months: number;
-};
-
 export type OutfallNearbyBeach = {
   outfall_id: number;
   beach_id: number;
@@ -241,7 +234,6 @@ export const fetchMunicipalityIncidents = (municipality: string) =>
 // episodio agrupado por playa base + municipio — alimenta el resumen
 // anual, "Resueltas recientemente" y la vista Temporada
 export const fetchEpisodes = () => getJson<MunicipalityIncident[]>('/episodes');
-export const fetchSampling = () => getJson<SamplingSummary>('/sampling');
 
 // URL pública compartible de una playa (mini-página OG del backend);
 // WhatsApp/Telegram la convierten en tarjeta con foto satélite.

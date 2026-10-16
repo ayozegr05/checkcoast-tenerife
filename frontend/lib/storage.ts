@@ -10,5 +10,6 @@ export const storage: {
   setItem: (k: string, v: string) => Promise<void>;
 } | null =
   (NativeModules.RNCAsyncStorage ?? TurboModuleRegistry.get('RNCAsyncStorage'))
-    ? require('@react-native-async-storage/async-storage').default
+    ? // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('@react-native-async-storage/async-storage').default
     : null;

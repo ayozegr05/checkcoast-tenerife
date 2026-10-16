@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 8,
     paddingHorizontal: 4,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.25,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkMark: {
-    color: '#fff',
+    color: colors.onColor,
     fontSize: 10,
     lineHeight: 11,
     fontFamily: fonts.extrabold,
@@ -195,6 +195,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginRight: 6,
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: colors.surface,
   },
 });

@@ -52,11 +52,11 @@ import seaStyle from '../assets/mapstyle-sea.json';
 import AlertsBanner from './map/AlertsBanner';
 import LayersPanel from './map/LayersPanel';
 import MapLegend from './map/MapLegend';
+import MapSearch from './map/MapSearch';
+import MapTopbar from './map/MapTopbar';
 
 // Flag de primer uso del bocadillo de capas
 const LAYERS_HINT_KEY = 'checkcoast.layers_hint_seen';
-import MapSearch from './map/MapSearch';
-import MapTopbar from './map/MapTopbar';
 
 // Estilo vectorial tematico (OpenFreeMap/OpenMapTiles retenido con la
 // paleta oceanica por scripts/gen_mapstyle.py). Sin API key.
@@ -163,7 +163,6 @@ type CoastMapProps = {
   controlsCovered?: boolean;
 };
 
-const OUTFALL_COLORS = colors.outfall;
 const BEACH_COLORS = colors.status;
 
 export default function CoastMap({
@@ -285,15 +284,22 @@ export default function CoastMap({
   // Bocadillo de capas: solo el primer arranque del build — enseña
   // que la leyenda/botón abren el panel. Se marca al tocarlo o al
   // abrir Capas por cualquier vía
-  // TODO preview: forzado a visible mientras iteramos el diseño —
-  // restaurar la lectura de storage antes de cerrar
   useEffect(() => {
-    setLayersHint(true);
-    storage?.setItem(LAYERS_HINT_KEY, '').catch(() => {});
+    let alive = true;
+    storage
+      ?.getItem(LAYERS_HINT_KEY)
+      .then((seen) => {
+        if (alive && seen === null) setLayersHint(true);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const dismissLayersHint = () => {
     setLayersHint(false);
+    storage?.setItem(LAYERS_HINT_KEY, '1').catch(() => {});
   };
 
   const openLayers = () => {
@@ -426,7 +432,7 @@ export default function CoastMap({
       }
       preZoneView.current = null;
     }
-  }, [zoneFocus, pmShown]);
+  }, [zoneFocus, pmShown, pmPoints, CARD_PAD.top, CARD_PAD.bottom]);
 
   // Agrupación por playa: cada punto de muestreo (PM1, PM2, Troya I/II)
   // es un registro oficial distinto, pero el mapa dibuja UN pin por
@@ -434,7 +440,7 @@ export default function CoastMap({
   // La ficha que se abre es la del PM peor parado (representante).
   const beachGroups = useMemo(
     () => buildBeachGroups(beaches.features),
-    [beaches],
+    [beaches.features],
   );
 
   // Un pin por playa: geometría del centroide + propiedades del PM
@@ -740,6 +746,12 @@ export default function CoastMap({
   };
   // Lo mismo para el desplegable de avisos del banner y el panel de
   // capas — tocar el mapa u otro botón cierra lo que esté abierto
+  const closeOverlays = () => {
+    closeSearch();
+    setAlertsOpen(false);
+    setLayersOpen(false);
+  };
+
   // Atrás con buscador/avisos/capas abierto: se cierra el overlay, no
   // la app. Al re-suscribirse en cada cambio este listener queda el
   // más reciente y corre antes que el handler de selección de App
@@ -754,12 +766,6 @@ export default function CoastMap({
     return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchOpen, alertsOpen, layersOpen]);
-
-  const closeOverlays = () => {
-    closeSearch();
-    setAlertsOpen(false);
-    setLayersOpen(false);
-  };
 
   // Pill del banner: con alertas despliega/pliega la lista; sin
   // alertas abre la lista general
@@ -972,7 +978,7 @@ export default function CoastMap({
               }}
               paint={{
                 'text-color': colors.text,
-                'text-halo-color': '#ffffff',
+                'text-halo-color': colors.surface,
                 'text-halo-width': 2.2,
               }}
             />
@@ -1236,7 +1242,7 @@ export default function CoastMap({
               }}
               paint={{
                 'text-color': colors.text,
-                'text-halo-color': '#ffffff',
+                'text-halo-color': colors.surface,
                 'text-halo-width': [
                   'case',
                   ['==', ['get', 'sel'], true],
@@ -1301,7 +1307,7 @@ export default function CoastMap({
                     BEACH_COLORS.open,
                   ],
                 ],
-                'circle-stroke-color': '#ffffff',
+                'circle-stroke-color': colors.surface,
                 'circle-stroke-width': 2.5,
               }}
             />
@@ -1319,7 +1325,7 @@ export default function CoastMap({
               }}
               paint={{
                 'text-color': colors.text,
-                'text-halo-color': '#ffffff',
+                'text-halo-color': colors.surface,
                 'text-halo-width': 2,
               }}
             />
@@ -1502,14 +1508,18 @@ export default function CoastMap({
               ¿Quieres ver todas las playas y emisarios?
             </Text>
             <View style={styles.layersHintRow}>
-              <Text style={styles.layersHintText}>Pulsa aquí o en Capas</Text>
+              <Text style={[styles.layersHintText, { width: 140 }]}>
+                Pulsa aquí o en «Capas»
+              </Text>
               <View style={styles.layersHintBtn}>
                 <Image
                   source={require('../assets/icons/icon-layers.png')}
                   style={styles.layersHintIcon}
                 />
               </View>
-              <Text style={styles.layersHintText}>para verlas</Text>
+              <Text style={[styles.layersHintText, { width: 75 }]}>
+                para verlas
+              </Text>
             </View>
           </ImageBackground>
           <View style={styles.layersHintTail} />
@@ -1611,17 +1621,15 @@ const styles = StyleSheet.create({
     bottom: Platform.OS === 'android' ? 132 : 104,
     left: 0,
     right: 0,
-    alignItems: 'center',
     elevation: 6,
     zIndex: 6,
   },
   layersHintBubble: {
     borderRadius: 10,
     overflow: 'hidden',
-    // Ancho porcentual: en Android el shrink-to-fit del ImageBackground
-    // medía mal los Text hijos y los cortaba — fijamos el ancho y punto
-    width: '88%',
-    maxWidth: 420,
+    // Centrado por construcción: margen fijo a ambos lados, el globo
+    // estira entre ellos — no depende de alignSelf ni de Yoga
+    marginHorizontal: '10%',
     paddingVertical: 9,
     paddingHorizontal: 14,
   },
@@ -1633,11 +1641,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 2,
     marginTop: 4,
   },
   layersHintText: {
-    color: '#fff',
+    color: colors.onColor,
     fontSize: 12,
     fontFamily: fonts.semibold,
     textAlign: 'center',
@@ -1646,6 +1654,7 @@ const styles = StyleSheet.create({
   layersHintBtn: {
     width: 20,
     height: 20,
+    marginLeft: 1,
     borderRadius: 5,
     backgroundColor: 'rgba(255,255,255,0.95)',
     alignItems: 'center',

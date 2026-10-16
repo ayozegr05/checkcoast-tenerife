@@ -15,6 +15,7 @@ Diario de Avisos `/feed/`, Canarias7 `/rss/2.0/?section=/canarias/tenerife`.
 """
 
 import html
+import logging
 import re
 import time
 import unicodedata
@@ -25,8 +26,16 @@ from email.utils import parsedate_to_datetime
 
 import requests
 
+logger = logging.getLogger(__name__)
+
 GNEWS_URL = "https://news.google.com/rss/search"
 USER_AGENT = "CheckCoastBot/0.1 (civic data ingestion; contact: local dev)"
+
+# Fuentes (RSS municipal/medio) que fallaron en la última pasada de
+# fetch_municipal_feeds — la ingesta las persiste en job_runs.detail
+# para que /health las exponga; sin esto un feed muerto pasaba meses
+# invisible salvo que alguien leyera los logs
+last_feed_failures: list[str] = []
 
 # Playa + evento adverso, acotado a Tenerife. Google News no hace
 # stemming ("cierre" no casa "cerrada"), así que van varias queries
@@ -268,7 +277,9 @@ def fetch_municipal_feeds() -> list[RawArticle]:
     Los feeds traen los últimos ~10-20 posts: cobertura hacia adelante,
     no histórico. El titular pasa un prefiltro léxico — sin él cada
     pasada gastaría cuota de Gemini en fiestas y deportes. Un feed
-    caído no aborta el resto."""
+    caído no aborta el resto pero queda en `last_feed_failures` para
+    que la ingesta lo persista en job_runs (visible en /health)."""
+    last_feed_failures.clear()
     articles = []
     feeds = {**MUNICIPAL_FEEDS, **MEDIA_FEEDS}
     for source, feed_url in feeds.items():
@@ -295,7 +306,14 @@ def fetch_municipal_feeds() -> list[RawArticle]:
             if start is None:
                 continue
             root = ET.fromstring(_fix_named_entities(raw[start.start() :]))
-        except Exception:
+        except Exception as e:
+            # Feed muerto: un feed caído no aborta el resto, pero sí
+            # deja rastro — silenciarlo del todo dejaba fuentes
+            # desactivadas durante meses sin que nadie lo notara
+            last_feed_failures.append(source)
+            logger.warning(
+                "[news] feed %s (%s) falló: %s", source, feed_url, e
+            )
             continue
         for item in root.findall(".//item"):
             title = (item.findtext("title") or "").strip()

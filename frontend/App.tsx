@@ -84,7 +84,7 @@ export default function App() {
   const [focus, setFocus] = useState<
     [number, number, number?, ('beach' | 'outfall')?] | null
   >(null);
-  const [introVisible, setIntroVisible] = useState(false);
+  const [introVisible, setIntroVisible] = useState(() => !storage);
   // Intro reabierta desde la Guía: sin checkbox y con ‹/✕ de sección
   const [introRevisit, setIntroRevisit] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -108,9 +108,7 @@ export default function App() {
   // red): Ayuda lo muestra con opción de reintentar
   const [pushFailed, setPushFailed] = useState(false);
 
-  const loadData = () => {
-    setError(null);
-    setLoading(true);
+  const fetchAll = () =>
     Promise.all([
       fetchOutfalls(),
       fetchBeaches(),
@@ -125,10 +123,15 @@ export default function App() {
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
+
+  const loadData = () => {
+    setError(null);
+    setLoading(true);
+    fetchAll();
   };
 
   useEffect(() => {
-    loadData();
+    fetchAll();
 
     // Refresco periódico: alertas + playas (estado/incidencias nuevas
     // sin reiniciar la app — la API las sincroniza con Náyade)
@@ -152,10 +155,7 @@ export default function App() {
   // La card de bienvenida solo se muestra en el primer arranque;
   // la ayuda bajo demanda vive en HelpHub (botón "?" del mapa)
   useEffect(() => {
-    if (!storage) {
-      setIntroVisible(true);
-      return;
-    }
+    if (!storage) return;
     storage
       .getItem(INTRO_SEEN_KEY)
       .then((seen) => setIntroVisible(!seen))

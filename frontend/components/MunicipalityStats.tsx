@@ -99,20 +99,25 @@ export default function MunicipalityStats({
   const [showAllYears, setShowAllYears] = useState(false);
 
   // El modal vive montado (conserva scroll/estado): al abrirlo manda
-  // la vista pedida, no la última visitada
-  useEffect(() => {
-    if (!visible) return;
-    setView(initialView);
-    setYearCause(initialCause ?? 'all');
-    setSeasonCause('all');
-    // Ranking abre en "Este año" si hay datos; si el año vigente aún
-    // no tiene episodios cae al último año con datos, y sin años al
-    // histórico completo
-    const latest = latestEpisodeYear(episodes);
-    setSelYear(latest ?? seasonYear());
-    setHistMode(latest === null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, initialView, initialCause]);
+  // la vista pedida, no la última visitada. Reset durante render —
+  // corre antes de pintar, sin render extra. La firma incluye los
+  // props de apertura: si cambian con el panel abierto re-sincroniza
+  const openSig = visible ? `${initialView}${initialCause ?? ''}` : '';
+  const [prevOpenSig, setPrevOpenSig] = useState('');
+  if (openSig !== prevOpenSig) {
+    setPrevOpenSig(openSig);
+    if (openSig) {
+      setView(initialView);
+      setYearCause(initialCause ?? 'all');
+      setSeasonCause('all');
+      // Ranking abre en "Este año" si hay datos; si el año vigente aún
+      // no tiene episodios cae al último año con datos, y sin años al
+      // histórico completo
+      const latest = latestEpisodeYear(episodes);
+      setSelYear(latest ?? seasonYear());
+      setHistMode(latest === null);
+    }
+  }
 
   const seasonRows = useMemo(
     () =>
@@ -239,9 +244,16 @@ export default function MunicipalityStats({
   );
 
   useEffect(() => {
+    let cancelled = false;
     fetchBeachStats()
-      .then((rows) => setStats(new Map(rows.map((s) => [s.beach_id, s]))))
+      .then(
+        (rows) =>
+          !cancelled && setStats(new Map(rows.map((s) => [s.beach_id, s]))),
+      )
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const rows = useMemo(

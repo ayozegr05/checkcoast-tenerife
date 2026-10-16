@@ -80,6 +80,12 @@ Marca relevant=false cuando:
   aparcamiento por aforo completo, chiringuito, paseo marítimo,
   duchas. Si el texto dice que la playa o el baño siguen abiertos,
   relevant=false — p.ej. "cierran el parking de la playa por aforo"
+- el cierre es por AFORO, OCUPACIÓN o ACCESO DE VEHÍCULOS, no por el
+  agua ni por riesgo físico: "cierran la playa por alta ocupación",
+  "cerrado el acceso por aforo completo", "cierre por masificación",
+  restricciones COVID de capacidad. Es gestión de visitantes, no un
+  episodio de calidad del agua ni de seguridad del baño → relevant=false
+  (aunque el titular diga literalmente "cierran la playa")
 
 Si relevant=true extrae:
 - beach_name: nombre de la playa tal como aparece en el titular

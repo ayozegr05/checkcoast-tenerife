@@ -132,23 +132,30 @@ export default function MuniDetail({
   onSelectBeach?: (beachId: number) => void;
   onBack: () => void;
 }) {
+  // "Sin municipio" no tiene incidentes oficiales (puede tener alertas
+  // de prensa en playas OSM): lista vacía de entrada, no skeleton
   const [incidents, setIncidents] = useState<MunicipalityIncident[] | null>(
-    null,
+    detail.municipality ? null : [],
   );
+
+  // Reset durante render al cambiar de municipio abierto
+  const [prevDetail, setPrevDetail] = useState(detail);
+  if (prevDetail !== detail) {
+    setPrevDetail(detail);
+    setIncidents(detail.municipality ? null : []);
+  }
 
   // Línea temporal de incidentes del municipio abierto; solo las playas
   // monitorizadas tienen incidentes, así que "Sin municipio" no tiene
   useEffect(() => {
-    setIncidents(null);
-    // "Sin municipio" no tiene incidentes oficiales pero puede tener
-    // alertas de prensa (playas OSM): lista vacía, no skeleton eterno
-    if (!detail.municipality) {
-      setIncidents([]);
-      return;
-    }
+    if (!detail.municipality) return;
+    let cancelled = false;
     fetchMunicipalityIncidents(detail.municipality)
-      .then(setIncidents)
-      .catch(() => setIncidents([]));
+      .then((v) => !cancelled && setIncidents(v))
+      .catch(() => !cancelled && setIncidents([]));
+    return () => {
+      cancelled = true;
+    };
   }, [detail]);
 
   // Línea temporal del municipio abierto: el backend ya devuelve

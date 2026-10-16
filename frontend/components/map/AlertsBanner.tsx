@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Image,
   LayoutAnimation,
@@ -12,7 +12,7 @@ import {
 
 import type { GeoFeature, MunicipalityIncident } from '../../lib/api';
 import { foldCount, foldSummary } from '../../lib/alertFold';
-import { episodeDays, resolvedDays } from '../../lib/episodes';
+import { resolvedDays } from '../../lib/episodes';
 import {
   beachBaseName,
   displayBeachName,
@@ -58,9 +58,11 @@ export default function AlertsBanner({
   const hasAlerts = closedCount + warningCount > 0;
   // "N más" de la sección estructural; vuelve a plegarse al cerrar
   const [structuralOpen, setStructuralOpen] = useState(false);
-  useEffect(() => {
+  const [prevAlertsOpen, setPrevAlertsOpen] = useState(alertsOpen);
+  if (prevAlertsOpen !== alertsOpen) {
+    setPrevAlertsOpen(alertsOpen);
     if (!alertsOpen) setStructuralOpen(false);
-  }, [alertsOpen]);
+  }
 
   return (
     <>
@@ -192,9 +194,30 @@ export default function AlertsBanner({
                             {s === 'closed' ? 'Cerrada' : 'Aviso'}
                           </Text>
                           {f.properties.alert_cause ? (
-                            <Text style={styles.alertCause} numberOfLines={1}>
-                              {f.properties.alert_cause}
-                            </Text>
+                            <View style={styles.alertCauseRow}>
+                              {s === 'closed' && (
+                                // Mini del badge del pin: el circulito
+                                // ilustra la palabra que tiene al lado
+                                <View
+                                  style={[
+                                    styles.alertBadge,
+                                    { borderColor: tone },
+                                  ]}
+                                >
+                                  <Image
+                                    source={
+                                      foldable
+                                        ? require('../../assets/icons/rockfall-art.png')
+                                        : require('../../assets/icons/contam-art.png')
+                                    }
+                                    style={styles.alertBadgeArt}
+                                  />
+                                </View>
+                              )}
+                              <Text style={styles.alertCause} numberOfLines={1}>
+                                {f.properties.alert_cause}
+                              </Text>
+                            </View>
                           ) : null}
                         </View>
                       </Pressable>
@@ -350,7 +373,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.75)',
     elevation: 6,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.3,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
@@ -361,7 +384,7 @@ const styles = StyleSheet.create({
     marginRight: 7,
   },
   bannerText: {
-    color: '#fff',
+    color: colors.onColor,
     fontSize: 13,
     lineHeight: 17,
     fontFamily: fonts.bold,
@@ -372,7 +395,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 4,
     elevation: 6,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.25,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
@@ -395,6 +418,27 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
   },
+  // Mini del badge que corona el pin: ilustración de la causa dentro
+  // de un aro blanco con el color del estado — va inline con la causa
+  alertCauseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    marginTop: 1,
+  },
+  alertBadge: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  alertBadgeArt: {
+    width: '100%',
+    height: '100%',
+  },
   alertText: {
     flex: 1,
   },
@@ -416,7 +460,7 @@ const styles = StyleSheet.create({
     // Solo las usa la fila "N más" de la sección estructural
     backgroundColor: colors.status.structural,
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: colors.surface,
   },
   alertDotStacked: {
     marginLeft: -5,
@@ -511,6 +555,6 @@ const styles = StyleSheet.create({
   alertMoreText: {
     fontSize: 15,
     fontFamily: fonts.extrabold,
-    color: '#fff',
+    color: colors.onColor,
   },
 });

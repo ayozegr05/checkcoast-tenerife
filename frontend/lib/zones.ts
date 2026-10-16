@@ -2,6 +2,8 @@
 // mapa curado en backend/app/news_zones.py. Náyade solo conoce PMs
 // ("PLAYA JARDIN PM4") pero la prensa y los bandos hablan de calas:
 // el usuario dice "la de Charcón", no "la zona 5"
+import { PM_SUFFIX, pmTagOf } from './pm';
+
 const ZONE_NAMES: Record<string, Record<string, string>> = {
   // Playa Jardín (Puerto de la Cruz) — este → oeste
   'PLAYA JARDIN': {
@@ -21,7 +23,7 @@ const ZONE_NAMES: Record<string, Record<string, string>> = {
 
 const normBase = (name: string) =>
   name
-    .replace(/\s+PM\d+\s*$/i, '')
+    .replace(PM_SUFFIX, '')
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
     .toUpperCase()
@@ -33,11 +35,7 @@ const normBase = (name: string) =>
 export const zoneName = (beachName: string, pm?: string | null) => {
   const group = ZONE_NAMES[normBase(beachName)];
   if (!group) return null;
-  const label = (
-    pm ??
-    beachName.match(/\s+(PM\d+)\s*$/i)?.[1] ??
-    ''
-  ).toUpperCase();
+  const label = (pm ?? pmTagOf(beachName) ?? '').toUpperCase();
   return group[label] ?? null;
 };
 

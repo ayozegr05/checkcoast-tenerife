@@ -3,25 +3,26 @@
 
 import type { BeachStats, GeoFeature } from './api';
 import { beachBaseName, beachGroupKey, searchNorm } from './format';
+import { beachStateKey } from './structural';
 
 // Orden de prioridad: lo que necesita atención del bañista primero.
 // "Sin datos" (vigilada pero Náyade no dice nada) va la última de
 // todas — es el estado menos informativo, por debajo incluso de las
-// no monitorizadas
+// no monitorizadas. El cierre estructural pesa igual que el de
+// contaminación — también deja la playa inutilizada
 export const STATUS_ORDER: Record<string, number> = {
   closed: 0,
+  structural: 0,
   warning: 1,
   open: 2,
   unmonitored: 3,
   unknown: 4,
 };
 
-// Una OSM sin monitorizar con alerta (p.ej. Benijo, cerrada según
-// prensa) se ordena/etiqueta por el estado de la alerta
-export const statusOf = (f: GeoFeature) =>
-  f.properties.monitored === false && f.properties.alert !== true
-    ? 'unmonitored'
-    : (f.properties.status ?? 'unknown');
+// Estado de playa para orden y chip de la lista — delega en el
+// resolutor único (lib/structural): 'structural' para cierres
+// estructurales (pastilla granate) y 'warning' para apta-con-alerta
+export const statusOf = beachStateKey;
 
 export const pmNum = (name: string) => {
   const m = name.match(/PM(\d+)$/);

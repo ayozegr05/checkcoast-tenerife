@@ -22,12 +22,12 @@ from sqlalchemy import extract
 
 from app.config import settings
 from app.db import SessionLocal
+from app.ingest_news import _enrich_with_body, _rematch_pending
 from app.models import Beach, NewsItem
 from app.news_llm import GeminiExtractor, extract_event
 from app.news_matching import match_beaches
 from app.news_sources import GUIA_SOURCE, RawArticle
 from app.news_zones import narrow_hits_by_zone
-from scripts.ingest_news import _enrich_with_body, _rematch_pending
 
 
 def main() -> None:

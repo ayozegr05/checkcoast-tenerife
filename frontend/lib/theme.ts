@@ -15,6 +15,8 @@ export const colors = {
   text: '#16323f',
   textMuted: '#5c7a89',
   textFaint: '#8fa3ad',
+  // Texto/iconos blancos sobre superficie de color (chips, botones)
+  onColor: '#ffffff',
 
   // Estado de playa — el mismo color en mapa, lista y detalle
   status: {
@@ -35,12 +37,30 @@ export const colors = {
     unknown: '#f9a825',
   } as Record<string, string>,
 
+  // Banda de riesgo por proximidad a emisario (outfallRisk.ts)
+  risk: {
+    alto: '#d84315',
+    medio: '#f9a825',
+    bajo: '#0d9488',
+  },
+
   danger: '#c62828',
   on: '#2e7d32',
   off: '#bdbdbd',
 
   // Skeleton de carga — "sea-glass", hijo claro del océano del mapa
   skeleton: '#c3e3ea',
+
+  // Sombras de tarjetas y asa de la hoja arrastrable
+  shadow: '#000000',
+
+  // Tintes de banners contextuales (no son estado de playa)
+  tintPress: '#fff3e0', // ámbar suave — "según prensa"
+  tintReopen: '#e6f4f1', // verdoso suave — reapertura
+  tintNotice: '#fff8e6', // aviso informativo en ayuda
+  noticeBorder: '#f0b429',
+  cardBorder: '#b9d3dd', // separa la card flotante del mapa
+  link: '#1a7f96',
 };
 
 // Familias Nunito cargadas en App.tsx con useFonts

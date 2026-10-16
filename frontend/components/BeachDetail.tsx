@@ -28,6 +28,8 @@ import {
   type QualityParam,
 } from '../lib/quality';
 import { colors, fonts } from '../lib/theme';
+import { isStructuralClosure } from '../lib/mapData';
+import { BEACH_STATE_LABEL_LONG } from '../lib/structural';
 import SatelliteShot from './SatelliteShot';
 import Skeleton from './Skeleton';
 import IncidentHistory from './beach/IncidentHistory';
@@ -36,12 +38,14 @@ import PressBanner from './beach/PressBanner';
 import QualityCard from './beach/QualityCard';
 import QualityChart from './beach/QualityChart';
 
-// Estado de playa: usa properties.status (de /beaches + /alerts)
-const BEACH_STATUS: Record<string, { label: string; color: string }> = {
-  closed: { label: 'Cierre activo', color: colors.status.closed },
-  warning: { label: 'Aviso activo', color: colors.status.warning },
-  unknown: { label: 'Sin datos oficiales', color: colors.status.unknown },
-  open: { label: 'Sin alertas activas', color: colors.status.open },
+// Estado de playa: usa properties.status (de /beaches + /alerts);
+// etiquetas canónicas en lib/structural (BEACH_STATE_LABEL_LONG)
+const STATUS_COLOR: Record<string, string> = {
+  closed: colors.status.closed,
+  structural: colors.status.structural,
+  warning: colors.status.warning,
+  unknown: colors.status.unknown,
+  open: colors.status.open,
 };
 
 // "Última comprobación" del estado oficial: no es cuando cambió el
@@ -104,38 +108,55 @@ export default function BeachDetail({
   const [chartParam, setChartParam] = useState<QualityParam>('ecoli');
   const [chartW, setChartW] = useState(0);
 
-  useEffect(() => {
+  // Reset al cambiar de playa/PM: se ajusta DURANTE el render (patrón
+  // oficial de React — setState aquí se procesa antes de pintar, sin
+  // cascada), no dentro del efecto
+  const [prevFeatureId, setPrevFeatureId] = useState(feature.id);
+  if (prevFeatureId !== feature.id) {
+    setPrevFeatureId(feature.id);
     setIncidents(null);
     setQuality(null);
     setNearby(null);
     setNews(null);
     setNewsOpen(false);
     setOpenIncs(new Set());
+  }
+
+  useEffect(() => {
+    // Al cambiar de playa/PM las respuestas tardías de la ficha
+    // anterior no deben machacar los datos de la actual
+    let cancelled = false;
     fetchBeachNearbyOutfalls(feature.id)
-      .then(setNearby)
-      .catch(() => setNearby([]));
+      .then((v) => !cancelled && setNearby(v))
+      .catch(() => !cancelled && setNearby([]));
     // La prensa también cubre playas sin monitorización oficial
     fetchBeachNews(feature.id)
-      .then(setNews)
-      .catch(() =>
-        setNews({
-          summary: {
-            event_type: null,
-            cause: null,
-            items_count: 0,
-            outlets_count: 0,
-            since: null,
-          },
-          items: [],
-        }),
+      .then((v) => !cancelled && setNews(v))
+      .catch(
+        () =>
+          !cancelled &&
+          setNews({
+            summary: {
+              event_type: null,
+              cause: null,
+              items_count: 0,
+              outlets_count: 0,
+              since: null,
+            },
+            items: [],
+          }),
       );
     fetchBeachIncidents(feature.id)
-      .then(setIncidents)
-      .catch(() => setIncidents([]));
-    if (unmonitored) return; // sin mediciones oficiales
-    fetchBeachQuality(feature.id)
-      .then(setQuality)
-      .catch(() => setQuality([]));
+      .then((v) => !cancelled && setIncidents(v))
+      .catch(() => !cancelled && setIncidents([]));
+    if (!unmonitored) {
+      fetchBeachQuality(feature.id)
+        .then((v) => !cancelled && setQuality(v))
+        .catch(() => !cancelled && setQuality([]));
+    }
+    return () => {
+      cancelled = true;
+    };
   }, [feature.id, unmonitored]);
 
   // Intervalos de incidentes [apertura, cierre]: se marcan en el eje
@@ -212,19 +233,24 @@ export default function BeachDetail({
     return later[later.length - 1] ?? null;
   }, [incidents, news, pressStillClosed]);
 
-  const beachKey =
-    hasAlert && p.status === 'open' ? 'warning' : (p.status ?? 'unknown');
+  // isStructuralClosure mira el flag del backend; hasAlert es prop de
+  // la ficha (no properties.alert). Estructural → chip en granate
+  const beachKey = isStructuralClosure(feature)
+    ? 'structural'
+    : hasAlert && p.status === 'open'
+      ? 'warning'
+      : (p.status ?? 'unknown');
   // Una playa OSM sin monitorizar con alerta (p.ej. Benijo, cerrada
   // según prensa) muestra el estado de la alerta; el aviso de "sin
   // monitorización" solo aplica sin alerta vigente
   const statusText =
     unmonitored && !hasAlert
-      ? 'Sin monitorización oficial'
-      : (BEACH_STATUS[beachKey]?.label ?? 'Sin datos oficiales');
+      ? BEACH_STATE_LABEL_LONG.unmonitored
+      : (BEACH_STATE_LABEL_LONG[beachKey] ?? 'Sin datos oficiales');
   const statusColor =
     unmonitored && !hasAlert
       ? colors.status.unmonitored
-      : (BEACH_STATUS[beachKey]?.color ?? colors.status.unknown);
+      : (STATUS_COLOR[beachKey] ?? colors.status.unknown);
 
   // Mensaje listo para WhatsApp/Telegram: el link /b/{id} del backend
   // lleva Open Graph (foto satélite + estado) → tarjeta rica en el chat
@@ -308,11 +334,11 @@ export default function BeachDetail({
             id: `pm-${m.id}`,
             coords: m.geometry.coordinates as [number, number],
             color:
-              BEACH_STATUS[
+              STATUS_COLOR[
                 m.properties.status && m.properties.status !== 'unknown'
                   ? (m.properties.status as string)
                   : 'unknown'
-              ]?.color ?? colors.status.unknown,
+              ] ?? colors.status.unknown,
             tag: pointLongLabel(m.properties.name) ?? '',
           })),
         ]}
@@ -448,7 +474,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   chipText: {
-    color: '#fff',
+    color: colors.onColor,
     fontSize: 13,
     fontFamily: fonts.bold,
   },
@@ -472,7 +498,7 @@ const styles = StyleSheet.create({
     height: 12,
   },
   shareText: {
-    color: '#1a7f96',
+    color: colors.link,
     fontSize: 11,
     fontFamily: fonts.bold,
   },

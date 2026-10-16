@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Image,
-  Keyboard,
   Pressable,
   StyleSheet,
   Text,

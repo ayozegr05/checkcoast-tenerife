@@ -192,6 +192,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginRight: 6,
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: colors.surface,
   },
 });

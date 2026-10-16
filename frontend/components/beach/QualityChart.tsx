@@ -6,6 +6,7 @@ import {
   CHART_H,
   QUALITY_THRESHOLDS,
   barH,
+  valueColor,
   type ChartPoint,
   type QualityParam,
 } from '../../lib/quality';
@@ -101,13 +102,7 @@ export default function QualityChart({
               ]}
             />
             {chartData.map((d, i) => {
-              const t = QUALITY_THRESHOLDS[chartParam];
-              const color =
-                d.value <= t.excellent
-                  ? colors.status.open
-                  : d.value <= t.good
-                    ? colors.outfall.unknown
-                    : colors.status.closed;
+              const color = valueColor(chartParam, d.value);
               return (
                 <View
                   key={i}

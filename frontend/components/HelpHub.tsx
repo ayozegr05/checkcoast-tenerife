@@ -32,6 +32,10 @@ const TOPICS: Topic[] = [
         'El botón de capas abre un panel para filtrar los estados: solo las cerradas, solo los vertidos sin permiso…',
       ],
       [
+        require('../assets/icons/icon-map.png'),
+        'La leyenda de abajo también es un botón: tócala y se abre el mismo panel de capas',
+      ],
+      [
         require('../assets/icons/icon-satellite.png'),
         '¿Quieres ver la foto real? El botón de satélite cambia a vista aérea',
       ],
@@ -53,7 +57,7 @@ const TOPICS: Topic[] = [
     rows: [
       [
         require('../assets/icons/beach.png'),
-        'Cuatro colores: azul apta, naranja aviso, roja cerrada, gris sin vigilancia',
+        'Azul apta, naranja aviso, gris sin vigilancia. Cerrada: roja por contaminación, granate por obra o desprendimiento — el circulito sobre el pin dibuja la causa',
       ],
       [
         require('../assets/icons/icon-satellite.png'),
@@ -322,7 +326,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.3,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
@@ -349,7 +353,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   headerBackText: {
-    color: '#fff',
+    color: colors.onColor,
     fontSize: 22,
     fontFamily: fonts.bold,
     marginTop: -3,
@@ -374,7 +378,7 @@ const styles = StyleSheet.create({
     // Nunito conocido (mismo que la leyenda)
     lineHeight: 26,
     fontFamily: fonts.extrabold,
-    color: '#fff',
+    color: colors.onColor,
     textAlign: 'center',
   },
   subtitle: {
@@ -435,8 +439,8 @@ const styles = StyleSheet.create({
   // Fila de aviso: el registro push falló al arrancar (ámbar suave,
   // no error grave — la app funciona sin push)
   pushWarnRow: {
-    borderColor: '#f0b429',
-    backgroundColor: '#fff8e6',
+    borderColor: colors.noticeBorder,
+    backgroundColor: colors.tintNotice,
   },
   topicChevron: {
     fontSize: 20,

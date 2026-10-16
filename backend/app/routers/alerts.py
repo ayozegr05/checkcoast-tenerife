@@ -17,26 +17,46 @@ def list_alerts(db: Session = Depends(get_db)) -> list[AlertOut]:
     fecha de evento real. `via` guarda la procedencia; el estado
     oficial crudo nunca se altera."""
     eff = effective_states(db)
+    alerted_ids = [bid for bid, e in eff.items() if e["alerted"]]
+    if not alerted_ids:
+        return []
+    rows = db.execute(
+        Beach.__table__.select()
+        .with_only_columns(
+            Beach.id,
+            Beach.name,
+            Beach.municipality,
+            func.ST_X(Beach.geom).label("lon"),
+            func.ST_Y(Beach.geom).label("lat"),
+        )
+        .where(Beach.id.in_(alerted_ids))
+    ).all()
+    by_id = {r.id: r for r in rows}
     alerts: list[AlertOut] = []
-    for beach_id, e in eff.items():
-        if not e["alerted"]:
+    for beach_id in alerted_ids:
+        row = by_id.get(beach_id)
+        if row is None:
             continue
-        beach = db.get(Beach, beach_id)
-        if beach is None:
-            continue
+        name, municipality, lon, lat = (
+            row.name,
+            row.municipality,
+            row.lon,
+            row.lat,
+        )
+        e = eff[beach_id]
         alerts.append(
             AlertOut(
-                beach_id=beach.id,
-                beach_name=beach.name,
-                municipality=beach.municipality,
+                beach_id=beach_id,
+                beach_name=name,
+                municipality=municipality,
                 status=e["status"],
                 via=e["via"],
                 cause=e.get("cause"),
                 cause_via=e.get("cause_via"),
                 reported_at=e["reported_at"],
                 source_url=e["source_url"],
-                longitude=db.scalar(func.ST_X(beach.geom)),
-                latitude=db.scalar(func.ST_Y(beach.geom)),
+                longitude=lon,
+                latitude=lat,
             )
         )
     return alerts

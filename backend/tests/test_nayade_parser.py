@@ -2,12 +2,12 @@
 
 from datetime import UTC, date
 
-from app.models import Beach, BeachState
-from scripts.ingest_beach_status import (
+from app.ingest_beach_status import (
     _derive_state,
     _foreign_municipality,
     _parse_pms,
 )
+from app.models import Beach, BeachState
 
 PM_TMPL = """
 <table class="tablaform">
@@ -264,7 +264,7 @@ def test_superseded_by_reopening_stale_sample():
     from datetime import datetime
     from types import SimpleNamespace
 
-    from scripts.ingest_beach_status import _superseded_by_reopening
+    from app.ingest_beach_status import _superseded_by_reopening
 
     beach = SimpleNamespace(
         news_items=[
@@ -293,7 +293,7 @@ def test_superseded_by_reopening_fresh_sample_closes():
     from datetime import datetime
     from types import SimpleNamespace
 
-    from scripts.ingest_beach_status import _superseded_by_reopening
+    from app.ingest_beach_status import _superseded_by_reopening
 
     beach = SimpleNamespace(
         news_items=[
@@ -323,7 +323,7 @@ def test_open_incident_single_source_not_stale():
     from datetime import datetime
     from types import SimpleNamespace
 
-    from scripts.ingest_beach_status import _superseded_by_reopening
+    from app.ingest_beach_status import _superseded_by_reopening
 
     beach = SimpleNamespace(
         news_items=[
@@ -349,7 +349,7 @@ def test_open_incident_corroborated_reopening_is_stale():
     from datetime import datetime
     from types import SimpleNamespace
 
-    from scripts.ingest_beach_status import _superseded_by_reopening
+    from app.ingest_beach_status import _superseded_by_reopening
 
     beach = SimpleNamespace(
         news_items=[
@@ -380,7 +380,7 @@ def test_open_incident_after_reopening_is_new_event():
     from datetime import datetime
     from types import SimpleNamespace
 
-    from scripts.ingest_beach_status import _superseded_by_reopening
+    from app.ingest_beach_status import _superseded_by_reopening
 
     beach = SimpleNamespace(
         news_items=[
@@ -402,7 +402,7 @@ def test_no_reopening_no_suppression():
     """Sin reapertura de prensa no hay supresión."""
     from types import SimpleNamespace
 
-    from scripts.ingest_beach_status import _superseded_by_reopening
+    from app.ingest_beach_status import _superseded_by_reopening
 
     beach = SimpleNamespace(news_items=[])
     meas = MEAS_ROW.format(

@@ -60,7 +60,7 @@ const benijo = beach(5, 'Playa de Benijo', {
 });
 const beaches = [jardin1, jardin2, vistas, camison, benijo];
 
-const ROW = /^Playa .+, .+, (Cerrada|Aviso|Apta|No monitorizada)/;
+const ROW = /^Playa .+, .+, (Cerrada|Aviso|Apta|Sin monitorizar)/;
 const rowNames = () =>
   screen
     .getAllByRole('button', { name: ROW })

@@ -3,6 +3,8 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { colors } from './theme';
+
 import { registerDevice, reportClientEvent } from './api';
 
 // Con la app en primer plano: banner + bandeja + sonido
@@ -25,7 +27,7 @@ export async function setupPushNotifications(): Promise<boolean> {
       name: 'Alertas de playas',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#0288d1',
+      lightColor: colors.primary,
     });
   }
   if (!Device.isDevice) return true; // sin push en emulador/Expo Go

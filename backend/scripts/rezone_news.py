@@ -36,7 +36,7 @@ from app.news_zones import (
     narrow_hits_by_zone,
 )
 
-_STATE_EVENTS = {"closure", "reopening", "warning"}
+_STATE_EVENTS = {"closure", "reopening", "warning", "pollution"}
 
 
 def _group_beaches(db, base: str, muni: str) -> list[Beach]:

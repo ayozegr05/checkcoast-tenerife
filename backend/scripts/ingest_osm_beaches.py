@@ -14,14 +14,13 @@ Uso: python -m scripts.ingest_osm_beaches
 """
 
 import math
-import re
-import unicodedata
 
 import requests
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
 from app.models import Beach
+from app.names import normalize_beach_name as _normalize
 from scripts.assign_municipalities import assign_municipalities
 
 OVERPASS_URLS = [
@@ -49,14 +48,6 @@ QUERY = """
 );
 out center tags;
 """
-
-
-def _normalize(name: str) -> str:
-    """Mayúsculas, sin acentos, sin sufijo PM, espacios colapsados."""
-    s = unicodedata.normalize("NFKD", name)
-    s = "".join(c for c in s if not unicodedata.combining(c))
-    s = re.sub(r"\s+PM\d+$", "", s)  # las oficiales acaban en PM1, PM4...
-    return re.sub(r"\s+", " ", s).strip().upper()
 
 
 def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

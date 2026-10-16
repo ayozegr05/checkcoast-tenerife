@@ -268,7 +268,7 @@ def test_ambiguous_name_flags_body_fetch():
     Médano" y casa PM3 por clave exacta, pero el cuerpo nombra Leocadio
     Machado — el nombre extraído es prefijo de una playa hermana, así
     que se considera ambiguo y se pide el cuerpo para desambiguar."""
-    from scripts.ingest_news import _name_is_ambiguous
+    from app.ingest_news import _name_is_ambiguous
 
     e = ext("El Médano")
     hits = match_beaches(e, BEACHES)

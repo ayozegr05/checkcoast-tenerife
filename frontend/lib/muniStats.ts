@@ -1,7 +1,10 @@
 import { BeachStats, GeoFeature, MunicipalityIncident } from './api';
-import { causeFamily, closuresThisYear } from './episodes';
-import { displayBeachName } from './format';
+import { causeFamily, closuresThisYear, episodeDays } from './episodes';
+import { displayBeachName, fmtDate } from './format';
+import { PM_SUFFIX } from './pm';
 import { colors } from './theme';
+
+export { fmtDate };
 
 export type MuniStats = {
   municipality: string | null;
@@ -26,7 +29,7 @@ type MuniAcc = Omit<MuniStats, 'beaches'> & { beachNames: Set<string> };
 
 // Una playa extensa tiene varios puntos de muestreo (PM1, PM2...):
 // para el conteo de playas agrupamos por nombre base
-export const baseName = (name: string) => name.replace(/\s+PM\d+$/, '');
+export const baseName = (name: string) => name.replace(PM_SUFFIX, '');
 
 // Severidad: mandan las afectaciones activas (cierre pesa más que aviso);
 // el histórico de incidentes y muestras no aptas desempata
@@ -44,7 +47,7 @@ export const barColorOf = (m: MuniStats) =>
 // (rojo = cierres ahora, naranja = avisos, azul = solo histórico) — el
 // top 3 marca "los que peor están", no un premio. Neutro del 4º en adelante
 export const rankColorOf = (m: MuniStats, index: number) =>
-  index < 3 ? barColorOf(m) : '#8fa3ad';
+  index < 3 ? barColorOf(m) : colors.textFaint;
 
 // Modo-año: un cierre pesa el triple que un aviso; la barra roja si
 // hubo cierres, naranja si solo avisos
@@ -54,20 +57,12 @@ export const yearScoreOf = (m: MuniStats) =>
 export const yearBarColorOf = (m: MuniStats) =>
   (m.yearClosures ?? 0) > 0 ? colors.status.closed : colors.status.warning;
 
-export const fmtDate = (iso: string) => iso.split('-').reverse().join('/');
-
 // Chips de año visibles antes de plegar el resto tras "Más años ›"
 export const MAX_YEAR_CHIPS = 4;
 
-// Duración en días naturales incluyendo el día de apertura
-export const durationDays = (inc: MunicipalityIncident) => {
-  const end = inc.closed_at ? new Date(inc.closed_at) : new Date();
-  return Math.max(
-    1,
-    Math.round((end.getTime() - new Date(inc.opened_at).getTime()) / 86400000) +
-      1,
-  );
-};
+// Duración en días naturales incluyendo el día de apertura —
+// mismo cálculo que episodeDays (fuente canónica en episodes.ts)
+export const durationDays = episodeDays;
 
 export type YearMuniStat = {
   closures: number;

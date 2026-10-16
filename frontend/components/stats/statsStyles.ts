@@ -28,7 +28,7 @@ export const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontFamily: fonts.extrabold,
-    color: '#fff',
+    color: colors.onColor,
   },
   close: {
     fontSize: 20,
@@ -111,7 +111,7 @@ export const styles = StyleSheet.create({
   rankText: {
     fontSize: 11,
     fontFamily: fonts.extrabold,
-    color: '#fff',
+    color: colors.onColor,
   },
 
   rowName: {
@@ -149,7 +149,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 3,
     fontSize: 11,
     fontFamily: fonts.bold,
-    color: '#fff',
+    color: colors.onColor,
     overflow: 'hidden',
   },
   badgeClosed: {
@@ -165,7 +165,7 @@ export const styles = StyleSheet.create({
   yearLine: {
     fontSize: 12,
     fontFamily: fonts.bold,
-    color: '#fff',
+    color: colors.onColor,
     paddingHorizontal: 16,
     marginTop: 6,
   },
@@ -184,7 +184,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   viewTabOn: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   viewTabText: {
     fontSize: 12,
@@ -270,7 +270,7 @@ export const styles = StyleSheet.create({
   emptyCtaText: {
     fontSize: 13,
     fontFamily: fonts.semibold,
-    color: '#fff',
+    color: colors.onColor,
   },
   backBtn: {
     marginRight: 4,
@@ -278,7 +278,7 @@ export const styles = StyleSheet.create({
   backText: {
     fontSize: 26,
     fontFamily: fonts.semibold,
-    color: '#fff',
+    color: colors.onColor,
     marginTop: -4,
   },
   listBtn: {
@@ -307,7 +307,7 @@ export const styles = StyleSheet.create({
     borderRadius: 6,
     marginTop: 14,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: colors.surface,
     elevation: 1,
   },
   tlLine: {

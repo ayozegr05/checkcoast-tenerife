@@ -9,7 +9,7 @@ import {
   ViewStyle,
 } from 'react-native';
 
-import { fonts } from '../lib/theme';
+import { colors, fonts } from '../lib/theme';
 
 // Fade de borde sin expo-linear-gradient (modulo nativo, requeriria
 // rebuild): tiras finas con alfa creciente simulan el degradado sobre
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.25,
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 1 },
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     lineHeight: 26,
     fontFamily: fonts.extrabold,
-    color: '#fff',
+    color: colors.onColor,
     textAlign: 'center',
     includeFontPadding: false,
   },

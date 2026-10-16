@@ -72,7 +72,7 @@ describe('<IncidentHistory />', () => {
     expect(screen.getByText('AVISO')).toBeTruthy();
     expect(screen.getByText('SEGÚN PRENSA')).toBeTruthy();
     expect(screen.getByText('PENDIENTE')).toBeTruthy();
-    expect(screen.getByText('01/08/2015 → 04/08/2015 · 3 días')).toBeTruthy();
+    expect(screen.getByText('01/08/2015 → 04/08/2015 · 4 días')).toBeTruthy();
     expect(
       screen.getByText('Muestra tomada pero nunca clasificada por Sanidad'),
     ).toBeTruthy();

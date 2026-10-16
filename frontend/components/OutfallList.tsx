@@ -15,7 +15,7 @@ import {
 
 import ScrollChips from './ScrollChips';
 import { GeoFeature } from '../lib/api';
-import { searchNorm } from '../lib/format';
+import { capName, searchNorm } from '../lib/format';
 import { outfallRisk, RISK_LABEL, RISK_COLORS } from '../lib/outfallRisk';
 import { OUTFALL_STATUS_LABELS } from '../lib/outfallSheet';
 import { colors, fonts } from '../lib/theme';
@@ -54,14 +54,6 @@ const NATURE_FILTERS: { key: string; label: string }[] = [
   { key: 'piscinas', label: 'Piscinas' },
   { key: 'pluvial', label: 'Lluvia' },
 ];
-
-const capName = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(
-      /(^|[\s(-])([a-záéíóúñü])/g,
-      (_m, pre: string, c: string) => pre + c.toUpperCase(),
-    );
 
 type StatusFilter = string | undefined; // undefined = Todos
 
@@ -472,7 +464,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontFamily: fonts.extrabold,
-    color: '#fff',
+    color: colors.onColor,
   },
   subtitle: {
     fontSize: 12,
@@ -628,7 +620,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontFamily: fonts.bold,
-    color: '#fff',
+    color: colors.onColor,
   },
   empty: {
     textAlign: 'center',
