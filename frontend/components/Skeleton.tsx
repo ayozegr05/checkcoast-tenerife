@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 
@@ -7,7 +7,7 @@ import { colors } from '../lib/theme';
 // Caja "sea-glass" con una banda de brillo que la barre en loop:
 // placeholder con la forma del contenido que está por llegar
 export default function Skeleton({ style }: { style?: StyleProp<ViewStyle> }) {
-  const translateX = useRef(new Animated.Value(0)).current;
+  const [translateX] = useState(() => new Animated.Value(0));
   const [width, setWidth] = useState(0);
 
   useEffect(() => {

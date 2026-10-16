@@ -77,7 +77,9 @@ export default function FeatureSheet({
   // Ref espejo: el PanResponder se crea una sola vez y capturaría el
   // chosenPm inicial
   const chosenPmRef = useRef<GeoFeature | null>(null);
-  chosenPmRef.current = chosenPm;
+  useEffect(() => {
+    chosenPmRef.current = chosenPm;
+  });
   const [prevSelection, setPrevSelection] = useState(selection);
   if (prevSelection !== selection) {
     setPrevSelection(selection);

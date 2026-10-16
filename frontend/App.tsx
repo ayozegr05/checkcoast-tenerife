@@ -223,7 +223,6 @@ export default function App() {
 
   // Push: registro del token + al tocar la notificación abrir la playa
   const beachesRef = useRef(beachesFC);
-  beachesRef.current = beachesFC;
 
   // Selección de una playa concreta por feature: si pertenece a un
   // complejo multi-PM (Jardín, Teresitas…) se pasan los miembros del
@@ -262,7 +261,13 @@ export default function App() {
     setFocus([...f.geometry.coordinates]);
   };
   const openBeachRef = useRef(openBeachById);
-  openBeachRef.current = openBeachById;
+
+  // Espejos para los listeners registrados una vez (push, atrás):
+  // escribir el ref en efecto, no durante render
+  useEffect(() => {
+    beachesRef.current = beachesFC;
+    openBeachRef.current = openBeachById;
+  });
 
   useEffect(() => {
     setupPushNotifications().then((ok) => setPushFailed(!ok));
@@ -430,15 +435,17 @@ export default function App() {
   // de la ✕) → mapa limpio → doble atrás para salir. Los Modals
   // (listas) consumen su propio atrás nativo antes de llegar aquí
   const backSheetRef = useRef(backSheet);
-  backSheetRef.current = backSheet;
   const hasSelectionRef = useRef(false);
-  hasSelectionRef.current = selection !== null;
   const helpOpenRef = useRef(helpOpen);
-  helpOpenRef.current = helpOpen;
   const introOpenRef = useRef(introVisible);
-  introOpenRef.current = introVisible;
   const introRevisitRef = useRef(introRevisit);
-  introRevisitRef.current = introRevisit;
+  useEffect(() => {
+    backSheetRef.current = backSheet;
+    hasSelectionRef.current = selection !== null;
+    helpOpenRef.current = helpOpen;
+    introOpenRef.current = introVisible;
+    introRevisitRef.current = introRevisit;
+  });
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (helpOpenRef.current) {

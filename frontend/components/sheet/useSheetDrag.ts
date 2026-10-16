@@ -58,8 +58,8 @@ export function useSheetDrag({
   const [bodyH, setBodyH] = useState(0);
   // Peek = altura del contenido (con minimo razonable y tope PEEK_MAX)
   const peek = Math.max(170, Math.min(PEEK_MAX, CARD_MAX, bodyH + HEADER_H));
-  const h = useRef(new Animated.Value(0)).current; // cerrada = alto 0
-  const b = useRef(new Animated.Value(CARD_BOTTOM)).current;
+  const [h] = useState(() => new Animated.Value(0)); // cerrada = alto 0
+  const [b] = useState(() => new Animated.Value(CARD_BOTTOM));
   // Card bajita en reposo: flota sobre el borde en vez de ir pegada
   // abajo. Emisarios suben más (cards muy cortas), playas sin
   // monitorizar un punto menos; las fichas con contenido o de playas
@@ -108,9 +108,11 @@ export function useSheetDrag({
   // sola vez y sin refs capturaría el peek inicial (170) y el
   // interceptClose del primer render para siempre
   const geom = useRef({ peek, cardMax: CARD_MAX, restBottom, CARD_BOTTOM });
-  geom.current = { peek, cardMax: CARD_MAX, restBottom, CARD_BOTTOM };
   const interceptRef = useRef(interceptClose);
-  interceptRef.current = interceptClose;
+  useEffect(() => {
+    geom.current = { peek, cardMax: CARD_MAX, restBottom, CARD_BOTTOM };
+    interceptRef.current = interceptClose;
+  });
 
   const snapTo = (target: number, isExpanded = false) => {
     snapped.current = target;
@@ -175,7 +177,11 @@ export function useSheetDrag({
     }, 800);
   };
 
-  const pan = useRef(
+  // PanResponder se crea una vez y sus callbacks leen geom/snapped via
+  // refs — el sistema de gestos solo los invoca fuera del render, así
+  // que el acceso a .current es seguro (el linter no puede probarlo)
+  // eslint-disable-next-line react-hooks/refs
+  const [pan] = useState(() =>
     PanResponder.create({
       onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > 6,
       onPanResponderMove: (_e, g) => {
@@ -195,7 +201,7 @@ export function useSheetDrag({
         else snapTo(pk);
       },
     }),
-  ).current;
+  );
 
   return {
     // Valores animados: bottom y height del sheet
