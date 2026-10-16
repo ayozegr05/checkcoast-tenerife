@@ -157,12 +157,14 @@ se nota primero al revisar. Ir tachando poco a poco.
 - [x] **Dockerfile corría como root** → `USER appuser` +
       `PYTHONDONTWRITEBYTECODE=1` (verificado: og:image se compone en
       memoria, nada escribe en /app)
-- [ ] **`CoastMap.tsx` 1698 líneas / `App.tsx` 728** — god-components:
-      mezclan cámara, capas, buscador, panel y banner. Fix real =
-      extraer hooks (`useMapCamera`, `useMapLayers`), media jornada con
-      riesgo de regresión visual. Decisión probable: documentar como
-      tradeoff — la lógica ya está extraída a `lib/` (pura y testeada);
-      el componente es mayormente declarativo (JSX de capas MapLibre)
+- [x] **`CoastMap.tsx` 1698 líneas** → 1259 tras extraer el catálogo
+      de capas a `components/map/MapLayers.tsx` (JSX declarativo puro,
+      commit `cdbe3ec`). Evaluados y DESCARTADOS con razón: `useMapCamera`
+      (zona históricamente frágil — sin E2E de cámara, el riesgo supera
+      al beneficio; reevaluar solo si crece el smoke E2E) y `useMapSearch`
+      (la firma del hook sería más fea que las ~60 líneas que mueve —
+      glue de pantalla legítima). `App.tsx` 728: orquestación de overlays,
+      aceptable
 
 ### P1 — preguntas de entrevista (defender, no necesariamente arreglar)
 
@@ -171,9 +173,11 @@ se nota primero al revisar. Ir tachando poco a poco.
       moverlo a worker aparte es complejidad innecesaria
 - [ ] **`alembic upgrade head` al arrancar** — dos réplicas
       concurrentes podrían pelear en migraciones. Mismo tradeoff
-- [ ] **Sin E2E** — 395 tests unitarios/componente pero ningún smoke
-      del flujo crítico (mapa → pin → ficha). Maestro es la opción
-      barata para RN
+- [x] **Smoke E2E con Maestro** — `frontend/e2e/flows/smoke-search.yaml`
+      ✅ verde en emulador (Pixel_7_Pro_API_30): openLink al dev-client
+      → intro → buscar "Jardín" → pickResult → flyTo + ficha → cerrar.
+      Cubre la cadena crítica sin tocar pins nativos. Requiere Metro en
+      8082 + APK instalado; CI con emulador queda como opción futura
 - [ ] **Telemetría casera `/client-events`** vs Sentry — vendible como
       pragmatismo (cero deps externas, write-only, rate-limit) si se
       explica bien

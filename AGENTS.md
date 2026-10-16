@@ -195,6 +195,9 @@ cd backend
 cd ../frontend
 npx expo start --dev-client --port 8082                 # OBLIGATORIO --port 8082
 npx tsc --noEmit                                        # typecheck
+# E2E (Maestro): emulador/device con dev-client + Metro en 8082
+# OJO: openLink usa exp+<slug>://…— exp:// lo captura Expo Go si está instalado
+maestro test e2e/flows/smoke-search.yaml                # smoke: buscar → ficha → cerrar
 ```
 
 ## Puertos / URLs
