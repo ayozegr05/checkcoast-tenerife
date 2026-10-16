@@ -149,19 +149,19 @@ abordarlo. Ir tachando conforme se arreglen.
 
 ## Pendientes
 
-### Lint pendiente (React Compiler — aplazado, código con riesgo)
-- **`react-hooks/refs` ×23** — lecturas/escrituras de `ref.current`
-  durante render: mirrors para PanResponder/gestos
-  (`useSheetDrag`, `chosenPmRef`, `beachesRef`), valores Animated en
-  `Skeleton`, refs de cámara/scroll en `CoastMap`/`App`. El patrón
-  "ref espejo" es el documentado para handlers creados una vez; el
-  fix correcto es reestructurar gestos/animaciones — alto riesgo de
-  regressión visual para un diagnóstico de compilador que no usamos
-  (React Compiler no está activo en el build de Expo 57)
-- **`preserve-manual-memoization` ×2** (CoastMap `beachGroups` /
-  `groupedBeaches`): el compilador no preserva `useMemo` que
-  devuelven `Map` mutable. Alternativa: estructura plana congelada —
-  cambia el API interno, revisar con calma
+### Lint — resuelto por completo (0 errores, 0 warnings)
+- **`react-hooks/refs` ×23** → mirrors de ref movidos a `useEffect`
+  (escribir `.current` post-commit, no en render); `useRef(new X())`
+  → `useState(() => new X())` (semántica idéntica — el ref creaba y
+  descartaba el objeto en cada render); curry `handlePress(type)` →
+  firma `(type, e)` con arrow inline en JSX. Único disable
+  justificado: `PanResponder.create` — el sistema de gestos solo
+  invoca sus callbacks fuera del render, el linter no puede
+  probarlo
+- **`preserve-manual-memoization` ×2** → `buildBeachGroups` deja de
+  devolver `Map` mutable (ahora `Record`); el `useMemo` restante lleva
+  disable justificado (el compilador no está activo — la memoización
+  manual es la que optimiza hoy)
 
 ### Decisión: no arreglar (documentado)
 - **[A3] `effective_states` de toda la isla para servir UNA playa**

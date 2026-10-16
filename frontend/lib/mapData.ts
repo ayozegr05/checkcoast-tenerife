@@ -86,17 +86,17 @@ export type MapBeachGroup = {
 // playa en el centroide, coloreado por el peor estado del grupo.
 export function buildBeachGroups(
   features: GeoFeature[],
-): Map<string, MapBeachGroup> {
-  const groups = new Map<string, MapBeachGroup>();
+): Record<string, MapBeachGroup> {
+  const groups: Record<string, MapBeachGroup> = {};
   for (const f of features) {
     const key = groupKeyOf(f);
-    const g = groups.get(key) ?? {
+    const g = groups[key] ?? {
       members: [],
       rep: f,
       center: [0, 0] as [number, number],
     };
     g.members.push(f);
-    groups.set(key, g);
+    groups[key] = g;
   }
   const rank = (f: GeoFeature) => {
     const s =
@@ -107,7 +107,7 @@ export function buildBeachGroups(
       { closed: 0, warning: 1, unknown: 2, open: 3, unmonitored: 4 }[s] ?? 5
     );
   };
-  for (const g of groups.values()) {
+  for (const g of Object.values(groups)) {
     // Orden estable del selector de PMs (PM1<PM2, Troya I<II)
     g.members.sort((a, b) =>
       a.properties.name.localeCompare(b.properties.name),
@@ -168,7 +168,7 @@ export type SearchItem = {
 // contienen la query (mínimo 2 caracteres, máximo 8 resultados)
 export function searchMap(
   query: string,
-  beachGroups: Map<string, MapBeachGroup>,
+  beachGroups: Record<string, MapBeachGroup>,
   outfalls: GeoFeature[],
   beaches: GeoFeature[],
 ): SearchItem[] {
@@ -177,7 +177,7 @@ export function searchMap(
   const items: SearchItem[] = [];
   // Playas agrupadas como en el mapa: "troya" da UN resultado
   // (casa también por el nombre de cualquiera de sus PMs)
-  for (const [key, g] of beachGroups) {
+  for (const [key, g] of Object.entries(beachGroups)) {
     const label = displayBeachName(beachBaseName(g.rep.properties.name));
     const hay = searchNorm(
       [label, ...g.members.map((m) => m.properties.name)].join(' '),

@@ -100,8 +100,8 @@ describe('buildBeachGroups', () => {
     const pm1 = feat('LAS VISTAS PM1', { status: 'open' }, [-16.6, 28.2]);
     const other = feat('EL CAMISÓN', { status: 'open' }, [-16.5, 28.1]);
     const groups = buildBeachGroups([pm2, pm1, other]);
-    expect(groups.size).toBe(2);
-    const vistas = [...groups.values()].find((g) => g.members.length === 2)!;
+    expect(Object.keys(groups)).toHaveLength(2);
+    const vistas = Object.values(groups).find((g) => g.members.length === 2)!;
     // Orden estable PM1 < PM2 y representante = el cerrado
     expect(vistas.members.map((m) => m.properties.name)).toEqual([
       'LAS VISTAS PM1',
@@ -117,7 +117,7 @@ describe('buildBeachGroups', () => {
       feat('EL CABEZO', { municipality: 'Arona' }),
       feat('EL CABEZO', { municipality: 'Granadilla de Abona' }),
     ]);
-    expect(groups.size).toBe(2);
+    expect(Object.keys(groups)).toHaveLength(2);
   });
 });
 

@@ -345,7 +345,7 @@ export default function CoastMap({
     // sin zonas y su cabecera perdía el nombre de la cala
     const gk =
       (f.properties as { groupKey?: string }).groupKey ?? groupKeyOf(f);
-    const g = beachGroups.get(gk);
+    const g = beachGroups[gk];
     const [lon, lat] = (g?.center ??
       (f.geometry as { coordinates: [number, number] }).coordinates) as [
       number,
@@ -361,7 +361,7 @@ export default function CoastMap({
         duration: 1200,
       });
     }
-    const members = pmMembersOf(gk ? beachGroups.get(gk)?.members : undefined);
+    const members = pmMembersOf(gk ? beachGroups[gk]?.members : undefined);
     onSelect({
       type: 'beach',
       feature: f,
@@ -438,6 +438,10 @@ export default function CoastMap({
   // es un registro oficial distinto, pero el mapa dibuja UN pin por
   // playa en el centroide, coloreado por el peor estado del grupo.
   // La ficha que se abre es la del PM peor parado (representante).
+  // useMemo manual necesario: React Compiler no está activo en el
+  // build (experiments.reactCompiler off) — sin esto se recalcularía
+  // el agrupado de ~200 playas en cada render
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const beachGroups = useMemo(
     () => buildBeachGroups(beaches.features),
     [beaches.features],
@@ -448,7 +452,7 @@ export default function CoastMap({
   const groupedBeaches = useMemo<FeatureCollection>(
     () => ({
       type: 'FeatureCollection',
-      features: [...beachGroups.entries()].map(([key, g]) => ({
+      features: Object.entries(beachGroups).map(([key, g]) => ({
         ...g.rep,
         geometry: { type: 'Point' as const, coordinates: g.center },
         properties: {
@@ -464,6 +468,7 @@ export default function CoastMap({
         },
       })),
     }),
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     [beachGroups, selectedBeachId],
   );
 
@@ -558,7 +563,7 @@ export default function CoastMap({
     if (!f) return null;
     const gk =
       (f.properties as { groupKey?: string }).groupKey ?? groupKeyOf(f);
-    const g = gk ? beachGroups.get(gk) : undefined;
+    const g = gk ? beachGroups[gk] : undefined;
     if (!g || g.members.length < 2) return null;
     return pointLongLabel(f.properties.name);
   };
@@ -645,7 +650,7 @@ export default function CoastMap({
       let cx = focus[0];
       let cy = focus[1];
       let grp: { members: GeoFeature[]; center: [number, number] } | undefined;
-      for (const g of beachGroups.values()) {
+      for (const g of Object.values(beachGroups)) {
         if (
           g.members.some(
             (m) =>
@@ -785,78 +790,80 @@ export default function CoastMap({
     }
   };
 
-  const handlePress =
-    (type: 'outfall' | 'beach') =>
-    (e: NativeSyntheticEvent<PressEventWithFeatures>) => {
-      const candidates = (e.nativeEvent.features ??
-        []) as unknown as GeoFeature[];
-      if (!candidates.length) return;
-      // Un tap en pin no es un tap al mapa: sin esto la card se abría
-      // debajo del buscador / alertas / panel de capas
-      closeOverlays();
-      // Los pines se solapan (icon-allow-overlap) y el hit-test devuelve
-      // todos los candidatos: gana el más cercano al punto tocado, no
-      // el primero por orden interno del source
-      const [tapLon, tapLat] = e.nativeEvent.lngLat;
-      const feature = candidates.reduce((best, f) => {
-        const [lon, lat] = f.geometry.coordinates;
-        const [bLon, bLat] = best.geometry.coordinates;
-        return (lon - tapLon) ** 2 + (lat - tapLat) ** 2 <
-          (bLon - tapLon) ** 2 + (bLat - tapLat) ** 2
-          ? f
-          : best;
+  const handlePress = (
+    type: 'outfall' | 'beach',
+    e: NativeSyntheticEvent<PressEventWithFeatures>,
+  ) => {
+    const candidates = (e.nativeEvent.features ??
+      []) as unknown as GeoFeature[];
+    if (!candidates.length) return;
+    // Un tap en pin no es un tap al mapa: sin esto la card se abría
+    // debajo del buscador / alertas / panel de capas
+    closeOverlays();
+    // Los pines se solapan (icon-allow-overlap) y el hit-test devuelve
+    // todos los candidatos: gana el más cercano al punto tocado, no
+    // el primero por orden interno del source
+    const [tapLon, tapLat] = e.nativeEvent.lngLat;
+    const feature = candidates.reduce((best, f) => {
+      const [lon, lat] = f.geometry.coordinates;
+      const [bLon, bLat] = best.geometry.coordinates;
+      return (lon - tapLon) ** 2 + (lat - tapLat) ** 2 <
+        (bLon - tapLon) ** 2 + (bLat - tapLat) ** 2
+        ? f
+        : best;
+    });
+    saveView();
+    // Zoom de detalle; el padding de cámara deja el pin en la franja
+    // libre sobre la card. En playas el pin está en el centroide del
+    // grupo, no en las coords del PM tocado
+    const groupKey = (feature.properties as { groupKey?: string }).groupKey;
+    const g = type === 'beach' && groupKey ? beachGroups[groupKey] : undefined;
+    const [lon, lat] = (g?.center ??
+      (feature.geometry as { coordinates: [number, number] }).coordinates) as [
+      number,
+      number,
+    ];
+    const rep = g?.rep ?? feature;
+    if (type === 'beach' && g && g.members.length > 1) {
+      fitBeachBounds(g.members, 900);
+    } else {
+      cameraRef.current?.flyTo({
+        center: [lon, lat],
+        // Playa: zoom 15.5 — el de la ficha abierta desde un emisario,
+        // que enseña el entorno de la playa de cerca
+        zoom: type === 'beach' ? 15.5 : 15,
+        padding: type === 'outfall' ? CARD_PAD_OUTFALL : CARD_PAD,
+        duration: 900,
       });
-      saveView();
-      // Zoom de detalle; el padding de cámara deja el pin en la franja
-      // libre sobre la card. En playas el pin está en el centroide del
-      // grupo, no en las coords del PM tocado
-      const groupKey = (feature.properties as { groupKey?: string }).groupKey;
-      const g =
-        type === 'beach' && groupKey ? beachGroups.get(groupKey) : undefined;
-      const [lon, lat] = (g?.center ??
-        (feature.geometry as { coordinates: [number, number] })
-          .coordinates) as [number, number];
-      const rep = g?.rep ?? feature;
-      if (type === 'beach' && g && g.members.length > 1) {
-        fitBeachBounds(g.members, 900);
-      } else {
-        cameraRef.current?.flyTo({
-          center: [lon, lat],
-          // Playa: zoom 15.5 — el de la ficha abierta desde un emisario,
-          // que enseña el entorno de la playa de cerca
-          zoom: type === 'beach' ? 15.5 : 15,
-          padding: type === 'outfall' ? CARD_PAD_OUTFALL : CARD_PAD,
-          duration: 900,
-        });
-      }
-      if (type === 'outfall') {
-        // El feature del evento de tap puede no traer el id del
-        // GeoJSON (y sus coords vienen cuantizadas por el tiling):
-        // se resuelve el original más cercano para que
-        // selectedOutfallId funcione y el pin seleccionado crezca
-        const [fLon, fLat] = feature.geometry.coordinates;
-        const orig =
-          outfalls.features.reduce<GeoFeature | null>((best, o) => {
-            const d =
-              (o.geometry.coordinates[0] - fLon) ** 2 +
-              (o.geometry.coordinates[1] - fLat) ** 2;
-            const bd = best
-              ? (best.geometry.coordinates[0] - fLon) ** 2 +
-                (best.geometry.coordinates[1] - fLat) ** 2
-              : Infinity;
-            return d < bd ? o : best;
-          }, null) ?? feature;
-        onSelect({ type: 'outfall', feature: orig });
-      } else {
-        // El pin es el grupo: se abre la ficha del PM peor parado
-        onSelect({
-          type: 'beach',
-          feature: rep,
-          hasAlert: rep.properties.alert === true,
-          members: pmMembersOf(g?.members),
-        });
-      }
-    };
+    }
+    if (type === 'outfall') {
+      // El feature del evento de tap puede no traer el id del
+      // GeoJSON (y sus coords vienen cuantizadas por el tiling):
+      // se resuelve el original más cercano para que
+      // selectedOutfallId funcione y el pin seleccionado crezca
+      const [fLon, fLat] = feature.geometry.coordinates;
+      const orig =
+        outfalls.features.reduce<GeoFeature | null>((best, o) => {
+          const d =
+            (o.geometry.coordinates[0] - fLon) ** 2 +
+            (o.geometry.coordinates[1] - fLat) ** 2;
+          const bd = best
+            ? (best.geometry.coordinates[0] - fLon) ** 2 +
+              (best.geometry.coordinates[1] - fLat) ** 2
+            : Infinity;
+          return d < bd ? o : best;
+        }, null) ?? feature;
+      onSelect({ type: 'outfall', feature: orig });
+    } else {
+      // El pin es el grupo: se abre la ficha del PM peor parado
+      onSelect({
+        type: 'beach',
+        feature: rep,
+        hasAlert: rep.properties.alert === true,
+        members: pmMembersOf(g?.members),
+      });
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -902,7 +909,7 @@ export default function CoastMap({
           <GeoJSONSource
             id="outfalls"
             data={visibleOutfalls}
-            onPress={handlePress('outfall')}
+            onPress={(e) => handlePress('outfall', e)}
           >
             <Layer
               id="outfall-icons"
@@ -1053,7 +1060,7 @@ export default function CoastMap({
           <GeoJSONSource
             id="beaches"
             data={visibleBeaches}
-            onPress={handlePress('beach')}
+            onPress={(e) => handlePress('beach', e)}
           >
             <Layer
               id="beach-pins"
