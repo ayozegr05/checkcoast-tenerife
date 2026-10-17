@@ -65,7 +65,7 @@ jobs:
   # (eas build --profile development) y resubirlo.
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     defaults:
       run:
         working-directory: frontend
@@ -89,6 +89,35 @@ jobs:
         run: |
           EXPO_PUBLIC_API_URL=http://130.110.233.198:8001 \
             npx expo start --dev-client --port 8082 > /tmp/metro.log 2>&1 &
+      # El AVD cacheado (con el dev-client ya instalado y snapshot
+      # guardado) evita ~25 min de cold boot + install en cada run.
+      # Bump de la key si el AVD queda corrupto o cambia el APK.
+      - name: AVD cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-34-pixel7pro-v1
+      # Solo en cache-miss: crea el AVD e instala el APK; al terminar el
+      # paso el emulador guarda snapshot y el cache lo captura
+      - name: Create AVD + install dev-client
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7_pro
+          avd-name: checkcoast-e2e
+          force-avd-creation: false
+          emulator-options: >-
+            -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: adb install /tmp/dev-client.apk
+      # OJO: el action ejecuta cada línea del script en un sh -c propio
+      # — no persisten cd ni variables; usar rutas absolutas
       - name: Run Maestro flows on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -96,18 +125,16 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_7_pro
+          avd-name: checkcoast-e2e
+          force-avd-creation: false
           emulator-options: >-
             -no-snapshot-save -no-window -gpu swiftshader_indirect
             -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            cd "$GITHUB_WORKSPACE/frontend"
             adb wait-for-device
-            adb install /tmp/dev-client.apk
-            # Metro corre en el host (el emulador lo alcanza vía 10.0.2.2);
-            # esperar a que sirva el manifest antes de lanzar los flows
             timeout 120 bash -c 'until curl -sf http://localhost:8082/status >/dev/null; do sleep 3; done'
-            maestro test e2e/flows/
+            maestro test "$GITHUB_WORKSPACE/frontend/e2e/flows/"
       - name: Upload Maestro artifacts
         if: failure()
         uses: actions/upload-artifact@v4
