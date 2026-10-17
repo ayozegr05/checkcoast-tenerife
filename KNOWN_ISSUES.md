@@ -173,11 +173,16 @@ se nota primero al revisar. Ir tachando poco a poco.
       moverlo a worker aparte es complejidad innecesaria
 - [ ] **`alembic upgrade head` al arrancar** — dos réplicas
       concurrentes podrían pelear en migraciones. Mismo tradeoff
-- [x] **Smoke E2E con Maestro** — `frontend/e2e/flows/smoke-search.yaml`
-      ✅ verde en emulador (Pixel_7_Pro_API_30): openLink al dev-client
-      → intro → buscar "Jardín" → pickResult → flyTo + ficha → cerrar.
-      Cubre la cadena crítica sin tocar pins nativos. Requiere Metro en
-      8082 + APK instalado; CI con emulador queda como opción futura
+- [x] **E2E con Maestro** — 5 flows verdes en emulador
+      (Pixel_7_Pro_API_30 + Metro 8082): `smoke-search` (buscar →
+      flyTo + ficha → cerrar), `zone-picker` (multi-PM → selector de
+      zonas → PM → back hardware → picker — la coreografía de
+      zoneFocus), `beach-list` (modal → buscar → detalle → volver),
+      `layers-satellite` (panel de capas + toggle basemap) y
+      `alert-banner` (banner → playa alertada → vista Temporada).
+      Los pasos dependientes de datos vivos van `optional` — el flow
+      no rompe si la isla queda 100% apta. CI con emulador queda como
+      opción futura
 - [ ] **Telemetría casera `/client-events`** vs Sentry — vendible como
       pragmatismo (cero deps externas, write-only, rate-limit) si se
       explica bien
