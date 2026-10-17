@@ -1,0 +1,50 @@
+# E2E: lista de playas → buscar → fila → detalle → volver → cerrar.
+# Cubre la navegación del modal BeachList (filtro, detalle interno,
+# back) — superficie que los tests de componente no ejercitan con
+# datos de prod reales.
+#
+# Correr: maestro test e2e/flows/beach-list.yaml
+
+appId: com.checkcoast.tenerife
+name: Lista — playas → detalle → volver → cerrar
+---
+- stopApp
+- openLink: exp+checkcoast-tenerife://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8082
+# La intro solo aparece en primer arranque — tolerar ambos estados
+- extendedWaitUntil:
+    visible:
+      text: Entendido|Abrir lista de playas
+    timeout: 120000
+- tapOn:
+    text: Entendido
+    optional: true
+- assertNotVisible: Entendido
+- assertVisible: Abrir lista de playas
+
+- tapOn: Abrir lista de playas
+- extendedWaitUntil:
+    visible: Buscar playa por nombre
+    timeout: 15000
+
+# Buscar dentro de la lista y abrir el detalle de una fila
+- tapOn: Buscar playa por nombre
+- inputText: Benijo
+- extendedWaitUntil:
+    visible: Playa de Benijo
+    timeout: 10000
+# El teclado abierto absorbe el primer tap (dismiss) — cerrarlo antes
+- hideKeyboard
+# Tocar el nombre exacto — ".*Benijo.*" casaría primero con el propio
+# campo de búsqueda (que ya contiene "Benijo")
+- tapOn: Playa de Benijo
+
+# Detalle interno de la lista (tiene botón propio de volver)
+- extendedWaitUntil:
+    visible: Volver a la lista de playas
+    timeout: 15000
+- tapOn: Volver a la lista de playas
+- assertVisible: Buscar playa por nombre
+
+# Cerrar el modal
+- tapOn: Cerrar lista de playas
+- assertNotVisible: Buscar playa por nombre

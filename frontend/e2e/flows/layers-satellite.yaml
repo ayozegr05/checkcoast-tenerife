@@ -1,0 +1,44 @@
+# E2E: panel de capas (leyenda → checkboxes) + toggle satélite.
+# Cubre el wiring leyenda→panel que se rompería si los filtros de
+# capas dejasen de aplicar, y el cambio de basemap.
+#
+# Correr: maestro test e2e/flows/layers-satellite.yaml
+
+appId: com.checkcoast.tenerife
+name: Capas — panel de filtros + satélite
+---
+- stopApp
+- openLink: exp+checkcoast-tenerife://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8082
+# La intro solo aparece en primer arranque — tolerar ambos estados
+- extendedWaitUntil:
+    visible:
+      text: Entendido|Abrir panel de capas
+    timeout: 120000
+- tapOn:
+    text: Entendido
+    optional: true
+- assertNotVisible: Entendido
+- assertVisible: Abrir panel de capas
+
+# Abrir el panel: las dos secciones con sus filas
+- tapOn: Abrir panel de capas
+- extendedWaitUntil:
+    visible: Sin monitorizar
+    timeout: 10000
+- assertVisible: Cerrada · estructural
+- assertVisible: En trámite
+
+# Toggle: apaga y enciende un estado (round-trip del checkbox)
+- tapOn: Sin monitorizar
+- tapOn: Sin monitorizar
+
+# Cerrar el panel con el mismo botón (toggle)
+- tapOn: Abrir panel de capas
+- assertNotVisible: Cerrada · estructural
+
+# Basemap: mapa → satélite → mapa (el label del botón cambia de
+# estado — aserción determinista del swap de estilo)
+- tapOn: Cambiar a vista satélite
+- assertVisible: Volver a vista de mapa
+- tapOn: Volver a vista de mapa
+- assertVisible: Cambiar a vista satélite

@@ -1,0 +1,72 @@
+# E2E: banner de alertas → expandir → abrir playa alertada → episodios.
+# Cubre openAlertBeach (otra entrada de cámara: flyTo + fitBeachBounds
+# + onSelect con members), la agrupación del banner y la vista
+# Temporada de episodios (MunicipalityStats).
+#
+# OJO con datos vivos: los pasos que dependen de que HOY haya
+# alertas abiertas van marcados optional — el flow no se rompe si
+# la isla está 100% apta.
+#
+# Correr: maestro test e2e/flows/alert-banner.yaml
+
+appId: com.checkcoast.tenerife
+name: Alertas — banner → playa alertada → episodios
+---
+- stopApp
+- openLink: exp+checkcoast-tenerife://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8082
+# La intro solo aparece en primer arranque — tolerar ambos estados
+- extendedWaitUntil:
+    visible:
+      text: Entendido|Resumen del estado de las playas
+    timeout: 120000
+- tapOn:
+    text: Entendido
+    optional: true
+- assertNotVisible: Entendido
+- assertVisible: Resumen del estado de las playas
+
+# Expandir el banner → panel "ACTIVAS AHORA · N". OJO: Maestro casa el
+# texto COMPLETO del nodo — hace falta .* para el "· N" del contador
+- tapOn: Resumen del estado de las playas
+- extendedWaitUntil:
+    visible: ACTIVAS AHORA.*
+    timeout: 10000
+
+# Cada fila muestra la causa del cierre ("Desprendimientos" en los
+# estructurales de hoy) — opcional: depende del dataset vivo
+- assertVisible:
+    text: Desprendimientos
+    optional: true
+
+# Abrir una playa alertada: Gaviotas es la referencia estable hoy;
+# si se reabre, el paso se salta sin fallar
+- tapOn:
+    text: .*Gaviotas.*
+    optional: true
+- runFlow:
+    when:
+      visible: Cerrar ficha
+    commands:
+      - tapOn: Cerrar ficha
+
+# Cerrar la ficha recolapsa el banner — hay que reexpandirlo para
+# que el botón de episodios exista
+- runFlow:
+    when:
+      notVisible: Ver todos los episodios del verano
+    commands:
+      - tapOn: Resumen del estado de las playas
+      - extendedWaitUntil:
+          visible: ACTIVAS AHORA.*
+          timeout: 10000
+
+# Vista Temporada: el botón del banner abre los episodios del verano
+- tapOn: Ver todos los episodios del verano
+- extendedWaitUntil:
+    visible: Incidencias por municipio
+    timeout: 15000
+- assertVisible: Este verano
+
+# Atrás cierra el modal (onRequestClose) y queda el banner expandido
+- back
+- assertNotVisible: Incidencias por municipio
