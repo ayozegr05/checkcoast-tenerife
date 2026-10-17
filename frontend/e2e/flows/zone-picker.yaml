@@ -13,15 +13,22 @@ name: Zonas — picker → PM → atrás → picker
 # La intro solo aparece en primer arranque — tolerar ambos estados
 - extendedWaitUntil:
     visible:
-      text: Entendido|Buscar playa, emisario o municipio
+      text: Continue|Entendido|Buscar playa, emisario o municipio
     timeout: 120000
+- tapOn:
+    text: Continue
+    optional: true
 - tapOn:
     text: Entendido
     optional: true
 - extendedWaitUntil:
     visible:
-      text: Buscar playa, emisario o municipio|Entendido
+      text: Buscar playa, emisario o municipio|Entendido|Continue
     timeout: 30000
+- tapOn:
+    text: Continue
+    optional: true
+    # Continue = onboarding del dev-client; Entendido = intro de la app
 - tapOn:
     text: Entendido
     optional: true
@@ -42,6 +49,9 @@ name: Zonas — picker → PM → atrás → picker
     timeout: 10000
 - tapOn: Buscar playa, emisario o municipio\.\.\.
 - inputText: Jardin
+# Teclado fuera antes de tocar la fila: con el teclado abierto el
+# picker monta detrás y el assert no ve las zonas
+- hideKeyboard
 # La a11y label de la fila es "Playa Jardín, Puerto de la Cruz · 3
 # zonas" — Maestro casa el texto COMPLETO del nodo, así que hace
 # falta .* para el sufijo. El subtítulo desambigua del emisario

@@ -17,15 +17,23 @@ name: Alertas — banner → playa alertada → episodios
 # La intro solo aparece en primer arranque — tolerar ambos estados
 - extendedWaitUntil:
     visible:
-      text: Entendido|Resumen del estado de las playas
+      text: Continue|Entendido|Resumen del estado de las playas
     timeout: 120000
+# Continue = onboarding del dev-client (cold start tras stopApp);
+# Entendido = intro de la app
+- tapOn:
+    text: Continue
+    optional: true
 - tapOn:
     text: Entendido
     optional: true
 - extendedWaitUntil:
     visible:
-      text: Resumen del estado de las playas|Entendido
+      text: Resumen del estado de las playas|Entendido|Continue
     timeout: 30000
+- tapOn:
+    text: Continue
+    optional: true
 - tapOn:
     text: Entendido
     optional: true

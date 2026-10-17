@@ -12,17 +12,25 @@ name: Capas — panel de filtros + satélite
 # La intro solo aparece en primer arranque — tolerar ambos estados
 - extendedWaitUntil:
     visible:
-      text: Entendido|Abrir panel de capas
+      text: Continue|Entendido|Abrir panel de capas
     timeout: 120000
 # La intro puede montar un instante después del primer assert.
-# Doble espera + tap opcional: cubre los dos momentos de montaje
+# Doble espera + tap opcional: cubre los dos momentos de montaje.
+# Continue = onboarding del dev-client (cold start tras stopApp);
+# Entendido = intro de la app
+- tapOn:
+    text: Continue
+    optional: true
 - tapOn:
     text: Entendido
     optional: true
 - extendedWaitUntil:
     visible:
-      text: Abrir panel de capas|Entendido
+      text: Abrir panel de capas|Entendido|Continue
     timeout: 30000
+- tapOn:
+    text: Continue
+    optional: true
 - tapOn:
     text: Entendido
     optional: true

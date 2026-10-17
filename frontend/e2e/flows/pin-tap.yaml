@@ -1,0 +1,200 @@
+# E2E: tap nativo en un pin del mapa → ficha → cerrar → restore de vista.
+#
+# Los pines son símbolos nativos de MapLibre: NO están en el árbol de
+# a11y, se tocan por coordenadas relativas. Cubre handlePress →
+# saveView → fitBounds/flyTo → onSelect, la restauración de savedView
+# al cerrar y el veto userPanned (pan manual → no restaurar) — el
+# camino de cámara que los otros flows no alcanzan y el más frágil
+# para el refactor de useMapCamera.
+#
+# Posiciones calibradas (Pixel_7_Pro_API_34, 1440x3120):
+#  - Tras buscar "Jardín" y cerrar el picker, el pin del centroide
+#    queda en ~(51%,25%) — pickResult no guarda vista (savedView=null),
+#    así que el cierre no restaura y el pin sigue donde el fitBounds
+#    lo dejó.
+#  - El swipe derecha lo desplaza a x≈74%; la y varía con el drift del
+#    gesto (observado 24–48%) → se sondea una columna de puntos.
+#
+# OJO: el mapa NO renderiza en el AVD API 30 (eglChooseConfig → no
+# configs en cualquier -gpu): el hit-test de pins está muerto ahí.
+# Usar el AVD API 34 (google_apis x86_64).
+#
+# Correr: maestro test e2e/flows/pin-tap.yaml
+
+appId: com.checkcoast.tenerife
+name: Pin — tap en pin abre ficha; cierre restaura vista salvo pan manual
+---
+- stopApp
+- openLink: exp+checkcoast-tenerife://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8082
+- extendedWaitUntil:
+    visible:
+      text: Continue|Entendido|Buscar playa, emisario o municipio
+    timeout: 120000
+# Continue = onboarding del dev-client (cold start tras stopApp);
+# Entendido = intro de la app. Ambas pueden montar un instante tarde
+- tapOn:
+    text: Continue
+    optional: true
+- tapOn:
+    text: Entendido
+    optional: true
+- extendedWaitUntil:
+    visible:
+      text: Buscar playa, emisario o municipio|Entendido|Continue
+    timeout: 30000
+- tapOn:
+    text: Continue
+    optional: true
+- tapOn:
+    text: Entendido
+    optional: true
+# Si un tap aterrizó sobre el dev menu del dev-client (TOOLS/Go home),
+# atrás lo cierra antes de asertar
+- runFlow:
+    when:
+      visible: Open DevTools
+    commands:
+      - back
+- assertVisible: Buscar playa, emisario o municipio
+
+# Búsqueda → flyTo/fitBounds al grupo: el pin del centroide queda
+# centrado en la franja libre (~51%,25%)
+- tapOn: Buscar playa, emisario o municipio
+- runFlow:
+    when:
+      notVisible: Buscar playa, emisario o municipio\.\.\.
+    commands:
+      - tapOn: Buscar playa, emisario o municipio
+- extendedWaitUntil:
+    visible:
+      text: Buscar playa, emisario o municipio\.\.\.
+    timeout: 10000
+- tapOn: Buscar playa, emisario o municipio\.\.\.
+- inputText: Jardin
+# Teclado fuera antes de tocar la fila: así no se come el tap ni queda
+# sobre la ficha que abre (con el teclado abierto el picker monta lento
+# y el ✕ queda tapado)
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      text: Playa Jardín, Puerto de la Cruz.*
+    timeout: 15000
+- tapOn: Playa Jardín, Puerto de la Cruz.*
+# Primer montaje del picker en cold start: el mapa renderiza por
+# software y la JS va justa — margen alto
+- extendedWaitUntil:
+    visible: El Castillo
+    timeout: 60000
+
+# Cerrar picker: el primer back lo come el teclado si sigue abierto;
+# el segundo (condicional) cierra la ficha. Como la búsqueda no guarda
+# vista, la cámara se queda donde el fitBounds la dejó → pin en 51%,25%
+- back
+- runFlow:
+    when:
+      visible: El Castillo
+    commands:
+      - back
+- assertNotVisible: El Castillo
+- waitForAnimationToEnd
+
+# TAP AL PIN en 51%,25% (por coordenada — no está en a11y):
+# handlePress → saveView → fitBounds → picker de zonas. Si el hit-test
+# nativo rompe, esto falla
+- tapOn:
+    point: 51%, 25%
+- extendedWaitUntil:
+    visible: El Castillo
+    timeout: 20000
+
+# Pan manual CON la ficha abierta → userPanned=true. El swipe a y=45%
+# cae sobre el mapa (la ficha ocupa el ~40% inferior) y desplaza el
+# pin a x≈74% con y variable (drift del gesto)
+- swipe:
+    start: 45%, 45%
+    end: 70%, 45%
+    duration: 1200
+- waitForAnimationToEnd
+
+# Cerrar con userPanned → NO debe restaurar: el pin ya no está en
+# 51%,25% y el tap de sondeo no abre nada
+- back
+- assertNotVisible: El Castillo
+- waitForAnimationToEnd
+- tapOn:
+    point: 51%, 25%
+- waitForAnimationToEnd
+- assertNotVisible: El Castillo
+
+# Restore positivo: el pin quedó en la columna x≈74% (y variable por
+# el drift del swipe). Escalera de sondas: cada wait opcional da
+# tiempo a que la ficha monte antes de evaluar la siguiente sonda
+- tapOn:
+    point: 74%, 24%
+- extendedWaitUntil:
+    visible: Cerrar ficha
+    timeout: 4000
+    optional: true
+- runFlow:
+    when:
+      notVisible: Cerrar ficha
+    commands:
+      - tapOn:
+          point: 74%, 30%
+      - extendedWaitUntil:
+          visible: Cerrar ficha
+          timeout: 4000
+          optional: true
+- runFlow:
+    when:
+      notVisible: Cerrar ficha
+    commands:
+      - tapOn:
+          point: 74%, 36%
+      - extendedWaitUntil:
+          visible: Cerrar ficha
+          timeout: 4000
+          optional: true
+- runFlow:
+    when:
+      notVisible: Cerrar ficha
+    commands:
+      - tapOn:
+          point: 74%, 42%
+      - extendedWaitUntil:
+          visible: Cerrar ficha
+          timeout: 4000
+          optional: true
+- runFlow:
+    when:
+      notVisible: Cerrar ficha
+    commands:
+      - tapOn:
+          point: 74%, 48%
+      - extendedWaitUntil:
+          visible: Cerrar ficha
+          timeout: 4000
+          optional: true
+
+# Si alguna sonda abrió la ficha (pin tocado → saveView capturó la
+# vista paneada), el cierre debe restaurarla: el pin sale del centro
+# del flyTo (51%,25%) y la sonda no abre nada. Si el restore no se
+# ejecutara, el pin seguiría en 51%,25% y este tap reabriría la ficha
+- runFlow:
+    when:
+      visible: Cerrar ficha
+    commands:
+      - back
+      - waitForAnimationToEnd
+      - tapOn:
+          point: 51%, 25%
+      - waitForAnimationToEnd
+      - assertNotVisible: Cerrar ficha
+
+# Cierre limpio por si quedó algo abierto
+- runFlow:
+    when:
+      visible: Cerrar ficha
+    commands:
+      - back
+- assertNotVisible: El Castillo
