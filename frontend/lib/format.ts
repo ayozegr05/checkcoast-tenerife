@@ -20,12 +20,18 @@ const ROMANS = new Set(['i', 'ii', 'iii', 'iv', 'v', 'vi']);
 // topónimos conocidos al capitalizar.
 const ACCENTS: Record<string, string> = {
   medano: 'médano',
+  jardin: 'jardín',
   guios: 'guíos',
   guimar: 'güímar',
   americas: 'américas',
   camison: 'camisón',
   jaquita: 'jaquita',
   almaciga: 'almáciga',
+  mendez: 'méndez',
+  hernandez: 'hernández',
+  caleton: 'caletón',
+  poris: 'porís',
+  romantico: 'romántico',
   // variantes con el carácter corrupto de la fuente ya eliminado
   amricas: 'américas',
   camisn: 'camisón',
@@ -130,7 +136,16 @@ const DE_FORMS: Record<string, string> = {
   las: 'de las',
 };
 
+// Nombres de display curados: denominaciones del censo que nadie
+// usa en la calle. Clave = nombre base del censo en mayúsculas.
+// "PLAYA GUIOS-LOS GIGANTES (ARGEL)" es la playa de los Guíos
+const DISPLAY_NAMES: Record<string, string> = {
+  'PLAYA GUIOS-LOS GIGANTES (ARGEL)': 'Playa de los Guíos',
+};
+
 export const displayBeachName = (name: string) => {
+  const override = DISPLAY_NAMES[beachBaseName(name).toUpperCase()];
+  if (override) return override;
   const m = name.match(ARTICLE_PAREN);
   if (!m) return capName(name);
   const base = name.replace(ARTICLE_PAREN, '').replace(/ -(?=\S)/g, '-');

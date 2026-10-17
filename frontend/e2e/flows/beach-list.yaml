@@ -18,7 +18,13 @@ name: Lista — playas → detalle → volver → cerrar
 - tapOn:
     text: Entendido
     optional: true
-- assertNotVisible: Entendido
+- extendedWaitUntil:
+    visible:
+      text: Abrir lista de playas|Entendido
+    timeout: 30000
+- tapOn:
+    text: Entendido
+    optional: true
 - assertVisible: Abrir lista de playas
 
 - tapOn: Abrir lista de playas

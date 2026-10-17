@@ -565,6 +565,11 @@ export default function BeachList({
             keyExtractor={(g) => g.key}
             style={styles.list}
             contentContainerStyle={styles.listContent}
+            // 'handled': el tap llega a la fila con el teclado abierto
+            // (no se lo come el dismiss); 'on-drag': scrollear ya
+            // retira el teclado sin esperar a un tap
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             renderItem={({ item: g }) => {
               const status = worstStatusOf(g);
               const expanded = expandedKey === g.key;

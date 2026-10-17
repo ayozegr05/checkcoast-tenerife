@@ -23,10 +23,18 @@ name: Smoke — búsqueda de playa abre y cierra la ficha
     visible:
       text: Entendido|Buscar playa, emisario o municipio
     timeout: 120000
+# La intro puede montar un instante después del primer assert.
+# Doble espera + tap opcional: cubre los dos momentos de montaje
 - tapOn:
     text: Entendido
     optional: true
-- assertNotVisible: Entendido
+- extendedWaitUntil:
+    visible:
+      text: Buscar playa, emisario o municipio|Entendido
+    timeout: 30000
+- tapOn:
+    text: Entendido
+    optional: true
 - assertVisible: Buscar playa, emisario o municipio
 
 # Buscador: abrir, escribir, elegir resultado (ejercita pickResult →
@@ -44,14 +52,16 @@ name: Smoke — búsqueda de playa abre y cierra la ficha
     timeout: 10000
 - tapOn: Buscar playa, emisario o municipio\.\.\.
 - inputText: Jardin
+# La a11y label de la fila es "Playa Jardín, Puerto de la Cruz · 3
+# zonas" — Maestro casa el texto COMPLETO del nodo, así que hace
+# falta .* para el sufijo de zonas. El subtítulo desambigua del
+# emisario "Aliviadero Ebar Playa Jardín", que también contiene el
+# nombre
 - extendedWaitUntil:
     visible:
-      text: Playa Jardin
+      text: Playa Jardín, Puerto de la Cruz.*
     timeout: 15000
-# La playa se expone como "Playa Jardin" (sin tilde); los emisarios
-# "Hotel Jardín Tropical"/"Aliviadero Ebar Playa Jardín" sí llevan
-# tilde, así que el patrón sin acento solo casa la playa
-- tapOn: Playa Jardin
+- tapOn: Playa Jardín, Puerto de la Cruz.*
 
 # La ficha abre (su ✕ lleva a11y label "Cerrar ficha")
 - extendedWaitUntil:
