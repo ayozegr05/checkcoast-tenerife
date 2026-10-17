@@ -225,8 +225,15 @@ se nota primero al revisar. Ir tachando poco a poco.
       READMEs. Secret `CODECOV_TOKEN` configurado
 - [ ] i18n hardcoded en español — defendible para app cívica local;
       mencionar la decisión
-- [ ] Export web (`dist/`) — publicarlo solo si está pulido; una web
-      a medio hacer resta más que no tenerla
+- [x] Export web (`dist/`) — **descartado por decisión** (17-oct): la
+      superficie web pública ya está resuelta con las landings —
+      `/` (landing general con mapa de puntos/stats/alertas) y
+      `/b/{id}` (tarjeta de playa para quien recibe un share sin la
+      app; con app instalada el App Link abre la ficha directo). Un
+      port web completo de la app no tendría mapa (MapLibre RN es
+      nativo, no renderiza en web) y las fichas están pensadas para
+      bottom-sheets táctiles: sería otro producto a mantener para
+      ganancia mínima
 - [x] OTA frontend (`eas update`) — SÍ se usa: los updates JS van al
       APK preview instalado (bundle nuevo en el siguiente arranque —
       el usuario abre/cierra la app para cargarlo). Pendiente solo
