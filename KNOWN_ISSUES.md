@@ -221,7 +221,10 @@ se nota primero al revisar. Ir tachando poco a poco.
       mencionar la decisión
 - [ ] Export web (`dist/`) — publicarlo solo si está pulido; una web
       a medio hacer resta más que no tenerla
-- [ ] OTA frontend (`eas update`) — aplazado
+- [x] OTA frontend (`eas update`) — SÍ se usa: los updates JS van al
+      APK preview instalado (bundle nuevo en el siguiente arranque —
+      el usuario abre/cierra la app para cargarlo). Pendiente solo
+      decidir el canal si algún día hay release en Play Store
 - [ ] Homónimas sin municipio — fallback `local[0]` no determinista
       (ninguna existe hoy)
 
