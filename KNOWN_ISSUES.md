@@ -186,8 +186,10 @@ se nota primero al revisar. Ir tachando poco a poco.
       camino de cámara sin red; con él, la condición para reevaluar
       `useMapCamera` queda cumplida).
       Los pasos dependientes de datos vivos van `optional` — el flow
-      no rompe si la isla queda 100% apta. CI con emulador queda como
-      opción futura.
+      no rompe si la isla queda 100% apta. Job `e2e` en `ci.yml`
+      (android-emulator-runner API 34 + AVD cacheado + dev-client
+      del release `dev-client-e2e` + Metro 8082); hasta el primer
+      run verde se considera EN CURSO.
       OJO:
       - Instalar el APK del perfil `development` (dev-client), no el
         de release — el release corre el bundle embebido y nunca pide
@@ -212,7 +214,9 @@ se nota primero al revisar. Ir tachando poco a poco.
 ### P2 — pulido fino
 
 - [ ] Sin versioning de API (`/v1/`) — duele solo si la API crece
-- [ ] Sin coverage report en CI (badge de %)
+- [x] Sin coverage report en CI (badge de %) → pytest-cov + jest
+      cobertura → Codecov con flags backend/frontend; badge en
+      READMEs. Secret `CODECOV_TOKEN` configurado
 - [ ] i18n hardcoded en español — defendible para app cívica local;
       mencionar la decisión
 - [ ] Export web (`dist/`) — publicarlo solo si está pulido; una web
@@ -238,6 +242,20 @@ se nota primero al revisar. Ir tachando poco a poco.
   manual es la que optimiza hoy)
 
 ### Decisión: no arreglar (documentado)
+- **No perseguir el badge verde de Codecov** (17-oct): backend 71% /
+  frontend 82% → combinado 75% (naranja; Codecov vira a ~80%). La
+  cobertura que falta es mayormente glue HTTP en routers gordos
+  (`beaches.py`, `share.py`) y no lógica de negocio: `queries.py` 94%,
+  `news_llm.py` ~99%, `lib/` del frontend ~90%. Subir el % exigiría
+  tests de bajo valor (mockear responses/handlers) — inflar la métrica,
+  no la calidad.
+  **Respuesta de entrevista si lo preguntan:** «La cobertura global es
+  75% porque prioricé donde está el riesgo: la lógica que puede
+  decidir mal el estado de una playa (matriz de precedencia, matching
+  de prensa, caducidades) está al 90%+. Lo que baja la media es glue
+  HTTP en routers, que ya cubren los tests de API contra PostGIS real
+  y los flows E2E. Si me preguntan por un número me comprometo a un
+  `fail_under` para que no baje, no a un objetivo artificial».
 - **[A3] `effective_states` de toda la isla para servir UNA playa**
   (`routers/beaches.py` `/beaches/{id}/status` y `share.py`): la
   matriz cuesta ~5 queries con datos agregados — el coste real es
