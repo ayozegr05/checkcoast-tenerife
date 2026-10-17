@@ -1,5 +1,7 @@
 # CheckCoast Tenerife
 
+[![codecov](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/graph/badge.svg)](https://codecov.io/gh/ayozegr05/checkcoast-tenerife)
+
 [English](README.md) | **Español**
 
 App cívica para bañistas de Tenerife: **¿puedo bañarme hoy en esta playa?**
