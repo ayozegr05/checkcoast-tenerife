@@ -110,6 +110,15 @@ jobs:
         run: |
           EXPO_PUBLIC_API_URL=http://130.110.233.198:8001 \
             npx expo start --dev-client --port 8082 > /tmp/metro.log 2>&1 &
+      # Sin KVM el emulador corre con -accel off (emulación por software
+      # pura): boot ~15 min, install ~13 min y el driver de Maestro no
+      # llega a arrancar. Con KVM: boot ~1-2 min. Paso documentado en
+      # el README de android-emulator-runner.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
       # El AVD cacheado (con el dev-client ya instalado y snapshot
       # guardado) evita ~25 min de cold boot + install en cada run.
       # Bump de la key si el AVD queda corrupto o cambia el APK.
