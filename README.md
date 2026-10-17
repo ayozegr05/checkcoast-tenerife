@@ -1,5 +1,7 @@
 # CheckCoast Tenerife
 
+[![codecov](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/graph/badge.svg)](https://codecov.io/gh/ayozegr05/checkcoast-tenerife)
+
 **English** | [Español](README.es.md)
 
 A civic app for beachgoers in Tenerife (Canary Islands, Spain):

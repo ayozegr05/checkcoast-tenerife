@@ -38,7 +38,15 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: alembic upgrade head
-      - run: python -m pytest tests/ -q
+      - run: python -m pytest tests/ -q --cov=app --cov-report=xml
+      - name: Upload backend coverage
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: backend/coverage.xml
+          flags: backend
+          # La cobertura es best-effort: un fallo de upload nunca tumba CI
+          fail_ci_if_error: false
 
   frontend:
     runs-on: ubuntu-latest
@@ -56,7 +64,15 @@ jobs:
       - run: npx prettier --check .
       - run: npx tsc --noEmit
       - run: npx expo lint
-      - run: npx jest
+      - run: npx jest --coverage --coverageReporters=cobertura
+      - name: Upload frontend coverage
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: frontend/coverage/cobertura-coverage.xml
+          flags: frontend
+          # La cobertura es best-effort: un fallo de upload nunca tumba CI
+          fail_ci_if_error: false
 
   # Suite Maestro en emulador Android. La app (dev-client) carga el JS
   # de Metro y pega contra la API de producción vía EXPO_PUBLIC_API_URL
