@@ -186,10 +186,16 @@ se nota primero al revisar. Ir tachando poco a poco.
       camino de cámara sin red; con él, la condición para reevaluar
       `useMapCamera` queda cumplida).
       Los pasos dependientes de datos vivos van `optional` — el flow
-      no rompe si la isla queda 100% apta. Job `e2e` en `ci.yml`
-      (android-emulator-runner API 34 + AVD cacheado + dev-client
-      del release `dev-client-e2e` + Metro 8082); hasta el primer
-      run verde se considera EN CURSO.
+      no rompe si la isla queda 100% apta. **Job `e2e` en `ci.yml`
+      VERDE** (run 39057253465, 17 min): KVM habilitado (sin él el
+      emulador corre -accel off y nada arranca a tiempo), AVD
+      cacheado, dev-client del release `dev-client-e2e` instalado
+      con `adb install -r` en el propio paso de flows (el userdata
+      no sobrevive el relanzado del AVD entre pasos del action),
+      `MAESTRO_DRIVER_STARTUP_TIMEOUT=300000` y tolerancia al ANR
+      "Pixel Launcher isn't responding" (tap opcional en `^Wait$` —
+      el diálogo captura el árbol a11y aunque la app esté cargada
+      detrás). `concurrency: e2e-emulator` serializa los runs.
       OJO:
       - Instalar el APK del perfil `development` (dev-client), no el
         de release — el release corre el bundle embebido y nunca pide
