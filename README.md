@@ -1,6 +1,7 @@
 # CheckCoast Tenerife
 
-[![codecov](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/graph/badge.svg)](https://codecov.io/gh/ayozegr05/checkcoast-tenerife)
+[![backend coverage](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/graph/badge.svg?flag=backend)](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/tree/main/backend)
+[![frontend coverage](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/graph/badge.svg?flag=frontend)](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/tree/main/frontend)
 
 **English** | [Español](README.es.md)
 
