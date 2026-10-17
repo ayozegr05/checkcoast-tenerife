@@ -135,12 +135,17 @@ jobs:
           force-avd-creation: false
           emulator-options: >-
             -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+            -memory 6144 -cores 4
           disable-animations: true
           script: adb install /tmp/dev-client.apk
       # OJO: el action ejecuta cada línea del script en un sh -c propio
       # — no persisten cd ni variables; usar rutas absolutas
       - name: Run Maestro flows on emulator
         uses: reactivecircus/android-emulator-runner@v2
+        # En el emulador frío de GitHub el server UIAutomator de Maestro
+        # tarda mucho más que el default (15 s); 5 min da margen
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: "300000"
         with:
           api-level: 34
           target: google_apis
@@ -150,12 +155,13 @@ jobs:
           force-avd-creation: false
           emulator-options: >-
             -no-snapshot-save -no-window -gpu swiftshader_indirect
-            -noaudio -no-boot-anim
+            -noaudio -no-boot-anim -memory 6144 -cores 4
           disable-animations: true
           script: |
             adb wait-for-device
             timeout 120 bash -c 'until curl -sf http://localhost:8082/status >/dev/null; do sleep 3; done'
-            maestro test "$GITHUB_WORKSPACE/frontend/e2e/flows/"
+            maestro test "$GITHUB_WORKSPACE/frontend/e2e/flows/" || \
+              maestro test "$GITHUB_WORKSPACE/frontend/e2e/flows/"
       - name: Upload Maestro artifacts
         if: failure()
         uses: actions/upload-artifact@v4

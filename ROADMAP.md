@@ -453,17 +453,22 @@ cuerpo de las noticias, no en su fecha de publicación.
 | 10.14 | **Typecheck backend (mypy/pyright)**: Ruff cubre lint+format; añadir typecheck en modo laxo + step en `ci.yml` suma una puerta de calidad más | Pendiente | 🟡 Medio |
 | 10.15 | **Coverage badge (codecov)**: `pytest --cov` + upload + badge en README | ✅ Hecho (17-oct) — pytest-cov + jest cobertura → Codecov con flags backend/frontend, badges por flag en READMEs, `CODECOV_TOKEN` en secrets. Decisión documentada: no perseguir >80% | 🟢 Trivial |
 
-## Hito 11 — Ficha de emisario enriquecida ⬜ *(propuesta 2026-09-30, aplazada: primero arreglar episodios de playas)*
+## Hito 11 — Ficha de emisario enriquecida 🟡 *(propuesta 2026-09-30; parcial ya hecho — revisado 2026-10-17)*
 
-La ficha de emisario hoy solo muestra tipo + municipio + playas cercanas.
-El shapefile del Censo de Vertidos Tierra-Mar 2025 trae ~25 campos que
-`ingest_outfalls.py` descarta. Tres niveles, en orden de coste/impacto:
+La ficha de emisario YA muestra bastante del censo (la descripción
+original del hito estaba desactualizada): naturaleza del vertido
+(`NatVert`), continuidad (`ContinVert` — habitual vs alivio de
+emergencia), estado/actividad, entidad y gestor, origen/núcleo,
+`zone_desc`, área protegida (ZEC/LIC con explicación), longitud,
+cota de vertido, distancia a orilla y coordenadas de inicio. Decisión
+del usuario (17-oct): **no se ingieren más campos del censo** — lo
+que queda (tratamiento, diámetro, nº autorización) se descarta.
 
 | # | Tarea | Detalle | Esfuerzo |
 |---|-------|---------|----------|
-| 11.1 | **Ficha técnica del censo** (gratis, oficial) | Migración + ingesta de campos ya existentes: `NatVert` (agua residual urbana / salmuera…), `ContinVert` (Habitual vs excedencia-emergencia — un aliviadero solo vierte en episodios), `EstadoGral`/`EstadoFunc`, `TratPrev`/`TipoTrat`/`Desinfec`, `LongDifus`/`CotaVert`/`DiamFinal`, `ActivAfect` ("Zona de baño"), `EspProtDet` (ZEC/LIC), `Entidad`/`GestSan`, `DescrZona`, `NumAutoriz`. Sección "Ficha técnica" en `FeatureSheet` | 🟡 Medio |
-| 11.2 | **Noticias de vertidos cercanos** | Endpoint `/outfalls/{id}/news`: news_items de playas a <2 km cuyo título menciona emisario/vertido/aliviadero/depuradora/saneamiento. Reutiliza el pipeline de prensa. Etiqueta honesta en UI — sin afirmar que es *ese* emisario concreto | 🟡 Medio |
-| 11.3 | **Estado de vertido en el tiempo** | Correlación episodios de cierre por contaminación fecal en playas próximas ↔ emisario de aguas residuales habitual → anotación "episodios de contaminación en playas próximas" SIN acusar causalidad. Opcional: re-ingesta anual del censo SITCAN (snapshot por años). Disclaimer fuerte obligatorio | 🔴 Alto |
+| 11.1 | **Ficha técnica del censo** | ✅ Hecho en su parte útil — campos principales ya en el modelo y en la ficha; campos restantes descartados por decisión | — |
+| 11.2 | **Noticias de vertidos cercanos** | Posible futuro — endpoint `/outfalls/{id}/news` con news_items de playas a <2 km que mencionen emisario/vertido/depuradora. Reutiliza el pipeline de prensa | 🟡 Medio |
+| 11.3 | **Estado de vertido en el tiempo** | Posible futuro — correlación episodios de cierre fecal ↔ emisario habitual, SIN acusar causalidad (disclaimer obligatorio) | 🔴 Alto |
 
 ---
 

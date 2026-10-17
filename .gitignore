@@ -47,3 +47,8 @@ caddy-sites/
 
 # Salidas locales de los scripts de generación de assets
 frontend/scripts/out/
+
+# Reportes de cobertura (pytest-cov / jest)
+backend/.coverage
+backend/coverage.xml
+frontend/coverage/
