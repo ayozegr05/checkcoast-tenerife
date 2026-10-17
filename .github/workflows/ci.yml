@@ -57,3 +57,63 @@ jobs:
       - run: npx tsc --noEmit
       - run: npx expo lint
       - run: npx jest
+
+  # Suite Maestro en emulador Android. La app (dev-client) carga el JS
+  # de Metro y pega contra la API de producción vía EXPO_PUBLIC_API_URL
+  # — no hace falta backend en CI. El APK es un asset del release
+  # `dev-client-e2e`; si cambian deps nativas hay que regenerarlo
+  # (eas build --profile development) y resubirlo.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Download dev-client APK
+        run: >-
+          curl -fSL -o /tmp/dev-client.apk
+          https://github.com/ayozegr05/checkcoast-tenerife/releases/download/dev-client-e2e/checkcoast-dev-client.apk
+      - name: Start Metro
+        run: |
+          EXPO_PUBLIC_API_URL=http://130.110.233.198:8001 \
+            npx expo start --dev-client --port 8082 > /tmp/metro.log 2>&1 &
+      - name: Run Maestro flows on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7_pro
+          emulator-options: >-
+            -no-snapshot-save -no-window -gpu swiftshader_indirect
+            -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            cd "$GITHUB_WORKSPACE/frontend"
+            adb wait-for-device
+            adb install /tmp/dev-client.apk
+            # Metro corre en el host (el emulador lo alcanza vía 10.0.2.2);
+            # esperar a que sirva el manifest antes de lanzar los flows
+            timeout 120 bash -c 'until curl -sf http://localhost:8082/status >/dev/null; do sleep 3; done'
+            maestro test e2e/flows/
+      - name: Upload Maestro artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-artifacts
+          path: |
+            ~/.maestro/tests
+            /tmp/metro.log
+          retention-days: 7
