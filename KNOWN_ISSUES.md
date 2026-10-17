@@ -182,7 +182,14 @@ se nota primero al revisar. Ir tachando poco a poco.
       `alert-banner` (banner → playa alertada → vista Temporada).
       Los pasos dependientes de datos vivos van `optional` — el flow
       no rompe si la isla queda 100% apta. CI con emulador queda como
-      opción futura
+      opción futura.
+      OJO: instalar el APK del perfil `development` (dev-client), no el
+      de release — el release corre el bundle embebido y nunca pide el
+      bundle a Metro: los cambios de código no se reflejan aunque Metro
+      los sirva. Comprobar con `adb shell pm dump <pkg> | grep -c
+      devlauncher` (0 = build release). La intro puede montar un
+      instante tarde tras el primer assert — los flows hacen doble
+      espera + tap opcional
 - [ ] **Telemetría casera `/client-events`** vs Sentry — vendible como
       pragmatismo (cero deps externas, write-only, rate-limit) si se
       explica bien
