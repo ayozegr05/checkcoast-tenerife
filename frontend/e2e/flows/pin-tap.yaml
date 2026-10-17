@@ -28,10 +28,15 @@ name: Pin — tap en pin abre ficha; cierre restaura vista salvo pan manual
 - openLink: exp+checkcoast-tenerife://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8082
 - extendedWaitUntil:
     visible:
-      text: Continue|Entendido|Buscar playa, emisario o municipio
+      text: Continue|Entendido|Buscar playa, emisario o municipio|^Wait$
     timeout: 120000
 # Continue = onboarding del dev-client (cold start tras stopApp);
-# Entendido = intro de la app. Ambas pueden montar un instante tarde
+# Entendido = intro de la app; Wait = ANR del launcher en emulador
+# frío ("Pixel Launcher isn't responding" tapa la app en CI).
+# Ambas pueden montar un instante tarde
+- tapOn:
+    text: ^Wait$
+    optional: true
 - tapOn:
     text: Continue
     optional: true
@@ -40,8 +45,11 @@ name: Pin — tap en pin abre ficha; cierre restaura vista salvo pan manual
     optional: true
 - extendedWaitUntil:
     visible:
-      text: Buscar playa, emisario o municipio|Entendido|Continue
+      text: Buscar playa, emisario o municipio|Entendido|Continue|^Wait$
     timeout: 30000
+- tapOn:
+    text: ^Wait$
+    optional: true
 - tapOn:
     text: Continue
     optional: true

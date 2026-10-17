@@ -13,8 +13,13 @@ name: Lista — playas → detalle → volver → cerrar
 # La intro solo aparece en primer arranque — tolerar ambos estados
 - extendedWaitUntil:
     visible:
-      text: Continue|Entendido|Abrir lista de playas
+      text: Continue|Entendido|Abrir lista de playas|^Wait$
     timeout: 120000
+# Wait = ANR del launcher en emulador frío ("Pixel Launcher isn't
+# responding" tapa la app en CI) — descartarlo si aparece
+- tapOn:
+    text: ^Wait$
+    optional: true
 - tapOn:
     text: Continue
     optional: true
@@ -23,8 +28,11 @@ name: Lista — playas → detalle → volver → cerrar
     optional: true
 - extendedWaitUntil:
     visible:
-      text: Abrir lista de playas|Entendido|Continue
+      text: Abrir lista de playas|Entendido|Continue|^Wait$
     timeout: 30000
+- tapOn:
+    text: ^Wait$
+    optional: true
 - tapOn:
     text: Continue
     optional: true

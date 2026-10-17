@@ -21,12 +21,16 @@ name: Smoke — búsqueda de playa abre y cierra la ficha
 # La intro solo aparece en primer arranque — tolerar ambos estados
 - extendedWaitUntil:
     visible:
-      text: Continue|Entendido|Buscar playa, emisario o municipio
+      text: Continue|Entendido|Buscar playa, emisario o municipio|^Wait$
     timeout: 120000
 # La intro puede montar un instante después del primer assert.
 # Doble espera + tap opcional: cubre los dos momentos de montaje.
 # Continue = onboarding del dev-client (cold start tras stopApp);
-# Entendido = intro de la app
+# Entendido = intro de la app; Wait = ANR del launcher en emulador
+# frío ("Pixel Launcher isn't responding" tapa la app en CI)
+- tapOn:
+    text: ^Wait$
+    optional: true
 - tapOn:
     text: Continue
     optional: true
@@ -35,8 +39,11 @@ name: Smoke — búsqueda de playa abre y cierra la ficha
     optional: true
 - extendedWaitUntil:
     visible:
-      text: Buscar playa, emisario o municipio|Entendido|Continue
+      text: Buscar playa, emisario o municipio|Entendido|Continue|^Wait$
     timeout: 30000
+- tapOn:
+    text: ^Wait$
+    optional: true
 - tapOn:
     text: Continue
     optional: true

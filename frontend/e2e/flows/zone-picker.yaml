@@ -13,8 +13,13 @@ name: Zonas — picker → PM → atrás → picker
 # La intro solo aparece en primer arranque — tolerar ambos estados
 - extendedWaitUntil:
     visible:
-      text: Continue|Entendido|Buscar playa, emisario o municipio
+      text: Continue|Entendido|Buscar playa, emisario o municipio|^Wait$
     timeout: 120000
+# Wait = ANR del launcher en emulador frío ("Pixel Launcher isn't
+# responding" tapa la app en CI) — descartarlo si aparece
+- tapOn:
+    text: ^Wait$
+    optional: true
 - tapOn:
     text: Continue
     optional: true
@@ -23,8 +28,11 @@ name: Zonas — picker → PM → atrás → picker
     optional: true
 - extendedWaitUntil:
     visible:
-      text: Buscar playa, emisario o municipio|Entendido|Continue
+      text: Buscar playa, emisario o municipio|Entendido|Continue|^Wait$
     timeout: 30000
+- tapOn:
+    text: ^Wait$
+    optional: true
 - tapOn:
     text: Continue
     optional: true

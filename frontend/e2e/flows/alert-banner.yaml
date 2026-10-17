@@ -17,10 +17,14 @@ name: Alertas — banner → playa alertada → episodios
 # La intro solo aparece en primer arranque — tolerar ambos estados
 - extendedWaitUntil:
     visible:
-      text: Continue|Entendido|Resumen del estado de las playas
+      text: Continue|Entendido|Resumen del estado de las playas|^Wait$
     timeout: 120000
 # Continue = onboarding del dev-client (cold start tras stopApp);
-# Entendido = intro de la app
+# Entendido = intro de la app; Wait = ANR del launcher en emulador
+# frío ("Pixel Launcher isn't responding" tapa la app en CI)
+- tapOn:
+    text: ^Wait$
+    optional: true
 - tapOn:
     text: Continue
     optional: true
@@ -29,8 +33,11 @@ name: Alertas — banner → playa alertada → episodios
     optional: true
 - extendedWaitUntil:
     visible:
-      text: Resumen del estado de las playas|Entendido|Continue
+      text: Resumen del estado de las playas|Entendido|Continue|^Wait$
     timeout: 30000
+- tapOn:
+    text: ^Wait$
+    optional: true
 - tapOn:
     text: Continue
     optional: true
