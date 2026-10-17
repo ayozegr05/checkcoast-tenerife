@@ -14,28 +14,44 @@ name: Smoke — búsqueda de playa abre y cierra la ficha
 # Deep-link al dev-client con la URL de Metro (el emulador ve el host
 # como 10.0.2.2). OJO: NO usar exp:// — Expo Go instalado captura ese
 # esquema. El dev-client responde a exp+<slug>://expo-development-client
+- stopApp
 - openLink: exp+checkcoast-tenerife://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8082
 
-# Primera carga: Metro compila el bundle + fetch inicial — margen alto
+# Primera carga: Metro compila + fetch inicial — margen alto.
+# La intro solo aparece en primer arranque — tolerar ambos estados
 - extendedWaitUntil:
-    visible: Entendido
+    visible:
+      text: Entendido|Buscar playa, emisario o municipio
     timeout: 120000
-
-# Intro de primer arranque → mapa
-- tapOn: Entendido
+- tapOn:
+    text: Entendido
+    optional: true
+- assertNotVisible: Entendido
 - assertVisible: Buscar playa, emisario o municipio
 
 # Buscador: abrir, escribir, elegir resultado (ejercita pickResult →
 # flyTo al grupo + onSelect → ficha)
 - tapOn: Buscar playa, emisario o municipio
-- tapOn: Buscar playa, emisario o municipio\.\.\.
-- inputText: Jardín
+# Si el tap llegó con la app aún cargando y el campo no abrió, reintentar
+- runFlow:
+    when:
+      notVisible: Buscar playa, emisario o municipio\.\.\.
+    commands:
+      - tapOn: Buscar playa, emisario o municipio
 - extendedWaitUntil:
     visible:
-      text: .*Jardín.*
+      text: Buscar playa, emisario o municipio\.\.\.
+    timeout: 10000
+- tapOn: Buscar playa, emisario o municipio\.\.\.
+- inputText: Jardin
+- extendedWaitUntil:
+    visible:
+      text: Playa Jardin
     timeout: 15000
-- tapOn:
-    text: .*Playa Jardín.*
+# La playa se expone como "Playa Jardin" (sin tilde); los emisarios
+# "Hotel Jardín Tropical"/"Aliviadero Ebar Playa Jardín" sí llevan
+# tilde, así que el patrón sin acento solo casa la playa
+- tapOn: Playa Jardin
 
 # La ficha abre (su ✕ lleva a11y label "Cerrar ficha")
 - extendedWaitUntil:

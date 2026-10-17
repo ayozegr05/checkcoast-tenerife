@@ -1,0 +1,68 @@
+# E2E: playa multi-PM → selector de zonas → ficha PM → atrás → picker.
+# Cubre la coreografía frágil de cámara (zoneFocus: flyTo al PM y
+# restore de vista al volver al selector) — la zona que refactorizaría
+# useMapCamera. Sin este test, ese refactor era reescribir a ciegas.
+#
+# Correr: maestro test e2e/flows/zone-picker.yaml
+
+appId: com.checkcoast.tenerife
+name: Zonas — picker → PM → atrás → picker
+---
+- stopApp
+- openLink: exp+checkcoast-tenerife://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8082
+# La intro solo aparece en primer arranque — tolerar ambos estados
+- extendedWaitUntil:
+    visible:
+      text: Entendido|Buscar playa, emisario o municipio
+    timeout: 120000
+- tapOn:
+    text: Entendido
+    optional: true
+- assertNotVisible: Entendido
+- assertVisible: Buscar playa, emisario o municipio
+
+# Playa Jardín tiene 3 PMs (El Castillo/El Charcón/Punta Brava):
+# el tap abre el SELECTOR, no una ficha directa
+- tapOn: Buscar playa, emisario o municipio
+# Si el tap llegó con la app aún cargando y el campo no abrió, reintentar
+- runFlow:
+    when:
+      notVisible: Buscar playa, emisario o municipio\.\.\.
+    commands:
+      - tapOn: Buscar playa, emisario o municipio
+- extendedWaitUntil:
+    visible:
+      text: Buscar playa, emisario o municipio\.\.\.
+    timeout: 10000
+- tapOn: Buscar playa, emisario o municipio\.\.\.
+- inputText: Jardin
+- extendedWaitUntil:
+    visible:
+      text: Playa Jardin
+    timeout: 15000
+# La playa se expone como "Playa Jardin" (sin tilde); los emisarios
+# "Hotel Jardín Tropical"/"Aliviadero Ebar Playa Jardín" sí llevan
+# tilde, así que el patrón sin acento solo casa la playa
+- tapOn: Playa Jardin
+
+# El selector de zonas abre — "3 zonas de esta playa" va en spans
+# separados; las filas se etiquetan "Zona N" (nombre PM del censo)
+- extendedWaitUntil:
+    visible: Zona 1
+    timeout: 15000
+
+# Elegir una zona → ficha del PM (aquí ocurre el flyTo de zoneFocus)
+- tapOn: Zona 1
+- extendedWaitUntil:
+    visible: Cerrar ficha
+    timeout: 15000
+
+# Atrás hardware → vuelve al SELECTOR (no cierra) — restore de vista
+- back
+- extendedWaitUntil:
+    visible: Zona 1
+    timeout: 10000
+
+# Cierre limpio
+- tapOn: Cerrar ficha
+- assertNotVisible: Cerrar ficha
