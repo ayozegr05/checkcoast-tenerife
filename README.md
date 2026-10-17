@@ -1,5 +1,6 @@
 # CheckCoast Tenerife
 
+[![CI](https://github.com/ayozegr05/checkcoast-tenerife/actions/workflows/ci.yml/badge.svg)](https://github.com/ayozegr05/checkcoast-tenerife/actions/workflows/ci.yml)
 [![backend coverage](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/graph/badge.svg?flag=backend)](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/tree/main/backend)
 [![frontend coverage](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/graph/badge.svg?flag=frontend)](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/tree/main/frontend)
 
