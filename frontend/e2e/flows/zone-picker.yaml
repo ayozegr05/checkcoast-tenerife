@@ -18,7 +18,13 @@ name: Zonas — picker → PM → atrás → picker
 - tapOn:
     text: Entendido
     optional: true
-- assertNotVisible: Entendido
+- extendedWaitUntil:
+    visible:
+      text: Buscar playa, emisario o municipio|Entendido
+    timeout: 30000
+- tapOn:
+    text: Entendido
+    optional: true
 - assertVisible: Buscar playa, emisario o municipio
 
 # Playa Jardín tiene 3 PMs (El Castillo/El Charcón/Punta Brava):
@@ -36,23 +42,24 @@ name: Zonas — picker → PM → atrás → picker
     timeout: 10000
 - tapOn: Buscar playa, emisario o municipio\.\.\.
 - inputText: Jardin
+# La a11y label de la fila es "Playa Jardín, Puerto de la Cruz · 3
+# zonas" — Maestro casa el texto COMPLETO del nodo, así que hace
+# falta .* para el sufijo. El subtítulo desambigua del emisario
+# "Aliviadero Ebar Playa Jardín", que también contiene el nombre
 - extendedWaitUntil:
     visible:
-      text: Playa Jardin
+      text: Playa Jardín, Puerto de la Cruz.*
     timeout: 15000
-# La playa se expone como "Playa Jardin" (sin tilde); los emisarios
-# "Hotel Jardín Tropical"/"Aliviadero Ebar Playa Jardín" sí llevan
-# tilde, así que el patrón sin acento solo casa la playa
-- tapOn: Playa Jardin
+- tapOn: Playa Jardín, Puerto de la Cruz.*
 
-# El selector de zonas abre — "3 zonas de esta playa" va en spans
-# separados; las filas se etiquetan "Zona N" (nombre PM del censo)
+# El selector de zonas abre — las filas llevan el nombre común de la
+# cala (mapa curado de zones.ts), no "Zona N" del censo
 - extendedWaitUntil:
-    visible: Zona 1
+    visible: El Castillo
     timeout: 15000
 
 # Elegir una zona → ficha del PM (aquí ocurre el flyTo de zoneFocus)
-- tapOn: Zona 1
+- tapOn: El Castillo
 - extendedWaitUntil:
     visible: Cerrar ficha
     timeout: 15000
@@ -60,7 +67,7 @@ name: Zonas — picker → PM → atrás → picker
 # Atrás hardware → vuelve al SELECTOR (no cierra) — restore de vista
 - back
 - extendedWaitUntil:
-    visible: Zona 1
+    visible: El Castillo
     timeout: 10000
 
 # Cierre limpio

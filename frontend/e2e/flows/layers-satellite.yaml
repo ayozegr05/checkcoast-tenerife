@@ -14,10 +14,18 @@ name: Capas — panel de filtros + satélite
     visible:
       text: Entendido|Abrir panel de capas
     timeout: 120000
+# La intro puede montar un instante después del primer assert.
+# Doble espera + tap opcional: cubre los dos momentos de montaje
 - tapOn:
     text: Entendido
     optional: true
-- assertNotVisible: Entendido
+- extendedWaitUntil:
+    visible:
+      text: Abrir panel de capas|Entendido
+    timeout: 30000
+- tapOn:
+    text: Entendido
+    optional: true
 - assertVisible: Abrir panel de capas
 
 # Abrir el panel: las dos secciones con sus filas

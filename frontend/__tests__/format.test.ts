@@ -28,6 +28,26 @@ describe('displayBeachName', () => {
     expect(displayBeachName('PLAYA TROYA II')).toBe('Playa Troya II');
     expect(displayBeachName('PLAYA MEDANO (EL)')).toBe('Playa del Médano');
   });
+
+  it('restaura las tildes que el censo omite', () => {
+    expect(displayBeachName('PLAYA JARDIN')).toBe('Playa Jardín');
+    expect(displayBeachName('PLAYA PORIS DE ABONA')).toBe(
+      'Playa Porís de Abona',
+    );
+    expect(displayBeachName('Playa Diego Hernandez')).toBe(
+      'Playa Diego Hernández',
+    );
+    expect(displayBeachName('Charco El Romantico')).toBe('Charco El Romántico');
+  });
+
+  it('usa el nombre común curado para denominaciones del censo', () => {
+    expect(displayBeachName('PLAYA GUIOS-LOS GIGANTES (ARGEL) PM3')).toBe(
+      'Playa de los Guíos',
+    );
+    expect(displayBeachName('PLAYA GUIOS-LOS GIGANTES (ARGEL)')).toBe(
+      'Playa de los Guíos',
+    );
+  });
 });
 
 describe('beachBaseName / beachPointLabel', () => {

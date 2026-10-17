@@ -22,7 +22,13 @@ name: Alertas — banner → playa alertada → episodios
 - tapOn:
     text: Entendido
     optional: true
-- assertNotVisible: Entendido
+- extendedWaitUntil:
+    visible:
+      text: Resumen del estado de las playas|Entendido
+    timeout: 30000
+- tapOn:
+    text: Entendido
+    optional: true
 - assertVisible: Resumen del estado de las playas
 
 # Expandir el banner → panel "ACTIVAS AHORA · N". OJO: Maestro casa el
