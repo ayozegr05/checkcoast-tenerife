@@ -84,7 +84,7 @@ jobs:
       - name: Download dev-client APK
         run: >-
           curl -fSL -o /tmp/dev-client.apk
-          https://github.com/ayozegr05/checkcoast-tenerife/releases/download/dev-client-e2e/checkcoast-dev-client.apk
+          https://github.com/ayozegr05/checkcoast-tenerife/releases/download/dev-client-e2e/application-59ab82da-a214-4689-99cb-b66356cc9a53.apk
       - name: Start Metro
         run: |
           EXPO_PUBLIC_API_URL=http://130.110.233.198:8001 \
