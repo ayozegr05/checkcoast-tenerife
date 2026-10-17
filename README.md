@@ -1,10 +1,10 @@
 # CheckCoast Tenerife
 
+**English** | [Español](README.es.md)
+
 [![CI](https://github.com/ayozegr05/checkcoast-tenerife/actions/workflows/ci.yml/badge.svg)](https://github.com/ayozegr05/checkcoast-tenerife/actions/workflows/ci.yml)
 [![backend coverage](https://img.shields.io/codecov/c/github/ayozegr05/checkcoast-tenerife?flag=backend&label=backend&logo=codecov)](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/tree/main/backend)
 [![frontend coverage](https://img.shields.io/codecov/c/github/ayozegr05/checkcoast-tenerife?flag=frontend&label=frontend&logo=codecov)](https://codecov.io/gh/ayozegr05/checkcoast-tenerife/tree/main/frontend)
-
-**English** | [Español](README.es.md)
 
 A civic app for beachgoers in Tenerife (Canary Islands, Spain):
 **can I swim at this beach today?**
