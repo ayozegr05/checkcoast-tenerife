@@ -82,6 +82,11 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 75
+    # Dos pushes seguidos no deben competir por el mismo caché de AVD —
+    # el segundo espera a que el primero lo escriba
+    concurrency:
+      group: e2e-emulator
+      cancel-in-progress: false
     defaults:
       run:
         working-directory: frontend
@@ -112,10 +117,10 @@ jobs:
         uses: actions/cache@v4
         id: avd-cache
         with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-34-pixel7pro-v1
+          # Solo el AVD: meter ~/.android/adb* cachea el estado del
+          # daemon adb y el siguiente run no puede conectar
+          path: ~/.android/avd/*
+          key: avd-34-pixel7pro-v2
       # Solo en cache-miss: crea el AVD e instala el APK; al terminar el
       # paso el emulador guarda snapshot y el cache lo captura
       - name: Create AVD + install dev-client
