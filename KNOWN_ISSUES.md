@@ -160,8 +160,9 @@ se nota primero al revisar. Ir tachando poco a poco.
 - [x] **`CoastMap.tsx` 1698 líneas** → 1259 tras extraer el catálogo
       de capas a `components/map/MapLayers.tsx` (JSX declarativo puro,
       commit `cdbe3ec`). Evaluados y DESCARTADOS con razón: `useMapCamera`
-      (zona históricamente frágil — sin E2E de cámara, el riesgo supera
-      al beneficio; reevaluar solo si crece el smoke E2E) y `useMapSearch`
+      (zona históricamente frágil — quedó aparcado hasta tener E2E de
+      cámara; con `pin-tap.yaml` + `zone-picker.yaml` la condición está
+      cumplida y es reevaluable) y `useMapSearch`
       (la firma del hook sería más fea que las ~60 líneas que mueve —
       glue de pantalla legítima). `App.tsx` 728: orquestación de overlays,
       aceptable
@@ -173,23 +174,37 @@ se nota primero al revisar. Ir tachando poco a poco.
       moverlo a worker aparte es complejidad innecesaria
 - [ ] **`alembic upgrade head` al arrancar** — dos réplicas
       concurrentes podrían pelear en migraciones. Mismo tradeoff
-- [x] **E2E con Maestro** — 5 flows verdes en emulador
-      (Pixel_7_Pro_API_30 + Metro 8082): `smoke-search` (buscar →
+- [x] **E2E con Maestro** — 6 flows verdes en emulador
+      (Pixel_7_Pro_API_34 + Metro 8082): `smoke-search` (buscar →
       flyTo + ficha → cerrar), `zone-picker` (multi-PM → selector de
       zonas → PM → back hardware → picker — la coreografía de
       zoneFocus), `beach-list` (modal → buscar → detalle → volver),
-      `layers-satellite` (panel de capas + toggle basemap) y
-      `alert-banner` (banner → playa alertada → vista Temporada).
+      `layers-satellite` (panel de capas + toggle basemap),
+      `alert-banner` (banner → playa alertada → vista Temporada) y
+      `pin-tap` (tap por coordenadas al pin nativo → picker → pan
+      manual → veto userPanned → restore de savedView — el último
+      camino de cámara sin red; con él, la condición para reevaluar
+      `useMapCamera` queda cumplida).
       Los pasos dependientes de datos vivos van `optional` — el flow
       no rompe si la isla queda 100% apta. CI con emulador queda como
       opción futura.
-      OJO: instalar el APK del perfil `development` (dev-client), no el
-      de release — el release corre el bundle embebido y nunca pide el
-      bundle a Metro: los cambios de código no se reflejan aunque Metro
-      los sirva. Comprobar con `adb shell pm dump <pkg> | grep -c
-      devlauncher` (0 = build release). La intro puede montar un
-      instante tarde tras el primer assert — los flows hacen doble
-      espera + tap opcional
+      OJO:
+      - Instalar el APK del perfil `development` (dev-client), no el
+        de release — el release corre el bundle embebido y nunca pide
+        el bundle a Metro. Comprobar con `adb shell pm dump <pkg> |
+        grep -c devlauncher` (0 = build release)
+      - El AVD API 30 NO renderiza MapLibre (eglChooseConfig sin
+        configs en cualquier modo -gpu, incluido texture) — usar API
+        34 (`google_apis;x86_64`)
+      - Los pines/labels de MapLibre no están en el árbol a11y → taps
+        por coordenadas relativas; el swipe tiene drift vertical
+        variable → sondear una columna de puntos con `optional`
+      - `hideKeyboard` tras `inputText` y ANTES de tocar la fila:
+        con el teclado abierto el sheet monta detrás y los asserts
+        no lo ven (pero nunca tras abrir el picker: se come un back
+        y la cierra)
+      - La intro puede montar un instante tarde tras el primer
+        assert — los flows hacen doble espera + tap opcional
 - [ ] **Telemetría casera `/client-events`** vs Sentry — vendible como
       pragmatismo (cero deps externas, write-only, rate-limit) si se
       explica bien
