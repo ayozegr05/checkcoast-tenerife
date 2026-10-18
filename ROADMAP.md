@@ -266,10 +266,14 @@ no convierte en enlace. Objetivo: que al compartir una playa llegue una
   cercanos" con estado/distancia, caja "según prensa", zoom
   Acercar/Alejar con dos encuadres Esri (`a927556`, `f655d63`, `aaa6fa0`)
 - [x] **Android App Links**: intent-filter `autoVerify` para
-  `https://checkcoast.duckdns.org/b/*` + `/.well-known/assetlinks.json`
-  con el fingerprint del keystore EAS (`ANDROID_CERT_SHA256` en `.env`
-  de la VM) — el link abre la app directo si está instalada (`b8ad36e`,
-  `4bad920`)
+  `https://checkcoast.duckdns.org/b/*` y `/o/*` +
+  `/.well-known/assetlinks.json` con el fingerprint del keystore
+  (`ANDROID_CERT_SHA256` en `.env` de la VM) — el link abre la app
+  directo si está instalada (`b8ad36e`, `4bad920`). PENDIENTE al
+  publicar: volcar el SHA-256 del keystore de producción
+  (`keytool -list -v -keystore <release>.jks` o Play Console → Setup →
+  App integrity → App signing) en `ANDROID_CERT_SHA256`; hasta entonces
+  assetlinks devuelve `[]` y Android puede preguntar «abrir con…»
 - [ ] **Verificación end-to-end**: compartir desde la app → tarjeta con
   foto en WhatsApp/Telegram + link abre la app instalada
 

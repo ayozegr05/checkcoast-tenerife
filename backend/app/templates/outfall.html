@@ -187,6 +187,13 @@
   .shr img { width:12px; height:12px; }
   .shr:hover { background:#eef6fa; }
   .shr:active { opacity:.6; }
+  .open { display:block; margin-top:16px; text-align:center;
+          background:#075276; color:#fff; font-weight:700;
+          padding:11px; border-radius:10px; text-decoration:none; }
+  .open:hover { background:#0a628c; }
+  .noapp { display:none; margin-top:8px; font-size:12px;
+          color:#7a919c; }
+  .noapplink { color:#075276; font-weight:700; }
 </style>
 </head>
 <body>
@@ -306,6 +313,11 @@
       <p class="src">Fuente: <a href="{{ source_url }}">Censo Vertidos
         Tierra-Mar 2025 ↗</a></p>
       {%- endif %}
+      <a class="open" href="{{ deep }}" onclick="openApp(); return false;">
+        Abrir en la app</a>
+      <p id="noapp" class="noapp">Si no se abrió, aún no tienes la app
+        instalada — <a class="noapplink" href="/">ver el estado de
+        todas las playas →</a></p>
       <a class="homelink" href="/">← Ver todas las playas</a>
     </div>
   </div>
@@ -348,6 +360,20 @@
 </div>
 </body>
 <script>
+// intent:// es la forma fiable de abrir apps en Chrome/Android: el
+// scheme pelado a veces se ignora en silencio
+function openApp() {
+  var u = navigator.userAgent;
+  if (/Android/i.test(u)) {
+    window.location = 'intent://outfall/{{ outfall_id }}#Intent;scheme=checkcoast;'
+      + 'package=com.checkcoast.tenerife;end';
+  } else {
+    window.location = 'checkcoast://outfall/{{ outfall_id }}';
+  }
+  setTimeout(function () {
+    document.getElementById('noapp').style.display = 'block';
+  }, 1400);
+}
 var urls = {{ urls | tojson }};
 var z = {{ start }};
 function zoom(d) {

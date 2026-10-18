@@ -223,6 +223,7 @@ export default function App() {
 
   // Push: registro del token + al tocar la notificación abrir la playa
   const beachesRef = useRef(beachesFC);
+  const outfallsRef = useRef(outfalls);
 
   // Selección de una playa concreta por feature: si pertenece a un
   // complejo multi-PM (Jardín, Teresitas…) se pasan los miembros del
@@ -262,11 +263,32 @@ export default function App() {
   };
   const openBeachRef = useRef(openBeachById);
 
+  // Lo mismo para emisarios: checkcoast://outfall/ID y App Links
+  // https /o/ID abren la ficha del vertido sobre el mapa
+  const openOutfallById = (id: number) => {
+    const f = outfallsRef.current.features.find((x) => x.id === id);
+    if (!f) return;
+    setIntroVisible(false);
+    setIntroRevisit(false);
+    setHelpOpen(false);
+    setListOpen(false);
+    setMuniOpen(false);
+    setOutfallListOpen(false);
+    setReturnToOutfalls(false);
+    setRestoreSel(null);
+    setSheetHidden(false);
+    setSelection({ type: 'outfall', feature: f });
+    setFocus([...f.geometry.coordinates]);
+  };
+  const openOutfallRef = useRef(openOutfallById);
+
   // Espejos para los listeners registrados una vez (push, atrás):
   // escribir el ref en efecto, no durante render
   useEffect(() => {
     beachesRef.current = beachesFC;
+    outfallsRef.current = outfalls;
     openBeachRef.current = openBeachById;
+    openOutfallRef.current = openOutfallById;
   });
 
   useEffect(() => {
@@ -289,6 +311,11 @@ export default function App() {
   // app abierta y como URL de arranque.
   useEffect(() => {
     const handle = (url: string | null) => {
+      const o = url?.match(/(?:outfall|\/o)\/(\d+)/);
+      if (o) {
+        openOutfallRef.current(Number(o[1]));
+        return;
+      }
       const m = url?.match(/(?:beach|b)\/(\d+)/);
       if (m) openBeachRef.current(Number(m[1]));
     };

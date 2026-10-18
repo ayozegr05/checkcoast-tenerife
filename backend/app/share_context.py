@@ -1399,6 +1399,7 @@ def outfall_context(
         "desc": f"Emisario — {label} — CheckCoast Tenerife",
         "public_url": settings.public_url,
         "outfall_id": outfall.id,
+        "deep": f"checkcoast://outfall/{outfall.id}",
         "head_bg": head_bg,
         "wave_c": wave_c,
         "name": name,
