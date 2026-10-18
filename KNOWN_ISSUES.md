@@ -221,6 +221,36 @@ se nota primero al revisar. Ir tachando poco a poco.
 - [ ] **Telemetría casera `/client-events`** vs Sentry — vendible como
       pragmatismo (cero deps externas, write-only, rate-limit) si se
       explica bien
+- [ ] **CD por SSH a la VM (10.10)** — decisiones de diseño, todas
+      con su "por qué" para entrevista:
+  - **Push por SSH vs pull (GHCR + Watchtower)**: elegido SSH+compose.
+    El modelo pull (CI publica imagen a GHCR, Watchtower sondea)
+    quita SSH entrante pero añade registry + un contenedor más que
+    mantener — sobredimensionado para una sola VM
+  - **Secrets**: `DEPLOY_SSH_KEY` en GitHub Secrets (estándar:
+    cifrado, inyectado solo al job, enmascarado en logs). Clave
+    **dedicada solo-deploy**, no la personal — revocable sin tocar
+    nada más
+  - **`command=` en authorized_keys**: la clave queda atada a
+    `command="~/deploy.sh",no-pty,no-agent-forwarding` → aunque se
+    filtre, no abre shell ni lee archivos: solo puede lanzar el
+    deploy. Least-privilege pobre-man's
+  - **`known_hosts` como secret** — el job verifica el host de la VM;
+    un MITM no puede desviar el deploy
+  - **Sin actions de terceros en el deploy** — `ssh` nativo del runner;
+    la supply-chain de actions es donde se filtran secrets
+  - **Post-deploy**: `curl -f /health` — si el contenedor no arranca
+    sano, el job rojo lo grita
+  - **Rollback**: `git checkout <SHA anterior> && compose up -d
+    --build api` (~2 min). Sin blue/green ni imágenes taggeadas por
+    SHA — una réplica no lo justifica; es la respuesta honesta de
+    "¿y si se rompe?"
+  - **Downtime**: `compose build` compila con el contenedor viejo
+    sirviendo; el swap de `up -d` cae solo unos segundos. Rolling/
+    blue-green necesitaría balanceador + doble infra — no aplica
+  - **Riesgo asumido**: un bug que pase tests se despliega solo. El
+    /health post-deploy pilla el "ni arranca"; lo sutil se ve en
+    `jobs.stale` igual que con deploy manual
 
 ### P2 — pulido fino
 
