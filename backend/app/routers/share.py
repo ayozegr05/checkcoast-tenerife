@@ -13,12 +13,13 @@ satélite, tarjetas, banner de prensa, imagen OG) vive en
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
+from app.models import Beach, Outfall
 from app.queries import effective_states
 from app.share_context import (
     _OUTFALL_PIN,
@@ -177,6 +178,42 @@ def home(db: Session = Depends(get_db), demo: bool = False) -> HTMLResponse:
     ?demo=1 fabrica alertas de todas las causas para previsualizar
     las secciones del banner (solo presentación, no toca datos)."""
     return _page("home.html", **home_context(db, demo=demo))
+
+
+@router.get("/robots.txt", response_class=PlainTextResponse)
+def robots() -> PlainTextResponse:
+    """Rastreo libre + puntero al sitemap — indexación de la landing."""
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n\n"
+        f"Sitemap: {settings.public_url}/sitemap.xml\n"
+    )
+    return PlainTextResponse(
+        body,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@router.get("/sitemap.xml")
+def sitemap(db: Session = Depends(get_db)) -> Response:
+    """URLs indexables: portada + una landing por playa y por emisario."""
+    base = settings.public_url.rstrip("/")
+    locs = [base] + [
+        f"{base}/b/{i}" for (i,) in db.query(Beach.id).order_by(Beach.id)
+    ] + [
+        f"{base}/o/{i}" for (i,) in db.query(Outfall.id).order_by(Outfall.id)
+    ]
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "\n".join(f"  <url><loc>{loc}</loc></url>" for loc in locs)
+        + "\n</urlset>\n"
+    )
+    return Response(
+        content=xml,
+        media_type="application/xml",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 @router.get("/privacy", response_class=HTMLResponse)
