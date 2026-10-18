@@ -213,6 +213,11 @@ se nota primero al revisar. Ir tachando poco a poco.
         y la cierra)
       - La intro puede montar un instante tarde tras el primer
         assert — los flows hacen doble espera + tap opcional
+      - **Cadencia (17-oct):** el job solo corre si el push toca
+        `frontend/`, `backend/` o `.github/` (job `changes` con
+        `git diff`, sin actions de terceros — un push de docs no
+        gasta ~15 min de emulador). `workflow_dispatch` lo lanza a
+        demanda y siempre devuelve `app=true`.
 - [ ] **Telemetría casera `/client-events`** vs Sentry — vendible como
       pragmatismo (cero deps externas, write-only, rate-limit) si se
       explica bien
