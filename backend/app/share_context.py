@@ -88,7 +88,7 @@ _NEARBY_OUTFALL_RADIUS_M = (
 _ICONS = Path(__file__).resolve().parent / "static" / "icons"
 
 # Umbrales RD 1341/2007 (aguas costeras, UFC/100 mL) — mismos que la app
-_QUALITY = {
+_QUALITY: dict[str, dict[str, int | str]] = {
     "ecoli": {"excellent": 250, "good": 500, "label": "E. coli"},
     "enterococci": {"excellent": 100, "good": 200, "label": "Enterococo"},
 }
@@ -141,9 +141,11 @@ def _alert_when(aword: str, rep: datetime | None, now: datetime) -> str:
     """'cerrada · hace 3 días' si es reciente; 'cerrada desde feb 2026'
     cuando el cierre lleva >30 d — 'hace 212 días' en una alerta viva
     se lee como dato rancio, no como cierre en curso."""
-    if rep is not None and rep.tzinfo is None:
+    if rep is None:
+        return f"{aword} · hoy"
+    if rep.tzinfo is None:
         rep = rep.replace(tzinfo=UTC)
-    days = (now - rep).days if rep else 0
+    days = (now - rep).days
     if days <= 30:
         ago = (
             "hoy"
@@ -172,9 +174,9 @@ def _bar_h(v: float) -> int:
 
 def _qcolor(param: str, v: float) -> str:
     t = _QUALITY[param]
-    if v <= t["excellent"]:
+    if v <= float(t["excellent"]):
         return "#0d9488"
-    return "#f9a825" if v <= t["good"] else "#c62828"
+    return "#f9a825" if v <= float(t["good"]) else "#c62828"
 
 
 # Port de lib/format.ts (capName + displayBeachName): el censo llega en
@@ -368,6 +370,8 @@ def _og_png(
     img.alpha_composite(band, (0, _OG_H - 190))
 
     d = ImageDraw.Draw(img)
+    # Defaults primero: si ningún TTF carga queda la fuente de PIL
+    f_name = f_sub = f_chip = ImageFont.load_default()
     for bold, reg in _FONTS:
         try:
             f_name = ImageFont.truetype(bold, 52)
@@ -376,8 +380,6 @@ def _og_png(
             break
         except OSError:
             continue
-    else:
-        f_name = f_sub = f_chip = ImageFont.load_default()
 
     name = _display_name(beach.name)
     sub = f"{beach.municipality or 'Tenerife'} · CheckCoast Tenerife"
@@ -568,7 +570,7 @@ def beach_context(db: Session, beach: Beach, lon: float, lat: float) -> dict:
                 {
                     "param": param,
                     "hidden": param != "ecoli",
-                    "lim_y": _bar_h(_QUALITY[param]["good"]),
+                    "lim_y": _bar_h(float(_QUALITY[param]["good"])),
                     "bars": bars,
                     "ycells": ycells,
                     "n": len(pts),
@@ -609,7 +611,11 @@ def beach_context(db: Session, beach: Beach, lon: float, lat: float) -> dict:
         dom = (
             "closure"
             if counts_ev.get("closure")
-            else (max(counts_ev, key=counts_ev.get) if counts_ev else None)
+            else (
+                max(counts_ev, key=counts_ev.__getitem__)
+                if counts_ev
+                else None
+            )
         )
         # Causa = la más frecuente entre los titulares del evento
         # dominante (moda, como el resumen de la app)
@@ -618,7 +624,7 @@ def beach_context(db: Session, beach: Beach, lon: float, lat: float) -> dict:
         for it in dom_items:
             if it.cause:
                 ccount[it.cause] = ccount.get(it.cause, 0) + 1
-        cause = max(ccount, key=ccount.get) if ccount else None
+        cause = max(ccount, key=ccount.__getitem__) if ccount else None
         since = min(
             (it.published_at for it in dom_items if it.published_at),
             default=None,

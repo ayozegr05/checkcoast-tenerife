@@ -93,7 +93,7 @@ def _zone_entry(beach: Beach) -> dict | None:
     zones = _ZONE_GROUPS.get(
         (
             _normalize(_PM_SUFFIX.sub("", beach.name)),
-            _norm_muni(beach.municipality),
+            _norm_muni(beach.municipality) or "",
         )
     )
     return zones.get(label) if zones else None
@@ -104,7 +104,7 @@ def _complex_key(beach: Beach) -> tuple[str, frozenset[str]]:
     hermanas con nombre base distinto se agrupan vía _ZONE_COMPLEXES
     (Valleseco ↔ Valleseco-El Bloque)."""
     base = _normalize(_PM_SUFFIX.sub("", beach.name))
-    muni = _norm_muni(beach.municipality)
+    muni = _norm_muni(beach.municipality) or ""
     for group in _ZONE_COMPLEXES.get(muni, ()):
         if base in group:
             return (muni, group)
@@ -164,6 +164,8 @@ def narrow_hits_by_zone(
                 continue
             for b in members:
                 zone = _zone_entry(b)
+                if zone is None:
+                    continue
                 # una cala fuera de hits solo entra por alias fuerte:
                 # una mención contextual no debe mover la noticia
                 aliases = (
@@ -179,9 +181,12 @@ def narrow_hits_by_zone(
         t = _normalize(body or "")
         if t:
             for b in members:
+                zone = _zone_entry(b)
+                if zone is None:
+                    continue
                 if any(
                     len(a) >= _MIN_NAME_LEN and _name_in_title(a, t)
-                    for a in _zone_entry(b)["aliases"]
+                    for a in zone["aliases"]
                 ):
                     wanted.add(b.id)
         out.extend(
@@ -197,7 +202,9 @@ def named_zones(titles: list, base: str, municipality: str | None) -> set[str]:
     que dice "la cala Punta Brava sigue cerrada" marca PM4 aunque la
     noticia también haya acabado replicada en otros PMs. Alias fuertes
     y débiles cuentan — el campo ya es titular, el contexto seguro."""
-    zones = _ZONE_GROUPS.get((_normalize(base), _norm_muni(municipality)))
+    zones = _ZONE_GROUPS.get(
+        (_normalize(base), _norm_muni(municipality) or "")
+    )
     if not zones:
         return set()
     out: set[str] = set()
@@ -222,7 +229,7 @@ def zone_display_name(beach: Beach) -> str | None:
         return None
     key = (
         _normalize(_PM_SUFFIX.sub("", beach.name)),
-        _norm_muni(beach.municipality),
+        _norm_muni(beach.municipality) or "",
     )
     zone = _ZONE_GROUPS.get(key, {}).get(label)
     return zone["name"] if zone else None

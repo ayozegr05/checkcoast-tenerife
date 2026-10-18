@@ -21,7 +21,8 @@ Todo es sintético y de solo lectura: nunca escribe en
 
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from typing import cast
 
 from app.models import Beach
 from app.names import PM_SUFFIX
@@ -142,7 +143,7 @@ def _corroborated_closed_since(items) -> str | None:
     for n in items:
         cs = getattr(n, "closed_since", None)
         if cs:
-            claims.setdefault(cs, set()).add(getattr(n, "source", None))
+            claims.setdefault(cs, set()).add(getattr(n, "source", "") or "")
     multi = [v for v, srcs in claims.items() if len(srcs) >= 2]
     if multi:
         return _min_closed_since(multi)
@@ -243,7 +244,7 @@ def synthesize_events(
             for n in beach.news_items
             if n.relevant and n.published_at and n.event_type
         ),
-        key=lambda n: n.published_at,
+        key=lambda n: cast(datetime, n.published_at),
     )
 
     def _add_press(ev: SynthEvent, n, pub: date) -> None:
@@ -266,7 +267,7 @@ def synthesize_events(
                 it0.source or ""
             )
     for n in items:
-        pub = n.published_at.date()
+        pub = cast(datetime, n.published_at).date()
         if n.event_type == "closure":
             hit = next(
                 (
@@ -465,7 +466,7 @@ def synthesize_events(
     # reapertura era ruido ("agilizan las obras" mal clasificadas) y el
     # episodio nunca se interrumpió (Benijo)
     fresh = bool(items) and (
-        items[-1].published_at.date() >= today - PRESS_STALE
+        cast(datetime, items[-1].published_at).date() >= today - PRESS_STALE
     )
     latest_change = next(
         (
@@ -666,7 +667,7 @@ def merged_episode(g: list[Episode]) -> Episode:
     press_n = sum(e.press_count for e in g)
     if official_obs is not None:
         media = "noticia" if press_n == 1 else "noticias"
-        obs = official_obs + (
+        obs: str | None = official_obs + (
             f" · {press_n} {media} en prensa" if press_n else ""
         )
     else:

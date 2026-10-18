@@ -1,5 +1,6 @@
 from collections import Counter
 from datetime import UTC, date, datetime, timedelta
+from typing import cast as tcast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2 import Geography, Geometry
@@ -448,7 +449,8 @@ def _press_in_window(beach: Beach, start: date, end: date) -> list:
 def _news_out(n: NewsItem) -> NewsItemOut:
     return NewsItemOut(
         id=n.id,
-        beach_id=n.beach_id,
+        # los llamadores solo sirven ítems casados a una playa
+        beach_id=tcast(int, n.beach_id),
         title=n.title,
         url=n.url,
         source=n.source,

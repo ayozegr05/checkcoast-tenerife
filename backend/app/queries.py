@@ -1,5 +1,5 @@
 import unicodedata
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, aliased
@@ -283,17 +283,21 @@ def stale_official_ids(db: Session) -> set[int]:
     ids = list(reopens)
     # Si hay un cierre de prensa posterior a la reapertura, la
     # reapertura ya no es el último evento: no suprime nada
-    last_closures = dict(
-        db.query(NewsItem.beach_id, func.max(NewsItem.published_at))
-        .filter(
-            NewsItem.relevant.is_(True),
-            NewsItem.beach_id.in_(ids),
-            NewsItem.event_type == "closure",
-            NewsItem.published_at.isnot(None),
+    last_closures: dict[int, datetime] = {
+        bid: mx
+        for bid, mx in (
+            db.query(NewsItem.beach_id, func.max(NewsItem.published_at))
+            .filter(
+                NewsItem.relevant.is_(True),
+                NewsItem.beach_id.in_(ids),
+                NewsItem.event_type == "closure",
+                NewsItem.published_at.isnot(None),
+            )
+            .group_by(NewsItem.beach_id)
+            .all()
         )
-        .group_by(NewsItem.beach_id)
-        .all()
-    )
+        if bid is not None and mx is not None
+    }
     open_incs: dict[int, list] = {}
     for bid, opened in (
         db.query(BeachIncident.beach_id, BeachIncident.opened_at)
@@ -420,6 +424,8 @@ def effective_states(db: Session) -> dict[int, dict]:
     )
     by_beach: dict[int, list[NewsItem]] = {}
     for it in items:
+        if it.beach_id is None:  # ya filtrado en la query; mypy no lo ve
+            continue
         by_beach.setdefault(it.beach_id, []).append(it)
 
     # Estado según prensa solo con cobertura fresca — salvo un cierre
@@ -532,24 +538,32 @@ def effective_states(db: Session) -> dict[int, dict]:
         and not (bid in result and result[bid]["alerted"])
         and _majority_cause(by_beach[bid]) not in _STRUCTURAL_CAUSES
     ]
-    resolved_at: dict[int, object] = dict(
-        db.query(BeachIncident.beach_id, func.max(BeachIncident.closed_at))
-        .filter(
-            BeachIncident.beach_id.in_(open_ids or [-1]),
-            BeachIncident.closed_at.isnot(None),
+    resolved_at: dict[int, date] = {
+        bid: mx
+        for bid, mx in (
+            db.query(BeachIncident.beach_id, func.max(BeachIncident.closed_at))
+            .filter(
+                BeachIncident.beach_id.in_(open_ids or [-1]),
+                BeachIncident.closed_at.isnot(None),
+            )
+            .group_by(BeachIncident.beach_id)
+            .all()
         )
-        .group_by(BeachIncident.beach_id)
-        .all()
-    )
-    last_meas_at: dict[int, object] = dict(
-        db.query(
-            BeachMeasurement.beach_id,
-            func.max(BeachMeasurement.sampled_at),
+        if bid is not None and mx is not None
+    }
+    last_meas_at: dict[int, date] = {
+        bid: mx
+        for bid, mx in (
+            db.query(
+                BeachMeasurement.beach_id,
+                func.max(BeachMeasurement.sampled_at),
+            )
+            .filter(BeachMeasurement.beach_id.in_(open_ids or [-1]))
+            .group_by(BeachMeasurement.beach_id)
+            .all()
         )
-        .filter(BeachMeasurement.beach_id.in_(open_ids or [-1]))
-        .group_by(BeachMeasurement.beach_id)
-        .all()
-    )
+        if bid is not None and mx is not None
+    }
     for beach_id, state in press_state.items():
         if beach_id in result and result[beach_id]["alerted"]:
             continue

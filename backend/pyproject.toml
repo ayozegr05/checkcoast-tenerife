@@ -16,3 +16,24 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["app", "scripts"]
+
+# mypy en modo laxo: caza errores reales (atributos inexistentes,
+# None desreferenciado, tipos de retorno) sin exigir anotar cada
+# función — el equivalente backend del `tsc --noEmit` del frontend
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "."
+ignore_missing_imports = true          # geoalchemy2, httpx... sin stubs
+disallow_untyped_defs = false          # laxo: no exigir anotar cada def
+check_untyped_defs = true              # pero sí revisar el cuerpo
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+explicit_package_bases = true
+exclude = ["alembic/versions/", ".venv/", "tests/"]
+
+# Las Column de SQLAlchemy declaran tipos "de ORM" que mypy lee como
+# instancias de clase — relajar solo los errores de asignación de ORM
+[[tool.mypy.overrides]]
+module = "app.models"
+disable_error_code = ["assignment"]

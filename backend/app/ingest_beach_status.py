@@ -28,6 +28,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
+from typing import cast
 
 import requests
 from sqlalchemy import text
@@ -305,10 +306,11 @@ def _superseded_by_reopening(beach: Beach, pm: PmData) -> bool:
     ]
     if not changes:
         return False
-    latest_change = max(changes, key=lambda n: n.published_at)
+    latest_change = max(changes, key=lambda n: cast(datetime, n.published_at))
     if latest_change.event_type != "reopening":
         return False
-    reopen_d = latest_change.published_at.date()
+    reopen_ts = cast(datetime, latest_change.published_at)
+    reopen_d = reopen_ts.date()
 
     evidence = [i.opened for i in pm.incidents if i.closed is None]
     if pm.measurements:
@@ -334,7 +336,7 @@ def _superseded_by_reopening(beach: Beach, pm: PmData) -> bool:
             and n.event_type == "reopening"
             and getattr(n, "source", None)
             and n.published_at is not None
-            and n.published_at >= latest_change.published_at - window
+            and n.published_at >= reopen_ts - window
         }
         return len(sources) >= 2
     return True

@@ -248,7 +248,8 @@ class NewsItem(Base):
     push_pending: Mapped[bool] = mapped_column(default=False)
     pushed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    beach: Mapped[Beach] = relationship(
+    # beach_id es nullable (ítems no casados): la relación puede ser None
+    beach: Mapped[Beach | None] = relationship(
         back_populates="news_items", passive_deletes=True
     )
 

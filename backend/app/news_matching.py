@@ -308,19 +308,19 @@ def _multi_beach_hits(
             hits[k] = [b for b, _ in members]
     out: list[Beach] = []
     for g in _toponym_groups(hits):
-        members = []
+        group_beaches: list[Beach] = []
         seen_ids: set[int] = set()
         for k in g:
             for b in hits[k]:
                 if b.id not in seen_ids:
                     seen_ids.add(b.id)
-                    members.append(b)
-        if len({_norm_muni(b.municipality) for b in members}) > 1:
-            narrowed = _narrow_by_context(members, g, title_map, [])
+                    group_beaches.append(b)
+        if len({_norm_muni(b.municipality) for b in group_beaches}) > 1:
+            narrowed = _narrow_by_context(group_beaches, g, title_map, [])
             if not narrowed:
                 continue
-            members = narrowed
-        out.extend(members)
+            group_beaches = narrowed
+        out.extend(group_beaches)
     return out
 
 
@@ -591,14 +591,15 @@ def match_beaches(
             exact = [(b, k) for b, k in candidates if k in targets]
             if exact:
                 pool = exact
-        keys = {k for _, k in pool}
+        pool_keys = {k for _, k in pool}
         munis = {_norm_muni(b.municipality) for b, _ in pool}
-        if len(pool) >= 1 and len(keys) == 1 and len(munis) == 1:
+        if len(pool) >= 1 and len(pool_keys) == 1 and len(munis) == 1:
             artless_targets = {_LEADING_ARTICLE.sub("", t) for t in targets}
             # "Clave exacta" tolera el artículo censal que la prensa
             # omite: "Bollullo" extraído ↔ "EL BOLLULLO" en el censo
             if any(
-                _LEADING_ARTICLE.sub("", k) in artless_targets for k in keys
+                _LEADING_ARTICLE.sub("", k) in artless_targets
+                for k in pool_keys
             ):
                 return _merge([b for b, _ in pool])
         return _merge(_multi_beach_hits(pool, _normalize(title), title_map))
@@ -645,7 +646,10 @@ def match_beaches(
                     )
                 )
 
-            if any(_muni_named(om) for om in cand_munis - {muni}):
+            if any(
+                om is not None and _muni_named(om)
+                for om in cand_munis - {muni}
+            ):
                 # Sin rescate: el municipio extraído está desmentido
                 # por el titular y _merge confiaría en él de nuevo
                 return []
@@ -666,8 +670,8 @@ def match_beaches(
     # Dentro del municipio el exacto también gana a las contenciones
     exact = [(b, k) for b, k in hits if k in targets]
     pool = exact or hits
-    keys = {k for _, k in pool}
-    if len(pool) >= 1 and len(keys) == 1:
+    pool_keys = {k for _, k in pool}
+    if len(pool) >= 1 and len(pool_keys) == 1:
         return _merge([b for b, _ in pool])
     # Alias distintos del mismo complejo ("Playa Grande y Charcón" →
     # PM4+PM5 de Playa Jardín): mismo nombre base + municipio = misma

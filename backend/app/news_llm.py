@@ -12,7 +12,7 @@ import json
 import re
 import time
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 import requests
 
@@ -162,7 +162,7 @@ class GeminiExtractor:
         """POST con retries ante 429/5xx. La cuota DIARIA agotada no se
         arregla esperando: se corta el retry en el primer 429 PerDay."""
         # los modelos -lite no aceptan thinkingConfig
-        gen_cfg = {
+        gen_cfg: dict[str, Any] = {
             "responseMimeType": "application/json",
             "responseSchema": SCHEMA,
         }

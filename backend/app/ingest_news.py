@@ -21,6 +21,7 @@ import re
 import sys
 import time
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
@@ -458,7 +459,8 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
                 have.add(b.id)
             db.commit()
         else:
-            for beach in hits or [None]:
+            guia_beaches: Iterable[Beach | None] = hits or [None]
+            for beach in guia_beaches:
                 db.add(
                     NewsItem(
                         url=url,
@@ -528,7 +530,7 @@ def run(
     ] = {}
     try:
         beaches = db.query(Beach).all()
-        if backfill:
+        if backfill_year is not None:
             articles = fetch_backfill(
                 backfill_year,
                 _backfill_keys(beaches),
@@ -594,6 +596,10 @@ def run(
                     art, ext, hits, beaches, extractor
                 )
                 body_left -= used
+                if ext is None:
+                    # cuerpo sin evidencia nueva o re-extracción fallida:
+                    # no se inserta fila y se reintenta la próxima pasada
+                    continue
             # Complejo multi-cala: si el titular o el nombre extraído
             # ya nombran la zona ("Playa Grande", "Charcón") se asigna
             # solo a su PM; si no, el cuerpo del artículo suele citar
@@ -617,7 +623,9 @@ def run(
                         body=body,
                         all_beaches=beaches,
                     )
-            for beach in hits or [None]:  # una fila por PM de la playa
+            # una fila por PM de la playa
+            press_beaches: Iterable[Beach | None] = hits or [None]
+            for beach in press_beaches:
                 item = NewsItem(
                     url=art.url,
                     title=art.title,
@@ -636,6 +644,7 @@ def run(
                 if (
                     not backfill
                     and beach
+                    and ext.event_type is not None
                     and _press_push_candidate(
                         db, beach, ext.event_type, art.published_at
                     )
@@ -682,7 +691,7 @@ def run(
                 if it.id in queued:
                     continue
                 b = it.beach
-                if b is None:
+                if b is None or it.event_type is None:
                     it.pushed_at = datetime.now(UTC)  # nunca saldrá
                     continue
                 key = _push_key(b, it.event_type)

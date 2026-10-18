@@ -297,9 +297,7 @@ def fetch_municipal_feeds() -> list[RawArticle]:
                     verify=False,
                 )
             resp.raise_for_status()
-            raw = resp.content
-            if isinstance(raw, bytes):
-                raw = raw.decode("utf-8-sig", "replace")
+            raw = resp.content.decode("utf-8-sig", "replace")
             # algunos feeds llevan BOM, líneas en blanco o comentarios
             # HTML de debug antes del <?xml (El Sauzal, La Orotava)
             start = re.search(r"<\?xml|<rss|<feed", raw)

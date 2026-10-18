@@ -113,9 +113,9 @@ def press_episode_summary(
     # son TRES episodios; el cierre de hoy no "viene del 12-ago")
     last_reopen = max(
         (
-            r.published_at
+            d
             for r in rows
-            if r.event_type == "reopening" and r.published_at
+            if r.event_type == "reopening" and (d := r.published_at)
         ),
         default=None,
     )
@@ -127,9 +127,9 @@ def press_episode_summary(
     # reapertura 9-may → cierre 5-jun son dos episodios, el "desde" es
     # junio, no mayo)
     reopen_dates = sorted(
-        r.published_at
+        d
         for r in rows
-        if r.event_type == "reopening" and r.published_at
+        if r.event_type == "reopening" and (d := r.published_at)
     )
 
     # Cierre "retrospectivo": publicado DESPUÉS de la reapertura pero
@@ -145,12 +145,14 @@ def press_episode_summary(
     ]
     outlets_by_day: dict[date, set] = {}
     for r in closure_rows:
-        outlets_by_day.setdefault(r.published_at.date(), set()).add(
-            r.source or ""
-        )
+        pub = r.published_at
+        if pub is None:
+            continue
+        outlets_by_day.setdefault(pub.date(), set()).add(r.source or "")
 
     def _is_new_episode_closure(r: NewsItem) -> bool:
-        if last_reopen is None or r.published_at <= last_reopen:
+        pub = r.published_at
+        if pub is None or last_reopen is None or pub <= last_reopen:
             return True
         cs = _closed_since_date(r.closed_since)
         if cs is not None:
@@ -161,19 +163,21 @@ def press_episode_summary(
         # medios — body_verified solo dice que leyó el cuerpo, no que
         # el suceso sea nuevo
         return (
-            r.published_at - last_reopen > RETRO_WINDOW
-            or len(outlets_by_day.get(r.published_at.date(), set())) >= 2
+            pub - last_reopen > RETRO_WINDOW
+            or len(outlets_by_day.get(pub.date(), set())) >= 2
         )
 
     dominant_rows = [
         r for r in rows if r.event_type == dominant and r.published_at
     ]
-    dates = sorted(r.published_at for r in dominant_rows)
+    dates = sorted(d for r in dominant_rows if (d := r.published_at))
     if dominant == "closure" and last_reopen is not None:
         post_reopen = [
-            r.published_at
+            d
             for r in dominant_rows
-            if r.published_at > last_reopen and _is_new_episode_closure(r)
+            if (d := r.published_at) is not None
+            and d > last_reopen
+            and _is_new_episode_closure(r)
         ]
         if post_reopen:
             # dominant_rows viene del orden DESC de `rows`: sin
@@ -194,11 +198,7 @@ def press_episode_summary(
     open_struct_spans = [
         (
             min(
-                (
-                    i.published_at.date()
-                    for i in e.press_items
-                    if i.published_at
-                ),
+                (p.date() for i in e.press_items if (p := i.published_at)),
                 default=e.opened_at,
             ),
             e.last_closure or e.opened_at,
