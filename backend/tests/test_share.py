@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from geoalchemy2.elements import WKTElement
 from PIL import Image
 
+from app import share_context
 from app.main import app
 from app.routers import share
 
@@ -79,7 +80,7 @@ def test_share_og_image_without_network(seed_data, monkeypatch):
     def offline(*a, **k):
         raise OSError("sin red en tests")
 
-    monkeypatch.setattr(share.httpx, "get", offline)
+    monkeypatch.setattr(share_context.httpx, "get", offline)
     monkeypatch.setattr(share, "_og_cache", {})
     r = client.get(f"/b/{seed_data['beach_id']}/og.jpg")
     assert r.status_code == 200
