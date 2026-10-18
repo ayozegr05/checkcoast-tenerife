@@ -2,6 +2,7 @@ import traceback
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import Depends, FastAPI
@@ -198,7 +199,7 @@ def health(db: Session = Depends(get_db)) -> dict:
     # Errores LLM de la última pasada de cada run (detail.llm_errors):
     # son errores de proveedor — la pasada siguió y quedó ok=true
     llm_errors = sum(
-        (detail or {}).get("llm_errors", 0)
+        cast(dict, detail or {}).get("llm_errors", 0)
         for (detail,) in db.execute(
             select(JobRun.detail).where(
                 JobRun.job == "news-sync",

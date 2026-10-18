@@ -278,6 +278,8 @@ def stale_official_ids(db: Session) -> set[int]:
         return set()
     reopens: dict[int, datetime] = {}
     for bid, pub, _src in rows:
+        if bid is None or pub is None:
+            continue
         if bid not in reopens or pub > reopens[bid]:
             reopens[bid] = pub
     ids = list(reopens)
@@ -345,7 +347,7 @@ def stale_official_ids(db: Session) -> set[int]:
             srcs = {
                 src
                 for rb, pub, src in rows
-                if rb == bid and src and pub >= reopen - window
+                if rb == bid and src and pub and pub >= reopen - window
             }
             if len(srcs) < 2:
                 continue
