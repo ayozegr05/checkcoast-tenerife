@@ -19,8 +19,24 @@ import {
   fmtDate,
   formatDays,
 } from '../../lib/format';
-import { STRUCTURAL_SECTION, type AlertSection } from '../../lib/mapData';
+import {
+  FAUNA_SECTION,
+  STRUCTURAL_SECTION,
+  type AlertSection,
+} from '../../lib/mapData';
 import { colors, fonts } from '../../lib/theme';
+
+// Arte del circulito por causa (etiquetas del backend en queries.py)
+const CAUSE_ART: Record<string, number> = {
+  Algas: require('../../assets/icons/algas-art.png'),
+  Medusas: require('../../assets/icons/medusas-art.png'),
+  Hidrocarburos: require('../../assets/icons/gasoil-art.png'),
+};
+
+function causeArt(cause: string | null | undefined, foldable: boolean): number {
+  if (foldable) return require('../../assets/icons/rockfall-art.png');
+  return CAUSE_ART[cause ?? ''] ?? require('../../assets/icons/contam-art.png');
+}
 
 type AlertsBannerProps = {
   closedCount: number;
@@ -139,9 +155,11 @@ export default function AlertsBanner({
                           color:
                             sectionLabel === STRUCTURAL_SECTION
                               ? colors.status.structural
-                              : sectionLabel === 'Avisos'
-                                ? colors.status.warning
-                                : colors.status.closed,
+                              : sectionLabel === FAUNA_SECTION
+                                ? colors.status.fauna
+                                : sectionLabel === 'Avisos'
+                                  ? colors.status.warning
+                                  : colors.status.closed,
                         },
                       ]}
                     >
@@ -151,13 +169,16 @@ export default function AlertsBanner({
                   {shown.map((f) => {
                     const s =
                       f.properties.status === 'closed' ? 'closed' : 'warning';
-                    // Las filas de la sección estructural hablan el
-                    // idioma del mapa: granate = cerrada crónica, no
-                    // el rojo urgente de contaminación
+                    // Las filas de las secciones con color propio
+                    // hablan el idioma del mapa: granate = cerrada
+                    // crónica, añil = fauna — no el rojo urgente de
+                    // contaminación
                     const tone =
                       foldable && s === 'closed'
                         ? colors.status.structural
-                        : colors.status[s];
+                        : sectionLabel === FAUNA_SECTION && s === 'closed'
+                          ? colors.status.fauna
+                          : colors.status[s];
                     // Fila multipunto: "Playa Jardín · Punta Brava" —
                     // el PM concreto importa tanto como la playa
                     const zone = zoneLabelFor?.(f.id as number);
@@ -190,34 +211,33 @@ export default function AlertsBanner({
                           </Text>
                         </View>
                         <View style={styles.alertStateCol}>
-                          <Text style={[styles.alertState, { color: tone }]}>
-                            {s === 'closed' ? 'Cerrada' : 'Aviso'}
-                          </Text>
+                          <View style={styles.alertStateRow}>
+                            <Text style={[styles.alertState, { color: tone }]}>
+                              {s === 'closed' ? 'Cerrada' : 'Aviso'}
+                            </Text>
+                            {s === 'closed' && f.properties.alert_cause && (
+                              // Mini del badge del pin: el circulito
+                              // ilustra la causa que tiene debajo
+                              <View
+                                style={[
+                                  styles.alertBadge,
+                                  { borderColor: tone },
+                                ]}
+                              >
+                                <Image
+                                  source={causeArt(
+                                    f.properties.alert_cause,
+                                    foldable,
+                                  )}
+                                  style={styles.alertBadgeArt}
+                                />
+                              </View>
+                            )}
+                          </View>
                           {f.properties.alert_cause ? (
-                            <View style={styles.alertCauseRow}>
-                              {s === 'closed' && (
-                                // Mini del badge del pin: el circulito
-                                // ilustra la palabra que tiene al lado
-                                <View
-                                  style={[
-                                    styles.alertBadge,
-                                    { borderColor: tone },
-                                  ]}
-                                >
-                                  <Image
-                                    source={
-                                      foldable
-                                        ? require('../../assets/icons/rockfall-art.png')
-                                        : require('../../assets/icons/contam-art.png')
-                                    }
-                                    style={styles.alertBadgeArt}
-                                  />
-                                </View>
-                              )}
-                              <Text style={styles.alertCause} numberOfLines={1}>
-                                {f.properties.alert_cause}
-                              </Text>
-                            </View>
+                            <Text style={styles.alertCause} numberOfLines={1}>
+                              {f.properties.alert_cause}
+                            </Text>
                           ) : null}
                         </View>
                       </Pressable>
@@ -418,19 +438,20 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
   },
-  // Mini del badge que corona el pin: ilustración de la causa dentro
-  // de un aro blanco con el color del estado — va inline con la causa
-  alertCauseRow: {
+  // "Cerrada" + circulito de causa en la misma línea — el badge
+  // ilustra la palabra que tiene debajo, como el pin en el mapa
+  alertStateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 4,
-    marginTop: 1,
+    gap: 5,
   },
+  // Mini del badge que corona el pin: ilustración de la causa dentro
+  // de un aro blanco con el color del estado
   alertBadge: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.surface,
     borderWidth: 1,
     overflow: 'hidden',
@@ -493,8 +514,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   alertState: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 18,
     fontFamily: fonts.bold,
   },
   // Causa bajo "Cerrada": "Contaminación", "Desprendimientos"...
@@ -520,6 +541,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    textAlign: 'center',
   },
   // Subsección dentro de "Activas ahora" (contaminación vs cierre
   // estructural): más discreta que la banda de sección
@@ -533,6 +555,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingTop: 8,
     paddingBottom: 4,
+    textAlign: 'center',
   },
   // Activa = peligro suave; resuelta = alivio
   alertSectionActive: {

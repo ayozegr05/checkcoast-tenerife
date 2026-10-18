@@ -13,16 +13,19 @@ import {
 import {
   beachStateKey,
   BEACH_STATE_LABEL,
+  FAUNA_CAUSES,
+  isFaunaClosure,
   isStructuralClosure,
   STRUCTURAL_CAUSES,
 } from './structural';
 import { colors } from './theme';
 
 export const STRUCTURAL_SECTION = 'Cierre estructural';
+export const FAUNA_SECTION = 'Fauna marina';
 
 // Re-exportados desde lib/structural (módulo hoja compartido con
 // beachGroups — evita el ciclo mapData↔beachGroups)
-export { isStructuralClosure, STRUCTURAL_CAUSES };
+export { isStructuralClosure, isFaunaClosure, STRUCTURAL_CAUSES, FAUNA_CAUSES };
 
 // [color, etiqueta, clave] de cada estado en leyenda y panel de capas
 export type LayerState = [string, string, string];
@@ -31,6 +34,7 @@ export const BEACH_STATES: LayerState[] = [
   [colors.status.open, BEACH_STATE_LABEL.open, 'open'],
   [colors.status.warning, BEACH_STATE_LABEL.warning, 'warning'],
   [colors.status.closed, 'Cerrada · contaminación', 'closed'],
+  [colors.status.fauna, BEACH_STATE_LABEL.fauna, 'fauna'],
   [colors.status.structural, BEACH_STATE_LABEL.structural, 'structural'],
   [colors.status.unmonitored, BEACH_STATE_LABEL.unmonitored, 'unmonitored'],
 ];
@@ -127,19 +131,26 @@ export function buildBeachGroups(
 
 export type AlertSection = [string, GeoFeature[]];
 
-// Dos grandes categorías de alerta: contaminación (transitoria) y
-// cierre estructural (desprendimientos/obras/colapso — se mantiene
-// en el tiempo), más los avisos. Dentro de cada sección, de la más
-// reciente a la más antigua por inicio real de la alerta (alerted_at).
-// Las secciones vacías no se devuelven
+// Tres categorías de alerta: contaminación (transitoria, del agua),
+// fauna marina (transitoria pero no es contaminación — medusas/
+// carabelas) y cierre estructural (desprendimientos/obras/colapso —
+// se mantiene en el tiempo), más los avisos. Dentro de cada sección,
+// de la más reciente a la más antigua por inicio real de la alerta
+// (alerted_at). Las secciones vacías no se devuelven
 export function buildAlertSections(alerts: GeoFeature[]): AlertSection[] {
   const byWhen = (a: GeoFeature, b: GeoFeature) =>
     (b.properties.alerted_at ?? b.properties.reported_at ?? '').localeCompare(
       a.properties.alerted_at ?? a.properties.reported_at ?? '',
     );
   const isStructural = isStructuralClosure;
+  const fauna = alerts.filter(isFaunaClosure).sort(byWhen);
   const contam = alerts
-    .filter((f) => f.properties.status === 'closed' && !isStructural(f))
+    .filter(
+      (f) =>
+        f.properties.status === 'closed' &&
+        !isStructural(f) &&
+        !isFaunaClosure(f),
+    )
     .sort(byWhen);
   const structural = alerts.filter(isStructural).sort(byWhen);
   const warnings = alerts
@@ -148,6 +159,7 @@ export function buildAlertSections(alerts: GeoFeature[]): AlertSection[] {
   return (
     [
       ['Contaminación', contam],
+      [FAUNA_SECTION, fauna],
       [STRUCTURAL_SECTION, structural],
       ['Avisos', warnings],
     ] as AlertSection[]

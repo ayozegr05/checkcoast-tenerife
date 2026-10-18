@@ -26,6 +26,9 @@ export const colors = {
     // Granate del pin estructural: cerrada crónica, no urgente —
     // solo lo usa el banner; en la ficha cerrada sigue siendo rojo
     structural: '#8c322a',
+    // Añil de fauna marina: cerrada transitoria que no contamina el
+    // agua (medusas/carabelas) — el tono sale de medusas-art
+    fauna: '#4f6ab8',
     unknown: '#8fa3ad',
     unmonitored: '#8fa3ad',
   } as Record<string, string>,

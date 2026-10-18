@@ -8,7 +8,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 
 import type { FeatureCollection } from '../../lib/api';
-import { STRUCTURAL_CAUSES } from '../../lib/mapData';
+import { FAUNA_CAUSES, STRUCTURAL_CAUSES } from '../../lib/mapData';
 import { colors } from '../../lib/theme';
 
 const BEACH_COLORS = colors.status;
@@ -58,6 +58,9 @@ export default function MapLayers({
           'pin-open': require('../../assets/icons/pin-open.png'),
           'pin-warning': require('../../assets/icons/pin-warning.png'),
           'pin-closed': require('../../assets/icons/pin-closed.png'),
+          'pin-algas': require('../../assets/icons/pin-algas.png'),
+          'pin-medusas': require('../../assets/icons/pin-medusas.png'),
+          'pin-gasoil': require('../../assets/icons/pin-gasoil.png'),
           'pin-structural': require('../../assets/icons/pin-structural.png'),
           'pin-unmonitored': require('../../assets/icons/pin-unmonitored.png'),
           'pin-outfall-legal': require('../../assets/icons/pin-outfall-legal.png'),
@@ -205,11 +208,24 @@ export default function MapLayers({
             paint={{
               'circle-radius': 14 + pulse * 26,
               'circle-color': [
-                'match',
-                ['get', 'status'],
-                'closed',
-                BEACH_COLORS.closed,
-                BEACH_COLORS.warning,
+                'case',
+                [
+                  'all',
+                  ['==', ['get', 'status'], 'closed'],
+                  [
+                    'in',
+                    ['get', 'alert_cause'],
+                    ['literal', [...FAUNA_CAUSES]],
+                  ],
+                ],
+                BEACH_COLORS.fauna,
+                [
+                  'match',
+                  ['get', 'status'],
+                  'closed',
+                  BEACH_COLORS.closed,
+                  BEACH_COLORS.warning,
+                ],
               ],
               'circle-opacity': 0.6 * (1 - pulse),
             }}
@@ -266,9 +282,9 @@ export default function MapLayers({
               'icon-ignore-placement': true,
             }}
           />
-          {/* Pines de cierre en capa propia: el asset es 96x136 (pin
+          {/* Pines de cierre en capa propia: el asset es 96x146 (pin
               + badge flotante de causa), asi que el icon-size se
-              compensa x136/96 para que el pin renderice al mismo
+              compensa x146/96 para que el pin renderice al mismo
               tamano que los demas */}
           <Layer
             id="beach-pins-closed"
@@ -297,18 +313,30 @@ export default function MapLayers({
                   ],
                 ],
                 'pin-structural',
-                'pin-closed',
+                // Causas con pin propio: el badge del pin ilustra
+                // por que cerro (algas / medusas / gasoil)
+                [
+                  'match',
+                  ['get', 'alert_cause'],
+                  'Algas',
+                  'pin-algas',
+                  'Medusas',
+                  'pin-medusas',
+                  'Hidrocarburos',
+                  'pin-gasoil',
+                  'pin-closed',
+                ],
               ],
               'icon-size': [
                 'interpolate',
                 ['linear'],
                 ['zoom'],
                 9,
-                0.17 * (136 / 96),
+                0.17 * (146 / 96),
                 13,
-                0.29 * (136 / 96),
+                0.29 * (146 / 96),
                 16,
-                0.34 * (136 / 96),
+                0.34 * (146 / 96),
               ],
               'icon-anchor': 'bottom',
               'icon-allow-overlap': true,
@@ -380,9 +408,21 @@ export default function MapLayers({
                   ],
                 ],
                 'pin-structural',
-                'pin-closed',
+                [
+                  'match',
+                  ['get', 'alert_cause'],
+                  'Algas',
+                  'pin-algas',
+                  'Medusas',
+                  'pin-medusas',
+                  'Hidrocarburos',
+                  'pin-gasoil',
+                  'pin-closed',
+                ],
               ],
-              'icon-size': 0.45 * (136 / 96),
+              // Menos que el normal: el pin con badge es alto y con
+              // la ficha abierta quedaba comido entre banner y sheet
+              'icon-size': 0.3 * (146 / 96),
               'icon-anchor': 'bottom',
               'icon-allow-overlap': true,
               'icon-ignore-placement': true,
@@ -463,6 +503,17 @@ export default function MapLayers({
                   ],
                 ],
                 BEACH_COLORS.structural,
+                // Añil = fauna marina, igual que el pin y el banner
+                [
+                  'all',
+                  ['==', ['get', 'status'], 'closed'],
+                  [
+                    'in',
+                    ['get', 'alert_cause'],
+                    ['literal', [...FAUNA_CAUSES]],
+                  ],
+                ],
+                BEACH_COLORS.fauna,
                 [
                   'match',
                   ['get', 'status'],

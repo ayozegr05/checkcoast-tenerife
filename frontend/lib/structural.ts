@@ -14,6 +14,20 @@ export const STRUCTURAL_CAUSES = new Set([
   'Colapso del terreno',
 ]);
 
+// Causas de fauna marina — no son contaminación del agua (espejo de
+// la taxonomía del backend: medusa/carabela/fauna → "Medusas").
+// Categoría visual propia (pin añil, sección del banner, capa) —
+// el estado oficial sigue siendo "cerrada"
+export const FAUNA_CAUSES = new Set(['Medusas']);
+
+// Cierre por fauna: a diferencia del estructural no hay flag del
+// backend — basta alert_cause (la taxonomía ya colapsa medusa/
+// carabela/fauna a un único valor 'Medusas')
+export const isFaunaClosure = (f: GeoFeature) =>
+  f.properties.status === 'closed' &&
+  !isStructuralClosure(f) &&
+  FAUNA_CAUSES.has(f.properties.alert_cause ?? '');
+
 // Cierre por causa estructural: lo decide el backend por mayoría de
 // prensa (alert_structural); sin el flag (API antigua) cae a
 // alert_cause, que puede ser minoritaria
@@ -29,14 +43,17 @@ export const isStructuralClosure = (f: GeoFeature) =>
 // monitorizar con alerta viva se etiqueta por la alerta (Benijo);
 // una abierta oficialmente pero con alerta viva degrada a 'warning'
 // (cierre según prensa); un cierre estructural devuelve 'structural'
+// y uno de fauna 'fauna' (pin añil — cerrada que no contamina)
 export const beachStateKey = (f: GeoFeature) =>
   f.properties.monitored === false && f.properties.alert !== true
     ? 'unmonitored'
     : isStructuralClosure(f)
       ? 'structural'
-      : f.properties.alert === true && f.properties.status === 'open'
-        ? 'warning'
-        : (f.properties.status ?? 'unknown');
+      : isFaunaClosure(f)
+        ? 'fauna'
+        : f.properties.alert === true && f.properties.status === 'open'
+          ? 'warning'
+          : (f.properties.status ?? 'unknown');
 
 // Etiquetas canónicas por estado — una sola fuente para lista, leyenda
 // y ficha. Dos registros a propósito: el compacto cabe en chips y
@@ -46,6 +63,7 @@ export const BEACH_STATE_LABEL: Record<string, string> = {
   open: 'Apta',
   warning: 'Aviso',
   closed: 'Cerrada',
+  fauna: 'Cerrada · fauna',
   structural: 'Cerrada · estructural',
   unknown: 'Sin datos',
   unmonitored: 'Sin monitorizar',
@@ -55,6 +73,7 @@ export const BEACH_STATE_LABEL_LONG: Record<string, string> = {
   open: 'Sin alertas activas',
   warning: 'Aviso activo',
   closed: 'Cierre activo',
+  fauna: 'Cierre por fauna marina',
   structural: 'Cierre estructural',
   unknown: 'Sin datos oficiales',
   unmonitored: 'Sin monitorización oficial',

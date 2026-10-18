@@ -59,9 +59,16 @@ export function useMapCamera({
   // borde — su borde superior queda a 0.36·winH-44. Reservar abajo
   // 0.28·winH+348 centra el punto ~50px sobre ese borde: la etiqueta
   // queda visible y el pin lo más bajo posible. El clamp garantiza una
-  // franja libre mínima en pantallas bajas/horizontal
+  // franja libre mínima en pantallas bajas/horizontal. +318 en cardPad:
+  // los pins con badge son más altos y a 348 quedaban pegados al borde
   const cardPad = {
     top: 120,
+    bottom: Math.min(Math.round(winH * 0.28) + 318, winH - 180),
+  };
+  // fitBeachBounds (grupo multi-PM) conserva la reserva anterior:
+  // el +318 pensado para pin único dejaba el encuadre demasiado abajo
+  const boundsPad = {
+    top: cardPad.top,
     bottom: Math.min(Math.round(winH * 0.28) + 348, winH - 180),
   };
   // La card de vertido flota alta (~30%): su pin sube un poco más que
@@ -116,9 +123,9 @@ export function useMapCamera({
       ],
       {
         padding: {
-          top: cardPad.top + 60,
+          top: boundsPad.top + 60,
           right: 64,
-          bottom: cardPad.bottom,
+          bottom: boundsPad.bottom,
           left: 64,
         },
         duration,

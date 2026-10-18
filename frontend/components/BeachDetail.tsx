@@ -28,7 +28,7 @@ import {
   type QualityParam,
 } from '../lib/quality';
 import { colors, fonts } from '../lib/theme';
-import { isStructuralClosure } from '../lib/mapData';
+import { isFaunaClosure, isStructuralClosure } from '../lib/mapData';
 import { BEACH_STATE_LABEL_LONG } from '../lib/structural';
 import SatelliteShot from './SatelliteShot';
 import Skeleton from './Skeleton';
@@ -42,6 +42,7 @@ import QualityChart from './beach/QualityChart';
 // etiquetas canónicas en lib/structural (BEACH_STATE_LABEL_LONG)
 const STATUS_COLOR: Record<string, string> = {
   closed: colors.status.closed,
+  fauna: colors.status.fauna,
   structural: colors.status.structural,
   warning: colors.status.warning,
   unknown: colors.status.unknown,
@@ -234,12 +235,15 @@ export default function BeachDetail({
   }, [incidents, news, pressStillClosed]);
 
   // isStructuralClosure mira el flag del backend; hasAlert es prop de
-  // la ficha (no properties.alert). Estructural → chip en granate
+  // la ficha (no properties.alert). Estructural → chip en granate,
+  // fauna → añil
   const beachKey = isStructuralClosure(feature)
     ? 'structural'
-    : hasAlert && p.status === 'open'
-      ? 'warning'
-      : (p.status ?? 'unknown');
+    : isFaunaClosure(feature)
+      ? 'fauna'
+      : hasAlert && p.status === 'open'
+        ? 'warning'
+        : (p.status ?? 'unknown');
   // Una playa OSM sin monitorizar con alerta (p.ej. Benijo, cerrada
   // según prensa) muestra el estado de la alerta; el aviso de "sin
   // monitorización" solo aplica sin alerta vigente

@@ -12,6 +12,7 @@ import { beachStateKey } from './structural';
 // contaminación — también deja la playa inutilizada
 export const STATUS_ORDER: Record<string, number> = {
   closed: 0,
+  fauna: 0,
   structural: 0,
   warning: 1,
   open: 2,

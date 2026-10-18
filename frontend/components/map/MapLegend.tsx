@@ -62,38 +62,38 @@ export default function MapLegend({
           />
           <View style={styles.legendSub}>
             {BEACH_STATES.map(([color, label, key]) => {
-              // Las dos subcapas de cierre comparten un solo chip:
-              // dot rojo + dot granate + "Cerrada" — cada dot se
-              // atenúa con su propia capa
-              if (key === 'structural') return null;
+              // Las tres subcapas de cierre comparten un solo chip:
+              // dot rojo + dot añil + dot granate + "Cerrada" — cada
+              // dot se atenúa con su propia capa
+              if (key === 'structural' || key === 'fauna') return null;
               if (key === 'closed') {
-                const bothOff =
-                  !beachSel.has('closed') && !beachSel.has('structural');
+                const allOff =
+                  !beachSel.has('closed') &&
+                  !beachSel.has('fauna') &&
+                  !beachSel.has('structural');
                 return (
                   <View
                     key={key}
-                    style={[styles.swatchRow, bothOff && styles.swatchDimmed]}
+                    style={[styles.swatchRow, allOff && styles.swatchDimmed]}
                   >
-                    {/* Dots en horizontal: contaminación + estructural
-                        pegados — cada uno se atenúa con su capa */}
-                    <View
-                      style={[
-                        styles.dot,
-                        styles.dotTight,
-                        { backgroundColor: color },
-                        !beachSel.has('closed') && styles.swatchDimmed,
-                      ]}
-                    />
-                    <View
-                      style={[
-                        styles.dot,
-                        {
-                          backgroundColor: colors.status.structural,
-                          marginRight: 6,
-                        },
-                        !beachSel.has('structural') && styles.swatchDimmed,
-                      ]}
-                    />
+                    {/* Dots en horizontal: contaminación + fauna +
+                        estructural pegados — cada uno se atenúa con
+                        su capa */}
+                    {(['closed', 'fauna', 'structural'] as const).map(
+                      (sub, i, arr) => (
+                        <View
+                          key={sub}
+                          style={[
+                            styles.dot,
+                            i < arr.length - 1
+                              ? styles.dotTight
+                              : styles.dotLast,
+                            { backgroundColor: colors.status[sub] },
+                            !beachSel.has(sub) && styles.swatchDimmed,
+                          ]}
+                        />
+                      ),
+                    )}
                     <Text style={styles.swatchText}>Cerrada</Text>
                   </View>
                 );
@@ -171,9 +171,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  // El primer dot del chip doble "Cerrada" va pegado al segundo
+  // Los dots del chip triple "Cerrada" van pegados entre sí; el
+  // último respira antes del texto
   dotTight: {
     marginRight: 2,
+  },
+  dotLast: {
+    marginRight: 6,
   },
   // La leyenda refleja el filtro: estado desmarcado en el panel =
   // swatch atenuado ("esto es lo que estás viendo ahora")
