@@ -4,6 +4,7 @@ from collections import defaultdict, deque
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from app import app_check
 from app.db import get_db
 from app.models import ClientEvent, DeviceToken
 from app.schemas import ClientEventIn, DeviceIn
@@ -36,8 +37,11 @@ def _rate_limited(ip: str) -> bool:
 
 
 @router.post("/devices", status_code=201)
-def register_device(payload: DeviceIn, db: Session = Depends(get_db)) -> dict:
+def register_device(
+    payload: DeviceIn, request: Request, db: Session = Depends(get_db)
+) -> dict:
     """Registra el Expo push token de un dispositivo (idempotente)."""
+    app_check.monitor(request.headers.get("x-firebase-appcheck"))
     if not payload.token.startswith("ExponentPushToken"):
         raise HTTPException(status_code=400, detail="Invalid Expo push token")
     exists = (
@@ -64,6 +68,7 @@ def report_client_event(
 
     Write-only y sin auth: es telemetría que el propio cliente emite —
     un campo truncado no vale un token de admin."""
+    app_check.monitor(request.headers.get("x-firebase-appcheck"))
     ip = request.client.host if request.client else "?"
     if _rate_limited(ip):
         raise HTTPException(status_code=429, detail="Too many events")

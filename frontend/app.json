@@ -31,7 +31,9 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/app-check"
     ],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -52,7 +54,10 @@
               "pathPrefix": "/b"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "adaptiveIcon": {

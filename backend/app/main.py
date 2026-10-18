@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from app import app_check
 from app.config import settings
 from app.db import SessionLocal, get_db
 from app.models import ClientEvent, JobRun
@@ -216,6 +217,9 @@ def health(db: Session = Depends(get_db)) -> dict:
         .where(ClientEvent.created_at >= since)
     )
     payload["jobs"] = jobs
+    # App Check en modo monitor (app/app_check.py): contadores de
+    # veredicto del header para decidir cuándo activar enforcement
+    payload["appcheck"] = app_check.stats
     payload["errors_24h"] = {
         "llm": llm_errors,
         "job_runs": job_failures or 0,

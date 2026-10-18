@@ -247,6 +247,20 @@ se nota primero al revisar. Ir tachando poco a poco.
       instalada vs rebuild nativo cuando cambien módulos nativos
 - [ ] Homónimas sin municipio — fallback `local[0]` no determinista
       (ninguna existe hoy)
+- [x] App Check (10.12) — **implementado en modo monitor** (oct):
+      `@react-native-firebase/app`+`app-check` (26.x) en la app con
+      provider `debug` en `__DEV__` y `playIntegrity` en release;
+      `lib/appCheck.ts` adjunta `X-Firebase-AppCheck` solo en
+      `/devices` y `/client-events` — import perezoso, degrada a
+      `{}` si el módulo nativo falta (dev-client viejo) o el
+      attestation falla (APK sideloaded: Play Integrity exige
+      distribución por Play Store). Backend `app/app_check.py`
+      verifica con `firebase-admin` (env
+      `FIREBASE_SERVICE_ACCOUNT_JSON` = service account) y expone
+      `stats{missing,valid,invalid}` en `/health` — nunca rechaza.
+      **Enforcement queda pendiente de dos cosas**: rebuild del
+      dev-client + token debug (o publicación Play Store para
+      integrity real) y credenciales Firebase en la VM
 
 ## Pendientes
 

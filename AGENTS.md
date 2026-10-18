@@ -13,7 +13,9 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     `ClientEvent` (telemetría de errores de la app instalada)
   - `app/routers/` — `outfalls.py`, `beaches.py`, `alerts.py`,
     `devices.py` (`POST /devices` registra Expo push tokens;
-    `POST /client-events` recibe errores de la app, write-only sin auth);
+    `POST /client-events` recibe errores de la app, write-only sin auth;
+    ambos pasan `X-Firebase-AppCheck` por `app/app_check.py` en modo
+    monitor — cuenta veredictos en `/health`, nunca rechaza);
     `GET /episodes` = episodios insulares agregados (oficiales +
     reconstruidos, agrupados por playa base + municipio)
   - `app/notify.py` — push vía Expo Push Service al cambiar estado de
@@ -171,7 +173,10 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     `components/sheet/` (`OutfallSheet` para emisarios, `ZonePicker`
     para playas multi-PM, `useSheetDrag` para geometría/gesto); playas
     delega en `BeachDetail`. Textos del censo en `lib/outfallSheet.ts`
-  - `lib/api.ts` — tipos + fetchers (+`registerDevice`)
+  - `lib/api.ts` — tipos + fetchers (+`registerDevice`); los POST de
+    escritura adjuntan `X-Firebase-AppCheck` vía `lib/appCheck.ts`
+    (import perezoso, `{}` si el módulo nativo o la attestation
+    fallan — modo monitor)
   - `lib/notifications.ts` — `setupPushNotifications`: canal `alerts`,
     permiso, Expo push token → `POST /devices`; handler foreground
   - `frontend/AGENTS.md` exige leer docs de Expo v57 antes de escribir código

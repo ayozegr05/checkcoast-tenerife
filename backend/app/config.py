@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     # Clave de los endpoints de escritura administrativos (cabecera
     # X-Admin-Key). Sin configurar, esos endpoints responden 503
     admin_api_key: str | None = None
+    # Service account de Firebase como JSON (App Check en modo
+    # monitor — ver app/app_check.py). Sin configurar, el monitor no
+    # verifica nada y solo cuenta headers ausentes
+    firebase_service_account_json: str | None = None
 
 
 settings = Settings()

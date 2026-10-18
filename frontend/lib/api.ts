@@ -1,3 +1,5 @@
+import { appCheckHeaders } from './appCheck';
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 export type GeoFeature = {
@@ -244,24 +246,33 @@ export const beachShareUrl = (beachId: number) =>
   `${SHARE_BASE_URL}/b/${beachId}`;
 
 // Registro del Expo push token en el backend (idempotente)
-export const registerDevice = (token: string, platform: string) =>
-  fetch(`${API_URL}/devices`, {
+export const registerDevice = async (token: string, platform: string) => {
+  const res = await fetch(`${API_URL}/devices`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(await appCheckHeaders()),
+    },
     body: JSON.stringify({ token, platform }),
-  }).then((res) => {
-    if (!res.ok) throw new Error(`API /devices: HTTP ${res.status}`);
   });
+  if (!res.ok) throw new Error(`API /devices: HTTP ${res.status}`);
+};
 
 // Telemetría de errores de la app instalada — write-only, fire and
 // forget: si el envío falla no hay nada mejor que hacer con el error
-export const reportClientEvent = (
+export const reportClientEvent = async (
   kind: string,
   platform: string,
   message?: string,
-) =>
-  fetch(`${API_URL}/client-events`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ kind, platform, message }),
-  }).catch(() => {});
+) => {
+  try {
+    await fetch(`${API_URL}/client-events`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(await appCheckHeaders()),
+      },
+      body: JSON.stringify({ kind, platform, message }),
+    });
+  } catch {}
+};
