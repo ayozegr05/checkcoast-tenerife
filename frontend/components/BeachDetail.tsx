@@ -28,6 +28,7 @@ import {
   type QualityParam,
 } from '../lib/quality';
 import { colors, fonts } from '../lib/theme';
+import { causeArt } from '../lib/causeArt';
 import { isFaunaClosure, isStructuralClosure } from '../lib/mapData';
 import { BEACH_STATE_LABEL_LONG } from '../lib/structural';
 import SatelliteShot from './SatelliteShot';
@@ -359,6 +360,18 @@ export default function BeachDetail({
       <View style={styles.topRow}>
         <View style={[styles.chip, { backgroundColor: statusColor }]}>
           <Text style={styles.chipText}>{statusText}</Text>
+          {/* Circulito de causa dentro de la píldora — mismo gesto
+              que el banner de alertas y el pin del mapa */}
+          {(beachKey === 'closed' ||
+            beachKey === 'fauna' ||
+            beachKey === 'structural') && (
+            <View style={styles.causeBadge}>
+              <Image
+                source={causeArt(p.alert_cause, beachKey === 'structural')}
+                style={styles.causeBadgeArt}
+              />
+            </View>
+          )}
         </View>
         <Pressable
           onPress={share}
@@ -473,9 +486,27 @@ const styles = StyleSheet.create({
     paddingRight: 40,
   },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 5,
+  },
+  // Circulito de causa dentro del chip — aro claro para recortarlo
+  // sobre el fondo de estado; el arte rellena el círculo
+  causeBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.75)',
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+  },
+  causeBadgeArt: {
+    width: '100%',
+    height: '100%',
   },
   chipText: {
     color: colors.onColor,

@@ -310,6 +310,8 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   header: {
+    // Un pelín de aire bajo el asa para que el título respire
+    paddingTop: 5,
     paddingBottom: 6,
   },
   title: {

@@ -12,6 +12,7 @@ import {
 
 import type { GeoFeature, MunicipalityIncident } from '../../lib/api';
 import { foldCount, foldSummary } from '../../lib/alertFold';
+import { causeArt } from '../../lib/causeArt';
 import { resolvedDays } from '../../lib/episodes';
 import {
   beachBaseName,
@@ -25,18 +26,6 @@ import {
   type AlertSection,
 } from '../../lib/mapData';
 import { colors, fonts } from '../../lib/theme';
-
-// Arte del circulito por causa (etiquetas del backend en queries.py)
-const CAUSE_ART: Record<string, number> = {
-  Algas: require('../../assets/icons/algas-art.png'),
-  Medusas: require('../../assets/icons/medusas-art.png'),
-  Hidrocarburos: require('../../assets/icons/gasoil-art.png'),
-};
-
-function causeArt(cause: string | null | undefined, foldable: boolean): number {
-  if (foldable) return require('../../assets/icons/rockfall-art.png');
-  return CAUSE_ART[cause ?? ''] ?? require('../../assets/icons/contam-art.png');
-}
 
 type AlertsBannerProps = {
   closedCount: number;
@@ -293,9 +282,6 @@ export default function AlertsBanner({
                           </Text>
                         )}
                       </View>
-                      <Text style={styles.alertFoldChevron}>
-                        {structuralOpen ? '▴' : '▾'}
-                      </Text>
                     </Pressable>
                   )}
                 </View>
@@ -488,11 +474,6 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   alertFoldName: {
-    fontSize: 14,
-    fontFamily: fonts.bold,
-    color: colors.primary,
-  },
-  alertFoldChevron: {
     fontSize: 14,
     fontFamily: fonts.bold,
     color: colors.primary,

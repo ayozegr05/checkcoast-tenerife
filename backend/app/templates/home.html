@@ -251,6 +251,14 @@
   .gdl:hover { background:#0a628c; }
   .gsoon { display:none; font-size:11px; color:#e65100;
           font-weight:600; }
+  /* Captura real de la app junto a la card de descarga — solo
+     desktop, igual que el QR: en móvil el hueco no da para más */
+  .gshot { flex:1 1 130px; max-width:170px; border-radius:14px;
+          overflow:hidden; border:1px solid #c9dfea;
+          box-shadow:0 6px 16px rgba(7,43,62,.18); }
+  .gshot img { width:100%; height:100%; object-fit:cover;
+          object-position:center 12%; display:block; }
+  @media (max-width:640px) { .gshot { display:none; } }
   .gdlrow { display:flex; flex-direction:column;
           align-items:flex-start; gap:10px;
           align-self:stretch; margin-top:auto; }
@@ -465,6 +473,10 @@
             <div class="gsoon" id="gpsoon">Próximamente
               disponible</div>
           </div>
+        </div>
+        <div class="gshot">
+          <img src="/img/app-shot-map.jpg"
+            alt="La app: Tenerife con los pines de estado de las playas">
         </div>
       </div>
       </div>
