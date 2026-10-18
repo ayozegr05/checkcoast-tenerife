@@ -596,7 +596,12 @@ futura — humana o de agente:
 - Hito 9 (portfolio): capturas/vídeo del APK, repo público en GitHub
   (activa CI), post LinkedIn; opcional ficha Google Play
 - Verificación E2E de App Links con build firmada por EAS (8.8)
-- Deploy a la VM: `ssh -i ~/Downloads/ssh-key-2026-09-20.key
+- Deploy a la VM: **automático** — el job `deploy` de ci.yml corre
+  tras backend verde cuando el push a main toca `backend/`,
+  `docker-compose` o `scripts/deploy.sh` (SSH con clave restringida
+  `command=` → `~/deploy-checkcoast.sh` → pull + `scripts/deploy.sh`:
+  build con el viejo sirviendo → `up -d` → `curl -f /health`).
+  Manual si hace falta: `ssh -i ~/Downloads/ssh-key-2026-09-20.key
   ubuntu@130.110.233.198`; la VM tiene repo git en `~/checkcoast`
   (rama main) → `git pull && docker compose build api && docker
   compose up -d api` (o `docker cp` de archivos sueltos al contenedor

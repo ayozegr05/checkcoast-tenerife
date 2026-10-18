@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       app: ${{ steps.check.outputs.app }}
+      backend: ${{ steps.check.outputs.backend }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,7 +22,9 @@ jobs:
       - id: check
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "app=true" >> "$GITHUB_OUTPUT"; exit 0
+            echo "app=true" >> "$GITHUB_OUTPUT"
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE="origin/${{ github.base_ref }}"
@@ -30,10 +33,16 @@ jobs:
           else
             BASE="${{ github.event.before }}"
           fi
-          if git diff --name-only "$BASE" HEAD | grep -qE '^(frontend/|backend/|\.github/)'; then
+          CHANGED=$(git diff --name-only "$BASE" HEAD)
+          if echo "$CHANGED" | grep -qE '^(frontend/|backend/|\.github/)'; then
             echo "app=true" >> "$GITHUB_OUTPUT"
           else
             echo "app=false" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "$CHANGED" | grep -qE '^(backend/|docker-compose|scripts/deploy\.sh)'; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend=false" >> "$GITHUB_OUTPUT"
           fi
   backend:
     runs-on: ubuntu-latest
@@ -215,3 +224,29 @@ jobs:
             ~/.maestro/tests
             /tmp/metro.log
           retention-days: 7
+
+  # CD: deploy del backend a la VM por SSH tras backend verde. Solo
+  # push a main que toque backend/compose — nunca desde PR. La clave
+  # esta restringida con command= a ~/deploy-checkcoast.sh en la VM:
+  # no abre shell ni acepta otros comandos (ver KNOWN_ISSUES P1)
+  deploy:
+    needs: [changes, backend]
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy a la VM (SSH, clave restringida)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST"
