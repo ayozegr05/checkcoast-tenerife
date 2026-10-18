@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   BackHandler,
   Image,
   ImageBackground,
@@ -19,6 +20,7 @@ import {
   type PressEventWithFeatures,
   type StyleSpecification,
 } from '@maplibre/maplibre-react-native';
+import * as Location from 'expo-location';
 
 import type {
   FeatureCollection,
@@ -224,6 +226,39 @@ export default function CoastMap({
     pmPoints,
     beachGroups,
   });
+
+  // Botón ⌖: el gesto central del producto — "¿puedo bañarme en la
+  // playa que tengo delante?" → vuela a tu posición a zoom de costa
+  const [locating, setLocating] = useState(false);
+  const locateMe = async () => {
+    if (locating) return;
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Ubicación desactivada',
+          'Activa el permiso de ubicación para centrar el mapa en tu posición.',
+        );
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      cameraRef.current?.flyTo({
+        center: [pos.coords.longitude, pos.coords.latitude],
+        zoom: 14,
+        duration: 1400,
+      });
+    } catch {
+      Alert.alert(
+        'Sin ubicación',
+        'No se pudo obtener tu posición. Inténtalo de nuevo.',
+      );
+    } finally {
+      setLocating(false);
+    }
+  };
 
   // Bocadillo de capas: solo el primer arranque del build — enseña
   // que la leyenda/botón abren el panel. Se marca al tocarlo o al
@@ -834,6 +869,26 @@ export default function CoastMap({
         />
       </Pressable>
 
+      {/* Geolocalización: vuela a tu posición (⌖, bajo Capas) */}
+      <Pressable
+        pointerEvents={controlsCovered ? 'none' : 'auto'}
+        style={({ pressed }) => [
+          styles.locateBtn,
+          (alertsOpen || layersOpen) && styles.ctrlBtnDisabled,
+          controlsCovered && styles.ctrlHidden,
+          pressed && styles.pressFx,
+        ]}
+        disabled={alertsOpen || layersOpen || controlsCovered || locating}
+        onPress={locateMe}
+        accessibilityRole="button"
+        accessibilityLabel="Centrar el mapa en mi ubicación"
+      >
+        <Image
+          source={require('../assets/icons/icon-locate.png')}
+          style={styles.satIcon}
+        />
+      </Pressable>
+
       {layersOpen && (
         <LayersPanel
           beachSel={beachSel}
@@ -955,6 +1010,21 @@ const styles = StyleSheet.create({
   },
   // Botón flotante de capas: bajo la brújula, misma cápsula que los
   // demás botones de mapa
+  locateBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? 232 : 216,
+    right: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    zIndex: 5,
+  },
   layersBtn: {
     position: 'absolute',
     top: Platform.OS === 'android' ? 192 : 176,

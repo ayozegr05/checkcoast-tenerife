@@ -547,7 +547,9 @@ Lista acordada tras revisión de la página completa:
 | L5 | Referencia visual de causas junto a alertas | ❌ Descartada | NO es botón de capas — es una mini-leyenda junto a «Alertas activas» que explique qué significa cada circulito de causa (si se aplica L3) |
 | L6 | Contraste de la línea de fuentes | ❌ Descartada | El `.src` («Datos: Náyade · MITECO · IGN España · © Esri…») — texto gris muy tenue sobre el fondo, mejora de accesibilidad |
 | L7 | Smoke test de landing en CI | ⏸️ DIFERIDO hasta pulir | `curl` al / verificando 200 + markup clave, cuando la página esté cerrada |
-| L8 | robots.txt + sitemap | ✅ Hecho | Archivos que dicen a Google qué indexar: `robots.txt` (permite rastreo + apunta al sitemap) y `sitemap.xml` (lista de URLs: /, /b/{id}, /o/{id}). Para que la landing aparezca en buscadores — visibilidad de portfolio |
+| L8 | robots.txt + sitemap | ✅ Hecho |
+| L9 | Pulir fichas `/b/{id}` | 🔴 Pendiente | Las mini-fichas web compartibles: revisar que comuniquen igual de bien que la ficha de la app (estado, causa, prensa, CTA a la app) |
+| L10 | UX «vistazo rápido» de la home | 🔴 Pendiente | Decidir qué ve una persona que entra de casualidad: jerarquía hero→mapa→alertas→descarga; que en 3 segundos se entienda «estado de playas de Tenerife en vivo» | Archivos que dicen a Google qué indexar: `robots.txt` (permite rastreo + apunta al sitemap) y `sitemap.xml` (lista de URLs: /, /b/{id}, /o/{id}). Para que la landing aparezca en buscadores — visibilidad de portfolio |
 
 Nota: los datos de alertas actuales en producción son inyectados para
 pruebas visuales — antes de publicar, limpiar el seed de fakes.

@@ -16,6 +16,12 @@
       ],
       "expo-font",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Permite centrar el mapa en tu posición para ver el estado de la playa más cercana."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",

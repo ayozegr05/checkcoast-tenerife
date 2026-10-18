@@ -649,6 +649,14 @@ if (window.maplibregl && lmapEl && imap) {
   lmap.addControl(
     new maplibregl.NavigationControl({ showCompass: false }),
     'top-right');
+  // ⌖ "la playa que tengo delante": geolocaliza y centra a zoom
+  // costa — el gesto central del producto, también en la web pública
+  lmap.addControl(
+    new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      showUserLocation: true
+    }),
+    'top-right');
   lmap.on('load', function () {
     var b = window.IBOUNDS;
     var seen = {};
