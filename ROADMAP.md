@@ -488,7 +488,7 @@ evalúa como higiene de tamaño de archivo, no como deuda técnica.
 
 | # | Tarea | Detalle | Esfuerzo |
 |---|-------|---------|----------|
-| 12.1 | **`routers/beaches.py`** (1.158) | Separar endpoints de listado/stats de los de detalle (`/beaches/{id}/status`, `/news`, `/episodes`) o extraer serialización/parseo a helpers; el módulo queda como enrutador fino | 🟡 Medio |
+| 12.1 | **`routers/beaches.py`** | ✅ Parte útil hecha (17-oct): los ~350 de lógica de episodios de prensa de `/beaches/{id}/news` extraídos a `app/news_episodes.py` → `press_episode_summary` pura + 8 tests unitarios nuevos (`test_news_episodes.py`). El handler queda como orquestador (query + PM hermano). Descartado el troceado por endpoints: sería cosmético | 🟡 Medio |
 | 12.2 | **`routers/share.py`** (970) | Ya templated (Jinja2). Lo que queda es Python montando dicts de contexto → extraer a `share_context.py`/`services/` y dejar el router como orquestador | 🟡 Medio |
 | 12.3 | **`events.py`** (648) | ❌ Descartado — ya es lógica pura de punta a punta (sin DB: el router carga el `Beach` y solo se leen `measurements`/`incidents`). La separación puro/IO que se proponía ya existe; partir el archivo en `synth_events.py` + `episodes.py` sería solo contar líneas, sin ganancia real | � Trivial |
 | 12.4 | `queries.py` (581) y `news_sources.py` (489) | Cohesivos hoy — solo si crecen: `news/` como paquete por fuente (Google/municipal/media/guía) | 🟢 Trivial |
