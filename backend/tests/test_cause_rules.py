@@ -5,13 +5,23 @@ mecanismo del cierre ("acceso prohibido") o la gestión posterior no son
 una causa y no deben votar en la moda — la razón de fondo sí.
 """
 
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
-from app.queries import _majority_cause, _press_cause, _short_cause
+from app.queries import (
+    _episode_items,
+    _majority_cause,
+    _press_cause,
+    _short_cause,
+)
 
 
-def _it(event_type: str, cause: str | None):
-    return SimpleNamespace(event_type=event_type, cause=cause)
+def _it(event_type: str, cause: str | None, days_ago: int = 0):
+    return SimpleNamespace(
+        event_type=event_type,
+        cause=cause,
+        published_at=datetime.now(UTC) - timedelta(days=days_ago),
+    )
 
 
 def test_mechanism_is_not_a_cause():
@@ -126,3 +136,35 @@ def test_majority_cause_ignores_specificity():
         _it("closure", "obras de emergencia"),
     ]
     assert _majority_cause(items) == "Contaminación fecal"
+
+
+def test_cause_votes_current_episode_only():
+    """Teresitas: un aviso viejo de carabelas (otro episodio) no
+    etiqueta de 'Medusas' un cierre de hoy por contaminación — la
+    votación solo mira el episodio vigente (desde la última
+    reapertura y sin huecos de cobertura >45 días)."""
+    items = [  # desc por fecha, como llega de la query
+        _it("closure", "contaminación", days_ago=0),
+        _it("closure", "contaminación del agua", days_ago=10),
+        _it("reopening", None, days_ago=60),  # cierra el episodio
+        _it("warning", "carabelas portuguesas", days_ago=200),
+        _it("closure", "desprendimientos", days_ago=300),
+    ]
+    ep = _episode_items(items)
+    assert [i.event_type for i in ep] == ["closure", "closure"]
+    assert _press_cause(ep) == "Contaminación"
+
+
+def test_cluster_gap_separates_episodes():
+    """Sin reapertura explícita, un silencio de prensa >45 días ya
+    delimita episodios para la etiqueta — una mención aislada meses
+    después no hereda la causa de lo anterior."""
+    items = [
+        _it("closure", None, days_ago=0),  # cierre sin causa dicha
+        _it("warning", "medusas", days_ago=120),  # episodio viejo
+    ]
+    ep = _episode_items(items)
+    assert len(ep) == 2  # sin reapertura: el episodio los incluye
+    cluster = _episode_items(items, timedelta(days=45))
+    assert [i.event_type for i in cluster] == ["closure"]
+    assert _press_cause(cluster) is None

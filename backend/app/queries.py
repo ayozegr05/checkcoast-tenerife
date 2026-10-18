@@ -39,6 +39,11 @@ def beaches_with_latest_status(db: Session):
     )
 
 
+# Hueco máximo entre menciones de un mismo episodio para votar la
+# causa mostrada — mismo criterio que PRESS_CLUSTER_GAP de events.py
+# (no se importa: events → queries, no al revés)
+_CAUSE_CLUSTER_GAP = timedelta(days=45)
+
 # Si la prensa lleva >3 semanas sin mencionar la playa, no afirmamos
 # que siga en ese estado (Los Cristianos: gasoil puntual de agosto;
 # Puertito: bacterias fecales de 2025 sin seguimiento en 15 meses) —
@@ -393,6 +398,31 @@ def _press_event(items: list[NewsItem]) -> NewsItem | None:
     return None
 
 
+def _episode_items(
+    its: list[NewsItem], gap: timedelta | None = None
+) -> list[NewsItem]:
+    """Items que forman el episodio vigente (la lista viene desc por
+    fecha). Una reapertura cierra el episodio — lo anterior es otra
+    historia; con `gap`, un silencio largo entre menciones consecutivas
+    también la corta (mismo criterio que el clustering de events.py).
+
+    Sin el corte, el histórico completo de la playa contamina el
+    episodio actual — Teresitas: un aviso viejo de carabelas
+    etiquetaba de 'Medusas' un cierre por contaminación."""
+    out = []
+    prev = None
+    for i in its:
+        if i.event_type in ("closure", "warning", "pollution", "reopening"):
+            pub = i.published_at or _EPOCH
+            if i.event_type == "reopening" or (
+                gap is not None and prev is not None and prev - pub > gap
+            ):
+                break
+            prev = pub
+        out.append(i)
+    return out
+
+
 def effective_states(db: Session) -> dict[int, dict]:
     """Matriz de estado efectivo compartida por /alerts, /beaches y
     /beaches/{id}/status: qué ve el usuario en cada playa y con qué
@@ -439,16 +469,26 @@ def effective_states(db: Session) -> dict[int, dict]:
     press_when: dict[int, datetime | None] = {}
     press_cause: dict[int, str | None] = {}
     press_dominant: dict[int, str] = {}
+    ep_items: dict[int, list[NewsItem]] = {}
     for beach_id, its in by_beach.items():
         newest = its[0].published_at
         if newest is None:
             continue
-        cause = _press_cause(its)
+        # El episodio vigente arranca tras la última reapertura; el
+        # histórico anterior es otra historia y no debe votar la causa
+        # ni decidir la persistencia del cierre actual. Para la
+        # ETIQUETA se exige además cobertura contigua (hueco >45 días
+        # = cobertura de otro episodio, Teresitas: aviso viejo de
+        # carabelas no etiqueta un cierre por contaminación)
+        ep = _episode_items(its)
+        cluster = _episode_items(its, _CAUSE_CLUSTER_GAP)
+        ep_items[beach_id] = ep
+        cause = _press_cause(cluster)
         ev = _press_event(its)
         persists = (
             ev is not None
             and ev.event_type == "closure"
-            and _majority_cause(its) in _STRUCTURAL_CAUSES
+            and _majority_cause(ep) in _STRUCTURAL_CAUSES
         )
         if not persists and newest < cutoff:
             continue
@@ -462,14 +502,14 @@ def effective_states(db: Session) -> dict[int, dict]:
         # alerta oficial: una sola noticia de "obras para reabrir" no
         # equivale a reabierta (Gaviotas sigue cerrada con obras)
         counts: dict[str, int] = {}
-        for i in its:
+        for i in ep:
             if i.event_type and i.event_type != "other":
                 counts[i.event_type] = counts.get(i.event_type, 0) + 1
         if counts:
             best = max(counts.values())
             press_dominant[beach_id] = next(
                 i.event_type
-                for i in its
+                for i in ep
                 if i.event_type in counts and counts[i.event_type] == best
             )
 
@@ -538,7 +578,7 @@ def effective_states(db: Session) -> dict[int, dict]:
         for bid in press_state
         if official.get(bid) == BeachState.open.value
         and not (bid in result and result[bid]["alerted"])
-        and _majority_cause(by_beach[bid]) not in _STRUCTURAL_CAUSES
+        and _majority_cause(ep_items.get(bid, [])) not in _STRUCTURAL_CAUSES
     ]
     resolved_at: dict[int, date] = {
         bid: mx
@@ -575,7 +615,7 @@ def effective_states(db: Session) -> dict[int, dict]:
         # La persistencia la decide la causa mayoritaria, no la
         # ganadora por especificidad: una mención suelta de "obras"
         # no eterniza un episodio
-        structural = _majority_cause(by_beach[beach_id]) in (
+        structural = _majority_cause(ep_items.get(beach_id, [])) in (
             _STRUCTURAL_CAUSES
         )
         if official.get(beach_id) == BeachState.open.value and not structural:
@@ -654,7 +694,7 @@ def effective_states(db: Session) -> dict[int, dict]:
         )
         structural_press = (
             e["cause_via"] == "press"
-            and _majority_cause(by_beach.get(bid, [])) in _STRUCTURAL_CAUSES
+            and _majority_cause(ep_items.get(bid, [])) in _STRUCTURAL_CAUSES
         )
         e["structural"] = (
             e["status"] == "closed"
