@@ -104,6 +104,8 @@
   .secn.na { background:#c62828; }
   .secn.st { background:#8c322a; }
   .secn.nr { background:#0d9488; }
+  .secn.fa { background:#4f6ab8; }
+  .secn.wn { background:#e65100; }
   .mpin { transition:transform .15s ease; }
   .imap a { transition:opacity .2s; }
   .imap a:hover .mpin { transform:translate(-50%,-88%) scale(1.25);
@@ -132,6 +134,16 @@
   .lrow { flex-wrap:wrap; row-gap:4px; }
   .stat b.sc { color:#c62828; }
   .stat b.sw { color:#e65100; }
+  /* Secciones del banner de alertas — mismos grupos y tonos que
+     la app (contaminación / fauna / estructural / avisos) */
+  .agroup { display:contents; }
+  .asec { grid-column:1/-1; text-align:center; font-size:11px;
+          font-weight:800; letter-spacing:.7px; text-transform:uppercase;
+          margin:12px 0 7px; padding:7px 0; border-radius:9px; }
+  .asec-contam { color:#c62828; background:rgba(198,40,40,.10); }
+  .asec-fauna { color:#4f6ab8; background:rgba(79,106,184,.10); }
+  .asec-struct { color:#8c322a; background:rgba(140,50,42,.10); }
+  .asec-warn { color:#e65100; background:rgba(230,81,0,.10); }
   .amorechk { display:none; }
   .abox .xmore { display:none; }
   .amorechk:checked ~ .xmore { display:flex; }
@@ -188,16 +200,29 @@
   .sal.sal-c { border:1px solid #e2988f; }
   .sal.sal-s { border:1px solid #c79088; }
   .sal.sal-w { border:1px solid #eebf78; }
+  .sal.sal-f { border:1px solid #9db1de; }
   .sal.sal-r { border:1px solid #8ecbae; }
   .sal.sal-c:hover { background:#fbe9e7; border-color:#c62828; }
   .sal.sal-s:hover { background:#f6e8e6; border-color:#8c322a; }
   .sal.sal-w:hover { background:#fdf1da; border-color:#e65100; }
+  .sal.sal-f:hover { background:#edf1fb; border-color:#4f6ab8; }
   .sal.sal-r:hover { background:#e6f4ee; border-color:#0d9488; }
   .sal i { flex:none; width:9px; height:9px; border-radius:50%; }
   .sal b { display:block; font-size:12px; color:#0d3a52;
           font-weight:600; }
   .sal:hover b { color:#075276; }
   .sal span { font-size:10.5px; color:#7a919c; }
+  .salmid { flex:1; min-width:0; }
+  .salright { flex:none; margin-left:auto; text-align:right;
+          display:flex; flex-direction:column; align-items:flex-end;
+          gap:1px; }
+  .salright b { font-size:11px; font-weight:700; }
+  .salright span { font-size:10px; }
+  .salstrow { display:flex; align-items:center; gap:5px; }
+  .salbadge { flex:none; width:20px; height:20px; border-radius:50%;
+          background:#fff; border:1px solid; overflow:hidden;
+          display:inline-block; }
+  .salbadge img { width:100%; height:100%; display:block; }
   @media (min-width:900px) {
     .abox { display:grid; grid-template-columns:1fr 1fr;
             gap:0 24px; }
@@ -253,12 +278,30 @@
           font-weight:600; }
   /* Captura real de la app junto a la card de descarga — solo
      desktop, igual que el QR: en móvil el hueco no da para más */
-  .gshot { flex:1 1 130px; max-width:170px; border-radius:14px;
-          overflow:hidden; border:1px solid #c9dfea;
-          box-shadow:0 6px 16px rgba(7,43,62,.18); }
-  .gshot img { width:100%; height:100%; object-fit:cover;
-          object-position:center 12%; display:block; }
-  @media (max-width:640px) { .gshot { display:none; } }
+  /* Mockup de teléfono con la captura real: bezel oscuro +
+     punch-hole — la captura queda como dispositivo, no como
+     pantallazo pegado. El QR se oculta en móvil (no puedes escanear tu
+     propia pantalla) pero el mockup vende en cualquier ancho */
+  .gshot { flex:0 0 auto; display:flex; align-items:center;
+          justify-content:center; padding:6px 2px; }
+  .gframe { position:relative; width:112px; border:6px solid #1a2530;
+          border-radius:24px; overflow:hidden; background:#000;
+          box-shadow:0 10px 24px rgba(7,43,62,.35); }
+  .gframe::before { content:''; position:absolute; top:5px;
+          left:50%; transform:translateX(-50%); width:8px;
+          height:8px; border-radius:50%; background:#1a2530;
+          z-index:2; }
+  .gframe img { width:100%; height:auto; display:block; }
+  /* Banda intermedia y móvil: la card va a todo lo ancho (como
+     el resto de cards apiladas) y el mockup baja centrado */
+  @media (max-width:899px) {
+    .gmain { flex:1 1 100%; }
+    .gshot { flex:1 1 100%; }
+    .gframe { width:112px; }
+  }
+  @media (max-width:640px) {
+    .gframe { width:128px; }
+  }
   .gdlrow { display:flex; flex-direction:column;
           align-items:flex-start; gap:10px;
           align-self:stretch; margin-top:auto; }
@@ -355,42 +398,56 @@
     <div class="ibody">
       {%- if alerts %}
       <div class="sec sec-a">Alertas activas en la isla
-        {%- if n_struct %}
-        <span class="secn st" title="cierres estructurales
-          (desprendimientos, obras)">{{ n_struct }}</span>
-        {%- endif %}
-        {%- if n_contam %}
-        <span class="secn na" title="alertas por contaminación">
-          {{ n_contam }}</span>
-        {%- endif %}
+        {%- for g in alert_groups %}
+        <span class="secn {{ g.pcls }}">{{ g.pill }} ·
+          {{ g.rows|length }}</span>
+        {%- endfor %}
       </div>
       <div class="abox">
-        {%- for a in alerts[:5] %}
+        {%- for g in alert_groups %}
+        <div class="agroup">
+        <div class="asec asec-{{ g.sec }}">{{ g.title }} ·
+          {{ g.rows|length }}</div>
+        {%- for a in g.rows[:4] %}
         <a class="sal sal-{{ a.cls }}" href="/b/{{ a.beach_id }}"
           style="animation-delay:{{ loop.index * 45 }}ms">
-          <img class="salart" src="/icons/{{ a.art }}.png" alt=""
-          style="--ac:{{ a.color }}">
-          <div>
+          <i style="background:{{ a.color }}"></i>
+          <div class="salmid">
           <b>{{ a.name }}</b>
-          <span>{{ a.meta }}{% if a.cause %} · {{ a.cause }}{% endif %}
-          </span></div></a>
+          <span>{{ a.sub }}</span></div>
+          <div class="salright"><div class="salstrow"><b
+            style="color:{{ a.color }}">{{ a.estado }}</b>
+            {%- if a.show_badge %}<span class="salbadge"
+              style="border-color:{{ a.color }}"><img
+              src="/icons/{{ a.art }}.png" alt=""></span>{%- endif %}
+          </div>
+            {%- if a.cause %}<span>{{ a.cause }}</span>{%- endif %}
+          </div></a>
         {%- endfor %}
-        {%- if alerts|length > 5 %}
-        <input type="checkbox" id="amore" class="amorechk">
-        {%- for a in alerts[5:] %}
+        {%- if g.rows|length > 4 %}
+        <input type="checkbox" id="amore{{ loop.index }}" class="amorechk">
+        {%- for a in g.rows[4:] %}
         <a class="sal sal-{{ a.cls }} xmore" href="/b/{{ a.beach_id }}"
           style="animation-delay:{{ loop.index * 45 }}ms">
-          <img class="salart" src="/icons/{{ a.art }}.png" alt=""
-          style="--ac:{{ a.color }}">
-          <div>
+          <i style="background:{{ a.color }}"></i>
+          <div class="salmid">
           <b>{{ a.name }}</b>
-          <span>{{ a.meta }}{% if a.cause %} · {{ a.cause }}{% endif %}
-          </span></div></a>
+          <span>{{ a.sub }}</span></div>
+          <div class="salright"><div class="salstrow"><b
+            style="color:{{ a.color }}">{{ a.estado }}</b>
+            {%- if a.show_badge %}<span class="salbadge"
+              style="border-color:{{ a.color }}"><img
+              src="/icons/{{ a.art }}.png" alt=""></span>{%- endif %}
+          </div>
+            {%- if a.cause %}<span>{{ a.cause }}</span>{%- endif %}
+          </div></a>
         {%- endfor %}
-        <label class="smore-btn" for="amore"><span class="more">…y
-          {{ alerts|length - 5 }} más</span><span class="less">Ver
-          menos</span></label>
+        <label class="smore-btn" for="amore{{ loop.index }}"><span
+          class="more">…y {{ g.rows|length - 4 }} más</span><span
+          class="less">Ver menos</span></label>
         {%- endif %}
+        </div>
+        {%- endfor %}
       </div>
       {%- endif %}
       {%- if reopened %}
@@ -475,8 +532,10 @@
           </div>
         </div>
         <div class="gshot">
-          <img src="/img/app-shot-map.jpg"
-            alt="La app: Tenerife con los pines de estado de las playas">
+          <div class="gframe">
+            <img src="/img/app-shot-map.jpg"
+              alt="La app: Tenerife con los pines de estado de las playas">
+          </div>
         </div>
       </div>
       </div>

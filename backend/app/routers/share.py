@@ -169,12 +169,14 @@ def share_outfall(
 
 
 @router.get("/", response_class=HTMLResponse)
-def home(db: Session = Depends(get_db)) -> HTMLResponse:
+def home(db: Session = Depends(get_db), demo: bool = False) -> HTMLResponse:
     """Portada del proyecto: la puerta de entrada pública.
 
     Hero + mapa vivo de la isla + alertas reales + playas de ejemplo
-    enlazables a su /b/{id} — la demo completa sin instalar nada."""
-    return _page("home.html", **home_context(db))
+    enlazables a su /b/{id} — la demo completa sin instalar nada.
+    ?demo=1 fabrica alertas de todas las causas para previsualizar
+    las secciones del banner (solo presentación, no toca datos)."""
+    return _page("home.html", **home_context(db, demo=demo))
 
 
 @router.get("/privacy", response_class=HTMLResponse)

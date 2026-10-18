@@ -533,3 +533,21 @@ Pendiente: 9.2 capturas del APK → 9.5 GitHub → 9.6 vídeo → 9.7 LinkedIn;
 noticias cercanas → correlación vertido↔cierre). Antes: arreglar
 episodios de prensa en playas (Puertito: faltan reaperturas 9-may y
 6-jun; ficha unmonitored no pide /incidents; item 485 mal casado)
+
+### Landing — pendientes para dejarla "viva" (18-oct)
+
+Lista acordada tras revisión de la página completa:
+
+| # | Punto | Estado | Detalle |
+|---|-------|--------|---------|
+| L1 | Enlace de descarga real | ⏸️ DIFERIDO hasta publicación | El botón muestra «Próximamente» y el QR va al repo. Cuando se publique la APK → apuntar a GitHub Releases / store |
+| L2 | Duplicado en «Explora una playa» | ✅ Hecho | Dos cards «Playa Punta Larga · Candelaria» casi idénticas (son 2 PMs distintos) — parece bug. Deduplicar o etiquetar el punto de muestreo |
+| L3 | Circulitos de causa en alertas de la landing | ✅ Hecho | Las filas de «Alertas activas» muestran la causa solo en texto; la app ya usa el arte circular (alga/medusa/gasoil/rockfall). Reutilizar los mismos assets para consistencia landing↔app. OJO: las alertas actuales son datos fake de prueba — validar con datos reales |
+| L4 | Alertas agrupadas por causa | ✅ Hecho | La lista es plana (todos desprendimientos ahora); la app ya agrupa en Contaminación / Fauna marina / Cierre estructural. Es SOLO presentación (ordenar/agrupar filas por sección), no arquitectura |
+| L5 | Referencia visual de causas junto a alertas | ❌ Descartada | NO es botón de capas — es una mini-leyenda junto a «Alertas activas» que explique qué significa cada circulito de causa (si se aplica L3) |
+| L6 | Contraste de la línea de fuentes | ❌ Descartada | El `.src` («Datos: Náyade · MITECO · IGN España · © Esri…») — texto gris muy tenue sobre el fondo, mejora de accesibilidad |
+| L7 | Smoke test de landing en CI | ⏸️ DIFERIDO hasta pulir | `curl` al / verificando 200 + markup clave, cuando la página esté cerrada |
+| L8 | robots.txt + sitemap | 🔴 Pendiente | Archivos que dicen a Google qué indexar: `robots.txt` (permite rastreo + apunta al sitemap) y `sitemap.xml` (lista de URLs: /, /b/{id}, /o/{id}). Para que la landing aparezca en buscadores — visibilidad de portfolio |
+
+Nota: los datos de alertas actuales en producción son inyectados para
+pruebas visuales — antes de publicar, limpiar el seed de fakes.

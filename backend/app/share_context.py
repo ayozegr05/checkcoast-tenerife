@@ -293,6 +293,16 @@ def _dots(
     ]
 
 
+# Arte del circulito de causa — espejo de lib/causeArt.ts del
+# frontend: estructural → rockfall; el resto por etiqueta canónica
+_FAUNA_CAUSES = {"Medusas"}
+_CAUSE_ART = {
+    "Algas": "algas-art",
+    "Medusas": "medusas-art",
+    "Hidrocarburos": "gasoil-art",
+}
+
+
 def _alert_cards(entries: list[tuple], now: datetime) -> list[dict]:
     """Filas de alerta viva enlazables a su /b/{id} — la misma regla
     que /alerts, compartida por el panel lateral de /b/ y la portada.
@@ -300,25 +310,58 @@ def _alert_cards(entries: list[tuple], now: datetime) -> list[dict]:
     cards = []
     for beach, e in entries:
         dstate = _display_state(e)
+        structural = dstate == "structural"
+        fauna = e["cause"] in _FAUNA_CAUSES
+        art = (
+            "rockfall-art"
+            if structural
+            else _CAUSE_ART.get(e["cause"], "contam-art")
+        )
+        # Sección de banner — mismo orden que la app: contaminación,
+        # fauna marina, estructural, avisos
+        sec = (
+            "warn"
+            if e["status"] == "warning"
+            else "struct"
+            if structural
+            else "fauna"
+            if fauna
+            else "contam"
+        )
         cards.append(
             {
-                # "s" = estructural: el panel usa la variante granate
+                # "s" estructural · "f" fauna · "c" contaminación ·
+                # "w" aviso: cada clase pinta su borde/hover (banner)
                 "cls": (
                     "s"
-                    if dstate == "structural"
+                    if structural
+                    else "f"
+                    if fauna and e["status"] == "closed"
                     else "c"
                     if e["status"] == "closed"
                     else "w"
                 ),
+                "sec": sec,
                 "beach_id": beach.id,
-                "color": _STATUS.get(dstate, _STATUS["unknown"])[1],
+                "color": (
+                    "#4f6ab8"
+                    if fauna and e["status"] == "closed"
+                    else _STATUS.get(dstate, _STATUS["unknown"])[1]
+                ),
                 "name": _display_name(beach.name),
-                # Arte de causa como en el banner de la app:
-                # estructural → desprendimiento, resto → contaminación
-                "art": "rockfall-art"
-                if dstate == "structural"
-                else "contam-art",
+                # Arte de causa como en el banner de la app
+                "art": art,
                 "cause": e["cause"],
+                # Patrón del banner de la app (home): estado a la
+                # derecha + causa debajo; meta queda para /b/ y /o/
+                "estado": "Cerrada" if e["status"] == "closed" else "Aviso",
+                # El badge de causa solo acompaña a "Cerrada" (como la app)
+                "show_badge": e["status"] == "closed",
+                "sub": (
+                    f"{_alert_when('', e['reported_at'], now).lstrip(' ·')}"
+                    f" · {'según prensa' if e['via'] == 'press' else 'oficial'}"
+                    f" · {beach.municipality or ''}"
+                ),
                 "meta": (
                     f"{
                         _alert_when(
@@ -1440,7 +1483,47 @@ def outfall_context(
     }
 
 
-def home_context(db: Session) -> dict:
+def _demo_alerts(all_beaches: list, now: datetime) -> list[tuple]:
+    """Alertas fabricadas para previsualizar las secciones del
+    banner de la landing (?demo=1): una por cada causa/estado.
+    Reusa playas reales del censo para que los /b/{id} enlacen."""
+    causes = [
+        ("Algas", "closed"),
+        ("Medusas", "closed"),
+        ("Hidrocarburos", "closed"),
+        ("Contaminación fecal", "closed"),
+        ("Desprendimientos", "closed"),
+        (None, "warning"),
+    ]
+    out = []
+    for (b, _st, _lon, _lat), (cause, status) in zip(all_beaches, causes):
+        out.append(
+            (
+                b,
+                {
+                    "status": status,
+                    "cause": cause,
+                    "via": "press",
+                    "reported_at": now,
+                    "alerted": True,
+                    "structural": cause
+                    in {"Desprendimientos", "Obras", "Colapso del terreno"},
+                },
+            )
+        )
+    return out
+
+
+# (clave, título de sección, etiqueta del pill de cabecera, clase CSS)
+_ALERT_SECTIONS = [
+    ("contam", "Contaminación", "Contaminación", "na"),
+    ("fauna", "Fauna marina", "Fauna marina", "fa"),
+    ("struct", "Cierre estructural", "Estructural", "st"),
+    ("warn", "Avisos", "Avisos", "wn"),
+]
+
+
+def home_context(db: Session, demo: bool = False) -> dict:
     """Contexto de la portada: una sola matriz para todo — contadores,
     puntos del mapa, tarjetas de alerta y playas de ejemplo — antes la
     portada pintaba el estado oficial crudo y podía contradecir a la
@@ -1545,7 +1628,21 @@ def home_context(db: Session) -> dict:
 
     # Alertas vivas (misma lista que el panel lateral de /b/)
     now = datetime.now(UTC)
+    if demo:
+        island_alerts = _demo_alerts(all_beaches, now)
     alerts = _alert_cards(island_alerts, now)
+    # Agrupadas por sección — mismo patrón que el banner de la app
+    alert_groups = [
+        {
+            "sec": sec,
+            "title": title,
+            "pill": pill,
+            "pcls": pcls,
+            "rows": [a for a in alerts if a["sec"] == sec],
+        }
+        for sec, title, pill, pcls in _ALERT_SECTIONS
+    ]
+    alert_groups = [g for g in alert_groups if g["rows"]]
     # Desglose para las pills de la cabecera: el granate de los
     # cierres estructurales no es el rojo de la contaminación
     n_struct = sum(1 for a in alerts if a["art"] == "rockfall-art")
@@ -1603,8 +1700,23 @@ def home_context(db: Session) -> dict:
         )
 
     # Playas de ejemplo: las alertas actuales + las monitorizadas con
-    # más analíticas (su landing enseña la gráfica histórica)
-    example_ids = [b.id for b, _ in island_alerts[:3]]
+    # más analíticas (su landing enseña la gráfica histórica).
+    # Dedup por nombre visible: sin él, dos PMs de la misma playa
+    # (Punta Larga PM1/PM2) salían como dos cards "iguales" — bug
+    # visual que parecía una lista corrupta
+    example_ids = []
+    seen_names: set[str] = set()
+    names_by_id = {
+        b.id: _display_name(b.name) for b, *_ in all_beaches
+    }
+    for b, _ in island_alerts:
+        dname = names_by_id.get(b.id)
+        if dname in seen_names:
+            continue
+        seen_names.add(dname)
+        example_ids.append(b.id)
+        if len(example_ids) >= 3:
+            break
     fillers = (
         db.query(BeachMeasurement.beach_id, func.count().label("n"))
         .group_by(BeachMeasurement.beach_id)
@@ -1615,8 +1727,13 @@ def home_context(db: Session) -> dict:
     for f in fillers:
         if len(example_ids) >= 4:
             break
-        if f.beach_id not in example_ids:
-            example_ids.append(f.beach_id)
+        if f.beach_id in example_ids:
+            continue
+        fname = names_by_id.get(f.beach_id)
+        if fname in seen_names:
+            continue
+        seen_names.add(fname)
+        example_ids.append(f.beach_id)
 
     ex_rows = {
         b.id: (b, st, lon, lat)
@@ -1654,6 +1771,7 @@ def home_context(db: Session) -> dict:
         "total_beaches": total_beaches,
         "map_dots": map_dots,
         "alerts": alerts,
+        "alert_groups": alert_groups,
         "n_alerts": len(island_alerts),
         "n_struct": n_struct,
         "n_contam": len(alerts) - n_struct,
