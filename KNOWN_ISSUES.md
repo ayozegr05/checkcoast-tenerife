@@ -237,7 +237,9 @@ se nota primero al revisar. Ir tachando poco a poco.
 - [x] OTA frontend (`eas update`) — SÍ se usa: los updates JS van al
       APK preview instalado (bundle nuevo en el siguiente arranque —
       el usuario abre/cierra la app para cargarlo). Pendiente solo
-      decidir el canal si algún día hay release en Play Store
+      decidir el canal habitual **cuando se suba a Google Play**
+      (hito 9.9): `eas update` para cambios JS sobre la release
+      instalada vs rebuild nativo cuando cambien módulos nativos
 - [ ] Homónimas sin municipio — fallback `local[0]` no determinista
       (ninguna existe hoy)
 
