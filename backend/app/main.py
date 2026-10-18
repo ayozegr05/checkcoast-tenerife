@@ -139,6 +139,13 @@ app.mount(
     name="img",
 )
 
+# Vendor JS de la landing (MapLibre GL — mapa interactivo self-hosted)
+app.mount(
+    "/vendor",
+    StaticFiles(directory="app/static/vendor"),
+    name="vendor",
+)
+
 
 def _job_health(db: Session, job: str, interval_s: int) -> dict:
     last = db.scalar(

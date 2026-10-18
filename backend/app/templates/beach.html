@@ -129,7 +129,8 @@
   .ofrow { margin-top:8px; padding:8px 12px; border-left:3px solid;
           background:#f4f9fb; border-radius:0 8px 8px 0;
           display:flex; justify-content:space-between;
-          align-items:center; gap:10px; }
+          align-items:center; gap:10px; text-decoration:none; }
+  a.ofrow:hover { background:#e8f2f7; }
   .ofname { font-size:13px; font-weight:600; color:#0d3a52; }
   .ofmeta { font-size:11px; color:#7a919c; margin-top:1px; }
   .ofdist { font-size:15px; font-weight:700; color:#075276;
@@ -185,11 +186,27 @@
           padding:12px; }
   .src { margin-top:14px; font-size:11px; color:#7a919c; }
   .noapp { display:none; margin-top:8px; font-size:12px;
+          color:#33566b; }
+  .noapplink { color:#075276; font-weight:700;
           color:#8a6d1a; text-align:center; }
   .homelink { display:block; margin-top:10px; text-align:center;
           font-size:12px; color:#075276; font-weight:600;
           text-decoration:none; }
   .homelink:hover { text-decoration:underline; }
+  .chiprow { display:flex; align-items:center; gap:10px;
+          margin-bottom:4px; }
+  .chiprow .chip { margin:0 auto; }
+  .actrow { display:flex; align-items:center;
+          justify-content:space-between; margin-top:10px; }
+  .actrow .homelink { margin-top:0; }
+  .shr { display:flex; align-items:center; gap:5px;
+          border:1px solid rgba(26,127,150,.45); background:#fff;
+          color:#1a7f96; font-family:inherit; font-size:11px;
+          font-weight:700; border-radius:6px; padding:5px 8px;
+          cursor:pointer; }
+  .shr img { width:12px; height:12px; }
+  .shr:hover { background:#eef6fa; }
+  .shr:active { opacity:.6; }
 </style>
 </head>
 <body>
@@ -237,7 +254,10 @@
       </div>
     </div>
     <div class="body">
-      <span class="chip{% if notice %} ctr{% endif %}">{{ label }}</span>
+      <div class="chiprow"><span class="chip{% if notice %}
+        ctr{% endif %}">{{ label }}</span>
+        <button class="shr" id="shrbtn" type="button"><img
+          src="/icons/icon-share-outline.png" alt="">Compartir</button></div>
       {%- if notice %}{{ banner(notice) }}{% endif %}
       {%- if latest_line %}
       <div class="row"><b>{{ latest_line }}</b></div>
@@ -246,11 +266,12 @@
       <div class="sec">Emisarios cercanos
         <span class="secsub">· en un radio de 1 km</span></div>
       {%- for o in outfalls %}
-      <div class="ofrow" style="border-color:{{ o.color }}">
+      <a class="ofrow" style="border-color:{{ o.color }}"
+        href="/o/{{ o.oid }}">
         <div><div class="ofname">{{ o.name }}</div>
         <div class="ofmeta">{{ o.status_label }}</div></div>
         <div class="ofdist{% if o.near %} near{% endif %}">
-          a {{ o.dist }} m</div></div>
+          a {{ o.dist }} m</div></a>
       {%- endfor %}
       {%- endif %}
       {%- if press %}{{ banner(press) }}{% endif %}
@@ -293,7 +314,8 @@
       <a class="open" href="{{ deep }}" onclick="openApp(); return false;">
         Abrir en la app</a>
       <p id="noapp" class="noapp">Si no se abrió, aún no tienes la app
-        instalada.</p>
+        instalada — <a class="noapplink" href="/">ver el estado de
+        todas las playas →</a></p>
       <a class="homelink" href="/">← Inicio</a>
       <p class="src">{{ foot }}</p>
     </div>
@@ -351,6 +373,26 @@ function openApp() {
     document.getElementById('noapp').style.display = 'block';
   }, 1400);
 }
+document.getElementById('shrbtn').onclick = async function () {
+  var u = location.href.split('#')[0];
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: document.title, url: u });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+  }
+  var b = this;
+  try {
+    await navigator.clipboard.writeText(u);
+    b.lastChild.textContent = '¡Copiado!';
+    setTimeout(function () { b.lastChild.textContent = 'Compartir'; },
+      1600);
+  } catch (e) {
+    window.prompt('Copia el enlace:', u);
+  }
+};
 function setChart(p) {
   document.getElementById('chart-ecoli').className =
     'chartarea' + (p === 'ecoli' ? '' : ' hidden');

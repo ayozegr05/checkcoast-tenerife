@@ -21,12 +21,17 @@ from app.config import settings
 from app.db import get_db
 from app.queries import effective_states
 from app.share_context import (
+    _OUTFALL_PIN,
+    _OUTFALL_STATUS,
     _STATUS,
     _display_state,
+    _og_card,
     _og_png,
     beach_context,
     beach_row,
     home_context,
+    outfall_context,
+    outfall_row,
 )
 
 router = APIRouter(tags=["share"])
@@ -108,6 +113,59 @@ def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
         raise HTTPException(status_code=404, detail="Beach not found")
     beach, _status, lon, lat = row
     return _page("beach.html", **beach_context(db, beach, lon, lat))
+
+
+_og_o_cache: dict[tuple[int, str], bytes] = {}
+
+
+@router.get("/o/{outfall_id}/og.jpg")
+def share_og_outfall(
+    outfall_id: int, db: Session = Depends(get_db)
+) -> Response:
+    """og:image del emisario: foto satélite + pin + chip de
+    legalidad — misma composición que la de playa."""
+    row = outfall_row(db, outfall_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Outfall not found")
+    outfall, lon, lat = row
+    status = (
+        outfall.status.value
+        if hasattr(outfall.status, "value")
+        else outfall.status
+    )
+    key = (outfall_id, status)
+    if key not in _og_o_cache:
+        if len(_og_o_cache) >= 500:
+            _og_o_cache.clear()
+        label, color = _OUTFALL_STATUS.get(status, _OUTFALL_STATUS["unknown"])
+        _og_o_cache[key] = _og_card(
+            outfall.name,
+            f"{outfall.municipality or 'Tenerife'} · CheckCoast Tenerife",
+            lon,
+            lat,
+            _OUTFALL_PIN.get(status, _OUTFALL_PIN["unknown"]),
+            label,
+            color,
+        )
+    return Response(
+        content=_og_o_cache[key],
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+@router.get("/o/{outfall_id}", response_class=HTMLResponse)
+def share_outfall(
+    outfall_id: int, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    """Ficha publica compartible de un emisario: replica web de la
+    hoja de la app (legalidad, funcionamiento, que se vierte, playas
+    cercanas enlazables a su /b/{id})."""
+    row = outfall_row(db, outfall_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Outfall not found")
+    outfall, lon, lat = row
+    return _page("outfall.html", **outfall_context(db, outfall, lon, lat))
 
 
 @router.get("/", response_class=HTMLResponse)

@@ -216,6 +216,21 @@ maestro test e2e/flows/smoke-search.yaml                # smoke: buscar → fich
   móvil debe apuntar a `http://192.168.1.71:8082` o escanear el QR nuevo)
 - URL API por defecto backend:
   `postgresql+psycopg2://checkcoast:checkcoast@localhost:5433/checkcoast`
+- **Acceso a la VM**: `ssh checkcoast` (alias en `~/.ssh/config`:
+  `ubuntu@checkcoast.duckdns.org`, clave
+  `~/Downloads/ssh-key-2026-09-20.key`). NUNCA usar la IP pública a
+  pelo — es efímera de Oracle y **cambió en oct-2026** rompiendo
+  SSH en seco (la API sobrevivió porque todo va por dominio).
+  Regla: secrets, scripts y known_hosts siempre con el dominio
+- **Clonar datos de prod → local** (para que la landing/tests locales
+  vean el mundo real — p.ej. episodios de prensa acumulados):
+  `ssh checkcoast "docker exec checkcoast-db pg_dump -U checkcoast -d
+  checkcoast --data-only --column-inserts -t beaches -t beach_statuses
+  -t beach_incidents -t beach_measurements -t news_items -t job_runs
+  -t outfalls" > dump.sql`, luego parar el preview local, `docker exec
+  -i checkcoast-db psql … -c "TRUNCATE … CASCADE"` de esas tablas y
+  `cat dump.sql | docker exec -i checkcoast-db psql -U checkcoast -d
+  checkcoast`
 
 ## Fuentes de datos y reglas de negocio
 

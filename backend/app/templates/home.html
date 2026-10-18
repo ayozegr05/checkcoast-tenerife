@@ -3,10 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="600">
 <title>CheckCoast Tenerife — ¿Puedes bañarte hoy?</title>
 <link rel="icon" type="image/png" href="/icons/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/vendor/maplibre-gl.css">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="CheckCoast Tenerife">
 <meta property="og:title" content="CheckCoast Tenerife">
@@ -45,16 +47,105 @@
   .card { background:#fff; border-radius:16px; overflow:hidden;
           box-shadow:0 18px 60px rgba(7,43,62,.30); }
   .imap { position:relative; }
-  .imap img { display:block; width:100%; height:auto; }
-  .mdot { position:absolute; width:8px; height:8px; border-radius:50%;
-          border:1.5px solid rgba(255,255,255,.9);
-          transform:translate(-50%,-50%);
-          box-shadow:0 1px 3px rgba(0,0,0,.45); }
-  .mdot.alert { width:11px; height:11px; z-index:2;
-          animation:mpulse 1.7s ease-out infinite; }
+  .imap .isl { display:block; width:100%; height:auto; }
+  .istatic { display:contents; }
+  #lmap { display:none; }
+  .imap.lmap-on { aspect-ratio:47/33; }
+  .imap.lmap-on .istatic { display:none; }
+  .imap.lmap-on #lmap { display:block; position:absolute;
+          inset:0; }
+  .mk:hover { z-index:3; }
+  .mhw { z-index:0; }
+  .mpin { position:absolute; width:25px; height:auto;
+          transform:translate(-50%,-88%);
+          filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));
+          animation:pinin .4s cubic-bezier(.2,.8,.3,1.25) backwards; }
+  @keyframes pinin { from { opacity:0;
+          transform:translate(-50%,-70%); }
+        to { opacity:1; transform:translate(-50%,-88%); } }
+  @keyframes haloin { from { opacity:0; } }
+  @keyframes rowin { from { opacity:0; transform:translateY(7px); } }
+  .mpin.big { width:30px; z-index:2; }
+  .mpin.ofpin { width:22px; }
+  .mhalo { position:absolute; width:10px; height:10px;
+          border-radius:50%; transform:translate(-50%,-50%);
+          z-index:1;
+          animation:mpulse 1.7s ease-out infinite,
+            haloin .6s backwards;
+          transition:opacity .2s; }
+  .mhalo.fx { animation:haloin .6s backwards; width:34px;
+          height:34px;
+          margin-top:-7px; box-shadow:none;
+          border:2px solid rgba(140,50,42,.7);
+          background:rgba(140,50,42,.42); }
   @keyframes mpulse {
     0% { box-shadow:0 0 0 0 var(--pc, rgba(198,40,40,.55)); }
-    100% { box-shadow:0 0 0 11px rgba(198,40,40,0); } }
+    100% { box-shadow:0 0 0 13px rgba(198,40,40,0); } }
+  .mleg { position:absolute; left:8px; bottom:8px; z-index:3;
+          background:rgba(255,255,255,.93); border-radius:10px;
+          padding:7px 10px; font-size:11px; color:#33566b;
+          box-shadow:0 2px 8px rgba(0,0,0,.15); }
+  .mleg .lrow { display:flex; align-items:center; gap:9px; }
+  .mleg .lrow + .lrow { margin-top:5px; }
+  .mleg .lico { width:16px; height:16px; }
+  .mleg .lsw { display:flex; align-items:center; font-weight:600; }
+  .mleg .lsw i { width:9px; height:9px; border-radius:50%;
+          margin-right:4px; border:1px solid #fff;
+          box-shadow:0 0 0 .5px rgba(0,0,0,.15); }
+  .mleg .lsw i + i { margin-left:-2px; }
+  .sec { display:flex; align-items:center; gap:9px; }
+  .sec.sec-a, .sec.sec-r { border-radius:10px; padding:7px 12px; }
+  .sec.sec-a { background:#fdeceb; border:1px solid #f0c4bd;
+          color:#7e1d18; }
+  .sec.sec-r { background:#e6f4ee; border:1px solid #9ed2b8;
+          color:#0a5c42; }
+  .secn { font-size:10.5px; font-weight:700; padding:1px 9px;
+          border-radius:999px; color:#fff; }
+  .secn.na { background:#c62828; }
+  .secn.st { background:#8c322a; }
+  .secn.nr { background:#0d9488; }
+  .mpin { transition:transform .15s ease; }
+  .imap a { transition:opacity .2s; }
+  .imap a:hover .mpin { transform:translate(-50%,-88%) scale(1.25);
+          z-index:5; }
+  .imap.hide-open .k-open, .imap.hide-warning .k-warning,
+  .imap.hide-closed .k-closed, .imap.hide-structural .k-structural,
+  .imap.hide-unmon .k-unmon, .imap.hide-oillegal .k-oillegal,
+  .imap.hide-olegal .k-olegal, .imap.hide-oproc .k-oproc {
+          display:none; }
+  .lchip { border:0; background:none; cursor:pointer;
+          font:inherit; padding:2px 5px; border-radius:6px;
+          transition:opacity .2s, background .15s; }
+  .lchip:hover { background:rgba(13,58,82,.09); }
+  .lchip.off { opacity:.32; filter:grayscale(.5); }
+  .ld { border:0; background:none; padding:0; cursor:pointer;
+          display:flex; }
+  .ld i { margin:0; display:block; }
+  .ld + .ld { margin-left:-3px; }
+  .ld.off i { opacity:.25; filter:grayscale(.5); }
+  .ldlab { border:0; background:none; font:inherit; padding:0;
+          margin-left:4px; cursor:pointer; font-weight:600; }
+  .ldlab.off { opacity:.32; }
+  .lgrp { padding:2px 5px; border-radius:6px;
+          transition:background .15s, opacity .2s; }
+  .lgrp:hover { background:rgba(13,58,82,.09); }
+  .lrow { flex-wrap:wrap; row-gap:4px; }
+  .stat b.sc { color:#c62828; }
+  .stat b.sw { color:#e65100; }
+  .amorechk { display:none; }
+  .abox .xmore { display:none; }
+  .amorechk:checked ~ .xmore { display:flex; }
+  .amorechk:checked ~ .smore-btn .more { display:none; }
+  .amorechk:checked ~ .smore-btn .less { display:inline; }
+  .smore-btn { grid-column:1/-1; cursor:pointer;
+          font-size:11px; font-weight:600; color:#7a919c;
+          padding:7px 11px; text-align:center; margin-top:9px; }
+  .smore-btn:hover { color:#075276; text-decoration:underline; }
+  .smore-btn .less { display:none; }
+  .salart { flex:none; width:28px; height:28px; border-radius:50%;
+          object-fit:cover; background:#fff;
+          border:1.5px solid var(--ac, #c62828);
+          padding:2px; box-sizing:border-box; }
   .ibody { padding:16px 20px 20px;
           background:
             radial-gradient(900px 320px at 15% 0%,
@@ -62,7 +153,8 @@
             linear-gradient(180deg,#e2eef6 0%,#d8e9f2 55%,#cfe2ec 100%); }
   .sec { margin-top:22px; font-size:15px; font-weight:700;
           color:#0d3a52; }
-  .sec ~ .sec { border-top:1px solid #b9d3e2; padding-top:20px; }
+  .secsub { font-weight:400; color:#7a919c; font-size:11px; }
+
   .lower { margin-top:22px; border-top:1px solid #b9d3e2;
           padding-top:20px; }
   .lower .sec { margin-top:0; }
@@ -83,12 +175,26 @@
           flex:1; min-width:150px; }
   .gsrow { flex-direction:row; gap:12px; flex:1;
           padding:10px 14px; }
-  .abox { margin-top:8px; }
+  .abox { margin-top:8px; padding-bottom:18px;
+          border-bottom:1px solid #a9c4d6; }
   .sal { display:flex; align-items:center; gap:9px; margin-top:9px;
           text-decoration:none; border-radius:10px;
-          padding:8px 11px; }
-  .sal.sal-c { background:#fdeceb; border:1px solid #f0c4bd; }
-  .sal.sal-w { background:#fdf1da; border:1px solid #eec27e; }
+          padding:8px 11px;
+          animation:rowin .32s ease backwards;
+          transition:transform .12s ease, box-shadow .12s ease,
+            background .12s ease, border-color .12s ease; }
+  .sal:hover { transform:translateY(-1px);
+          box-shadow:0 4px 12px rgba(7,43,62,.16); }
+  .sal:active { transform:translateY(0) scale(.985);
+          box-shadow:0 1px 4px rgba(7,43,62,.12); }
+  .sal.sal-c { border:1px solid #e2988f; }
+  .sal.sal-s { border:1px solid #c79088; }
+  .sal.sal-w { border:1px solid #eebf78; }
+  .sal.sal-r { border:1px solid #8ecbae; }
+  .sal.sal-c:hover { background:#fbe9e7; border-color:#c62828; }
+  .sal.sal-s:hover { background:#f6e8e6; border-color:#8c322a; }
+  .sal.sal-w:hover { background:#fdf1da; border-color:#e65100; }
+  .sal.sal-r:hover { background:#e6f4ee; border-color:#0d9488; }
   .sal i { flex:none; width:9px; height:9px; border-radius:50%; }
   .sal b { display:block; font-size:12px; color:#0d3a52;
           font-weight:600; }
@@ -97,6 +203,7 @@
   @media (min-width:900px) {
     .abox { display:grid; grid-template-columns:1fr 1fr;
             gap:0 24px; }
+
     .bgrid { grid-template-columns:repeat(4,1fr) !important; }
     .lower { display:grid; grid-template-columns:repeat(4,1fr);
             gap:10px; }
@@ -169,31 +276,121 @@
   </div>
   <div class="hero">
     <h1>¿Puedes bañarte hoy?</h1>
-    <p>El estado oficial de cada playa de Tenerife — y el porqué
-      cuando el parte no lo dice.</p>
+    <p>El estado real de la costa de Tenerife: cierres, avisos y
+      vertidos en un mapa.</p>
   </div>
   <div class="stat"><div class="sl">Ahora mismo en Tenerife</div>
-    <b>{{ n_closed }}</b> cerradas ·
-    <b>{{ n_warning }}</b> con aviso ·
+    <b class="sc">{{ n_closed }}</b> cerradas ·
+    <b class="sw">{{ n_warning }}</b> con aviso ·
     <b>{{ total_beaches }}</b> playas mapeadas</div>
   <div class="card">
-    <div class="imap">
-      <img src="{{ island_url }}" alt="Tenerife">
+    <div class="imap hide-unmon hide-olegal hide-oproc">
+      <div class="istatic">
+      <img class="isl" src="{{ island_url }}" alt="Tenerife">
       {%- for d in map_dots %}
-      <i class="mdot{% if d.alert %} alert{% endif %}" style="left:{{ d.x }}%;
-        top:{{ d.y }}%;background:{{ d.col }};--pc:{{ d.col }}"
-        title="{{ d.name }}"></i>
+      {%- if d.alert %}
+      <i class="mhalo{% if d.structural %} fx{% endif %} k-{{ d.k }}"
+        style="left:clamp(16px,{{ d.x }}%,calc(100% - 16px));
+        top:max({{ d.y }}%,50px);--pc:{{ d.col }}"></i>
+      {%- endif %}
+      {%- if d.outfall %}
+      <a class="k-{{ d.k }}" href="/o/{{ d.oid }}" title="{{ d.name }}
+        — {{ d.olabel
+        }}{%- if d.muni %} · {{ d.muni }}{% endif %}"><img
+        class="mpin ofpin" src="/icons/{{ d.pin }}.png"
+        style="left:clamp(16px,{{ d.x }}%,calc(100% - 16px));
+        top:max({{ d.y }}%,50px);
+        animation-delay:{{ [loop.index * 7, 850] | min }}ms" alt=""></a>
+      {%- else %}
+      <a class="k-{{ d.k }}" href="/b/{{ d.bid }}"
+        title="{{ d.name }}"><img
+        class="mpin{% if d.alert %} big{% endif %}"
+        src="/icons/{{ d.pin }}.png"
+        style="left:clamp(16px,{{ d.x }}%,calc(100% - 16px));
+        top:max({{ d.y }}%,50px);
+        animation-delay:{{ [loop.index * 7, 850] | min }}ms" alt=""></a>
+      {%- endif %}
       {%- endfor %}
+      </div>
+      <div id="lmap"></div>
+      <div class="mleg">
+        <div class="lrow"><img class="lico" src="/icons/icon-faucet.png"
+          alt=""><button class="lsw lchip" data-k="oillegal"
+          type="button"><i style="background:#c62828"></i>
+          No autorizado</button><button class="lsw lchip off"
+          data-k="olegal" type="button"><i
+          style="background:#2e9e6b"></i>
+          Autorizado</button><button class="lsw lchip off"
+          data-k="oproc" type="button"><i
+          style="background:#f9a825"></i>En trámite</button></div>
+        <div class="lrow"><img class="lico" src="/icons/beach.png"
+          alt=""><button class="lsw lchip" data-k="open"
+          type="button"><i style="background:#0d9488"></i>
+          Apta</button><button class="lsw lchip" data-k="warning"
+          type="button"><i style="background:#e65100"></i>
+          Aviso</button><span class="lsw lgrp"><button class="ld"
+          data-k="closed" type="button" title="cierre por
+          contaminación"><i style="background:#c62828"></i>
+          </button><button class="ld" data-k="structural"
+          type="button" title="cierre estructural"><i
+          style="background:#8c322a"></i></button><button
+          class="ldlab" type="button" data-k="closed structural"
+          title="activar/desactivar todas">Cerrada</button></span><button
+          class="lsw lchip off" data-k="unmon" type="button"><i
+          style="background:#8fa3ad"></i>Sin monitorizar</button></div>
+      </div>
     </div>
     <div class="ibody">
       {%- if alerts %}
-      <div class="sec">Alertas activas en la isla</div>
+      <div class="sec sec-a">Alertas activas en la isla
+        {%- if n_struct %}
+        <span class="secn st" title="cierres estructurales
+          (desprendimientos, obras)">{{ n_struct }}</span>
+        {%- endif %}
+        {%- if n_contam %}
+        <span class="secn na" title="alertas por contaminación">
+          {{ n_contam }}</span>
+        {%- endif %}
+      </div>
       <div class="abox">
-        {%- for a in alerts %}
-        <a class="sal sal-{{ a.cls }}" href="/b/{{ a.beach_id }}">
-          <i style="background:{{ a.color }}"></i><div>
+        {%- for a in alerts[:5] %}
+        <a class="sal sal-{{ a.cls }}" href="/b/{{ a.beach_id }}"
+          style="animation-delay:{{ loop.index * 45 }}ms">
+          <img class="salart" src="/icons/{{ a.art }}.png" alt=""
+          style="--ac:{{ a.color }}">
+          <div>
           <b>{{ a.name }}</b>
-          <span>{{ a.meta }}</span></div></a>
+          <span>{{ a.meta }}{% if a.cause %} · {{ a.cause }}{% endif %}
+          </span></div></a>
+        {%- endfor %}
+        {%- if alerts|length > 5 %}
+        <input type="checkbox" id="amore" class="amorechk">
+        {%- for a in alerts[5:] %}
+        <a class="sal sal-{{ a.cls }} xmore" href="/b/{{ a.beach_id }}"
+          style="animation-delay:{{ loop.index * 45 }}ms">
+          <img class="salart" src="/icons/{{ a.art }}.png" alt=""
+          style="--ac:{{ a.color }}">
+          <div>
+          <b>{{ a.name }}</b>
+          <span>{{ a.meta }}{% if a.cause %} · {{ a.cause }}{% endif %}
+          </span></div></a>
+        {%- endfor %}
+        <label class="smore-btn" for="amore"><span class="more">…y
+          {{ alerts|length - 5 }} más</span><span class="less">Ver
+          menos</span></label>
+        {%- endif %}
+      </div>
+      {%- endif %}
+      {%- if reopened %}
+      <div class="sec sec-r">Reabiertas recientemente
+        <span class="secn nr">{{ n_reopened }}</span></div>
+      <div class="abox">
+        {%- for r in reopened %}
+        <a class="sal sal-r" href="/b/{{ r.beach_id }}"
+          style="animation-delay:{{ loop.index * 45 }}ms">
+          <i style="background:#0d9488"></i><div>
+          <b>{{ r.name }}</b>
+          <span>{{ r.when }}</span></div></a>
         {%- endfor %}
       </div>
       {%- endif %}
@@ -274,11 +471,177 @@
       </div>
       </div>
       <p class="src">Datos: Náyade / Min. Sanidad · MITECO ·
-        OpenStreetMap · © Esri</p>
+        IGN España · PNOA · © Esri · OpenStreetMap{% if fresh %} · {{ fresh }}{% endif %}</p>
     </div>
   </div>
   <p class="foot">CheckCoast Tenerife · proyecto cívico de datos
     abiertos</p>
 </div>
 </body>
+<script src="/vendor/maplibre-gl.js"></script>
+<script>
+window.MAP_DOTS = {{ map_dots | tojson }};
+window.IBOUNDS = {{ ibounds | tojson }};
+
+// count-up del strip de stats
+document.querySelectorAll('.stat b').forEach(function (el) {
+  var n = +el.textContent;
+  if (!n) return;
+  var t0 = performance.now();
+  requestAnimationFrame(function f(t) {
+    var p = Math.min((t - t0) / 700, 1);
+    el.textContent = Math.round(n * (p * (2 - p)));
+    if (p < 1) requestAnimationFrame(f);
+  });
+});
+// la leyenda filtra tipos de pin al tocarla; un data-k multi-clave
+// («Cerrada») actúa de master: si algo está visible, todo se apaga
+var imap = document.querySelector('.imap');
+document.querySelectorAll('.lchip,.ld,.ldlab').forEach(function (b) {
+  b.onclick = function () {
+    var ks = b.dataset.k.split(' ');
+    var off = ks.length > 1
+      ? ks.some(function (k) {
+          return !imap.classList.contains('hide-' + k);
+        })
+      : !b.classList.contains('off');
+    ks.forEach(function (k) {
+      imap.classList.toggle('hide-' + k, off);
+      document
+        .querySelectorAll('.ld[data-k="' + k + '"],.lchip[data-k="' +
+          k + '"]')
+        .forEach(function (d) { d.classList.toggle('off', off); });
+    });
+    b.classList.toggle('off', off);
+    if (window.LMAP && window.LMAP.getLayer('beach-names')) {
+      var hidden = ['open', 'warning', 'closed', 'structural',
+        'unmon', 'oillegal', 'olegal', 'oproc'].filter(function (k) {
+        return imap.classList.contains('hide-' + k);
+      });
+      window.LMAP.setFilter('beach-names',
+        ['!', ['in', ['get', 'k'], ['literal', hidden]]]);
+    }
+  };
+});
+
+// Mapa interactivo: si MapLibre carga, la foto estática se cambia
+// por el mapa real (misma vista, mismos pines, mismos enlaces);
+// sin JS la foto y los pins siguen funcionando igual que antes
+var lmapEl = document.getElementById('lmap');
+if (window.maplibregl && lmapEl && imap) {
+  imap.classList.add('lmap-on');
+  var lmap = new maplibregl.Map({
+    container: lmapEl,
+    style: {
+      version: 8,
+      sources: {
+        pnoa: {
+          type: 'raster',
+          tiles: ['https://tms-pnoa-ma.idee.es/1.0.0/' +
+            'pnoa-ma/{z}/{x}/{y}.jpeg'],
+          scheme: 'tms',
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: 'IGN España · PNOA'
+        },
+        'esri-labels': {
+          type: 'raster',
+          tiles: ['https://server.arcgisonline.com/ArcGIS/rest/' +
+            'services/Reference/World_Boundaries_and_Places/' +
+            'MapServer/tile/{z}/{y}/{x}'],
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: 'Esri'
+        }
+      },
+      glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+      layers: [
+        { id: 'pnoa', type: 'raster', source: 'pnoa' },
+        { id: 'esri-labels', type: 'raster', source: 'esri-labels' }
+      ]
+    },
+    cooperativeGestures: true,
+    dragRotate: false,
+    pitchWithRotate: false,
+    touchPitch: false,
+    keyboard: false,
+    attributionControl: false
+  });
+  lmap.addControl(
+    new maplibregl.NavigationControl({ showCompass: false }),
+    'top-right');
+  lmap.on('load', function () {
+    var b = window.IBOUNDS;
+    var seen = {};
+    var nameFeats = [];
+    (window.MAP_DOTS || []).forEach(function (d) {
+      if (seen[d.name]) return;
+      seen[d.name] = 1;
+      nameFeats.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [d.lon, d.lat] },
+        properties: { name: d.name, k: d.k }
+      });
+    });
+    lmap.addSource('beach-names', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: nameFeats }
+    });
+    lmap.addLayer({
+      id: 'beach-names',
+      type: 'symbol',
+      source: 'beach-names',
+      minzoom: 12,
+      filter: ['!', ['in', ['get', 'k'],
+        ['literal', ['unmon', 'olegal', 'oproc']]]],
+      layout: {
+        'text-field': ['get', 'name'],
+        'text-size': 11,
+        'text-font': ['Noto Sans Bold'],
+        'text-offset': [0, 1.0],
+        'text-anchor': 'top',
+        'text-allow-overlap': false,
+        'text-ignore-placement': false
+      },
+      paint: {
+        'text-color': '#0d3a52',
+        'text-halo-color': '#ffffff',
+        'text-halo-width': 1.8
+      }
+    });
+    window.LMAP = lmap;
+    lmap.fitBounds([[b[0], b[1]], [b[2], b[3]]], {
+      padding: { top: 20, right: 20, bottom: 90, left: 20 },
+      duration: 0
+    });
+    (window.MAP_DOTS || []).forEach(function (d, i) {
+      if (d.alert) {
+        var hw = document.createElement('span');
+        hw.className = 'mhw k-' + d.k;
+        var h = document.createElement('i');
+        h.className = 'mhalo' + (d.structural ? ' fx' : '');
+        h.style.setProperty('--pc', d.col);
+        hw.appendChild(h);
+        new maplibregl.Marker({ element: hw, anchor: 'top-left' })
+          .setLngLat([d.lon, d.lat]).addTo(lmap);
+      }
+      var a = document.createElement('a');
+      a.className = 'mk k-' + d.k;
+      a.href = d.outfall ? '/o/' + d.oid : '/b/' + d.bid;
+      a.title = d.name + (d.olabel
+        ? ' — ' + d.olabel + (d.muni ? ' · ' + d.muni : '')
+        : '');
+      var img = document.createElement('img');
+      img.className = 'mpin' + (d.alert ? ' big' : '') +
+        (d.outfall ? ' ofpin' : '');
+      img.src = '/icons/' + d.pin + '.png';
+      img.alt = '';
+      img.style.animationDelay = Math.min(i * 4, 700) + 'ms';
+      a.appendChild(img);
+      new maplibregl.Marker({ element: a, anchor: 'top-left' })
+        .setLngLat([d.lon, d.lat]).addTo(lmap);
+    });
+  });
+}
+</script>
 </html>
