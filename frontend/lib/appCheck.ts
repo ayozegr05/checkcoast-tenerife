@@ -17,9 +17,8 @@ function initialize(): Promise<AppCheck | null> {
   instancePromise ??= (async () => {
     try {
       const { getApp } = await import('@react-native-firebase/app');
-      const { initializeAppCheck } = await import(
-        '@react-native-firebase/app-check'
-      );
+      const { initializeAppCheck } =
+        await import('@react-native-firebase/app-check');
       return await initializeAppCheck(getApp(), {
         provider: {
           providerOptions: {

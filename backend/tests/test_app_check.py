@@ -72,11 +72,13 @@ def test_endpoints_work_without_header(seed_data):
     registrando tokens y eventos — nada de 401/403."""
     client = TestClient(app)
     r = client.post(
-        "/devices", json={"token": "ExponentPushToken[ac1]", "platform": "android"}
+        "/devices",
+        json={"token": "ExponentPushToken[ac1]", "platform": "android"},
     )
     assert r.status_code == 201
     r = client.post(
-        "/client-events", json={"kind": "app_check_test", "platform": "android"}
+        "/client-events",
+        json={"kind": "app_check_test", "platform": "android"},
     )
     assert r.status_code == 201
     assert ac.stats["missing"] >= 2
