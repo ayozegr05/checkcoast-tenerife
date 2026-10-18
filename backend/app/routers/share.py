@@ -198,11 +198,14 @@ def robots() -> PlainTextResponse:
 def sitemap(db: Session = Depends(get_db)) -> Response:
     """URLs indexables: portada + una landing por playa y por emisario."""
     base = settings.public_url.rstrip("/")
-    locs = [base] + [
-        f"{base}/b/{i}" for (i,) in db.query(Beach.id).order_by(Beach.id)
-    ] + [
-        f"{base}/o/{i}" for (i,) in db.query(Outfall.id).order_by(Outfall.id)
-    ]
+    locs = (
+        [base]
+        + [f"{base}/b/{i}" for (i,) in db.query(Beach.id).order_by(Beach.id)]
+        + [
+            f"{base}/o/{i}"
+            for (i,) in db.query(Outfall.id).order_by(Outfall.id)
+        ]
+    )
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'

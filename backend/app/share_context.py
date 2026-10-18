@@ -1706,9 +1706,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
     # visual que parecía una lista corrupta
     example_ids = []
     seen_names: set[str] = set()
-    names_by_id = {
-        b.id: _display_name(b.name) for b, *_ in all_beaches
-    }
+    names_by_id = {b.id: _display_name(b.name) for b, *_ in all_beaches}
     for b, _ in island_alerts:
         dname = names_by_id.get(b.id)
         if dname in seen_names:
