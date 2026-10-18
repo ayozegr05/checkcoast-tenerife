@@ -1708,8 +1708,8 @@ def home_context(db: Session, demo: bool = False) -> dict:
     seen_names: set[str] = set()
     names_by_id = {b.id: _display_name(b.name) for b, *_ in all_beaches}
     for b, _ in island_alerts:
-        dname = names_by_id.get(b.id)
-        if dname in seen_names:
+        dname = names_by_id.get(b.id) or ""
+        if not dname or dname in seen_names:
             continue
         seen_names.add(dname)
         example_ids.append(b.id)
@@ -1727,8 +1727,8 @@ def home_context(db: Session, demo: bool = False) -> dict:
             break
         if f.beach_id in example_ids:
             continue
-        fname = names_by_id.get(f.beach_id)
-        if fname in seen_names:
+        fname = names_by_id.get(f.beach_id) or ""
+        if not fname or fname in seen_names:
             continue
         seen_names.add(fname)
         example_ids.append(f.beach_id)
