@@ -534,6 +534,17 @@ futura — humana o de agente:
   `npx tsc --noEmit`, `npx expo lint`, `npx prettier --check .` y la
   suite completa (`npx jest` / `pytest`). Si un test falla tras tu
   cambio, el bug es tu cambio — no el test
+- **La verificación local debe replicar CI COMPLETA** (lección 18-oct:
+  dos push rojos por checks saltados): backend = `ruff check` +
+  `ruff format --check` + `mypy app/` + `pytest tests/`; frontend =
+  `prettier --check .` + `tsc --noEmit` + `expo lint` + `jest`.
+  Lint ≠ formato: son steps distintos en CI. Y tras un push que toque
+  `.github/` espera al run (`gh run watch`) antes de darlo por bueno
+- **Deps flojas divergen local↔CI**: CI instala la última del rango
+  (`sqlalchemy>=X,<Y` → CI traía 2.1.5, local 2.0.54 → mypy veía
+  errores que local no). Tras actualizar rangos en requirements,
+  `pip install -U` en el venv local antes de verificar; pinea minor
+  cuando una nueva major/minor cambie la inferencia de tipos
 - **Pasos pequeños y commiteables**: cada cambio revertible con
   `git checkout` en segundos. Si una tarea crece, divide y commitea
   por partes en vez de acumular un diff gigante
