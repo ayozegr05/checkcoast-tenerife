@@ -10,6 +10,10 @@ type NearbyOutfallsProps = {
   nearby: BeachNearbyOutfall[];
   outfalls?: GeoFeature[];
   onSelectOutfall?: (feature: GeoFeature) => void;
+  // Separador de sección: solo cuando hay bloque previo (prensa o
+  // historial) — si es el primer contenido, la línea quedaría
+  // colgando sin separar nada
+  topBorder?: boolean;
 };
 
 // Emisarios a menos de 1 km, del más próximo al más lejano
@@ -17,9 +21,12 @@ export default function NearbyOutfalls({
   nearby,
   outfalls,
   onSelectOutfall,
+  topBorder = false,
 }: NearbyOutfallsProps) {
   return (
-    <View style={[styles.nearbyTop, styles.secCard]}>
+    <View
+      style={[styles.nearbyTop, topBorder && styles.nearbySep, styles.secCard]}
+    >
       <View style={styles.secHead}>
         <Image
           source={require('../../assets/icons/icon-faucet.png')}
@@ -95,6 +102,11 @@ const styles = StyleSheet.create({
   // primer bloque de contenido tras la fila de estado
   nearbyTop: {
     marginTop: 10,
+  },
+  nearbySep: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 8,
   },
   // Card de sección — fondo + cabecera con icono como las cards de la
   // ficha de emisario, pero SIN barra de color: aquí el color es el

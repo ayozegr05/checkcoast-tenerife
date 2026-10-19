@@ -99,7 +99,13 @@ export default function IncidentHistory({
             <Text style={styles.incidentObs}>
               {unclassified
                 ? 'Muestra tomada pero nunca clasificada por Sanidad'
-                : inc.observations}
+                : // Corte limpio en pantalla estrecha: la segunda
+                  // línea abre en "oficial" y deja respirar al
+                  // badge de la derecha
+                  inc.observations.replace(
+                    ' oficial en Náyade',
+                    '\noficial en Náyade',
+                  )}
             </Text>
           ) : null}
           {/* Evidencia del episodio: titulares que lo
@@ -361,7 +367,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'center',
     flexShrink: 0,
-    paddingRight: 4,
+    paddingRight: 6,
     gap: 1,
   },
   incidentBadges: {

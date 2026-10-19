@@ -411,6 +411,7 @@ export default function BeachDetail({
           nearby={nearby}
           outfalls={outfalls}
           onSelectOutfall={onSelectOutfall}
+          topBorder={press !== null || (incidents?.length ?? 0) > 0}
         />
       )}
 
