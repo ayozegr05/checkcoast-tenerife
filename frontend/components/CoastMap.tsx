@@ -20,7 +20,16 @@ import {
   type PressEventWithFeatures,
   type StyleSpecification,
 } from '@maplibre/maplibre-react-native';
-import * as Location from 'expo-location';
+
+// expo-location es nativo: en dev-clients viejos (y en el APK del
+// e2e de CI) el módulo no existe → import perezoso como appCheck;
+// si falla, el botón ⌖ ni se pinta. Cuando el dev-client se
+// regenere con la dep, aparece solo.
+let locationMod: Promise<typeof import('expo-location') | null> | null = null;
+function loadLocation() {
+  locationMod ??= import('expo-location').catch(() => null);
+  return locationMod;
+}
 
 import type {
   FeatureCollection,
@@ -230,8 +239,20 @@ export default function CoastMap({
   // Botón ⌖: el gesto central del producto — "¿puedo bañarme en la
   // playa que tengo delante?" → vuela a tu posición a zoom de costa
   const [locating, setLocating] = useState(false);
+  const [locOk, setLocOk] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    loadLocation().then((m) => {
+      if (alive && m) setLocOk(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const locateMe = async () => {
     if (locating) return;
+    const Location = await loadLocation();
+    if (!Location) return;
     setLocating(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -869,25 +890,29 @@ export default function CoastMap({
         />
       </Pressable>
 
-      {/* Geolocalización: vuela a tu posición (⌖, bajo Capas) */}
-      <Pressable
-        pointerEvents={controlsCovered ? 'none' : 'auto'}
-        style={({ pressed }) => [
-          styles.locateBtn,
-          (alertsOpen || layersOpen) && styles.ctrlBtnDisabled,
-          controlsCovered && styles.ctrlHidden,
-          pressed && styles.pressFx,
-        ]}
-        disabled={alertsOpen || layersOpen || controlsCovered || locating}
-        onPress={locateMe}
-        accessibilityRole="button"
-        accessibilityLabel="Centrar el mapa en mi ubicación"
-      >
-        <Image
-          source={require('../assets/icons/icon-locate.png')}
-          style={styles.satIcon}
-        />
-      </Pressable>
+      {/* Geolocalización: vuela a tu posición (⌖, bajo Capas).
+          Solo se pinta si el módulo nativo expo-location existe en
+          este binario — dev-clients viejos / APK e2e lo omiten */}
+      {locOk && (
+        <Pressable
+          pointerEvents={controlsCovered ? 'none' : 'auto'}
+          style={({ pressed }) => [
+            styles.locateBtn,
+            (alertsOpen || layersOpen) && styles.ctrlBtnDisabled,
+            controlsCovered && styles.ctrlHidden,
+            pressed && styles.pressFx,
+          ]}
+          disabled={alertsOpen || layersOpen || controlsCovered || locating}
+          onPress={locateMe}
+          accessibilityRole="button"
+          accessibilityLabel="Centrar el mapa en mi ubicación"
+        >
+          <Image
+            source={require('../assets/icons/icon-locate.png')}
+            style={styles.satIcon}
+          />
+        </Pressable>
+      )}
 
       {layersOpen && (
         <LayersPanel
