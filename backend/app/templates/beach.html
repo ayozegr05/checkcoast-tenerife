@@ -159,6 +159,8 @@
   a.ofrow:hover { background:#e8f2f7; }
   .ofname { font-size:13px; font-weight:600; color:#0d3a52; }
   .ofmeta { font-size:11px; color:#7a919c; margin-top:1px; }
+  .ofright { display:flex; align-items:center; gap:4px;
+          flex:none; }
   .ofdist { font-size:15px; font-weight:700; color:#075276;
           white-space:nowrap; }
   .ofdist.near { color:#e65100; }
@@ -365,9 +367,11 @@
         href="/o/{{ o.oid }}">
         <div><div class="ofname">{{ o.name }}</div>
         <div class="ofmeta">{{ o.status_label }}</div></div>
-        <div class="ofdist{% if o.near %} near{% endif %}">
-          a {{ o.dist }} m</div>
-        <span class="ofchev" style="color:{{ o.color }}">›</span></a>
+        <div class="ofright"><span
+          class="ofdist{% if o.near %} near{% endif %}">
+          {{- o.dist }} m</span>
+        <span class="ofchev" style="color:{{ o.color }}">›</span>
+        </div></a>
       {%- endfor %}
       {%- endif %}
       {%- if quality %}
