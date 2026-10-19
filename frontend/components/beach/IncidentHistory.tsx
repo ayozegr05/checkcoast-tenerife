@@ -9,7 +9,7 @@ import {
   isClosure,
   isUnclassified,
 } from '../../lib/incidents';
-import { incidentBadges } from '../../lib/causeArt';
+import { incidentCauses, STRUCT_CAUSES } from '../../lib/causeArt';
 import { groupNewsItems } from '../../lib/news';
 import { colors, fonts } from '../../lib/theme';
 import { siblingZoneRef } from '../../lib/zones';
@@ -49,7 +49,29 @@ export default function IncidentHistory({
             86400000,
         ),
       ) + 1;
-    const accent = closure ? colors.status.closed : colors.outfall.unknown;
+    // Etiqueta de estado teñida por la causa dominante — como las
+    // filas de alertas de la portada (estructural granate, fauna
+    // añil, contaminación rojo); debajo las causas del episodio,
+    // agregadas de sus titulares. Náyade sin prensa cae en
+    // "Contaminación" — solo vigila E. coli/enterococos
+    const causes = incidentCauses(inc);
+    const stateLabel = unclassified
+      ? 'Sin calificar'
+      : closure
+        ? 'Cerrada'
+        : 'Aviso';
+    const accent = unclassified
+      ? colors.textFaint
+      : causes.some((c) => STRUCT_CAUSES.has(c))
+        ? colors.status.structural
+        : causes.includes('Medusas')
+          ? colors.status.fauna
+          : closure
+            ? colors.status.closed
+            : colors.status.warning;
+    const causeText = unclassified
+      ? null
+      : causes.join(' · ') || 'Contaminación';
     return (
       <View key={inc.id} style={[styles.incident, { borderLeftColor: accent }]}>
         <View style={styles.incidentHead}>
@@ -62,20 +84,15 @@ export default function IncidentHistory({
                   inc.closed_at ? fmtDate(inc.closed_at) : 'hoy'
                 } · ${formatDays(days)}`}
           </Text>
-          {/* Badges de causa del episodio: uno por categoría de
-              sus titulares (hidrocarburos + algas en Valleseco);
-              sin causa categorizada cae en contaminación — que
-              el episodio sea oficial o de prensa ya lo aclara la
-              observación de abajo, no hace falta chip */}
-          <View style={styles.incidentBadges}>
-            {incidentBadges(inc).map((art, idx) => (
-              <Image
-                key={idx}
-                testID="incident-badge"
-                source={art}
-                style={styles.incidentBadge}
-              />
-            ))}
+          <View style={styles.incidentSide}>
+            <Text style={[styles.incidentState, { color: accent }]}>
+              {stateLabel}
+            </Text>
+            {causeText && (
+              <Text style={styles.incidentCause} testID="incident-cause">
+                {causeText}
+              </Text>
+            )}
           </View>
         </View>
         {inc.attributed_pm ? (
@@ -319,13 +336,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingRight: 4,
   },
-  incidentBadges: {
-    flexDirection: 'row',
-    gap: 2,
+  incidentSide: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
   },
-  incidentBadge: {
-    width: 19,
-    height: 19,
+  incidentState: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+  },
+  incidentCause: {
+    fontSize: 10,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    marginTop: 1,
   },
   incidentDates: {
     fontSize: 12,

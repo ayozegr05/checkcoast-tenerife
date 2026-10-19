@@ -22,27 +22,35 @@ export function causeArt(
   return CAUSE_ART[cause ?? ''] ?? CONTAM_ART;
 }
 
-// Texto libre de causa → arte, en el orden de _CAUSE_RULES del
-// backend: lo estructural primero (es lo más específico), luego
-// fauna/hidrocarburos/algas; lo demás cae en contaminación
-const CAUSE_BADGE_RULES: [RegExp, number][] = [
-  [/desprend|derrumbe|colapso|acantilado|talud/i, ROCKFALL_ART],
-  [/medusa|carabela|fauna/i, CAUSE_ART.Medusas],
-  [/gasoil|hidrocarbur|diesel|fuel/i, CAUSE_ART.Hidrocarburos],
-  [/alga/i, CAUSE_ART.Algas],
+// Texto libre de causa → etiqueta canónica + arte, en el orden de
+// _CAUSE_RULES del backend: lo estructural primero (es lo más
+// específico), luego fauna/hidrocarburos/algas; lo demás cae en
+// contaminación
+const CAUSE_LABEL_RULES: [RegExp, string][] = [
+  [/desprend|derrumbe|colapso|acantilado|talud/i, 'Desprendimientos'],
+  [/medusa|carabela|fauna/i, 'Medusas'],
+  [/gasoil|hidrocarbur|diesel|fuel/i, 'Hidrocarburos'],
+  [/alga/i, 'Algas'],
+  [/\bobras?\b/i, 'Obras'],
 ];
 
-// Badges de causa de una fila del historial: se agregan las causas
-// de todos los titulares del episodio (Valleseco: hidrocarburos +
-// algas). Sin causa categorizada cae en contaminación — Náyade solo
-// vigila E. coli/enterococos y el resto suele ser bacteriológico
-export function incidentBadges(inc: BeachIncident): number[] {
-  const out: number[] = [];
+// Causas de una fila del historial: se agregan las de todos los
+// titulares del episodio (Valleseco: hidrocarburos + algas).
+// Sin causa categorizada devuelve [] — quien pinta decide el
+// fallback ("Contaminación" salvo "Sin calificar", que no tiene causa)
+export function incidentCauses(inc: BeachIncident): string[] {
+  const out: string[] = [];
   for (const p of inc.press_items ?? []) {
-    const hit = CAUSE_BADGE_RULES.find(([re]) => re.test(p.cause ?? ''));
-    const art = hit ? hit[1] : null;
-    if (art && !out.includes(art)) out.push(art);
+    const hit = CAUSE_LABEL_RULES.find(([re]) => re.test(p.cause ?? ''));
+    if (hit && !out.includes(hit[1])) out.push(hit[1]);
   }
-  if (!out.length) out.push(CONTAM_ART);
   return out.slice(0, 3);
 }
+
+// Familia estructural: granate como el pin/chip de cierre
+// estructural, no el rojo de contaminación
+export const STRUCT_CAUSES = new Set([
+  'Desprendimientos',
+  'Colapso del terreno',
+  'Obras',
+]);

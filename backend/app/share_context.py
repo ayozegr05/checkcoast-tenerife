@@ -589,16 +589,10 @@ def beach_row(db: Session, beach_id: int):
 
 _PRESS_GROUP_ORDER = ["closure", "warning", "pollution", "reopening", "other"]
 
-# Causa del episodio → arte del badge (mismo mapa que causeArt.ts).
-# Lo que Sanidad mide (bacterias) y lo no categorizado cae en
-# "contam" — Náyade solo vigila E. coli/enterococos
-_BADGE_BY_CAUSE = {
-    "Algas": "algas-art",
-    "Medusas": "medusas-art",
-    "Hidrocarburos": "gasoil-art",
-    "Desprendimientos": "rockfall-art",
-    "Colapso del terreno": "rockfall-art",
-}
+# Causas de la familia estructural — tiñen la etiqueta de la fila
+# del historial en granate (como el pin/chip de cierre estructural),
+# no en el rojo de contaminación
+_STRUCT_CAUSES = {"Desprendimientos", "Colapso del terreno", "Obras"}
 _PRESS_GROUP_LABEL = {
     "closure": "Cierre",
     "warning": "Aviso",
@@ -694,19 +688,31 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
 
     def _row(i) -> dict:
         closure, uncl = _is_closure(i), _is_uncl(i)
-        accent = "#c62828" if closure else "#8a9aa3"
-        # Badges de causa agregados de los titulares del episodio
-        # (Valleseco: hidrocarburos + algas). Si nada categoriza —
-        # incluida toda incidencia Náyade sin prensa, que solo mide
-        # bacterias — cae en contaminación
-        badges: list[str] = []
+        # Causas del episodio agregadas de sus titulares (Valleseco:
+        # hidrocarburos + algas). La etiqueta "Cerrada"/"Aviso" se
+        # tiñe por la causa dominante, como las filas de alertas de
+        # la portada; Náyade sin prensa cae en "Contaminación" —
+        # solo vigila E. coli/enterococos
+        causes: list[str] = []
         for p in i.press_items:
             cat = _short_cause(p.cause)
-            art = _BADGE_BY_CAUSE.get(cat, "contam-art") if cat else None
-            if art and art not in badges:
-                badges.append(art)
-        if not badges:
-            badges = ["contam-art"]
+            if cat and cat not in causes:
+                causes.append(cat)
+        state_label = (
+            "Sin calificar" if uncl else "Cerrada" if closure else "Aviso"
+        )
+        state_color = (
+            "#8a9aa3"
+            if uncl
+            else "#8c322a"
+            if set(causes) & _STRUCT_CAUSES
+            else "#4f6ab8"
+            if "Medusas" in causes
+            else "#c62828"
+            if closure
+            else "#e65100"
+        )
+        cause_text = None if uncl else " · ".join(causes) or "Contaminación"
         ndays = max(((i.closed_at or today) - i.opened_at).days, 0) + 1
         rng = (
             i.opened_at.strftime("%d/%m/%Y")
@@ -730,8 +736,10 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             )
         return {
             "range": rng,
-            "badges": badges[:3],
-            "accent": accent,
+            "state_label": state_label,
+            "state_color": state_color,
+            "cause_text": cause_text,
+            "accent": state_color,
             "notes": notes,
             "n_press": len(i.press_items),
             "groups": _press_groups(i.press_items),

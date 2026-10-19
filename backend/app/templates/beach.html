@@ -202,8 +202,11 @@
   .ihead { display:flex; align-items:center;
           justify-content:space-between; gap:8px; padding-right:8px; }
   .ihead b { font-size:12px; font-weight:600; color:#5a7684; }
-  .ibadges { display:flex; gap:2px; flex:none; }
-  .ibadges img { width:19px; height:19px; display:block; }
+  .iside { flex:none; text-align:right; display:flex;
+          flex-direction:column; align-items:flex-end; gap:1px; }
+  .iside b { font-size:11px; font-weight:700; }
+  .irow .icause { display:block; font-size:10px; color:#8fa3ad;
+          padding-right:0; }
   .irow span { display:block; color:#7a919c; font-size:12px;
           padding-right:8px; }
   .isum { margin-top:7px; margin-bottom:2px; font-size:12px;
@@ -279,9 +282,11 @@
 {% macro incrow(i) %}
       <div class="irow" style="border-left-color:{{ i.accent }}">
         <div class="ihead"><b>{{ i.range }}</b>
-          <span class="ibadges">{%- for b in i.badges %}<img
-            src="/icons/{{ b }}.png" alt="">
-          {%- endfor %}</span></div>
+          <div class="iside"><b
+            style="color:{{ i.state_color }}">{{ i.state_label }}</b>
+            {%- if i.cause_text %}<span
+              class="icause">{{ i.cause_text }}</span>{%- endif %}
+          </div></div>
         {%- for n in i.notes %}<span>{{ n }}</span>{% endfor %}
         {%- if i.groups %}
         <details class="itit"><summary>Ver titulares
