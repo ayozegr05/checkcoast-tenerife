@@ -10,7 +10,7 @@ El router queda como orquestador: query, 404 y _page(**ctx).
 import io
 import math
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -28,7 +28,10 @@ from app.models import (
     Outfall,
 )
 from app.names import PM_SUFFIX
-from app.news_zones import _zone_entry
+from app.names import normalize_beach_name as _normalize
+from app.news_episodes import _news_cause
+from app.news_matching import _norm_muni
+from app.news_zones import _ZONE_GROUPS, _zone_entry
 from app.queries import beaches_with_latest_status, effective_states
 
 _MONTHS = [
@@ -580,6 +583,210 @@ def beach_row(db: Session, beach_id: int):
     )
 
 
+_PRESS_GROUP_ORDER = ["closure", "warning", "pollution", "reopening", "other"]
+_PRESS_GROUP_LABEL = {
+    "closure": "Cierre",
+    "warning": "Aviso",
+    "pollution": "Contaminación",
+    "reopening": "Reapertura",
+    "other": "Noticia",
+}
+
+
+def _sibling_zone_ref(beach: Beach, pm: str) -> str:
+    """'cala Punta Brava' si el PM hermano es una cala mapeada; 'zona 4'
+    si no (siblingZoneRef de lib/zones.ts)."""
+    zones = _ZONE_GROUPS.get(
+        (
+            _normalize(PM_SUFFIX.sub("", beach.name)),
+            _norm_muni(beach.municipality) or "",
+        )
+    )
+    zone = (zones or {}).get(pm)
+    return f"cala {zone['name']}" if zone else f"zona {pm.removeprefix('PM')}"
+
+
+def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
+    """Historial de incidencias igual que IncidentHistory de la app:
+    reutiliza el merge oficial+prensa+analítica que sirve
+    /beaches/{id}/incidents, agrupado por año y con los episodios
+    atribuidos a un PM hermano apartados al final de cada año."""
+    # Import local: routers.beaches carga FastAPI y medio backend;
+    # hacerlo en el toplevel crearía un ciclo routers -> share_context
+    from app.routers.beaches import beach_incidents
+
+    rows = beach_incidents(beach.id, db)
+    if not rows:
+        return None
+    today = date.today()
+
+    def _is_closure(i) -> bool:
+        return (
+            i.via in ("press", "measurement")
+            or re.search("prohib", i.observations or "", re.I) is not None
+            or any(
+                p.event_type in ("closure", "reopening") for p in i.press_items
+            )
+        )
+
+    def _is_uncl(i) -> bool:
+        return (
+            re.search(r"sin\s*calificar", i.observations or "", re.I)
+            is not None
+        )
+
+    def _press_groups(items) -> list[dict]:
+        by_type: dict[str, list] = {}
+        for n in items:
+            by_type.setdefault(n.event_type or "other", []).append(n)
+        out = []
+        for t in sorted(
+            by_type,
+            key=lambda t: (
+                _PRESS_GROUP_ORDER.index(t) if t in _PRESS_GROUP_ORDER else 99
+            ),
+        ):
+            gi = by_type[t]
+            phrase = (
+                "mejora la calidad del agua"
+                if t == "reopening"
+                else _news_cause(gi)
+            )
+            label = _PRESS_GROUP_LABEL.get(t, "Noticia")
+            out.append(
+                {
+                    "label": (
+                        f"{label} · {phrase}".upper()
+                        if phrase
+                        else label.upper()
+                    ),
+                    "headlines": [
+                        {
+                            "title": n.title,
+                            "url": n.url,
+                            "source": n.source or "",
+                            "date": (
+                                n.published_at.strftime("%d/%m/%Y")
+                                if n.published_at
+                                else ""
+                            ),
+                        }
+                        for n in gi
+                    ],
+                }
+            )
+        return out
+
+    def _row(i) -> dict:
+        closure, uncl = _is_closure(i), _is_uncl(i)
+        accent = "#c62828" if closure else "#8a9aa3"
+        if i.via == "press":
+            tag = "SEGÚN PRENSA"
+        elif i.via == "measurement" and not i.press_confirmed:
+            tag = "SEGÚN ANALÍTICA"
+        elif i.closed_at:
+            tag = "CIERRE" if closure else "AVISO"
+        else:
+            tag = "PENDIENTE" if uncl else "ACTIVA"
+        ndays = max(((i.closed_at or today) - i.opened_at).days, 0) + 1
+        rng = (
+            i.opened_at.strftime("%d/%m/%Y")
+            if i.end_estimated
+            else (
+                f"{i.opened_at.strftime('%d/%m/%Y')} → "
+                f"{i.closed_at.strftime('%d/%m/%Y') if i.closed_at else 'hoy'}"
+                f" · {ndays} día{'s' if ndays != 1 else ''}"
+            )
+        )
+        notes = []
+        if i.attributed_pm:
+            notes.append(
+                f"Ocurrió en la {_sibling_zone_ref(beach, i.attributed_pm)}"
+            )
+        if i.observations:
+            notes.append(
+                "Muestra tomada pero nunca clasificada por Sanidad"
+                if uncl
+                else i.observations
+            )
+        return {
+            "range": rng,
+            "tag": tag,
+            "accent": accent,
+            "notes": notes,
+            "n_press": len(i.press_items),
+            "groups": _press_groups(i.press_items),
+        }
+
+    own = [i for i in rows if not i.attributed_pm]
+    total_c = sum(1 for i in own if _is_closure(i))
+    total_w = sum(1 for i in own if not _is_closure(i) and not _is_uncl(i))
+    uncl = sum(1 for i in rows if _is_uncl(i))
+
+    def _count_since(cutoff: date) -> tuple[int, int]:
+        sel = [
+            i
+            for i in rows
+            if not i.attributed_pm
+            and not _is_uncl(i)
+            and i.opened_at >= cutoff
+        ]
+        return (
+            sum(1 for i in sel if _is_closure(i)),
+            sum(1 for i in sel if not _is_closure(i)),
+        )
+
+    y1 = _count_since(date(today.year, 1, 1))
+    y5 = _count_since(today - timedelta(days=int(5 * 365.25)))
+
+    def _parts(c: int, w: int) -> str:
+        return " · ".join(
+            s
+            for s in (
+                f"{c} cierre{'s' if c != 1 else ''}" if c else None,
+                f"{w} aviso{'s' if w != 1 else ''}" if w else None,
+            )
+            if s
+        )
+
+    y1p, y5p = _parts(*y1), _parts(*y5)
+    if total_c == y5[0] and total_w == y5[1] and y5p:
+        bits = [f"{y5p} en los últimos 5 años"]
+        if y1p != y5p:
+            bits.insert(0, f"{y1p or 'Sin episodios'} este año")
+        if uncl:
+            bits.append(f"{uncl} sin calificar")
+        summary_main, summary_sub = " · ".join(bits), None
+    else:
+        main = _parts(total_c, total_w)
+        if uncl:
+            main = (main + " · " if main else "") + f"{uncl} sin calificar"
+        summary_main = main or "Sin episodios"
+        summary_sub = (
+            f"Este año: {y1p or 'sin episodios'} · "
+            f"Últimos 5 años: {y5p or 'sin episodios'}"
+        )
+
+    years: dict[int, dict] = {}
+    for i in rows:
+        g = years.setdefault(
+            i.opened_at.year,
+            {"year": i.opened_at.year, "rows": [], "sib_rows": []},
+        )
+        if i.attributed_pm:
+            g["sib_rows"].append(_row(i))
+            g["sib_label"] = _sibling_zone_ref(beach, i.attributed_pm)
+        else:
+            g["rows"].append(_row(i))
+
+    return {
+        "count": len(rows),
+        "summary_main": summary_main,
+        "summary_sub": summary_sub,
+        "years": list(years.values()),
+    }
+
+
 def beach_context(
     db: Session, beach: Beach, lon: float, lat: float, demo: bool = False
 ) -> dict:
@@ -792,16 +999,10 @@ def beach_context(
             )
         chart = {"inc_marks": inc_marks, "panels": panels}
 
-    incident_ctxs = [
-        {
-            "opened": i.opened_at.strftime("%d/%m/%Y"),
-            "closed": (
-                i.closed_at.strftime("%d/%m/%Y") if i.closed_at else None
-            ),
-            "obs": i.observations[:120] if i.observations else None,
-        }
-        for i in incidents
-    ]
+    # Oficiales + episodios reconstruidos (prensa/analítica) — mismo
+    # merge que /beaches/{id}/incidents; la versión anterior solo
+    # leía beach_incidents y Punta Larga salía sin historial
+    incident_ctxs = _incident_ctxs(beach, db)
 
     # Banner "según prensa" como en la app: evento dominante + causa +
     # desde + nº medios; debajo hasta 3 titulares enlazables — venden el

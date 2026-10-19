@@ -148,6 +148,9 @@
   .qnote { margin-top:6px; font-size:11px; color:#8a9aa3;
           font-style:italic; }
   .qnote.qwarn { color:#e65100; font-style:normal; }
+  .ofsub { margin-top:2px; font-size:12px; color:#7a919c; }
+  .ofsub b { font-weight:600; }
+  .ofsub b.near { color:#e65100; }
   .ofrow { margin-top:8px; padding:8px 12px; border-left:3px solid;
           background:#f4f9fb; border-radius:0 8px 8px 0;
           display:flex; justify-content:space-between;
@@ -190,14 +193,36 @@
           padding:3px 8px; cursor:pointer; }
   .tbtn.ton { background:rgba(23,184,206,.18); border-color:#17b8ce;
           color:#075276; }
-  .irow { margin-top:8px; font-size:12px; color:#0d3a52;
-          border-left:3px solid #cddfe8; padding-left:10px; }
-  .irow.iact { border-left-color:#c62828; }
-  .irow.iact b { color:#c62828; }
-  .irow em { font-style:normal; background:#c62828; color:#fff;
-          font-size:10px; font-weight:700; border-radius:999px;
-          padding:2px 8px; }
-  .irow span { display:block; color:#7a919c; font-size:11px; }
+  .irow { margin-top:8px; font-size:12px; color:#5a7684;
+          border-left:3px solid #cddfe8; padding:4px 0 4px 10px;
+          background:#f4f9fb; border-radius:0 4px 4px 0; }
+  .ihead { display:flex; align-items:center;
+          justify-content:space-between; gap:8px; padding-right:8px; }
+  .ihead b { font-size:12px; font-weight:600; color:#5a7684; }
+  .itag { font-style:normal; color:#fff; font-size:9px;
+          font-weight:800; border-radius:4px; padding:1px 6px;
+          white-space:nowrap; }
+  .irow span { display:block; color:#7a919c; font-size:12px;
+          padding-right:8px; }
+  .isum { margin-top:2px; font-size:12px; font-weight:600;
+          color:#0d3a52; }
+  .isum span { font-size:11px; font-weight:400; color:#8fa3ad;
+          margin-top:2px; }
+  .iyr { margin-top:14px; margin-bottom:6px; font-size:11px;
+          font-weight:600; color:#8fa3ad; text-transform:uppercase;
+          letter-spacing:.5px; }
+  .isub { margin-top:6px; margin-bottom:2px; font-size:10px;
+          font-weight:600; color:#8fa3ad; }
+  .itit { margin-top:4px; padding-right:8px; }
+  .itit summary { font-size:12px; font-weight:600; color:#e65100;
+          cursor:pointer; list-style:none; }
+  .itit summary::-webkit-details-marker { display:none; }
+  .itit[open] summary { margin-bottom:4px; }
+  .igroup { margin:6px 0 2px; font-size:10px; font-weight:800;
+          color:#c62828; letter-spacing:.3px; }
+  .ititle { display:block; padding:3px 0; font-size:12px;
+          color:#0d3a52; text-decoration:none; }
+  .ititle span { font-size:11px; color:#8a9aa3; }
   .psum { font-size:13px; font-weight:600; color:#8a5a00; }
   .ptag { display:inline-block; margin-top:6px; font-size:10px;
           font-weight:700; color:#8a6d1a; background:#f6e3b0;
@@ -248,6 +273,28 @@
   {%- endfor %}
 </div>
 {% endmacro %}
+{% macro incrow(i) %}
+      <div class="irow" style="border-left-color:{{ i.accent }}">
+        <div class="ihead"><b>{{ i.range }}</b>
+          <em class="itag" style="background:{{ i.accent }}">
+            {{- i.tag }}</em></div>
+        {%- for n in i.notes %}<span>{{ n }}</span>{% endfor %}
+        {%- if i.groups %}
+        <details class="itit"><summary>Ver titulares
+          ({{ i.n_press }}) ▾</summary>
+          {%- for g in i.groups %}
+          <div class="igroup">{{ g.label }}</div>
+          {%- for t in g.headlines %}
+          <a class="ititle" href="{{ t.url }}" target="_blank"
+            rel="noopener">{{ t.title }}
+            <span>{{ t.source }} · {{ t.date }}</span></a>
+          {%- endfor %}
+          {%- endfor %}
+        </details>
+        {%- endif %}
+      </div>
+{% endmacro %}
+
 <div class="page">
   <div class="brand">
     <img src="/icons/app-icon.png" alt="">CheckCoast
@@ -288,6 +335,38 @@
         <button class="shr" id="shrbtn" type="button"><img
           src="/icons/icon-share-outline.png" alt="">Compartir</button></div>
       {%- if notice %}{{ banner(notice) }}{% endif %}
+      {%- if press %}{{ banner(press) }}{% endif %}
+      {%- if incidents %}
+      <div class="sec"><img class="secico" src="/icons/icon-alert.png"
+        alt="">Historial de incidencias ({{ incidents.count }})</div>
+      <div class="isum">{{ incidents.summary_main }}
+        {%- if incidents.summary_sub %}<span>
+          {{- incidents.summary_sub }}</span>{% endif %}</div>
+      {%- for y in incidents.years %}
+      <div class="iyr">{{ y.year }}</div>
+      {%- for i in y.rows %}{{ incrow(i) }}{% endfor %}
+      {%- if y.sib_rows %}
+      <div class="isub">En la {{ y.sib_label }}</div>
+      {%- for i in y.sib_rows %}{{ incrow(i) }}{% endfor %}
+      {%- endif %}
+      {%- endfor %}
+      {%- endif %}
+      {%- if outfalls %}
+      <div class="sec"><img class="secico" src="/icons/icon-faucet.png"
+        alt="">Emisarios cercanos</div>
+      <div class="ofsub">{{ outfalls|length }} a menos de 1 km · el más
+        próximo a <b{% if outfalls[0].near %} class="near"{% endif %}>
+        {{- outfalls[0].dist }} m</b> · aleja el zoom si no los ves</div>
+      {%- for o in outfalls %}
+      <a class="ofrow" style="border-color:{{ o.color }}"
+        href="/o/{{ o.oid }}">
+        <div><div class="ofname">{{ o.name }}</div>
+        <div class="ofmeta">{{ o.status_label }}</div></div>
+        <div class="ofdist{% if o.near %} near{% endif %}">
+          a {{ o.dist }} m</div>
+        <span class="ofchev" style="color:{{ o.color }}">›</span></a>
+      {%- endfor %}
+      {%- endif %}
       {%- if quality %}
       <div class="sec"><img class="secico" src="/icons/icon-flask.png" alt="">Calidad del agua
         <span class="secsub">· {{ quality.date }}</span></div>
@@ -305,20 +384,6 @@
         {{- quality.note.text }}</div>
       {%- endif %}
       {%- endif %}
-      {%- if outfalls %}
-      <div class="sec">Emisarios cercanos
-        <span class="secsub">· en un radio de 1 km</span></div>
-      {%- for o in outfalls %}
-      <a class="ofrow" style="border-color:{{ o.color }}"
-        href="/o/{{ o.oid }}">
-        <div><div class="ofname">{{ o.name }}</div>
-        <div class="ofmeta">{{ o.status_label }}</div></div>
-        <div class="ofdist{% if o.near %} near{% endif %}">
-          a {{ o.dist }} m</div>
-        <span class="ofchev" style="color:{{ o.color }}">›</span></a>
-      {%- endfor %}
-      {%- endif %}
-      {%- if press %}{{ banner(press) }}{% endif %}
       {%- if chart %}
       <div class="sec"><img class="secico" src="/icons/icon-stats.png" alt="">Evolución</div>
       <div class="ctoggle">
@@ -344,16 +409,6 @@
           · línea roja = cierre/aviso</span>
         {%- endfor %}
       </div>
-      {%- endif %}
-      {%- if incidents %}
-      <div class="sec">Historial de incidencias</div>
-      {%- for i in incidents %}
-      <div class="irow{% if not i.closed %} iact{% endif %}"><b>
-        {{- i.opened }}
-        {%- if i.closed %} → {{ i.closed }}{% else %} <em>activo</em>{% endif %}
-      </b>
-        {%- if i.obs %}<span>{{ i.obs }}</span>{% endif %}</div>
-      {%- endfor %}
       {%- endif %}
       <a class="open" href="{{ deep }}" onclick="openApp(); return false;">
         Abrir en la app</a>
