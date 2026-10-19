@@ -90,7 +90,7 @@
     .sfoot { margin-top:14px; font-size:11px; color:#a8c4d2; }
   }
   .head { background:{{ head_bg }};
-          color:#fff; padding:18px 20px 14px; }
+          color:#fff; padding:18px 20px 14px; text-align:center; }
   .head h1 { margin:0; font-size:20px; }
   .head p { margin:4px 0 0; font-size:13px; opacity:.9; }
   .shotwrap { position:relative; }
@@ -115,10 +115,16 @@
   .zbtn:disabled { opacity:.45; cursor:default; }
   .hidden { display:none !important; }
   .body { padding:16px 20px 20px; }
-  .chip { display:inline-block; background:{{ color }}; color:#fff;
+  .chip { display:inline-flex; align-items:center; gap:7px;
+          background:{{ color }}; color:#fff;
           font-weight:700; font-size:13px; border-radius:10px;
           padding:6px 14px; }
-  .chip.ctr { display:table; margin:0 auto; }
+  .chip.ctr { margin:0 auto; }
+  .chipbadge { margin-left:3px; width:20px; height:20px;
+          border-radius:50%;
+          background:#fff; border:1.5px solid rgba(255,255,255,.85);
+          overflow:hidden; flex:none; }
+  .chipbadge img { width:100%; height:100%; display:block; }
   .secsub { font-weight:400; color:#7a919c; font-size:11px; }
   .row { display:flex; justify-content:space-between; gap:12px;
           margin-top:12px; font-size:13px; }
@@ -136,6 +142,8 @@
   .ofdist { font-size:15px; font-weight:700; color:#075276;
           white-space:nowrap; }
   .ofdist.near { color:#e65100; }
+  .ofchev { font-size:16px; font-weight:600; color:#a8c0cc;
+          flex:none; }
   .radius { font-size:11px; color:#7a919c; margin-top:6px; }
   .press { margin:16px 0 6px; background:#fff7e8;
           border:1px solid #f0d9a8;
@@ -255,7 +263,10 @@
     </div>
     <div class="body">
       <div class="chiprow"><span class="chip{% if notice %}
-        ctr{% endif %}">{{ label }}</span>
+        ctr{% endif %}">{{ label }}
+        {%- if chip_art %}<span class="chipbadge"><img
+          src="/icons/{{ chip_art }}.png" alt=""></span>
+        {%- endif %}</span>
         <button class="shr" id="shrbtn" type="button"><img
           src="/icons/icon-share-outline.png" alt="">Compartir</button></div>
       {%- if notice %}{{ banner(notice) }}{% endif %}
@@ -271,7 +282,8 @@
         <div><div class="ofname">{{ o.name }}</div>
         <div class="ofmeta">{{ o.status_label }}</div></div>
         <div class="ofdist{% if o.near %} near{% endif %}">
-          a {{ o.dist }} m</div></a>
+          a {{ o.dist }} m</div>
+        <span class="ofchev" style="color:{{ o.color }}">›</span></a>
       {%- endfor %}
       {%- endif %}
       {%- if press %}{{ banner(press) }}{% endif %}

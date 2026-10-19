@@ -779,6 +779,14 @@ def beach_context(db: Session, beach: Beach, lon: float, lat: float) -> dict:
                     "titles": [],
                 }
 
+    # Badge de causa dentro del chip de estado — mismo mapping que el
+    # banner/ficha de la app (_CAUSE_ART arriba): solo en cierre vivo
+    chip_art = None
+    if state == "structural":
+        chip_art = "rockfall-art"
+    elif state == "closed":
+        chip_art = _CAUSE_ART.get((eff or {}).get("cause") or "", "contam-art")
+
     # og:description lleva el motivo cuando hay cierre/aviso —
     # es lo que la gente quiere saber al ver la tarjeta
     desc = f"Estado: {label} — CheckCoast Tenerife"
@@ -817,6 +825,7 @@ def beach_context(db: Session, beach: Beach, lon: float, lat: float) -> dict:
         "pin": _PIN.get(state, _PIN["unknown"]),
         "label": label,
         "color": color,
+        "chip_art": chip_art,
         "notice": notice,
         "latest_line": latest_line,
         "outfalls": outfall_ctxs,
