@@ -1946,6 +1946,12 @@ def home_context(db: Session, demo: bool = False) -> dict:
                     "lat": lat,
                 }
             )
+    # Un pin por arenal multipunto (como el ZonePicker de la app):
+    # un solo pin en el centroide con el estado más grave; al pulsar
+    # se despliega la lista de zonas. Agrupados por (base, municipio)
+    _SEV = ["structural", "closed", "warning", "open", "unknown"]
+    pm_groups: dict[tuple, list] = {}
+    beach_dots: list[dict] = []
     for beach, _status, lon, lat in all_beaches:
         if lon is None:
             continue
@@ -1955,34 +1961,96 @@ def home_context(db: Session, demo: bool = False) -> dict:
         # inicial sigue mostrando solo las monitorizadas/con alerta
         dstate = _display_state(eff)
         x, y = _px(lon, lat, clon, clat, dlon, dlat)
-        if 0 <= x <= 100 and 0 <= y <= 100:
-            map_dots.append(
+        if not (0 <= x <= 100 and 0 <= y <= 100):
+            continue
+        m = _PM_TAG.search(beach.name)
+        if m:
+            key = (
+                _normalize(PM_SUFFIX.sub("", beach.name)),
+                _norm_muni(beach.municipality) or "",
+            )
+            pm_groups.setdefault(key, []).append(
+                (beach, lon, lat, x, y, dstate, eff, int(m.group(1)))
+            )
+            continue
+        beach_dots.append(
+            {
+                "x": f"{x:.1f}",
+                "y": f"{y:.1f}",
+                # Los mismos PNG de pin que la app — la landing
+                # parece app, no un mapa de dots ajenos
+                "pin": _PIN.get(dstate, _PIN["unknown"]),
+                "col": _STATUS.get(dstate, _STATUS["unknown"])[1],
+                # Las playas con alerta viva llevan halo pulsante
+                # (mismo gesto que los pines de la app) — entre
+                # los ~140 puntos, lo que el visitante necesita
+                # localizar es lo que pita
+                "alert": eff["alerted"] if eff else False,
+                # Estructural → anillo fijo en la app (lo crónico
+                # no late); contaminación → pulso de urgencia
+                "structural": dstate == "structural",
+                "bid": beach.id,
+                "k": "unmon" if dstate == "unknown" else dstate,
+                "name": _display_name(beach.name),
+                "lon": lon,
+                "lat": lat,
+            }
+        )
+    for _key, members in pm_groups.items():
+        if len(members) == 1:
+            beach, lon, lat, x, y, dstate, eff, _n = members[0]
+            beach_dots.append(
                 {
                     "x": f"{x:.1f}",
                     "y": f"{y:.1f}",
-                    # Los mismos PNG de pin que la app — la landing
-                    # parece app, no un mapa de dots ajenos
                     "pin": _PIN.get(dstate, _PIN["unknown"]),
                     "col": _STATUS.get(dstate, _STATUS["unknown"])[1],
-                    # Las playas con alerta viva llevan halo pulsante
-                    # (mismo gesto que los pines de la app) — entre
-                    # los ~140 puntos, lo que el visitante necesita
-                    # localizar es lo que pita
                     "alert": eff["alerted"] if eff else False,
-                    # Estructural → anillo fijo en la app (lo crónico
-                    # no late); contaminación → pulso de urgencia
                     "structural": dstate == "structural",
                     "bid": beach.id,
                     "k": "unmon" if dstate == "unknown" else dstate,
-                    # Sufijo de zona como la ficha — dos PMs de un
-                    # arenal con el mismo nombre base necesitan
-                    # etiquetas distintas en el mapa ("· Zona 1")
-                    "name": _display_name(beach.name)
-                    + _zone_suffix(db, beach),
+                    "name": _display_name(beach.name),
                     "lon": lon,
                     "lat": lat,
                 }
             )
+            continue
+        members.sort(key=lambda t: t[7])
+        worst = min(members, key=lambda t: _SEV.index(t[5]))
+        cx = sum(t[3] for t in members) / len(members)
+        cy = sum(t[4] for t in members) / len(members)
+        clon2 = sum(t[1] for t in members) / len(members)
+        clat2 = sum(t[2] for t in members) / len(members)
+        base_beach = members[0][0]
+        zones = []
+        for beach, _lon, _lat, _x, _y, dstate, _eff, pmn in members:
+            ze = _zone_entry(beach)
+            zones.append(
+                {
+                    "bid": beach.id,
+                    "zone": (
+                        ze["name"] if ze and ze.get("name") else f"Zona {pmn}"
+                    ),
+                    "label": _STATUS.get(dstate, _STATUS["unknown"])[0],
+                    "color": _STATUS.get(dstate, _STATUS["unknown"])[1],
+                }
+            )
+        beach_dots.append(
+            {
+                "x": f"{cx:.1f}",
+                "y": f"{cy:.1f}",
+                "pin": _PIN.get(worst[5], _PIN["unknown"]),
+                "col": _STATUS.get(worst[5], _STATUS["unknown"])[1],
+                "alert": any(t[6] and t[6]["alerted"] for t in members),
+                "structural": worst[5] == "structural",
+                "k": "unmon" if worst[5] == "unknown" else worst[5],
+                "name": _display_name(PM_SUFFIX.sub("", base_beach.name)),
+                "lon": clon2,
+                "lat": clat2,
+                "complex": zones,
+            }
+        )
+    map_dots.extend(beach_dots)
 
     # Alertas vivas (misma lista que el panel lateral de /b/)
     now = datetime.now(UTC)

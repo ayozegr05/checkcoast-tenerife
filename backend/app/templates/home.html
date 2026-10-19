@@ -55,6 +55,12 @@
   .imap.lmap-on #lmap { display:block; position:absolute;
           inset:0; }
   .mk:hover { z-index:3; }
+  .zpop b { display:block; font-size:13px; color:#0d3a52;
+          margin-bottom:4px; }
+  .zrow { display:flex; justify-content:space-between; gap:14px;
+          padding:4px 0; font-size:12px; color:#0d3a52;
+          text-decoration:none; border-top:1px solid #eef4f7; }
+  .zrow em { font-style:normal; font-weight:700; font-size:11px; }
   .mk[data-tip]:hover::after { content:attr(data-tip);
           position:absolute; bottom:100%; left:50%;
           transform:translateX(-50%);
@@ -723,7 +729,39 @@ if (window.maplibregl && lmapEl && imap) {
       }
       var a = document.createElement('a');
       a.className = 'mk k-' + d.k;
-      a.href = d.outfall ? '/o/' + d.oid : '/b/' + d.bid;
+      if (d.complex) {
+        // Pin de arenal multipunto: un clic despliega sus zonas
+        // (mismo gesto que el ZonePicker de la app)
+        a.href = 'javascript:void(0)';
+        (function (dd) {
+          a.addEventListener('click', function () {
+            var el = document.createElement('div');
+            el.className = 'zpop';
+            var t = document.createElement('b');
+            t.textContent = dd.name;
+            el.appendChild(t);
+            dd.complex.forEach(function (z) {
+              var zr = document.createElement('a');
+              zr.className = 'zrow';
+              zr.href = '/b/' + z.bid;
+              var zn = document.createElement('span');
+              zn.textContent = z.zone;
+              var zs = document.createElement('em');
+              zs.textContent = z.label;
+              zs.style.color = z.color;
+              zr.appendChild(zn); zr.appendChild(zs);
+              el.appendChild(zr);
+            });
+            new maplibregl.Popup({ closeButton: true, maxWidth: '240px',
+              offset: 14 })
+              .setLngLat([dd.lon, dd.lat])
+              .setDOMContent(el)
+              .addTo(lmap);
+          });
+        })(d);
+      } else {
+        a.href = d.outfall ? '/o/' + d.oid : '/b/' + d.bid;
+      }
       a.setAttribute('data-tip', d.name + (d.olabel
         ? ' — ' + d.olabel + (d.muni ? ' · ' + d.muni : '')
         : ''));
