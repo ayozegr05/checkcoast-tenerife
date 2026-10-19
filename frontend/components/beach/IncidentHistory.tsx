@@ -76,85 +76,89 @@ export default function IncidentHistory({
       : causes.join(' · ') || 'Contaminación';
     return (
       <View key={inc.id} style={[styles.incident, { borderLeftColor: accent }]}>
-        <View style={styles.incidentHead}>
+        {/* Cuerpo: fechas + notas + titulares a la izquierda; el
+            badge/etiqueta y la causa centrados verticalmente contra
+            toda la fila, como las filas de alertas de la portada */}
+        <View style={styles.incidentMain}>
           <Text style={styles.incidentDates}>
             {inc.end_estimated
-              ? // Fin estimado (última mención): no se
-                // muestra — solo el día del cierre
-                fmtDate(inc.opened_at)
+              ? // Fin desconocido (nadie cubrió la reapertura): se
+                // muestra abierto en vez de la última mención —
+                // menos ruido y comunica lo mismo
+                `${fmtDate(inc.opened_at)} → desconocido`
               : `${fmtDate(inc.opened_at)} → ${
                   inc.closed_at ? fmtDate(inc.closed_at) : 'hoy'
                 } · ${formatDays(days)}`}
           </Text>
-          <View style={styles.incidentSide}>
-            {/* En un cierre el badge sustituye al "Cerrada" — el
-                contexto de la fila ya lo dice; avisos y muestras sin
-                calificar conservan su etiqueta porque no se
-                sobreentiende */}
-            {closure ? (
-              <View style={styles.incidentBadges}>
-                {incidentBadgeArts(inc).map((art, idx) => (
-                  <Image
-                    key={idx}
-                    testID="incident-badge"
-                    source={art}
-                    style={styles.incidentBadge}
-                  />
-                ))}
-              </View>
-            ) : (
-              <Text style={[styles.incidentState, { color: accent }]}>
-                {stateLabel}
-              </Text>
-            )}
-            {causeText && (
-              <Text style={styles.incidentCause} testID="incident-cause">
-                {causeText}
-              </Text>
-            )}
-          </View>
+          {inc.attributed_pm ? (
+            <Text style={styles.incidentObs}>
+              {`Ocurrió en la ${siblingZoneRef(beachName, inc.attributed_pm)}`}
+            </Text>
+          ) : null}
+          {inc.observations ? (
+            <Text style={styles.incidentObs}>
+              {unclassified
+                ? 'Muestra tomada pero nunca clasificada por Sanidad'
+                : inc.observations}
+            </Text>
+          ) : null}
+          {/* Evidencia del episodio: titulares que lo
+              sustentan (prensa) o lo corroboraron (oficial) */}
+          {(inc.press_items?.length ?? 0) > 0 && (
+            <>
+              <Pressable
+                onPress={() => onToggleIncident(inc.id)}
+                hitSlop={8}
+                style={({ pressed }) => pressed && styles.pressFx}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  openIncs.has(inc.id)
+                    ? 'Ocultar titulares del episodio'
+                    : `Ver ${inc.press_items!.length} titulares del episodio`
+                }
+              >
+                <Text style={styles.newsToggle}>
+                  {openIncs.has(inc.id)
+                    ? 'Ocultar titulares ▴'
+                    : `Ver titulares (${inc.press_items!.length}) ▾`}
+                </Text>
+              </Pressable>
+              {/* Agrupados por fase del episodio: las
+                  noticias de cierre y las de reapertura son
+                  evidencias distintas del mismo suceso */}
+              {openIncs.has(inc.id) && (
+                <NewsGroupList groups={groupNewsItems(inc.press_items!)} />
+              )}
+            </>
+          )}
         </View>
-        {inc.attributed_pm ? (
-          <Text style={styles.incidentObs}>
-            {`Ocurrió en la ${siblingZoneRef(beachName, inc.attributed_pm)}`}
-          </Text>
-        ) : null}
-        {inc.observations ? (
-          <Text style={styles.incidentObs}>
-            {unclassified
-              ? 'Muestra tomada pero nunca clasificada por Sanidad'
-              : inc.observations}
-          </Text>
-        ) : null}
-        {/* Evidencia del episodio: titulares que lo
-            sustentan (prensa) o lo corroboraron (oficial) */}
-        {(inc.press_items?.length ?? 0) > 0 && (
-          <>
-            <Pressable
-              onPress={() => onToggleIncident(inc.id)}
-              hitSlop={8}
-              style={({ pressed }) => pressed && styles.pressFx}
-              accessibilityRole="button"
-              accessibilityLabel={
-                openIncs.has(inc.id)
-                  ? 'Ocultar titulares del episodio'
-                  : `Ver ${inc.press_items!.length} titulares del episodio`
-              }
-            >
-              <Text style={styles.newsToggle}>
-                {openIncs.has(inc.id)
-                  ? 'Ocultar titulares ▴'
-                  : `Ver titulares (${inc.press_items!.length}) ▾`}
-              </Text>
-            </Pressable>
-            {/* Agrupados por fase del episodio: las
-                noticias de cierre y las de reapertura son
-                evidencias distintas del mismo suceso */}
-            {openIncs.has(inc.id) && (
-              <NewsGroupList groups={groupNewsItems(inc.press_items!)} />
-            )}
-          </>
-        )}
+        <View style={styles.incidentSide}>
+          {/* En un cierre el badge sustituye al "Cerrada" — el
+              contexto de la fila ya lo dice; avisos y muestras sin
+              calificar conservan su etiqueta porque no se
+              sobreentiende */}
+          {closure ? (
+            <View style={styles.incidentBadges}>
+              {incidentBadgeArts(inc).map((art, idx) => (
+                <Image
+                  key={idx}
+                  testID="incident-badge"
+                  source={art}
+                  style={styles.incidentBadge}
+                />
+              ))}
+            </View>
+          ) : (
+            <Text style={[styles.incidentState, { color: accent }]}>
+              {stateLabel}
+            </Text>
+          )}
+          {causeText && (
+            <Text style={styles.incidentCause} testID="incident-cause">
+              {causeText}
+            </Text>
+          )}
+        </View>
       </View>
     );
   };
@@ -342,6 +346,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   incident: {
+    flexDirection: 'row',
     borderLeftWidth: 3,
     paddingLeft: 10,
     paddingVertical: 4,
@@ -349,15 +354,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: 4,
   },
-  incidentHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingRight: 4,
+  incidentMain: {
+    flex: 1,
   },
   incidentSide: {
     alignItems: 'flex-end',
+    justifyContent: 'center',
     flexShrink: 0,
+    paddingRight: 4,
     gap: 1,
   },
   incidentBadges: {
@@ -365,18 +369,18 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   incidentBadge: {
-    width: 19,
-    height: 19,
+    width: 27,
+    height: 27,
   },
   incidentState: {
     fontSize: 11,
     fontFamily: fonts.bold,
   },
   incidentCause: {
-    fontSize: 10,
+    fontSize: 11.5,
     fontFamily: fonts.regular,
     color: colors.textFaint,
-    marginTop: 1,
+    marginTop: 2,
   },
   incidentDates: {
     fontSize: 12,

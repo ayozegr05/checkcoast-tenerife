@@ -168,31 +168,36 @@ export default function MapLayers({
             // para envolver la cabeza
             filter={['!=', ['get', 'dot'], true]}
             paint={{
-              // radio + translate interpolados al zoom: el pin crece
-              // con icon-size y el anillo debe seguir envolviendo la
-              // cabeza (el punto de anclaje es la punta inferior)
+              // radio + translate interpolados al zoom, medidos del
+              // asset real (96x146, cabeza de ~77px centrada ~57px
+              // sobre la punta = 39% del alto): el anillo envuelve
+              // la cabeza del pin, no el anclaje
               'circle-radius': [
                 'interpolate',
                 ['linear'],
                 ['zoom'],
                 9,
-                11,
+                12,
                 13,
-                17,
+                19,
                 16,
-                18,
+                22,
               ],
               'circle-translate': [
                 'interpolate',
                 ['linear'],
                 ['zoom'],
                 9,
-                ['literal', [0, -11]],
+                ['literal', [0, -15]],
                 13,
-                ['literal', [0, -18]],
+                ['literal', [0, -25]],
                 16,
-                ['literal', [0, -19]],
+                ['literal', [0, -29]],
               ],
+              // viewport, no map: el pin está anclado a la pantalla
+              // (siempre vertical) — con 'map' el offset apuntaba al
+              // norte del mapa y al girar el anillo se iba de lado
+              'circle-translate-anchor': 'viewport',
               'circle-color': BEACH_COLORS.structural,
               'circle-opacity': 0.2,
               'circle-stroke-color': BEACH_COLORS.structural,

@@ -502,8 +502,6 @@ def _synth_observations(ev: SynthEvent) -> str:
             obs += f" · sin muestras entre {_mes(a)} y {_mes(b)}"
         return obs
     obs = "Cierre según prensa, sin incidente oficial en Náyade"
-    if ev.end_estimated:
-        obs += " · fin aproximado (última mención)"
     return obs
 
 

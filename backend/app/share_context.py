@@ -738,7 +738,7 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
                 badges = ["contam-art"]
         ndays = max(((i.closed_at or today) - i.opened_at).days, 0) + 1
         rng = (
-            i.opened_at.strftime("%d/%m/%Y")
+            f"{i.opened_at.strftime('%d/%m/%Y')} → desconocido"
             if i.end_estimated
             else (
                 f"{i.opened_at.strftime('%d/%m/%Y')} → "
@@ -939,12 +939,70 @@ def beach_context(
         "warning": "#e65100",
     }.get(state, "#17b8ce")
     title = f"{name} · {muni}"
-    urls = [_shot_url(lon, lat, *d) for d in _SHOT_LEVELS]
+    # Zonas hermanas del complejo multipunto (misma clave base +
+    # municipio que groupKeyOf de la app): dots coloreados por
+    # estado efectivo sobre la foto, como los pm-dots de la ficha
+    # nativa. El pin central sigue marcando la zona de esta ficha
+    zone_sibs = []
+    if _PM_TAG.search(beach.name):
+        base = PM_SUFFIX.sub("", beach.name).strip()
+        sib_rows = (
+            db.query(
+                Beach,
+                func.ST_X(Beach.geom).label("slon"),
+                func.ST_Y(Beach.geom).label("slat"),
+            )
+            .filter(
+                Beach.municipality == beach.municipality,
+                Beach.name.like(f"{base}%"),
+                Beach.id != beach.id,
+            )
+            .all()
+        )
+        zone_sibs = [
+            {
+                "lon": slon,
+                "lat": slat,
+                "color": _STATUS.get(
+                    _display_state(effs.get(sb.id)), _STATUS["unknown"]
+                )[1],
+                "tag": _zone_suffix(db, sb).lstrip(" ·"),
+                "title": _display_name(sb.name),
+            }
+            for sb, slon, slat in sib_rows
+            if slon is not None
+        ]
+
+    # El nivel más lejano crece hasta que todas las zonas hermanas
+    # quepan en el encuadre — la ficha abre en ese nivel y un
+    # complejo ancho no debe cortar a sus hermanas
+    shot_levels = list(_SHOT_LEVELS)
+    if zone_sibs:
+        far_dlon = max(
+            _SHOT_LEVELS[-1][0],
+            max(abs(z["lon"] - lon) for z in zone_sibs) * 2.3 + 0.004,
+        )
+        far_dlat = max(
+            _SHOT_LEVELS[-1][1],
+            max(abs(z["lat"] - lat) for z in zone_sibs) * 2.3 + 0.002,
+        )
+        shot_levels[-1] = (far_dlon, far_dlat)
+
+    urls = [_shot_url(lon, lat, *d) for d in shot_levels]
     deep = f"checkcoast://beach/{beach.id}"
 
     # Un nivel de dots por encuadre de zoom; se empieza en el más lejano
-    start = len(_SHOT_LEVELS) - 1
-    dots_levels = [_dots(outfalls, lon, lat, *d) for d in _SHOT_LEVELS]
+    start = len(shot_levels) - 1
+    dots_levels = [_dots(outfalls, lon, lat, *d) for d in shot_levels]
+    zone_levels = [
+        [
+            {**z, "x": f"{x:.1f}", "y": f"{y:.1f}"}
+            for z in zone_sibs
+            for x, y in [_px(z["lon"], z["lat"], lon, lat, dlon, dlat)]
+            if 0 <= x <= 100 and 0 <= y <= 100
+        ]
+        for dlon, dlat in shot_levels
+    ]
 
     # Tarjeta "Calidad del agua" como la app: valor + % del límite
     # normativo por parámetro + nota del calendario de muestreo
@@ -1212,6 +1270,7 @@ def beach_context(
         "urls": urls,
         "start": start,
         "dots_levels": dots_levels,
+        "zone_levels": zone_levels,
         # Pin limpio en la ficha: el badge de causa ya vive dentro del
         # chip — el pin-structural del mapa lo llevaría duplicado
         "pin": (
