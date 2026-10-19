@@ -10,6 +10,10 @@ Por pasada:
 3b. segunda pasada híbrida (`_enrich_with_body`): titular sin match o
    sin causa clara → cuerpo del artículo (news_resolve) → re-extraer;
    tope `news_max_body_fetches`
+3c. cascada de infraestructura (Hito 11.2): si la vía de playa
+   descartó el artículo (no relevante o sin casar) y el titular casa
+   el léxico de infra de vertido, se re-extrae con PROMPT_INFRA —
+   event_type="infra", tope propio `news_max_infra_calls`, sin push
 4. match_beach() conservador → beach_id o None
 5. insertar NewsItem: se guardan también los no relevantes y los no
    casados (dedup por url + auditoría); la API solo sirve los casados
@@ -29,6 +33,7 @@ from app.config import settings
 from app.db import SessionLocal
 from app.models import Beach, BeachState, BeachStatus, NewsItem
 from app.names import PM_SUFFIX
+from app.news_infra import INFRA_RE, extract_infra_event
 from app.news_llm import EventExtraction, GeminiExtractor, extract_event
 from app.news_matching import _MIN_NAME_LEN, _press_key, match_beaches
 from app.news_resolve import resolve_and_fetch
@@ -574,6 +579,9 @@ def run(
         # episodios al azar según el orden de la lista
         llm_left = len(fresh) if backfill else settings.news_max_llm_calls
         body_left = len(fresh) if backfill else settings.news_max_body_fetches
+        # Vía de infra de vertido con cuota propia: no compite con el
+        # presupuesto de titulares de playa
+        infra_left = len(fresh) if backfill else settings.news_max_infra_calls
 
         for art in fresh[:llm_left]:
             processed += 1
@@ -621,6 +629,28 @@ def run(
                         ext.beach_name,
                         art.title,
                         body=body,
+                        all_beaches=beaches,
+                    )
+            # Cascada de infraestructura (Hito 11.2): la vía de playa
+            # no resolvió el artículo y el titular habla de la
+            # instalación de vertido → se re-extrae con PROMPT_INFRA.
+            # Lo ya resuelto como noticia de playa nunca se re-procesa
+            if (
+                infra_left > 0
+                and (not ext.relevant or not hits)
+                and INFRA_RE.search(art.title)
+            ):
+                infra_left -= 1
+                ext2 = extract_infra_event(art, extractor)
+                time.sleep(2)  # segunda llamada LLM: respirar igual
+                if ext2 is not None and ext2.relevant:
+                    # La extracción de infra vino del titular aunque el
+                    # cuerpo ya estuviera bajado: no es body_verified
+                    ext, verified = ext2, False
+                    hits = narrow_hits_by_zone(
+                        match_beaches(ext2, beaches, title=art.title),
+                        ext2.beach_name,
+                        art.title,
                         all_beaches=beaches,
                     )
             # una fila por PM de la playa

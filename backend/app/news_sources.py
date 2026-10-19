@@ -50,6 +50,11 @@ QUERIES = [
     # obras / riesgo físico (talud, desprendimientos, derrumbes)
     "playa tenerife (obras OR desprendimiento OR talud OR ladera OR "
     "seguridad OR derrumbe OR socavón OR colapso)",
+    # infraestructura de vertido (Hito 11.2): roturas, vertidos,
+    # denuncias y reparaciones de emisarios/saneamiento — no exige
+    # "playa" en el titular
+    "tenerife (emisario OR depuradora OR aliviadero OR saneamiento OR "
+    '"aguas residuales" OR vertido OR rebosadero)',
 ]
 
 # Medios descartados a priori (ruido conocido, no aportan eventos).
@@ -151,12 +156,15 @@ MEDIA_FEEDS = {
 }
 
 # Prefiltro por titular: el feed municipal es ~95% fiestas, deportes y
-# plenos — solo lo que hable de playa/mar/baño gasta una llamada a
-# Gemini. Ajustado al vocabulario real de los avisos municipales
-# ("suspende el baño", "vertido", "piscina natural", "costero").
+# plenos — solo lo que hable de playa/mar/baño/saneamiento gasta una
+# llamada a Gemini. Ajustado al vocabulario real de los avisos
+# municipales ("suspende el baño", "vertido", "piscina natural",
+# "costero", "avería en el bombeo").
 _MUNI_BEACHY_RE = re.compile(
     r"playa|bañ|piscina|vertido|aguas? (?:residuales|fecales)|"
-    r"calidad del agua|fecal|oleaje|mar agitado|litoral|costero",
+    r"calidad del agua|fecal|oleaje|mar agitado|litoral|costero|"
+    r"emisario|depuradora|aliviadero|saneamiento|tuber[ií]a|"
+    r"bombeo|colector|obstru|desbord|rebos|atasc",
     re.IGNORECASE,
 )
 
@@ -491,7 +499,8 @@ _BACKFILL_TITLE_RE = re.compile(
     r"playa|bañ|piscina|litoral|costa|litoral|mar |mares|"
     r"cierre|cerrad|prohib|reapert|reabie|vertido|contamin|"
     r"coliform|fecal|calidad del agua|bandera (roja|amarilla)|"
-    r"desprend|derrumbe|emisario|depuradora|oleaje|sargazo|medusa"
+    r"desprend|derrumbe|emisario|depuradora|aliviadero|saneamiento|"
+    r"tuberia|oleaje|sargazo|medusa"
 )
 
 

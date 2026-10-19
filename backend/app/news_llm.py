@@ -35,7 +35,9 @@ class EventExtraction:
 
 
 class NewsExtractor(Protocol):
-    def extract(self, article: RawArticle) -> EventExtraction | None: ...
+    def extract(
+        self, article: RawArticle, prompt: str | None = None
+    ) -> EventExtraction | None: ...
 
 
 SCHEMA = {
@@ -194,8 +196,13 @@ class GeminiExtractor:
             time.sleep(10 * (attempt + 1))
         return resp
 
-    def extract(self, article: RawArticle) -> EventExtraction | None:
-        text = PROMPT + (
+    def extract(
+        self, article: RawArticle, prompt: str | None = None
+    ) -> EventExtraction | None:
+        # prompt alternativo para la segunda vía de extracción
+        # (Hito 11.2, PROMPT_INFRA en news_infra); por defecto el de
+        # playas
+        text = (prompt or PROMPT) + (
             f'\nTitular: "{article.title}"\nMedio: "{article.source or ""}"'
         )
         if article.published_at:
@@ -248,6 +255,7 @@ class GeminiExtractor:
                 "closure",
                 "warning",
                 "pollution",
+                "infra",
             ):
                 closed_since = None
             return EventExtraction(

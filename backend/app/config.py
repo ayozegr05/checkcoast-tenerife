@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     # Segunda pasada híbrida: artículos por pasada a los que se les
     # descarga el cuerpo cuando el titular no basta
     news_max_body_fetches: int = 8
+    # Segunda vía de infraestructura de vertido (Hito 11.2): llamadas
+    # LLM por pasada para rescatar lo que el pipeline de playas
+    # descartó — cuota propia, no compite con los titulares de playa
+    news_max_infra_calls: int = 4
     # Fichas evergreen de Guía Islas Canarias por pasada (descarga +
     # llamada LLM por cada una que cambió; el sitemap trae lastmod)
     news_max_guia_fetches: int = 10

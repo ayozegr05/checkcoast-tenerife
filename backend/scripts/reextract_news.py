@@ -18,12 +18,13 @@ import argparse
 import sys
 import time
 
-from sqlalchemy import extract
+from sqlalchemy import extract, or_
 
 from app.config import settings
 from app.db import SessionLocal
 from app.ingest_news import _enrich_with_body, _rematch_pending
 from app.models import Beach, NewsItem
+from app.news_infra import INFRA_EVENT_TYPE
 from app.news_llm import GeminiExtractor, extract_event
 from app.news_matching import match_beaches
 from app.news_sources import GUIA_SOURCE, RawArticle
@@ -69,6 +70,14 @@ def main() -> None:
         # _sync_guia (cuando cambia lastmod); re-extraerlas solo con
         # el titular las degradaría a "no relevante"
         q = q.filter(NewsItem.source != GUIA_SOURCE)
+        # Los ítems de infraestructura se extrajeron con PROMPT_INFRA:
+        # el prompt de playa los degradaría a no relevantes
+        q = q.filter(
+            or_(
+                NewsItem.event_type.is_(None),
+                NewsItem.event_type != INFRA_EVENT_TYPE,
+            )
+        )
         if not args.all:
             q = q.filter(NewsItem.relevant.is_(True))
         if args.beach:
