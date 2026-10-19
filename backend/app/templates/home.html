@@ -55,6 +55,10 @@
   .imap.lmap-on #lmap { display:block; position:absolute;
           inset:0; }
   .mk:hover { z-index:3; }
+  .cdot { position:absolute; width:11px; height:11px;
+          border-radius:50%; border:2px solid #fff;
+          transform:translate(-50%,-50%); display:block;
+          box-shadow:0 1px 3px rgba(0,0,0,.35); }
   .zpop b { display:block; font-size:13px; color:#0d3a52;
           margin-bottom:4px; }
   .zrow { display:flex; justify-content:space-between; gap:14px;
@@ -62,9 +66,9 @@
           text-decoration:none; border-top:1px solid #eef4f7; }
   .zrow em { font-style:normal; font-weight:700; font-size:11px; }
   .mk[data-tip]:hover::after { content:attr(data-tip);
-          position:absolute; bottom:100%; left:50%;
+          position:absolute; top:100%; left:50%;
           transform:translateX(-50%);
-          margin-bottom:2px; padding:3px 8px;
+          margin-top:4px; padding:3px 8px;
           background:#fff; color:#0d3a52; font-size:11px;
           font-weight:600; white-space:nowrap;
           border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.25);
@@ -768,13 +772,20 @@ if (window.maplibregl && lmapEl && imap) {
         ? ' — ' + d.olabel + (d.muni ? ' · ' + d.muni : '')
         : ''));
       if (!d.outfall) a.title = d.name;
-      var img = document.createElement('img');
-      img.className = 'mpin' + (d.alert ? ' big' : '') +
-        (d.outfall ? ' ofpin' : '');
-      img.src = '/icons/' + d.pin + '.png';
-      img.alt = '';
-      img.style.animationDelay = Math.min(i * 4, 700) + 'ms';
-      a.appendChild(img);
+      if (d.cxmember) {
+        var sp = document.createElement('span');
+        sp.className = 'cdot';
+        sp.style.background = d.col;
+        a.appendChild(sp);
+      } else {
+        var img = document.createElement('img');
+        img.className = 'mpin' + (d.alert ? ' big' : '') +
+          (d.outfall ? ' ofpin' : '');
+        img.src = '/icons/' + d.pin + '.png';
+        img.alt = '';
+        img.style.animationDelay = Math.min(i * 4, 700) + 'ms';
+        a.appendChild(img);
+      }
       if (d.complex) parentEls.push(a);
       else if (d.cxmember) memberEls.push(a);
       new maplibregl.Marker({ element: a, anchor: 'top-left' })
