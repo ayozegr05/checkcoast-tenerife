@@ -55,6 +55,14 @@
   .imap.lmap-on #lmap { display:block; position:absolute;
           inset:0; }
   .mk:hover { z-index:3; }
+  .mk[data-tip]:hover::after { content:attr(data-tip);
+          position:absolute; bottom:100%; left:50%;
+          transform:translateX(-50%);
+          margin-bottom:2px; padding:3px 8px;
+          background:#fff; color:#0d3a52; font-size:11px;
+          font-weight:600; white-space:nowrap;
+          border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.25);
+          pointer-events:none; }
   .mhw { z-index:0; }
   .mpin { position:absolute; width:25px; height:auto;
           transform:translate(-50%,-88%);
@@ -662,6 +670,7 @@ if (window.maplibregl && lmapEl && imap) {
     var seen = {};
     var nameFeats = [];
     (window.MAP_DOTS || []).forEach(function (d) {
+      if (d.outfall) return;
       if (seen[d.name]) return;
       seen[d.name] = 1;
       nameFeats.push({
@@ -715,9 +724,10 @@ if (window.maplibregl && lmapEl && imap) {
       var a = document.createElement('a');
       a.className = 'mk k-' + d.k;
       a.href = d.outfall ? '/o/' + d.oid : '/b/' + d.bid;
-      a.title = d.name + (d.olabel
+      a.setAttribute('data-tip', d.name + (d.olabel
         ? ' — ' + d.olabel + (d.muni ? ' · ' + d.muni : '')
-        : '');
+        : ''));
+      if (!d.outfall) a.title = d.name;
       var img = document.createElement('img');
       img.className = 'mpin' + (d.alert ? ' big' : '') +
         (d.outfall ? ' ofpin' : '');

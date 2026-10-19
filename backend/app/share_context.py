@@ -1974,7 +1974,11 @@ def home_context(db: Session, demo: bool = False) -> dict:
                     "structural": dstate == "structural",
                     "bid": beach.id,
                     "k": "unmon" if dstate == "unknown" else dstate,
-                    "name": _display_name(beach.name),
+                    # Sufijo de zona como la ficha — dos PMs de un
+                    # arenal con el mismo nombre base necesitan
+                    # etiquetas distintas en el mapa ("· Zona 1")
+                    "name": _display_name(beach.name)
+                    + _zone_suffix(db, beach),
                     "lon": lon,
                     "lat": lat,
                 }
