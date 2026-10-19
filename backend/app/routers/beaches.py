@@ -475,7 +475,9 @@ def _incident_kind(inc, press_items) -> str:
 
 def _synth_observations(ev: SynthEvent) -> str:
     if ev.via == "measurement":
-        obs = "Prohibido por analítica del agua — sin incidente oficial en Náyade"
+        obs = (
+            "Prohibido por analítica del agua, sin incidente oficial en Náyade"
+        )
         if ev.press_confirmed:
             obs += (
                 f" · {ev.press_count} "
@@ -499,7 +501,7 @@ def _synth_observations(ev: SynthEvent) -> str:
             # sin muestra que lo acredite — se declara, no se oculta
             obs += f" · sin muestras entre {_mes(a)} y {_mes(b)}"
         return obs
-    obs = "Cierre según prensa — sin incidente oficial en Náyade"
+    obs = "Cierre según prensa, sin incidente oficial en Náyade"
     if ev.end_estimated:
         obs += " · fin aproximado (última mención)"
     return obs

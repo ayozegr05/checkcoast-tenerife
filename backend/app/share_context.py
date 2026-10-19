@@ -32,7 +32,11 @@ from app.names import normalize_beach_name as _normalize
 from app.news_episodes import _news_cause
 from app.news_matching import _norm_muni
 from app.news_zones import _ZONE_GROUPS, _zone_entry
-from app.queries import beaches_with_latest_status, effective_states
+from app.queries import (
+    _short_cause,
+    beaches_with_latest_status,
+    effective_states,
+)
 
 _MONTHS = [
     "ene",
@@ -584,6 +588,17 @@ def beach_row(db: Session, beach_id: int):
 
 
 _PRESS_GROUP_ORDER = ["closure", "warning", "pollution", "reopening", "other"]
+
+# Causa del episodio → arte del badge (mismo mapa que causeArt.ts).
+# Lo que Sanidad mide (bacterias) y lo no categorizado cae en
+# "contam" — Náyade solo vigila E. coli/enterococos
+_BADGE_BY_CAUSE = {
+    "Algas": "algas-art",
+    "Medusas": "medusas-art",
+    "Hidrocarburos": "gasoil-art",
+    "Desprendimientos": "rockfall-art",
+    "Colapso del terreno": "rockfall-art",
+}
 _PRESS_GROUP_LABEL = {
     "closure": "Cierre",
     "warning": "Aviso",
@@ -680,14 +695,18 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
     def _row(i) -> dict:
         closure, uncl = _is_closure(i), _is_uncl(i)
         accent = "#c62828" if closure else "#8a9aa3"
-        if i.via == "press":
-            tag = "SEGÚN PRENSA"
-        elif i.via == "measurement" and not i.press_confirmed:
-            tag = "SEGÚN ANALÍTICA"
-        elif i.closed_at:
-            tag = "CIERRE" if closure else "AVISO"
-        else:
-            tag = "PENDIENTE" if uncl else "ACTIVA"
+        # Badges de causa agregados de los titulares del episodio
+        # (Valleseco: hidrocarburos + algas). Si nada categoriza —
+        # incluida toda incidencia Náyade sin prensa, que solo mide
+        # bacterias — cae en contaminación
+        badges: list[str] = []
+        for p in i.press_items:
+            cat = _short_cause(p.cause)
+            art = _BADGE_BY_CAUSE.get(cat, "contam-art") if cat else None
+            if art and art not in badges:
+                badges.append(art)
+        if not badges:
+            badges = ["contam-art"]
         ndays = max(((i.closed_at or today) - i.opened_at).days, 0) + 1
         rng = (
             i.opened_at.strftime("%d/%m/%Y")
@@ -711,7 +730,7 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             )
         return {
             "range": rng,
-            "tag": tag,
+            "badges": badges[:3],
             "accent": accent,
             "notes": notes,
             "n_press": len(i.press_items),

@@ -9,6 +9,7 @@ import {
   isClosure,
   isUnclassified,
 } from '../../lib/incidents';
+import { incidentBadges } from '../../lib/causeArt';
 import { groupNewsItems } from '../../lib/news';
 import { colors, fonts } from '../../lib/theme';
 import { siblingZoneRef } from '../../lib/zones';
@@ -49,20 +50,6 @@ export default function IncidentHistory({
         ),
       ) + 1;
     const accent = closure ? colors.status.closed : colors.outfall.unknown;
-    // Analítica con respaldo de prensa = cierre real, mismo
-    // cartel que el oficial; la procedencia va abajo en gris
-    const tag =
-      inc.via === 'press'
-        ? 'SEGÚN PRENSA'
-        : inc.via === 'measurement' && !inc.press_confirmed
-          ? 'SEGÚN ANALÍTICA'
-          : inc.closed_at
-            ? closure
-              ? 'CIERRE'
-              : 'AVISO'
-            : unclassified
-              ? 'PENDIENTE'
-              : 'ACTIVA';
     return (
       <View key={inc.id} style={[styles.incident, { borderLeftColor: accent }]}>
         <View style={styles.incidentHead}>
@@ -75,8 +62,20 @@ export default function IncidentHistory({
                   inc.closed_at ? fmtDate(inc.closed_at) : 'hoy'
                 } · ${formatDays(days)}`}
           </Text>
-          <View style={[styles.incidentTag, { backgroundColor: accent }]}>
-            <Text style={styles.incidentTagText}>{tag}</Text>
+          {/* Badges de causa del episodio: uno por categoría de
+              sus titulares (hidrocarburos + algas en Valleseco);
+              sin causa categorizada cae en contaminación — que
+              el episodio sea oficial o de prensa ya lo aclara la
+              observación de abajo, no hace falta chip */}
+          <View style={styles.incidentBadges}>
+            {incidentBadges(inc).map((art, idx) => (
+              <Image
+                key={idx}
+                testID="incident-badge"
+                source={art}
+                style={styles.incidentBadge}
+              />
+            ))}
           </View>
         </View>
         {inc.attributed_pm ? (
@@ -320,15 +319,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingRight: 4,
   },
-  incidentTag: {
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+  incidentBadges: {
+    flexDirection: 'row',
+    gap: 2,
   },
-  incidentTagText: {
-    color: colors.onColor,
-    fontSize: 9,
-    fontFamily: fonts.extrabold,
+  incidentBadge: {
+    width: 19,
+    height: 19,
   },
   incidentDates: {
     fontSize: 12,

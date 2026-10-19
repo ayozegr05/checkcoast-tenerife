@@ -202,9 +202,8 @@
   .ihead { display:flex; align-items:center;
           justify-content:space-between; gap:8px; padding-right:8px; }
   .ihead b { font-size:12px; font-weight:600; color:#5a7684; }
-  .itag { font-style:normal; color:#fff; font-size:9px;
-          font-weight:800; border-radius:4px; padding:1px 6px;
-          white-space:nowrap; }
+  .ibadges { display:flex; gap:2px; flex:none; }
+  .ibadges img { width:19px; height:19px; display:block; }
   .irow span { display:block; color:#7a919c; font-size:12px;
           padding-right:8px; }
   .isum { margin-top:7px; margin-bottom:2px; font-size:12px;
@@ -280,8 +279,9 @@
 {% macro incrow(i) %}
       <div class="irow" style="border-left-color:{{ i.accent }}">
         <div class="ihead"><b>{{ i.range }}</b>
-          <em class="itag" style="background:{{ i.accent }}">
-            {{- i.tag }}</em></div>
+          <span class="ibadges">{%- for b in i.badges %}<img
+            src="/icons/{{ b }}.png" alt="">
+          {%- endfor %}</span></div>
         {%- for n in i.notes %}<span>{{ n }}</span>{% endfor %}
         {%- if i.groups %}
         <details class="itit"><summary>Ver titulares

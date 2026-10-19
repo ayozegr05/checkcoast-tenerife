@@ -68,10 +68,10 @@ describe('<IncidentHistory />', () => {
     );
     expect(screen.getByText('2015')).toBeTruthy();
     expect(screen.getByText('2014')).toBeTruthy();
-    expect(screen.getAllByText('CIERRE')).toHaveLength(2);
-    expect(screen.getByText('AVISO')).toBeTruthy();
-    expect(screen.getByText('SEGÚN PRENSA')).toBeTruthy();
-    expect(screen.getByText('PENDIENTE')).toBeTruthy();
+    // El chip de tag ya no existe: cada fila lleva sus badges de
+    // causa agregada — una por defecto (contaminación) si los
+    // titulares no categorizan
+    expect(screen.getAllByTestId('incident-badge')).toHaveLength(5);
     expect(screen.getByText('01/08/2015 → 04/08/2015 · 4 días')).toBeTruthy();
     expect(
       screen.getByText('Muestra tomada pero nunca clasificada por Sanidad'),
