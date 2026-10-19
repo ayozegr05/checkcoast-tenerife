@@ -822,7 +822,13 @@ def beach_context(db: Session, beach: Beach, lon: float, lat: float) -> dict:
         "urls": urls,
         "start": start,
         "dots_levels": dots_levels,
-        "pin": _PIN.get(state, _PIN["unknown"]),
+        # Pin limpio en la ficha: el badge de causa ya vive dentro del
+        # chip — el pin-structural del mapa lo llevaría duplicado
+        "pin": (
+            "pin-structural-plain"
+            if _PIN.get(state) == "pin-structural"
+            else _PIN.get(state, _PIN["unknown"])
+        ),
         "label": label,
         "color": color,
         "chip_art": chip_art,
