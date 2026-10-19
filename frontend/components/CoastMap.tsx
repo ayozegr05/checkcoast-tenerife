@@ -20,16 +20,7 @@ import {
   type PressEventWithFeatures,
   type StyleSpecification,
 } from '@maplibre/maplibre-react-native';
-
-// expo-location es nativo: en dev-clients viejos (y en el APK del
-// e2e de CI) el módulo no existe → import perezoso como appCheck;
-// si falla, el botón ⌖ ni se pinta. Cuando el dev-client se
-// regenere con la dep, aparece solo.
-let locationMod: Promise<typeof import('expo-location') | null> | null = null;
-function loadLocation() {
-  locationMod ??= import('expo-location').catch(() => null);
-  return locationMod;
-}
+import { requireOptionalNativeModule } from 'expo-modules-core';
 
 import type {
   FeatureCollection,
@@ -68,6 +59,20 @@ import MapTopbar from './map/MapTopbar';
 
 // Flag de primer uso del bocadillo de capas
 const LAYERS_HINT_KEY = 'checkcoast.layers_hint_seen';
+
+// expo-location es nativo: en dev-clients viejos (y en el APK del
+// e2e de CI) el módulo no existe. No basta import perezoso — el
+// requireNativeModule de su index.js lanza en la evaluación y RN
+// pinta RedBox aunque capturemos la promesa. Se comprueba el nativo
+// con requireOptionalNativeModule (devuelve null, no throw) ANTES
+// de tocar el import: sin binario, el botón ⌖ ni se pinta.
+const LOC_AVAILABLE = !!requireOptionalNativeModule('ExpoLocation');
+let locationMod: Promise<typeof import('expo-location') | null> | null = null;
+function loadLocation() {
+  if (!LOC_AVAILABLE) return Promise.resolve(null);
+  locationMod ??= import('expo-location').catch(() => null);
+  return locationMod;
+}
 
 // Estilo vectorial tematico (OpenFreeMap/OpenMapTiles retenido con la
 // paleta oceanica por scripts/gen_mapstyle.py). Sin API key.
