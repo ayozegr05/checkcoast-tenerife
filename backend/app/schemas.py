@@ -123,15 +123,21 @@ class BeachStatsOut(BaseModel):
     total_samples: int
     latest_evaluation: str | None
     latest_sampled_at: date | None
-    # Episodios reconstruidos (analítica sin incidencia + cierres solo
-    # en prensa): cuentan en el ranking pero no son BeachIncident
+    # Episodios reconstruidos con corroboración de prensa (cierres
+    # solo en prensa): cuentan en el ranking pero no son BeachIncident.
+    # Los de analítica sin más fuente van aparte en lab_episodes —
+    # agua no apta no demuestra cierre y nunca cuenta como tal
     reconstructed: int = 0
+    # Episodios de analítica prohibida sin incidencia ni prensa de
+    # cierre en la ventana: existen, pero NO son cierres
+    lab_episodes: int = 0
     # Conteo propio del PM, sin deduplicar entre hermanos: mismo
     # universo que la ficha (/beaches/{id}/incidents). Las playas
     # multi-PM (Playa Jardín) comparten la prensa replicada — cada
     # sub-fila de la lista muestra lo suyo
     own_closures: int = 0
     own_warnings: int = 0
+    own_lab: int = 0
     # Episodios de agua del PM: incidencias oficiales (Sanidad solo
     # mide agua) + clústeres de prensa con causa Contaminación fuera
     # de la ventana de una incidencia. Desprendimientos/obras/mar

@@ -7,11 +7,13 @@ import {
   episodesInYears,
   episodesThisYear,
   isClosure,
+  isMuteLab,
   isUnclassified,
 } from '../../lib/incidents';
 import {
   incidentBadgeArts,
   incidentCauses,
+  LAB_ART,
   STRUCT_CAUSES,
 } from '../../lib/causeArt';
 import { groupNewsItems } from '../../lib/news';
@@ -41,6 +43,9 @@ export default function IncidentHistory({
   const renderInc = (inc: BeachIncident) => {
     const closure = isClosure(inc);
     const unclassified = isUnclassified(inc);
+    // Analítica prohibida sin corroboración: no es cierre ni aviso
+    // — badge propio (tubo + aviso) y color de aviso, nunca rojo
+    const muteLab = isMuteLab(inc);
     // Duración del episodio: hasta closed_at o hasta hoy, en días
     // naturales incluyendo el inicial (misma convención que
     // episodeDays/durationDays de las vistas de temporada)
@@ -61,19 +66,27 @@ export default function IncidentHistory({
     const causes = incidentCauses(inc);
     // La etiqueta solo pinta cuando no es cierre — en cierres
     // hablan los badges de causa
-    const stateLabel = unclassified ? 'Sin calificar' : 'Aviso';
+    const stateLabel = unclassified
+      ? 'Sin calificar'
+      : muteLab
+        ? 'Agua no apta'
+        : 'Aviso';
     const accent = unclassified
       ? colors.textFaint
-      : causes.some((c) => STRUCT_CAUSES.has(c))
-        ? colors.status.structural
-        : causes.includes('Medusas')
-          ? colors.status.fauna
-          : closure
-            ? colors.status.closed
-            : colors.status.warning;
+      : muteLab
+        ? colors.status.warning
+        : causes.some((c) => STRUCT_CAUSES.has(c))
+          ? colors.status.structural
+          : causes.includes('Medusas')
+            ? colors.status.fauna
+            : closure
+              ? colors.status.closed
+              : colors.status.warning;
     const causeText = unclassified
       ? null
-      : causes.join(' · ') || 'Contaminación';
+      : muteLab
+        ? 'Agua no apta'
+        : causes.join(' · ') || 'Contaminación';
     return (
       <View key={inc.id} style={[styles.incident, { borderLeftColor: accent }]}>
         {/* Cuerpo: fechas + notas + titulares a la izquierda; el
@@ -156,16 +169,18 @@ export default function IncidentHistory({
               contexto de la fila ya lo dice; avisos y muestras sin
               calificar conservan su etiqueta porque no se
               sobreentiende */}
-          {closure ? (
+          {closure || muteLab ? (
             <View style={styles.incidentBadges}>
-              {incidentBadgeArts(inc).map((art, idx) => (
-                <Image
-                  key={idx}
-                  testID="incident-badge"
-                  source={art}
-                  style={styles.incidentBadge}
-                />
-              ))}
+              {(muteLab ? [LAB_ART] : incidentBadgeArts(inc)).map(
+                (art, idx) => (
+                  <Image
+                    key={idx}
+                    testID="incident-badge"
+                    source={art}
+                    style={styles.incidentBadge}
+                  />
+                ),
+              )}
             </View>
           ) : (
             <Text style={[styles.incidentState, { color: accent }]}>
@@ -183,14 +198,14 @@ export default function IncidentHistory({
   };
 
   const own = incidents.filter((i) => !i.attributed_pm);
-  // Episodios de laboratorio aparte: el agua salió no apta pero
-  // Sanidad no registró incidencia — contarlos como "cierres"
-  // afirmaría un acto administrativo que nunca existió
-  const labN = own.filter((i) => i.via === 'measurement').length;
-  const totalC = own.filter(
-    (i) => isClosure(i) && i.via !== 'measurement',
+  // Episodios de laboratorio MUDOS aparte: el agua salió no apta
+  // pero sin corroboración de cierre — contarlos como "cierres"
+  // afirmaría un acto administrativo que no podemos demostrar
+  const labN = own.filter(isMuteLab).length;
+  const totalC = own.filter(isClosure).length;
+  const totalW = own.filter(
+    (i) => !isClosure(i) && !isUnclassified(i) && !isMuteLab(i),
   ).length;
-  const totalW = own.filter((i) => !isClosure(i) && !isUnclassified(i)).length;
   const uncl = incidents.filter(isUnclassified).length;
   const y1 = episodesThisYear(incidents);
   const y5 = episodesInYears(incidents, 5);
@@ -278,11 +293,10 @@ export default function IncidentHistory({
             </Text>
           </>
         )}
-        {/* La denuncia que el contador no puede decir solo:
-            agua no apta = analítica prohibida sin acta de Sanidad */}
+        {/* Qué es "agua no apta": el contador no lo explica solo */}
         {labN > 0 && (
           <Text style={styles.historySummarySub}>
-            Agua no apta: analíticas prohibidas que Sanidad no registró
+            Agua no apta: episodios detectados en las analíticas oficiales
           </Text>
         )}
       </View>

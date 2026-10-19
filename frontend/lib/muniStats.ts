@@ -152,9 +152,10 @@ export function buildMuniRows(
         m.badSamples += st.bad_samples;
       }
     }
-    // Los episodios reconstruidos (analítica sin incidencia, cierres
-    // solo en prensa) cuentan como incidentes reales también en las
-    // playas no monitorizadas — Benijo cerró de verdad
+    // Los episodios reconstruidos (cierres solo en prensa o
+    // corroborados por ella) cuentan como incidentes reales también
+    // en las playas no monitorizadas — Benijo cerró de verdad. Las
+    // analíticas mudas no entran aquí: van en badSamples
     const st = stats.get(f.id);
     if (st?.reconstructed) m.incidents += st.reconstructed;
     byMuni.set(name, m);

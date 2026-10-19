@@ -85,6 +85,34 @@ describe('<IncidentHistory />', () => {
     expect(screen.getByText('Ocurrió en la zona 4')).toBeTruthy();
   });
 
+  it('episodio de laboratorio mudo: badge propio, ni cierre ni aviso', async () => {
+    const lab = incident({
+      id: 9,
+      opened_at: '2015-10-01',
+      closed_at: '2015-10-20',
+      via: 'measurement',
+      observations: 'Laboratorio: agua no apta',
+    });
+    await render(
+      <IncidentHistory
+        incidents={[lab]}
+        openIncs={new Set()}
+        onToggleIncident={jest.fn()}
+      />,
+    );
+    // Icono propio (tubo + aviso) + etiqueta, jamás "Cierre"
+    expect(screen.getAllByTestId('incident-badge')).toHaveLength(1);
+    expect(screen.getByText('Agua no apta')).toBeTruthy();
+    expect(screen.queryByText('Aviso')).toBeNull();
+    // El resumen lo cuenta aparte
+    expect(screen.getByText('1 agua no apta')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Agua no apta: episodios detectados en las analíticas oficiales',
+      ),
+    ).toBeTruthy();
+  });
+
   it('despliega los titulares del episodio', async () => {
     const onToggle = jest.fn();
     const { rerender } = await render(

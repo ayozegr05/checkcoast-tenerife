@@ -135,14 +135,18 @@ export type BeachStats = {
   total_samples: number;
   latest_evaluation: string | null;
   latest_sampled_at: string | null;
-  // Episodios reconstruidos (analítica sin incidencia + cierres solo
-  // en prensa): cuentan en el ranking como incidentes reales
+  // Episodios reconstruidos (cierres solo en prensa + analítica
+  // corroborada por prensa de cierre): cuentan en el ranking
   reconstructed?: number;
+  // Analítica prohibida sin corroboración: agua no apta, NUNCA
+  // cierre — va aparte para no inflar el contador
+  lab_episodes?: number;
   // Conteo propio del PM, sin deduplicar entre hermanos de una playa
   // multi-PM: lo que muestra su ficha. closures/warnings son el
   // conteo deduplicado por playa física (atribuido a un solo PM)
   own_closures?: number;
   own_warnings?: number;
+  own_lab?: number;
 };
 
 export type BeachNearbyOutfall = {

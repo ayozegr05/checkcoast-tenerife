@@ -146,8 +146,8 @@ export const buildGroups = (
     k: 'closures' | 'closures_last_year' | 'reconstructed',
   ) => g.members.reduce((s, m) => s + (stats.get(m.id)?.[k] ?? 0), 0);
   // El mismo número que muestra la fila: cierres oficiales + episodios
-  // reconstruidos (prensa/muestras) — si la fila dice "2 cierres",
-  // el ranking la trata como 2
+  // corroborados por prensa (los lab mudos no son cierres) — si la fila
+  // dice "2 cierres", el ranking la trata como 2
   const totalCierres = (g: BeachGroup) =>
     sum(g, 'closures') + sum(g, 'reconstructed');
   const worstQuality = (g: BeachGroup) =>

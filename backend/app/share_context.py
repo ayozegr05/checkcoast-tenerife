@@ -644,7 +644,10 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
 
     def _is_closure(i) -> bool:
         return (
-            i.via in ("press", "measurement")
+            i.via == "press"
+            # Analítica corroborada por prensa de cierre: escala a
+            # cierre; la muda es "agua no apta", nunca cierre
+            or (i.via == "measurement" and i.press_confirmed)
             or re.search("proh[ií]b", i.observations or "", re.I) is not None
             or any(
                 p.event_type in ("closure", "reopening") for p in i.press_items
@@ -656,6 +659,11 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             re.search(r"sin\s*calificar", i.observations or "", re.I)
             is not None
         )
+
+    def _is_mute(i) -> bool:
+        """Analítica prohibida sin prensa de cierre en la ventana —
+        agua no apta sin cierre demostrado; nunca cuenta como tal."""
+        return i.via == "measurement" and not i.press_confirmed
 
     def _press_groups(items) -> list[dict]:
         by_type: dict[str, list] = {}
@@ -722,12 +730,23 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             causes = [c for c in causes if c != "Contaminación"]
         causes.sort(key=lambda c: _CAUSE_RANK.get(c, 9))
         causes = causes[:3]
+        mute = _is_mute(i)
         state_label = (
-            "Sin calificar" if uncl else "Cerrada" if closure else "Aviso"
+            "Sin calificar"
+            if uncl
+            else "Agua no apta"
+            if mute
+            else "Cerrada"
+            if closure
+            else "Aviso"
         )
         state_color = (
             "#8a9aa3"
             if uncl
+            # Ámbar como los avisos: dato de laboratorio sin
+            # corroboración, no un cierre confirmado
+            else "#f9a825"
+            if mute
             else "#8c322a"
             if set(causes) & _STRUCT_CAUSES
             else "#4f6ab8"
@@ -736,12 +755,20 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             if closure
             else "#e65100"
         )
-        cause_text = None if uncl else " · ".join(causes) or "Contaminación"
+        cause_text = (
+            "Agua no apta"
+            if mute
+            else None
+            if uncl
+            else " · ".join(causes) or "Contaminación"
+        )
         # En un cierre el badge sustituye al "Cerrada" (la fila ya lo
         # dice el propio contexto); avisos y sin calificar conservan
         # su etiqueta porque no se sobreentiende
         badges: list[str] = []
-        if closure:
+        if mute:
+            badges = ["lab-art"]  # tubo + aviso: el lab detectó, no hay acta
+        elif closure:
             for c in causes:
                 art = _CAUSE_ART.get(c, "contam-art")
                 if art not in badges:
@@ -789,12 +816,16 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
         }
 
     own = [i for i in rows if not i.attributed_pm]
-    # Episodios de laboratorio aparte: el agua salió no apta pero
-    # Sanidad no registró incidencia — contarlos como "cierres"
-    # afirmaría un acto administrativo que nunca existió
-    lab_n = sum(1 for i in own if i.via == "measurement")
-    total_c = sum(1 for i in own if _is_closure(i) and i.via != "measurement")
-    total_w = sum(1 for i in own if not _is_closure(i) and not _is_uncl(i))
+    # Episodios de laboratorio aparte: solo los MUDOS — agua no
+    # apta sin cierre corroborado. Los que la prensa documentó
+    # como cierre sí cuentan en cierres
+    lab_n = sum(1 for i in own if _is_mute(i))
+    total_c = sum(1 for i in own if _is_closure(i))
+    total_w = sum(
+        1
+        for i in own
+        if not _is_closure(i) and not _is_uncl(i) and not _is_mute(i)
+    )
     uncl = sum(1 for i in rows if _is_uncl(i))
 
     def _count_since(cutoff: date) -> tuple[int, int, int]:
@@ -806,9 +837,9 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             and i.opened_at >= cutoff
         ]
         return (
-            sum(1 for i in sel if _is_closure(i) and i.via != "measurement"),
-            sum(1 for i in sel if not _is_closure(i)),
-            sum(1 for i in sel if i.via == "measurement"),
+            sum(1 for i in sel if _is_closure(i)),
+            sum(1 for i in sel if not _is_closure(i) and not _is_mute(i)),
+            sum(1 for i in sel if _is_mute(i)),
         )
 
     y1 = _count_since(date(today.year, 1, 1))
@@ -826,9 +857,9 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
         )
 
     y1p, y5p = _parts(*y1), _parts(*y5)
-    # La denuncia que el contador no puede decir solo
+    # Qué es "agua no apta": el contador no lo explica solo
     lab_expl = (
-        "agua no apta: analíticas prohibidas que Sanidad no registró"
+        "agua no apta: episodios detectados en las analíticas oficiales"
         if lab_n
         else None
     )

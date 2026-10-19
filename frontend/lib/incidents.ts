@@ -1,19 +1,28 @@
 import type { BeachIncident } from './api';
 
-// Un incidente es "cierre" si la observación prohíbe el baño; los
-// eventos reconstruidos (analítica/prensa) siempre son cierres.
+// Un incidente es "cierre" si la observación prohíbe el baño, si
+// solo existe en prensa, o si una ventana de analítica prohibida
+// quedó corroborada por prensa de cierre (press_confirmed). La
+// analítica MUDA — sin corroboración — es "agua no apta": el agua
+// salió mal pero nadie demostró que la playa se cerrara, y nunca
+// cuenta como cierre.
 // Una incidencia oficial cuya prensa adjunta habla de cierre/
 // reapertura también cuenta — Náyade la anotó como "recomendación"
 // pero el baño estuvo vetado de facto (Jardín PM4 ago-2026)
 export const isClosure = (inc: BeachIncident) =>
   inc.via === 'press' ||
-  inc.via === 'measurement' ||
+  (inc.via === 'measurement' && inc.press_confirmed === true) ||
   // í incluida: el backend normaliza la observación a
   // "Sanidad prohíbe el baño" — con tilde no casa /prohib/
   /proh[ií]b/i.test(inc.observations ?? '') ||
   (inc.press_items ?? []).some(
     (p) => p.event_type === 'closure' || p.event_type === 'reopening',
   );
+
+// Episodio de laboratorio mudo: via=measurement sin corroboración
+// de cierre. Ni cierre ni aviso — categoría propia "agua no apta"
+export const isMuteLab = (inc: BeachIncident) =>
+  inc.via === 'measurement' && inc.press_confirmed !== true;
 
 // Náyade a veces abre una "incidencia" cuyo texto es solo la
 // evaluación pendiente de una muestra (p.ej. Las Gaviotas 08/06/2026:
@@ -40,10 +49,9 @@ export const countSince = (
       Date.parse(i.opened_at) >= cutoff,
   );
   return {
-    closures: inWindow.filter((i) => isClosure(i) && i.via !== 'measurement')
-      .length,
-    warnings: inWindow.filter((i) => !isClosure(i)).length,
-    lab: inWindow.filter((i) => i.via === 'measurement').length,
+    closures: inWindow.filter(isClosure).length,
+    warnings: inWindow.filter((i) => !isClosure(i) && !isMuteLab(i)).length,
+    lab: inWindow.filter(isMuteLab).length,
   };
 };
 

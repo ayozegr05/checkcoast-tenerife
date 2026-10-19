@@ -597,6 +597,10 @@ class Episode:
     via: str  # "official" | "measurement" | "press"
     ref_id: int  # id del BeachIncident oficial o negativo sintético
     obs: str | None
+    # Solo en via="measurement": la prensa documentó cierre en su
+    # ventana → el episodio escala a cierre corroborado; sin esa
+    # corroboración es "agua no apta" y nunca cuenta como cierre
+    press_confirmed: bool = False
     press_count: int = 0
     end_estimated: bool = False
     # Causa normalizada del episodio ("Contaminación",

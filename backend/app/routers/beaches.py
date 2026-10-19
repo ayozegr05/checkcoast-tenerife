@@ -279,11 +279,12 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
     )
     episodes: list[Episode] = []
     # Conteo propio por PM (sin deduplicar entre hermanos): replica la
-    # ficha — incidencia con "prohibido" o evento reconstruido =
-    # cierre; "Sin Calificar" no cuenta (la ficha la lista aparte)
+    # ficha — incidencia con "prohibido" o cierre de prensa =
+    # cierre; analítica prohibida = agua no apta (aparte);
+    # "Sin Calificar" no cuenta (la ficha la lista aparte)
     own_counts: dict[int, dict[str, int]] = {}
     for beach in beaches:
-        own_c = own_w = 0
+        own_c = own_w = own_lab = 0
         inc_c = inc_w = 0  # solo incidencias reales (sin sintéticos)
         for inc in beach.incidents:
             if is_ungraded_note(inc.observations):
@@ -311,7 +312,13 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                 )
             )
         for ev in synthesize_events(beach):
-            own_c += 1  # en la ficha via=press|measurement siempre es cierre
+            # Un cierre solo en prensa cuenta como cierre; la
+            # analítica prohibida corroborada por prensa también;
+            # la muda va aparte — agua no apta no demuestra cierre
+            if ev.via == "press" or ev.press_confirmed:
+                own_c += 1
+            else:
+                own_lab += 1
             episodes.append(
                 Episode(
                     beach_id=beach.id,
@@ -323,6 +330,7 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                     via=ev.via,
                     ref_id=-1,
                     obs=None,
+                    press_confirmed=ev.press_confirmed,
                 )
             )
         # Episodios de agua (descalifican el récord "impecable"):
@@ -355,20 +363,34 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
         own_counts[beach.id] = {
             "closures": own_c,
             "warnings": own_w,
+            "lab": own_lab,
             "contam": inc_c + inc_w + press_clusters,
         }
     # Cada clúster se cuenta una vez, en el PM representativo (min id).
     # Solo los que tienen incidencia oficial van a closures/warnings;
-    # los puramente reconstruidos van a `recon` (evita doble conteo:
-    # el frontend suma ambos campos)
+    # los con prensa de cierre van a `recon` (evita doble conteo:
+    # el frontend suma ambos campos); los puramente de laboratorio
+    # van a `lab` — agua no apta no es un cierre demostrado
     rep_counts: dict[int, dict[str, int]] = {}
     for g in cluster_episodes(episodes):
         rep_id = min(e.beach_id for e in g)
         c = rep_counts.setdefault(
-            rep_id, {"closures": 0, "warnings": 0, "last_year": 0, "recon": 0}
+            rep_id,
+            {
+                "closures": 0,
+                "warnings": 0,
+                "last_year": 0,
+                "recon": 0,
+                "lab": 0,
+            },
         )
         if not any(e.via == "official" for e in g):
-            c["recon"] += 1
+            # Prensa de cierre en la ventana = cierre corroborado;
+            # solo los episodios de laboratorio MUDOS van aparte
+            if any(e.via == "press" or e.press_confirmed for e in g):
+                c["recon"] += 1
+            else:
+                c["lab"] += 1
         elif any(e.kind == "closure" for e in g):
             c["closures"] += 1
             if min(e.start for e in g) >= year_ago:
@@ -379,7 +401,13 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
     for beach in beaches:
         c = rep_counts.get(
             beach.id,
-            {"closures": 0, "warnings": 0, "last_year": 0, "recon": 0},
+            {
+                "closures": 0,
+                "warnings": 0,
+                "last_year": 0,
+                "recon": 0,
+                "lab": 0,
+            },
         )
         bad = sum(
             1
@@ -409,8 +437,10 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                 latest_evaluation=latest.evaluation if latest else None,
                 latest_sampled_at=latest.sampled_at if latest else None,
                 reconstructed=c["recon"],
+                lab_episodes=c["lab"],
                 own_closures=own_counts.get(beach.id, {}).get("closures", 0),
                 own_warnings=own_counts.get(beach.id, {}).get("warnings", 0),
+                own_lab=own_counts.get(beach.id, {}).get("lab", 0),
                 contam_episodes=own_counts.get(beach.id, {}).get("contam", 0),
             )
         )
@@ -476,9 +506,14 @@ def _incident_kind(inc, press_items) -> str:
 
 def _synth_observations(ev: SynthEvent) -> str:
     if ev.via == "measurement":
-        # La fila dice lo que los datos sostienen (agua no apta) y
-        # nombra la inacción: Sanidad midió y no registró nada
-        obs = "Laboratorio: agua no apta · Sanidad no registró incidencia"
+        if ev.press_confirmed:
+            # La prensa documentó cierre en la ventana y el
+            # laboratorio prueba que el agua estaba mala — el
+            # episodio escala a cierre con doble fuente
+            return "Cierre según prensa · confirmado por analíticas"
+        # Mudo: la fila dice solo lo que los datos sostienen (agua
+        # no apta) — no afirma cierre ni ausencia de acta
+        obs = "Laboratorio: agua no apta"
         if ev.press_reopening and not ev.end_from_press:
             # El ayuntamiento anunció reapertura pero el laboratorio
             # siguió dando prohibido — la fecha de cierre es la apta
@@ -493,6 +528,34 @@ def _synth_observations(ev: SynthEvent) -> str:
         return obs
     obs = "Cierre según prensa"
     return obs
+
+
+def _lab_context(
+    ev: SynthEvent, neighbors: list[tuple[date, "date | None"]]
+) -> str:
+    """Contexto de un episodio de laboratorio MUDO respecto a los
+    cierres vecinos del mismo punto (oficiales o corroborados por
+    prensa):
+    - recaída: un episodio cerró ≤35 d antes de que abriera este —
+      el agua volvió a salir no apta tras reabrir
+    - precedió: un cierre abrió ≤9 sem después del fin de este —
+      el laboratorio lo detectó antes que cualquier cierre
+    (Punta Brava: recaída oct-2023 tras la reapertura de sep; la
+    muda de may-2024 precedió seis semanas al gran cierre de julio)
+    """
+    relapses = [e for s, e in neighbors if e and e < ev.opened_at]
+    prev_end = max(relapses) if relapses else None
+    if prev_end and ev.opened_at - prev_end <= timedelta(days=35):
+        return (
+            f" · recaída tras la reapertura del "
+            f"{prev_end.strftime('%d/%m/%Y')}"
+        )
+    if ev.closed_at is not None:
+        starts = [s for s, _e in neighbors if s > ev.closed_at]
+        nxt = min(starts) if starts else None
+        if nxt and nxt - ev.closed_at <= timedelta(days=63):
+            return f" · precedió al cierre del {nxt.strftime('%d/%m/%Y')}"
+    return ""
 
 
 # Náyade escribe sin acentos; la razón tras ":" se conserva en la
@@ -554,9 +617,12 @@ def municipality_incidents(
     """Episodios de las playas de un municipio, más reciente primero.
     Alimenta la línea temporal del ranking municipal.
 
-    Además de las incidencias oficiales emite eventos reconstruidos:
-    ventanas de analítica prohibida sin incidencia (`via=measurement`)
-    y cierres que solo existen en prensa (`via=press`).
+    Además de las incidencias oficiales emite los cierres que solo
+    existen en prensa (`via=press`). Las ventanas de analítica
+    prohibida sin más fuente (`via=measurement`) NO aparecen: esta
+    línea temporal es de cierres/avisos y una analítica mala no
+    demuestra que la playa se cerrara (la ficha sí las lista, como
+    "Laboratorio: agua no apta").
 
     Una playa con varios PMs produce UNA fila por episodio (ventanas
     solapadas o a ≤14 días se fusionan sobre el nombre base); `beach_id`
@@ -572,14 +638,24 @@ def municipality_incidents(
         .filter(Beach.municipality == municipality)
         .all()
     )
-    out = _merged_episode_rows(_collect_episodes(beaches, date.today()))
+    out = _merged_episode_rows(
+        _collect_episodes(beaches, date.today(), include_measurement=False)
+    )
     out.sort(key=lambda r: r.opened_at, reverse=True)
     return out
 
 
-def _collect_episodes(beaches: list[Beach], today: date) -> list[Episode]:
+def _collect_episodes(
+    beaches: list[Beach], today: date, include_measurement: bool = True
+) -> list[Episode]:
     """Episodios crudos de un conjunto de playas: incidencias
-    oficiales + eventos reconstruidos (analítica/prensa)."""
+    oficiales + eventos reconstruidos (analítica/prensa).
+
+    `include_measurement=False` omite los episodios de analítica
+    prohibida MUDOS (sin prensa de cierre en la ventana) — vistas
+    de "cierres" donde una muestra mala sin corroborar no demuestra
+    cierre (municipio, isla). Los corroborados sí pasan: cuentan
+    como cierres según prensa."""
     episodes: list[Episode] = []
     for beach in beaches:
         for inc in beach.incidents:
@@ -617,6 +693,12 @@ def _collect_episodes(beaches: list[Beach], today: date) -> list[Episode]:
     synth_id = -1
     for beach in beaches:
         for ev in synthesize_events(beach):
+            if (
+                not include_measurement
+                and ev.via == "measurement"
+                and not ev.press_confirmed
+            ):
+                continue
             episodes.append(
                 Episode(
                     beach_id=beach.id,
@@ -628,6 +710,7 @@ def _collect_episodes(beaches: list[Beach], today: date) -> list[Episode]:
                     via=ev.via,
                     ref_id=synth_id,
                     obs=_synth_observations(ev),
+                    press_confirmed=ev.press_confirmed,
                     pm_label=_pm_label(beach.name),
                     press_count=(ev.press_count if ev.via == "press" else 0),
                     end_estimated=ev.end_estimated,
@@ -695,7 +778,9 @@ def island_episodes(
         )
         .all()
     )
-    out = _merged_episode_rows(_collect_episodes(beaches, date.today()))
+    out = _merged_episode_rows(
+        _collect_episodes(beaches, date.today(), include_measurement=False)
+    )
     out.sort(key=lambda r: r.opened_at, reverse=True)
     return out
 
@@ -762,7 +847,19 @@ def beach_incidents(
         for inc, o in zip(rows, out)
         if not is_ungraded_note(inc.observations)
     ]
-    for ev in synthesize_events(beach):
+    synth_evs = synthesize_events(beach)
+    # Ventanas de cierre vecinas del punto (oficiales o corroboradas
+    # por prensa): las mudas se anotan como recaída/preludio de ellas
+    closure_windows = [
+        (e.opened_at, e.closed_at)
+        for e in synth_evs
+        if e.via == "press" or e.press_confirmed
+    ] + [
+        (i.opened_at, i.closed_at)
+        for i in beach.incidents
+        if not is_ungraded_note(i.observations)
+    ]
+    for ev in synth_evs:
         if ev.via == "press":
             hit = next(
                 (
@@ -789,6 +886,15 @@ def beach_incidents(
                     )
                 continue
         obs = _synth_observations(ev)
+        if ev.via == "measurement" and not ev.press_confirmed:
+            obs += _lab_context(
+                ev,
+                [
+                    (s, e)
+                    for s, e in closure_windows
+                    if (s, e) != (ev.opened_at, ev.closed_at)
+                ],
+            )
         # Prensa aún abierta y Náyade también la da por cerrada: no es
         # "solo prensa" — el cierre tiene respaldo oficial de estado
         # aunque no exista incidencia abierta (Jardín PM4 oct-2026)

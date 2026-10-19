@@ -13,6 +13,9 @@ const CAUSE_ART: Record<string, number> = {
 
 const ROCKFALL_ART = require('../assets/icons/rockfall-art.png');
 const CONTAM_ART = require('../assets/icons/contam-art.png');
+// Tubo + triángulo de aviso: episodio de laboratorio mudo — la
+// analítica dijo "prohibido" y nadie demostró cierre
+export const LAB_ART = require('../assets/icons/lab-art.png');
 
 export function causeArt(
   cause: string | null | undefined,

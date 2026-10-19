@@ -653,12 +653,18 @@ export default function BeachList({
                           : null,
                         ev,
                         // Conteo propio del PM — cuadra con su ficha
+                        // (agua no apta va aparte: nunca es cierre)
                         st &&
-                        (st.own_closures ?? 0) + (st.own_warnings ?? 0) > 0
+                        (st.own_closures ?? 0) +
+                          (st.own_warnings ?? 0) +
+                          (st.own_lab ?? 0) >
+                          0
                           ? `${st.own_closures} ${
                               st.own_closures === 1 ? 'cierre' : 'cierres'
                             } · ${st.own_warnings} ${
                               st.own_warnings === 1 ? 'aviso' : 'avisos'
+                            }${
+                              st.own_lab ? ` · ${st.own_lab} agua no apta` : ''
                             }`
                           : null,
                       ]

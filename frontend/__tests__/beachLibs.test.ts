@@ -76,10 +76,14 @@ describe('groupNewsItems', () => {
 });
 
 describe('incidents', () => {
-  it('isClosure: prohibido o evento reconstruido', () => {
+  it('isClosure: prohibido, prensa o analítica corroborada', () => {
     expect(isClosure(inc({ observations: 'Baño prohibido' }))).toBe(true);
     expect(isClosure(inc({ via: 'press' }))).toBe(true);
-    expect(isClosure(inc({ via: 'measurement' }))).toBe(true);
+    // La analítica muda NO es cierre; la corroborada por prensa sí
+    expect(isClosure(inc({ via: 'measurement' }))).toBe(false);
+    expect(isClosure(inc({ via: 'measurement', press_confirmed: true }))).toBe(
+      true,
+    );
     expect(isClosure(inc({ observations: 'Recomendación' }))).toBe(false);
   });
 
@@ -100,16 +104,24 @@ describe('incidents', () => {
         opened_at: '2026-09-01',
         attributed_pm: 'PM4',
       }),
+      // Laboratorio mudo: bucket aparte, nunca cierre ni aviso
+      inc({ via: 'measurement', opened_at: '2026-09-01' }),
+      // Laboratorio corroborado por prensa de cierre: sí es cierre
+      inc({
+        via: 'measurement',
+        press_confirmed: true,
+        opened_at: '2026-09-01',
+      }),
     ];
     expect(episodesInYears(list, 1, now)).toEqual({
-      closures: 1,
-      warnings: 1,
-      lab: 0,
-    });
-    expect(episodesInYears(list, 5, now)).toEqual({
       closures: 2,
       warnings: 1,
-      lab: 0,
+      lab: 1,
+    });
+    expect(episodesInYears(list, 5, now)).toEqual({
+      closures: 3,
+      warnings: 1,
+      lab: 1,
     });
   });
 });
