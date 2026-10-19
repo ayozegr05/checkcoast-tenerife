@@ -478,18 +478,7 @@ def _synth_observations(ev: SynthEvent) -> str:
         obs = (
             "Prohibido por analítica del agua, sin incidente oficial en Náyade"
         )
-        if ev.press_confirmed:
-            obs += (
-                f" · {ev.press_count} "
-                f"{'noticia' if ev.press_count == 1 else 'noticias'} "
-                "de prensa lo recogieron"
-            )
-        if ev.end_from_press and ev.press_reopening:
-            obs += (
-                f" · reabierta el "
-                f"{ev.press_reopening.strftime('%d/%m/%Y')} según prensa"
-            )
-        elif ev.press_reopening:
+        if ev.press_reopening and not ev.end_from_press:
             # El ayuntamiento anunció reapertura pero el laboratorio
             # siguió dando prohibido — la fecha de cierre es la apta
             obs += (
@@ -499,7 +488,7 @@ def _synth_observations(ev: SynthEvent) -> str:
         for a, b in ev.sample_gaps:
             # Parada invernal de Náyade: el cierre pudo interrumpirse
             # sin muestra que lo acredite — se declara, no se oculta
-            obs += f" · sin muestras entre {_mes(a)} y {_mes(b)}"
+            obs += f" · Sin muestras entre {_mes(a)} y {_mes(b)}"
         return obs
     obs = "Cierre según prensa, sin incidente oficial en Náyade"
     return obs

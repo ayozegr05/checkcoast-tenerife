@@ -185,17 +185,24 @@
           border-left:4px solid #8c322a; }
   .press.n-warning { background:#fdeed3; border-color:#eec27e;
           border-left:4px solid #e65100; }
-  .yrow { display:flex; gap:1px; padding:3px 6px 0; }
-  .yrcell { flex:1; font-size:9px; font-weight:600; color:#8fa3ad;
-          white-space:nowrap; overflow:visible; }
+  .chartscroll { overflow-x:auto; margin-top:8px; background:#f4f9fb;
+          border-radius:8px; scrollbar-width:thin;
+          scrollbar-color:#8fa3ad transparent; }
+  .chartscroll::-webkit-scrollbar { height:6px; }
+  .chartscroll::-webkit-scrollbar-track { background:transparent; }
+  .chartscroll::-webkit-scrollbar-thumb { border-radius:3px;
+          background:#8fa3ad; }
+  .chartcols { width:max-content; min-width:100%; }
   .chartarea { position:relative; height:{{ chart_h }}px; display:flex;
-          align-items:flex-end; gap:1px; margin-top:8px;
-          background:#f4f9fb; border-radius:8px; padding:0 6px; }
-  .bar { flex:1; border-radius:2px 2px 0 0; }
+          align-items:flex-end; gap:1px; padding:0 6px; }
+  .bar { flex:1 0 8px; border-radius:2px 2px 0 0; }
+  .yrow { display:flex; gap:1px; padding:3px 6px 0; }
+  .yrcell { flex:1 0 8px; font-size:9px; font-weight:600; color:#8fa3ad;
+          white-space:nowrap; overflow:visible; }
   .lim { position:absolute; left:4px; right:4px;
           border-top:2px dashed #0b6e99; }
-  .inc { position:absolute; top:0; bottom:0; width:2px;
-          background:#c62828; }
+  .inc { position:absolute; top:0; bottom:0; width:0;
+          border-left:2px dashed #c62828; }
   .ctoggle { display:flex; gap:6px; margin-top:8px;
           margin-bottom:6px;
           justify-content:center; }
@@ -297,10 +304,11 @@
         <b>{{ i.range }}</b>
         {%- for n in i.notes %}<span>{{ n }}</span>{% endfor %}
         {%- if i.groups %}
-        <details class="itit"><summary>Ver titulares
+        <details class="itit"><summary
+          style="color:{{ i.accent }}">Ver titulares
           ({{ i.n_press }}) ▾</summary>
           {%- for g in i.groups %}
-          <div class="igroup">{{ g.label }}</div>
+          <div class="igroup" style="color:{{ i.accent }}">{{ g.label }}</div>
           {%- for t in g.headlines %}
           <a class="ititle" href="{{ t.url }}" target="_blank"
             rel="noopener">{{ t.title }}
@@ -427,14 +435,19 @@
         <button id="tb-enterococci" class="tbtn" onclick="setChart('enterococci')">Enterococo</button>
       </div>
       {%- for p in chart.panels %}
-      <div id="chart-{{ p.param }}" class="chartarea{% if p.hidden %} hidden{% endif %}">
-        <div class="lim" style="bottom:{{ p.lim_y }}px"></div>
-        {%- for m in chart.inc_marks %}<div class="inc" style="left:{{ m }}%"></div>{% endfor %}
-        {%- for b in p.bars %}<div class="bar" style="height:{{ b.h }}px;background:{{ b.color }}"
-          title="{{ b.title }}"></div>{% endfor %}
-      </div>
-      <div id="yrs-{{ p.param }}" class="yrow{% if p.hidden %} hidden{% endif %}">
-        {%- for c in p.ycells %}<div class="yrcell">{{ c }}</div>{% endfor %}
+      <div id="chart-{{ p.param }}" class="chartscroll{% if p.hidden %} hidden{% endif %}">
+        <div class="chartcols">
+          <div class="chartarea">
+            <div class="lim" style="bottom:{{ p.lim_y }}px"></div>
+            {%- for m in chart.inc_marks %}<div class="inc"
+              style="left:{{ m.pos }}%;border-color:{{ m.color }}"></div>{% endfor %}
+            {%- for b in p.bars %}<div class="bar" style="height:{{ b.h }}px;background:{{ b.color }}"
+              title="{{ b.title }}"></div>{% endfor %}
+          </div>
+          <div class="yrow">
+            {%- for c in p.ycells %}<div class="yrcell">{{ c }}</div>{% endfor %}
+          </div>
+        </div>
       </div>
       {%- endfor %}
       <div class="radius">
@@ -442,7 +455,8 @@
         <span id="foot-{{ p.param }}"{% if p.hidden %} class="hidden"{% endif %}>
           {{- p.n }} muestreos · cada barra = un análisis oficial
           · línea azul = límite normativo ({{ p.good }} UFC/100 mL)
-          · línea roja = cierre/aviso</span>
+          · roja discontinua = cierre · amarilla discontinua =
+          aviso</span>
         {%- endfor %}
       </div>
       {%- endif %}
@@ -529,14 +543,13 @@ document.getElementById('shrbtn').onclick = async function () {
   }
 };
 function setChart(p) {
-  document.getElementById('chart-ecoli').className =
-    'chartarea' + (p === 'ecoli' ? '' : ' hidden');
-  document.getElementById('chart-enterococci').className =
-    'chartarea' + (p === 'enterococci' ? '' : ' hidden');
-  document.getElementById('yrs-ecoli').className =
-    'yrow' + (p === 'ecoli' ? '' : ' hidden');
-  document.getElementById('yrs-enterococci').className =
-    'yrow' + (p === 'enterococci' ? '' : ' hidden');
+  var el;
+  el = document.getElementById('chart-ecoli');
+  el.className = 'chartscroll' + (p === 'ecoli' ? '' : ' hidden');
+  el = document.getElementById('chart-enterococci');
+  el.className = 'chartscroll' + (p === 'enterococci' ? '' : ' hidden');
+  el = document.getElementById('chart-' + p);
+  el.scrollLeft = el.scrollWidth;
   document.getElementById('tb-ecoli').className =
     'tbtn' + (p === 'ecoli' ? ' ton' : '');
   document.getElementById('tb-enterococci').className =
@@ -559,5 +572,7 @@ function zoom(d) {
   document.getElementById('zout').disabled = z === urls.length - 1;
 }
 zoom(0);
+var cs = document.getElementById('chart-ecoli');
+if (cs) { cs.scrollLeft = cs.scrollWidth; }
 </script>
 </html>

@@ -32,18 +32,30 @@ const CAUSE_LABEL_RULES: [RegExp, string][] = [
   [/gasoil|hidrocarbur|diesel|fuel/i, 'Hidrocarburos'],
   [/alga/i, 'Algas'],
   [/\bobras?\b/i, 'Obras'],
+  [/coli|escherichia/i, 'E. coli'],
+  [/enterococo|enterococcus/i, 'Enterococos'],
+  [/fecal|residual|bacteria|depuradora/i, 'Contaminación fecal'],
+  [/contamin|vertido|calidad del agua/i, 'Contaminación'],
 ];
 
+const WATER_PARAMS = new Set(['E. coli', 'Enterococos']);
+
 // Causas de una fila del historial: se agregan las de todos los
-// titulares del episodio (Valleseco: hidrocarburos + algas).
+// titulares del episodio (Valleseco: hidrocarburos + algas), con la
+// jerarquía del backend — si se nombra el parámetro las genéricas no
+// aportan ("Contaminación fecal · Enterococos · Contaminación ·
+// E. coli" decía lo mismo cuatro veces).
 // Sin causa categorizada devuelve [] — quien pinta decide el
 // fallback ("Contaminación" salvo "Sin calificar", que no tiene causa)
 export function incidentCauses(inc: BeachIncident): string[] {
-  const out: string[] = [];
+  let out: string[] = [];
   for (const p of inc.press_items ?? []) {
     const hit = CAUSE_LABEL_RULES.find(([re]) => re.test(p.cause ?? ''));
     if (hit && !out.includes(hit[1])) out.push(hit[1]);
   }
+  if (out.some((c) => WATER_PARAMS.has(c)))
+    out = out.filter((c) => c !== 'Contaminación fecal');
+  if (out.length > 1) out = out.filter((c) => c !== 'Contaminación');
   return out.slice(0, 3);
 }
 

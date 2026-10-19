@@ -96,17 +96,25 @@ export default function IncidentHistory({
             </Text>
           ) : null}
           {inc.observations ? (
-            <Text style={styles.incidentObs}>
-              {unclassified
-                ? 'Muestra tomada pero nunca clasificada por Sanidad'
-                : // Corte limpio en pantalla estrecha: la segunda
-                  // línea abre en "oficial" y deja respirar al
-                  // badge de la derecha
-                  inc.observations.replace(
-                    ' oficial en Náyade',
-                    '\noficial en Náyade',
-                  )}
-            </Text>
+            unclassified ? (
+              <Text style={styles.incidentObs}>
+                Muestra tomada pero nunca clasificada por Sanidad
+              </Text>
+            ) : (
+              // Una cláusula por línea (como la ficha web): la
+              // observación viene en fragmentos unidos por "·" y
+              // en bloque quedaba apretada; además el corte limpio
+              // en "oficial" deja respirar al badge de la derecha
+              inc.observations
+                .split('·')
+                .map((c) => c.trim())
+                .filter(Boolean)
+                .map((c, i) => (
+                  <Text key={i} style={styles.incidentObs}>
+                    {c.replace(' oficial en Náyade', '\noficial en Náyade')}
+                  </Text>
+                ))
+            )
           ) : null}
           {/* Evidencia del episodio: titulares que lo
               sustentan (prensa) o lo corroboraron (oficial) */}
@@ -123,7 +131,7 @@ export default function IncidentHistory({
                     : `Ver ${inc.press_items!.length} titulares del episodio`
                 }
               >
-                <Text style={styles.newsToggle}>
+                <Text style={[styles.newsToggle, { color: accent }]}>
                   {openIncs.has(inc.id)
                     ? 'Ocultar titulares ▴'
                     : `Ver titulares (${inc.press_items!.length}) ▾`}
@@ -131,9 +139,14 @@ export default function IncidentHistory({
               </Pressable>
               {/* Agrupados por fase del episodio: las
                   noticias de cierre y las de reapertura son
-                  evidencias distintas del mismo suceso */}
+                  evidencias distintas del mismo suceso. Teñidas con
+                  el acento de la fila (Medusas → añil), igual que
+                  la ficha web */}
               {openIncs.has(inc.id) && (
-                <NewsGroupList groups={groupNewsItems(inc.press_items!)} />
+                <NewsGroupList
+                  groups={groupNewsItems(inc.press_items!)}
+                  accentOverride={accent}
+                />
               )}
             </>
           )}
@@ -401,7 +414,6 @@ const styles = StyleSheet.create({
   newsToggle: {
     fontSize: 12,
     fontFamily: fonts.semibold,
-    color: colors.status.warning,
     marginBottom: 4,
   },
 });

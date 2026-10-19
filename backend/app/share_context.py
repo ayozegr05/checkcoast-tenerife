@@ -33,6 +33,7 @@ from app.news_episodes import _news_cause
 from app.news_matching import _norm_muni
 from app.news_zones import _ZONE_GROUPS, _zone_entry
 from app.queries import (
+    _CAUSE_RANK,
     _short_cause,
     beaches_with_latest_status,
     effective_states,
@@ -710,6 +711,17 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             cat = _short_cause(p.cause)
             if cat and cat not in causes:
                 causes.append(cat)
+        # Jerarquía (_CAUSE_RANK): si el episodio nombra el parámetro
+        # (E. coli/enterococos) las categorías genéricas no aportan —
+        # "Contaminación fecal · Enterococos · Contaminación · E. coli"
+        # (Punta Brava) decía lo mismo 4 veces. "Contaminación" a secas
+        # solo sobrevive cuando no hay nada más específico
+        if set(causes) & {"E. coli", "Enterococos"}:
+            causes = [c for c in causes if c != "Contaminación fecal"]
+        if len(causes) > 1:
+            causes = [c for c in causes if c != "Contaminación"]
+        causes.sort(key=lambda c: _CAUSE_RANK.get(c, 9))
+        causes = causes[:3]
         state_label = (
             "Sin calificar" if uncl else "Cerrada" if closure else "Aviso"
         )
@@ -752,11 +764,17 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
                 f"Ocurrió en la {_sibling_zone_ref(beach, i.attributed_pm)}"
             )
         if i.observations:
-            notes.append(
-                "Muestra tomada pero nunca clasificada por Sanidad"
-                if uncl
-                else i.observations
-            )
+            if uncl:
+                notes.append(
+                    "Muestra tomada pero nunca clasificada por Sanidad"
+                )
+            else:
+                # Una cláusula por línea: la fila respira y ninguna
+                # invade la zona del badge (la observación ya viene
+                # redactada como fragmentos unidos por "·")
+                notes += [
+                    c.strip() for c in i.observations.split("·") if c.strip()
+                ]
         return {
             "range": rng,
             "state_label": state_label,
@@ -767,6 +785,7 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             "notes": notes,
             "n_press": len(i.press_items),
             "groups": _press_groups(i.press_items),
+            "opened": i.opened_at,
         }
 
     own = [i for i in rows if not i.attributed_pm]
@@ -1056,6 +1075,11 @@ def beach_context(
         for o in outfalls
     ]
 
+    # Oficiales + episodios reconstruidos (prensa/analítica) — mismo
+    # merge que /beaches/{id}/incidents; la versión anterior solo
+    # leía beach_incidents y Punta Larga salía sin historial
+    incident_ctxs = _incident_ctxs(beach, db)
+
     # Gráfica de evolución (barras log-escala como la app): dos series
     # pre-renderizadas, el toggle solo cambia visibilidad
     chart = None
@@ -1067,16 +1091,30 @@ def beach_context(
             if (v := _num(getattr(m, param))) is not None
         ]
     if any(len(pts) >= 2 for pts in series.values()):
-        # Marcas rojas verticales en las fechas de incidente,
-        # interpoladas sobre el rango de fechas de las muestras
+        # Marcas verticales en las fechas de incidente, interpoladas
+        # sobre el rango de fechas de las muestras. Misma matriz que el
+        # historial (oficial + prensa + reconstruidos), todas
+        # discontinuas: un solo canal — color = tipo (rojo cierre,
+        # amarillo aviso). La procedencia ya la cuenta el historial.
+        # "Sin calificar" no marca
         all_dates = [d for pts in series.values() for d, _ in pts]
         d0, d1 = min(all_dates), max(all_dates)
         span = max((d1 - d0).days, 1)
+        inc_rows = [
+            i
+            for y in (incident_ctxs or {}).get("years", [])
+            for i in y["rows"]
+        ]
         inc_marks = [
-            f"{pos:.1f}"
-            for i in incidents
-            for pos in [((i.opened_at - d0).days / span) * 100]
-            if 0 <= pos <= 100
+            {
+                "pos": f"{pos:.1f}",
+                "color": (
+                    "#c62828" if i["state_label"] == "Cerrada" else "#f9a825"
+                ),
+            }
+            for i in inc_rows
+            for pos in [((i["opened"] - d0).days / span) * 100]
+            if i["state_label"] != "Sin calificar" and 0 <= pos <= 100
         ]
         panels = []
         for param in ("ecoli", "enterococci"):
@@ -1107,11 +1145,6 @@ def beach_context(
                 }
             )
         chart = {"inc_marks": inc_marks, "panels": panels}
-
-    # Oficiales + episodios reconstruidos (prensa/analítica) — mismo
-    # merge que /beaches/{id}/incidents; la versión anterior solo
-    # leía beach_incidents y Punta Larga salía sin historial
-    incident_ctxs = _incident_ctxs(beach, db)
 
     # Banner "según prensa" como en la app: evento dominante + causa +
     # desde + nº medios; debajo hasta 3 titulares enlazables — venden el
