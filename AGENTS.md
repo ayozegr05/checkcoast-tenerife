@@ -640,3 +640,21 @@ futura — humana o de agente:
   compose up -d api` (o `docker cp` de archivos sueltos al contenedor
   `checkcoast-api` + restart para cambios sin rebuild; la web vive en
   `checkcoast.duckdns.org` detrás de `checkcoast-caddy`)
+
+## Punto de restauración Hito 11 (2026-10-20)
+
+Tag **`pre-hito-11`** → `2b3edb8`: estado commiteado justo antes del
+trabajo de la ficha de emisario enriquecida (ingesta de noticias de
+infraestructura de vertido + `/outfalls/{id}/news`).
+
+Para volver exactamente a ese punto:
+
+```bash
+git reset --hard pre-hito-11   # borra los commits del hito 11
+# o solo inspeccionar:  git checkout pre-hito-11
+```
+
+OJO: el tag cubre el árbol COMMITEADO. Los cambios locales sin
+commitear de esa fecha (renombrado a "Episodios", iconos de
+episodios/timeline, retoques de ficha) NO están en el tag — commitear
+o stashear antes de resetear si se quiere conservarlos.

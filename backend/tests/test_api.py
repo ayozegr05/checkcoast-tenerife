@@ -182,6 +182,88 @@ def test_beach_news_not_found():
     assert r.status_code == 404
 
 
+def test_outfall_news(seed_data):
+    """Hito 11.2: named = titular que nombra el punto (instalación +
+    topónimo); zone = infra de playas <2 km sin punto nombrado; cierres
+    de playa sin léxico de infra no entran; puntos no residuales no
+    llevan sección."""
+    from geoalchemy2.elements import WKTElement
+
+    from app.db import SessionLocal
+    from app.models import NewsItem, Outfall, OutfallStatus
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    # El outfall semilla (nature=None) no es residual → sin sección
+    r = client.get(f"/outfalls/{seed_data['outfall_id']}/news")
+    assert r.status_code == 200
+    assert r.json() == {"named": [], "zone": []}
+
+    o = Outfall(
+        external_id="ci-seed-resid",
+        name="Emisario Submarino de Punta Test",
+        municipality="Santa Cruz de Tenerife",
+        status=OutfallStatus.legal,
+        nature="Agua residual urbana",
+        location="Punta Test",
+        geom=WKTElement("POINT(-16.25 28.46)", srid=4326),
+    )
+    db.add(o)
+    db.flush()
+    named = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-infra-named",
+        title="Rotura del emisario de Punta Test",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="infra",
+        cause="rotura del emisario",
+    )
+    zone = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-infra-zone",
+        title="Vertido de aguas residuales en la costa",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        cause="vertido de aguas residuales",
+    )
+    noise = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-infra-noise",
+        title="Cierran la playa por contaminación fecal",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        cause="contaminación fecal",
+    )
+    db.add_all([named, zone, noise])
+    db.commit()
+    try:
+        r = client.get(f"/outfalls/{o.id}/news")
+        assert r.status_code == 200
+        body = r.json()
+        named_titles = [n["title"] for n in body["named"]]
+        zone_titles = [n["title"] for n in body["zone"]]
+        assert named.title in named_titles
+        assert zone.title in zone_titles
+        assert noise.title not in named_titles + zone_titles
+        item = next(n for n in body["named"] if n["title"] == named.title)
+        assert item["beach_name"] == "PLAYA TEST CI (LA) PM1"
+        assert item["event_type"] == "infra"
+    finally:
+        for it in (named, zone, noise):
+            db.delete(it)
+        db.delete(o)
+        db.commit()
+        db.close()
+
+
+def test_outfall_news_not_found():
+    r = client.get("/outfalls/999999/news")
+    assert r.status_code == 404
+
+
 def test_press_closure_enters_alerts(seed_data):
     """Una playa sin alerta oficial pero cerrada según prensa (último
     evento que cambia estado = closure) entra en /alerts con via='press'."""

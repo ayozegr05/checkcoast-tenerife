@@ -8,9 +8,31 @@ from app.news_infra import (
     INFRA_RE,
     PROMPT_INFRA,
     extract_infra_event,
+    norm_txt,
+    outfall_keys,
+    outfall_named_patterns,
 )
 from app.news_llm import GeminiExtractor
 from app.news_sources import _MUNI_BEACHY_RE, RawArticle
+
+
+class _FakeOutfall:
+    """ORM duck-typed: solo los campos que lee outfall_keys."""
+
+    def __init__(
+        self,
+        id: int,
+        name: str,
+        municipality: str | None = None,
+        location: str | None = None,
+        origin: str | None = None,
+    ):
+        self.id = id
+        self.name = name
+        self.municipality = municipality
+        self.location = location
+        self.origin = origin
+
 
 ARTICLE = RawArticle(
     title="Las obras en el emisario de Puerto de la Cruz se retrasan "
@@ -115,3 +137,91 @@ def test_muni_prefilter_accepts_infra_titles():
         "El aliviadero de Bajamar rebosa",
     ):
         assert _MUNI_BEACHY_RE.search(title), title
+
+
+# --- Atribución por topónimo (qué es "de este punto") ---
+
+
+def test_outfall_keys_extract_toponyms():
+    o = _FakeOutfall(
+        62,
+        "Emisario Submarino de Punta Brava - EDAR Valle de La Orotava",
+        municipality="Puerto de la Cruz",
+        location="Punta Brava",
+        origin="EDAR Comarcal del Valle de la Orotava",
+    )
+    keys = outfall_keys(o)
+    assert "punta brava" in keys
+    assert "valle de la orotava" in keys
+    # el municipio nunca es clave de atribución
+    assert "puerto de la cruz" not in keys
+
+
+def test_outfall_keys_ignore_census_jargon():
+    o = _FakeOutfall(
+        129,
+        "Aliviadero EBAR Playa Jardín",
+        municipality="Puerto de la Cruz",
+        location="Playa Jardín",
+        origin="EBAR Playa Jardín",
+    )
+    assert "playa jardin" in outfall_keys(o)
+
+
+def test_named_patterns_attribute_unique_toponym():
+    brava = _FakeOutfall(
+        62,
+        "Emisario Submarino de Punta Brava",
+        municipality="Puerto de la Cruz",
+        location="Punta Brava",
+    )
+    jardin = _FakeOutfall(
+        129,
+        "Aliviadero EBAR Playa Jardín",
+        municipality="Puerto de la Cruz",
+        location="Playa Jardín",
+        origin="EBAR Playa Jardín",
+    )
+    text = norm_txt(
+        "Las aguas fecales en la zona del emisario de Punta Brava "
+        "multiplican por 48 los valores legales"
+    )
+    # en la ficha del emisario: named
+    own, other = outfall_named_patterns(62, [brava, jardin])
+    assert any(p.search(text) for p in own)
+    assert not any(p.search(text) for p in other)
+    # en la ficha del aliviadero vecino: nombra otro punto → oculta
+    own, other = outfall_named_patterns(129, [brava, jardin])
+    assert not any(p.search(text) for p in own)
+    assert any(p.search(text) for p in other)
+
+
+def test_beach_named_toponym_needs_facility_word():
+    """'Playa Jardín cierra por vertido' nombra la PLAYA, no el
+    aliviadero homónimo: sin palabra de instalación no hay named."""
+    jardin = _FakeOutfall(
+        129,
+        "Aliviadero EBAR Playa Jardín",
+        municipality="Puerto de la Cruz",
+        location="Playa Jardín",
+        origin="EBAR Playa Jardín",
+    )
+    own, _ = outfall_named_patterns(129, [jardin])
+    assert not any(
+        p.search(norm_txt("Cierran Playa Jardín por un vertido")) for p in own
+    )
+    assert any(
+        p.search(norm_txt("Rotura del aliviadero de Playa Jardín"))
+        for p in own
+    )
+
+
+def test_shared_toponym_never_attributes():
+    """'Bajamar' lo comparten varios puntos del censo: la noticia no
+    distingue y no se atribuye a ninguno (mejor zona que inventar)."""
+    a = _FakeOutfall(1, "Aliviadero EBAR Norte", location="Bajamar")
+    b = _FakeOutfall(2, "Emisario de emergencia", location="Bajamar")
+    text = norm_txt("El aliviadero de Bajamar vierte al mar")
+    own, other = outfall_named_patterns(1, [a, b])
+    assert not any(p.search(text) for p in own)
+    assert not any(p.search(text) for p in other)

@@ -153,6 +153,23 @@ class OutfallNearbyBeachOut(BaseModel):
     distance_m: float
 
 
+class OutfallNewsItemOut(NewsItemOut):
+    """Noticia servida en la ficha de un emisario: igual que
+    NewsItemOut más el nombre de la playa a la que está casada — la
+    noticia es DE la playa cercana, el emisario es solo contexto."""
+
+    beach_name: str | None = None
+
+
+class OutfallNewsOut(BaseModel):
+    # Titulares que nombran ESTE punto concreto: palabra de
+    # instalación + topónimo propio ("emisario de Punta Brava")
+    named: list[OutfallNewsItemOut] = []
+    # Infraestructura de la zona sin punto concreto nombrado:
+    # contexto de prensa, nunca implica causalidad
+    zone: list[OutfallNewsItemOut] = []
+
+
 class BeachNearbyOutfallOut(BaseModel):
     outfall_id: int
     name: str
