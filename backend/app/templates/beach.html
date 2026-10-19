@@ -132,7 +132,8 @@
   .row b { color:#0d3a52; font-weight:600; text-align:right; }
   .sec { margin-top:16px; font-size:13px; font-weight:700;
           color:#0d3a52; }
-  .secico { margin-right:5px; }
+  .secico { width:17px; height:17px; vertical-align:-3px;
+          margin-right:5px; }
   .sechart { display:flex; align-items:center; }
   .sechart .ctoggle { margin:0 0 0 auto; }
   .qrow { display:flex; align-items:center; gap:10px;
@@ -288,7 +289,7 @@
           src="/icons/icon-share-outline.png" alt="">Compartir</button></div>
       {%- if notice %}{{ banner(notice) }}{% endif %}
       {%- if quality %}
-      <div class="sec"><span class="secico">🧪</span>Calidad del agua
+      <div class="sec"><img class="secico" src="/icons/icon-flask.png" alt="">Calidad del agua
         <span class="secsub">· {{ quality.date }}</span></div>
       {%- for p in quality.params %}
       <div class="qrow"><div class="qlab">{{ p.label }}</div>
@@ -319,7 +320,7 @@
       {%- endif %}
       {%- if press %}{{ banner(press) }}{% endif %}
       {%- if chart %}
-      <div class="sec sechart"><span class="secico">📊</span>Evolución
+      <div class="sec sechart"><img class="secico" src="/icons/icon-stats.png" alt="">Evolución
         <div class="ctoggle">
         <button id="tb-ecoli" class="tbtn ton" onclick="setChart('ecoli')">E. coli</button>
         <button id="tb-enterococci" class="tbtn" onclick="setChart('enterococci')">Enterococo</button>
