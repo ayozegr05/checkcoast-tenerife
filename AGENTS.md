@@ -555,6 +555,24 @@ futura — humana o de agente:
   `prettier --check .` + `tsc --noEmit` + `expo lint` + `jest`.
   Lint ≠ formato: son steps distintos en CI. Y tras un push que toque
   `.github/` espera al run (`gh run watch`) antes de darlo por bueno
+- **Modulos nativos nuevos -> import perezoso CON gate nativo**
+  (leccion 19-oct, e2e rojo 2 veces): `expo-location` crasheaba la
+  app en el APK `dev-client-e2e` de CI (y en dev-clients viejos del
+  movil) - `import()` lazy no basta porque `requireNativeModule` de
+  su index.js lanza EN LA EVALUACION y RN pinta RedBox aunque se
+  capture la promesa. Patron: `requireOptionalNativeModule` de
+  `expo-modules-core` devuelve null sin lanzar -> si el binario no
+  tiene el modulo, ni se importa el JS ni se pinta la UI. Misma
+  regla que appCheck. Alternativa: regenerar el APK del e2e
+  (`eas build --profile development` + subir a release
+  `dev-client-e2e`) cuando cambien deps nativas
+- **uvicorn --reload en Windows deja sockets zombi**: al matar el
+  padre, el hijo `spawn_main` conserva el puerto -> netstat lista
+  PIDs muertos LISTENING y las requests se reparten entre codigo
+  viejo y nuevo ("veia cambios a medias"). Localizar el worker real:
+  `Get-CimInstance Win32_Process` filtrando por `spawn_main` en la
+  CommandLine y matar al hijo. Para previews largos, uvicorn SIN
+  --reload (Jinja recarga plantillas solo; reinicio manual para .py)
 - **Deps flojas divergen local↔CI**: CI instala la última del rango
   (`sqlalchemy>=X,<Y` → CI traía 2.1.5, local 2.0.54 → mypy veía
   errores que local no). Tras actualizar rangos en requirements,
