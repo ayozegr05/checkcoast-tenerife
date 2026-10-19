@@ -28,6 +28,7 @@ from app.models import (
     Outfall,
 )
 from app.names import PM_SUFFIX
+from app.news_zones import _zone_entry
 from app.queries import beaches_with_latest_status, effective_states
 
 _MONTHS = [
@@ -43,6 +44,21 @@ _MONTHS = [
     "oct",
     "nov",
     "dic",
+]
+
+_MONTHS_FULL = [
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre",
 ]
 
 # Encuadres satélite de más cerca a más lejos (dlon, dlat en grados)
@@ -169,10 +185,86 @@ def _num(raw: str | None) -> float | None:
     return float(m.group(0)) if m else None
 
 
+def _sample_note(measurements: list) -> dict | None:
+    """Port de lib/quality.ts:samplingNote — huecos >45 d entre
+    muestras consecutivas (o desde la última hasta hoy). Si el hueco
+    cubre meses que sí se muestrean en la serie → anomalía; si solo
+    cubre el parón anual → se declara el calendario real de Sanidad."""
+    dates = sorted(m.sampled_at for m in measurements if m.sampled_at)
+    if len(dates) < 2:
+        return None
+    today = datetime.now(UTC).date()
+    months = {d.month for d in dates}
+    gaps = [
+        (dates[i - 1], dates[i], False)
+        for i in range(1, len(dates))
+        if (dates[i] - dates[i - 1]).days > 45
+    ]
+    if (today - dates[-1]).days > 45:
+        gaps.append((dates[-1], today, True))
+    if not gaps:
+        return None
+
+    def interior(a, b):
+        out = []
+        y, m = a.year, a.month + 1
+        if m > 12:
+            m, y = 1, y + 1
+        while (y, m) < (b.year, b.month):
+            out.append(m)
+            m += 1
+            if m > 12:
+                m, y = 1, y + 1
+        return out
+
+    anom = [g for g in gaps if any(x in months for x in interior(g[0], g[1]))]
+    if anom:
+        parts = [
+            f"desde {_MONTHS[a.month - 1]} {a.year}"
+            if op
+            else f"entre {_MONTHS[a.month - 1]} {a.year} y "
+            f"{_MONTHS[b.month - 1]} {b.year}"
+            for a, b, op in anom
+        ]
+        return {
+            "text": f"Anomalía: sin muestras {' · '.join(parts)}",
+            "warn": True,
+        }
+    a, b, _ = max(gaps, key=lambda g: (g[1] - g[0]).days)
+    return {
+        "text": f"Sanidad deja de muestrearla cada año entre "
+        f"{_MONTHS_FULL[a.month - 1]} y {_MONTHS_FULL[b.month - 1]}",
+        "warn": False,
+    }
+
+
 def _bar_h(v: float) -> int:
     return max(
         3, round(_CHART_H * math.log10(max(v, 1)) / math.log10(_LOG_CAP))
     )
+
+
+_PM_TAG = re.compile(r"\s+PM(\d+)\s*$", re.I)
+
+
+def _zone_suffix(db: Session, beach: Beach) -> str:
+    """' · Punta Brava' (cala curada) o ' · Zona 3' — solo para PMs de
+    complejos multipunto, igual que la cabecera de la ficha de la app.
+    Un PM sin hermanos no enseña sufijo."""
+    m = _PM_TAG.search(beach.name)
+    if not m:
+        return ""
+    ze = _zone_entry(beach)
+    if ze and ze.get("name"):
+        return f" · {ze['name']}"
+    base = PM_SUFFIX.sub("", beach.name).strip()
+    n = (
+        db.query(func.count(Beach.id))
+        .filter(Beach.name.like(f"{base}%"))
+        .scalar()
+        or 0
+    )
+    return f" · Zona {m.group(1)}" if n > 1 else ""
 
 
 def _qcolor(param: str, v: float) -> str:
@@ -303,7 +395,9 @@ _CAUSE_ART = {
 }
 
 
-def _alert_cards(entries: list[tuple], now: datetime) -> list[dict]:
+def _alert_cards(
+    entries: list[tuple], now: datetime, db: Session
+) -> list[dict]:
     """Filas de alerta viva enlazables a su /b/{id} — la misma regla
     que /alerts, compartida por el panel lateral de /b/ y la portada.
     `entries` = salida de _alert_entries (Beach, fila de la matriz)."""
@@ -348,7 +442,7 @@ def _alert_cards(entries: list[tuple], now: datetime) -> list[dict]:
                     if fauna and e["status"] == "closed"
                     else _STATUS.get(dstate, _STATUS["unknown"])[1]
                 ),
-                "name": _display_name(beach.name),
+                "name": _display_name(beach.name) + _zone_suffix(db, beach),
                 # Arte de causa como en el banner de la app
                 "art": art,
                 "cause": e["cause"],
@@ -570,7 +664,7 @@ def beach_context(
         .all()
     )
 
-    name = _display_name(beach.name)
+    name = _display_name(beach.name) + _zone_suffix(db, beach)
     muni = beach.municipality or "Tenerife"
     # Cabecera teñida por estado efectivo, como la ficha de la app —
     # el cierre estructural va en granate, no en el rojo del vertido
@@ -594,12 +688,39 @@ def beach_context(
     start = len(_SHOT_LEVELS) - 1
     dots_levels = [_dots(outfalls, lon, lat, *d) for d in _SHOT_LEVELS]
 
-    latest_line = None
+    # Tarjeta "Calidad del agua" como la app: valor + % del límite
+    # normativo por parámetro + nota del calendario de muestreo
+    quality = None
     if latest:
-        ev = latest.evaluation or "sin evaluación"
-        latest_line = (
-            f"Último análisis: {latest.sampled_at.strftime('%d/%m/%Y')} · {ev}"
-        )
+        params = []
+        for param in ("ecoli", "enterococci"):
+            raw = getattr(latest, param)
+            v = _num(raw)
+            if v is None:
+                continue
+            t = _QUALITY[param]
+            params.append(
+                {
+                    "label": t["label"],
+                    "value": (raw or "").strip(),
+                    "cls": (
+                        "Excelente"
+                        if v <= float(t["excellent"])
+                        else "Buena"
+                        if v <= float(t["good"])
+                        else "Insuficiente"
+                    ),
+                    "color": _qcolor(param, v),
+                    "pct": round(v / float(t["good"]) * 100),
+                    "pctw": min(round(v / float(t["good"]) * 100), 100),
+                }
+            )
+        if params:
+            quality = {
+                "date": latest.sampled_at.strftime("%d/%m/%Y"),
+                "params": params,
+                "note": _sample_note(measurements),
+            }
 
     # Distancia como cifra destacada (como en la ficha de la app);
     # <500 m va en naranja de aviso — es el dato que impacta
@@ -821,7 +942,7 @@ def beach_context(
     # calculada — antes eran dos barridos extra de effective_states
     status_counts = _live_status_counts(effs)
     total_beaches = db.query(func.count(Beach.id)).scalar()
-    salerts = _alert_cards(_alert_entries(db, effs)[:4], datetime.now(UTC))
+    salerts = _alert_cards(_alert_entries(db, effs)[:4], datetime.now(UTC), db)
 
     return {
         "title": title,
@@ -850,7 +971,7 @@ def beach_context(
         "color": color,
         "chip_art": chip_art,
         "notice": notice,
-        "latest_line": latest_line,
+        "quality": quality,
         "outfalls": outfall_ctxs,
         "press": press,
         "chart": chart,
@@ -1467,7 +1588,7 @@ def outfall_context(
 
     status_counts = _live_status_counts(effs)
     total_beaches = db.query(func.count(Beach.id)).scalar()
-    salerts = _alert_cards(_alert_entries(db, effs)[:4], datetime.now(UTC))
+    salerts = _alert_cards(_alert_entries(db, effs)[:4], datetime.now(UTC), db)
 
     return {
         "title": f"{name} · {muni}",
@@ -1662,7 +1783,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
     now = datetime.now(UTC)
     if demo:
         island_alerts = _demo_alerts(all_beaches, now)
-    alerts = _alert_cards(island_alerts, now)
+    alerts = _alert_cards(island_alerts, now, db)
     # Agrupadas por sección — mismo patrón que el banner de la app
     alert_groups = [
         {

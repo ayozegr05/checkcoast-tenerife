@@ -132,6 +132,23 @@
   .row b { color:#0d3a52; font-weight:600; text-align:right; }
   .sec { margin-top:16px; font-size:13px; font-weight:700;
           color:#0d3a52; }
+  .secico { margin-right:5px; }
+  .sechart { display:flex; align-items:center; }
+  .sechart .ctoggle { margin:0 0 0 auto; }
+  .qrow { display:flex; align-items:center; gap:10px;
+          padding:7px 0; }
+  .qrow + .qrow { border-top:1px solid #eef4f7; }
+  .qlab { width:82px; flex-shrink:0; font-size:12px;
+          font-weight:600; color:#5a7684; }
+  .qright { flex:1; }
+  .qval { font-size:13px; font-weight:700; color:#0d3a52; }
+  .qbar { height:5px; background:#e3edf1; border-radius:3px;
+          margin:4px 0 3px; overflow:hidden; }
+  .qfill { height:100%; border-radius:3px; }
+  .qcls { font-size:11px; font-weight:600; }
+  .qnote { margin-top:6px; font-size:11px; color:#8a9aa3;
+          font-style:italic; }
+  .qnote.qwarn { color:#e65100; font-style:normal; }
   .ofrow { margin-top:8px; padding:8px 12px; border-left:3px solid;
           background:#f4f9fb; border-radius:0 8px 8px 0;
           display:flex; justify-content:space-between;
@@ -270,8 +287,22 @@
         <button class="shr" id="shrbtn" type="button"><img
           src="/icons/icon-share-outline.png" alt="">Compartir</button></div>
       {%- if notice %}{{ banner(notice) }}{% endif %}
-      {%- if latest_line %}
-      <div class="row"><b>{{ latest_line }}</b></div>
+      {%- if quality %}
+      <div class="sec"><span class="secico">🧪</span>Calidad del agua
+        <span class="secsub">· {{ quality.date }}</span></div>
+      {%- for p in quality.params %}
+      <div class="qrow"><div class="qlab">{{ p.label }}</div>
+        <div class="qright"><div class="qval">{{ p.value }}</div>
+        <div class="qbar"><div class="qfill"
+          style="width:{{ p.pctw }}%;background:{{ p.color }}"></div>
+        </div>
+        <div class="qcls" style="color:{{ p.color }}">{{ p.cls }} ·
+          {{ p.pct }}% del límite</div></div></div>
+      {%- endfor %}
+      {%- if quality.note %}
+      <div class="qnote{% if quality.note.warn %} qwarn{% endif %}">
+        {{- quality.note.text }}</div>
+      {%- endif %}
       {%- endif %}
       {%- if outfalls %}
       <div class="sec">Emisarios cercanos
@@ -288,11 +319,11 @@
       {%- endif %}
       {%- if press %}{{ banner(press) }}{% endif %}
       {%- if chart %}
-      <div class="sec">Evolución del agua</div>
-      <div class="ctoggle">
+      <div class="sec sechart"><span class="secico">📊</span>Evolución
+        <div class="ctoggle">
         <button id="tb-ecoli" class="tbtn ton" onclick="setChart('ecoli')">E. coli</button>
         <button id="tb-enterococci" class="tbtn" onclick="setChart('enterococci')">Enterococo</button>
-      </div>
+        </div></div>
       {%- for p in chart.panels %}
       <div id="chart-{{ p.param }}" class="chartarea{% if p.hidden %} hidden{% endif %}">
         <div class="lim" style="bottom:{{ p.lim_y }}px"></div>
