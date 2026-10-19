@@ -8,7 +8,9 @@ import type { BeachIncident } from './api';
 export const isClosure = (inc: BeachIncident) =>
   inc.via === 'press' ||
   inc.via === 'measurement' ||
-  /prohib/i.test(inc.observations ?? '') ||
+  // í incluida: el backend normaliza la observación a
+  // "Sanidad prohíbe el baño" — con tilde no casa /prohib/
+  /proh[ií]b/i.test(inc.observations ?? '') ||
   (inc.press_items ?? []).some(
     (p) => p.event_type === 'closure' || p.event_type === 'reopening',
   );
@@ -20,9 +22,12 @@ export const isClosure = (inc: BeachIncident) =>
 export const isUnclassified = (inc: BeachIncident) =>
   /sin\s*calificar/i.test(inc.observations ?? '');
 
-// Episodios (cierres / avisos) con apertura a partir de `cutoff`
-// (ms epoch). Los atribuidos a un punto hermano no cuentan — son
-// episodios de otra zona del arenal, no de este punto
+// Episodios (cierres / avisos / agua no apta) con apertura a partir
+// de `cutoff` (ms epoch). Los atribuidos a un punto hermano no
+// cuentan — son episodios de otra zona del arenal, no de este punto.
+// `lab` = episodios reconstruidos por analítica: el agua salió no
+// apta pero Sanidad no registró incidencia — NO son cierres y el
+// contador no debe afirmarlo
 export const countSince = (
   incidents: BeachIncident[],
   cutoff: number,
@@ -35,8 +40,10 @@ export const countSince = (
       Date.parse(i.opened_at) >= cutoff,
   );
   return {
-    closures: inWindow.filter(isClosure).length,
+    closures: inWindow.filter((i) => isClosure(i) && i.via !== 'measurement')
+      .length,
     warnings: inWindow.filter((i) => !isClosure(i)).length,
+    lab: inWindow.filter((i) => i.via === 'measurement').length,
   };
 };
 

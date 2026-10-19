@@ -6,6 +6,7 @@ import {
   MunicipalityIncident,
   fetchMunicipalityIncidents,
 } from '../../lib/api';
+import { STRUCT_CAUSES } from '../../lib/causeArt';
 import { causeFamily } from '../../lib/episodes';
 import { displayBeachName, formatDays } from '../../lib/format';
 import { MuniStats, durationDays, fmtDate } from '../../lib/muniStats';
@@ -46,19 +47,34 @@ function TimelineRow({
         ? 'closure'
         : 'warning'
       : inc.kind;
+  // Acento por causa — el mismo vocabulario que la ficha de playa:
+  // estructural granate, fauna añil, cierre rojo, aviso naranja.
+  // Todo gris leía "cementerio" y borraba la info que la causa da
+  const accent = unclassified
+    ? colors.textFaint
+    : inc.cause && STRUCT_CAUSES.has(inc.cause)
+      ? colors.status.structural
+      : inc.cause === 'Medusas'
+        ? colors.status.fauna
+        : kind === 'closure'
+          ? colors.status.closed
+          : colors.status.warning;
   return (
     <View style={styles.tlItem}>
       <View style={styles.tlRail}>
         <View
           style={[
             styles.tlDot,
-            !active && styles.tlDotEnded,
-            active && {
-              backgroundColor:
-                kind === 'closure'
-                  ? colors.status.closed
-                  : colors.status.warning,
-            },
+            // Activo = punto sólido del color de la causa; resuelto =
+            // anillo del mismo color — el estado sigue leyéndose
+            // (lleno/vacío) pero la causa ya colorea el timeline
+            active
+              ? { backgroundColor: accent }
+              : {
+                  borderColor: accent,
+                  borderWidth: 1.5,
+                  backgroundColor: 'transparent',
+                },
           ]}
         />
         {!isLast && <View style={styles.tlLine} />}
@@ -77,10 +93,14 @@ function TimelineRow({
             style={[
               styles.badge,
               active
-                ? kind === 'closure'
-                  ? styles.badgeClosed
-                  : styles.badgeWarning
-                : styles.badgeEnded,
+                ? { backgroundColor: accent }
+                : [
+                    styles.badgeEnded,
+                    // El outline del episodio resuelto toma el color
+                    // de la causa — se lee la taxonomía aunque ya
+                    // no esté vigente
+                    { borderColor: accent, color: accent },
+                  ],
             ]}
           >
             {unclassified
@@ -103,6 +123,9 @@ function TimelineRow({
                 inc.closed_at ? fmtDate(inc.closed_at) : 'activo'
               }${inc.opened_at ? ` · ${formatDays(durationDays(inc))}` : ''}`}
         </Text>
+        {inc.cause && !unclassified ? (
+          <Text style={[styles.tlCause, { color: accent }]}>{inc.cause}</Text>
+        ) : null}
         {inc.observations ? (
           <Text style={styles.tlObs}>{inc.observations}</Text>
         ) : null}

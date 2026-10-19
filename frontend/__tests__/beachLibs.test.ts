@@ -104,10 +104,12 @@ describe('incidents', () => {
     expect(episodesInYears(list, 1, now)).toEqual({
       closures: 1,
       warnings: 1,
+      lab: 0,
     });
     expect(episodesInYears(list, 5, now)).toEqual({
       closures: 2,
       warnings: 1,
+      lab: 0,
     });
   });
 });

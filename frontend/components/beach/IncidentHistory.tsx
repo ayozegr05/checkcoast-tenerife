@@ -183,23 +183,31 @@ export default function IncidentHistory({
   };
 
   const own = incidents.filter((i) => !i.attributed_pm);
-  const totalC = own.filter(isClosure).length;
+  // Episodios de laboratorio aparte: el agua salió no apta pero
+  // Sanidad no registró incidencia — contarlos como "cierres"
+  // afirmaría un acto administrativo que nunca existió
+  const labN = own.filter((i) => i.via === 'measurement').length;
+  const totalC = own.filter(
+    (i) => isClosure(i) && i.via !== 'measurement',
+  ).length;
   const totalW = own.filter((i) => !isClosure(i) && !isUnclassified(i)).length;
   const uncl = incidents.filter(isUnclassified).length;
   const y1 = episodesThisYear(incidents);
   const y5 = episodesInYears(incidents, 5);
-  const parts = (c: number, w: number) =>
+  const parts = (c: number, w: number, l: number) =>
     [
       c ? `${c} cierre${c === 1 ? '' : 's'}` : null,
       w ? `${w} aviso${w === 1 ? '' : 's'}` : null,
+      l ? `${l} agua no apta` : null,
     ]
       .filter(Boolean)
       .join(' · ');
-  const y1parts = parts(y1.closures, y1.warnings);
-  const y5parts = parts(y5.closures, y5.warnings);
+  const y1parts = parts(y1.closures, y1.warnings, y1.lab);
+  const y5parts = parts(y5.closures, y5.warnings, y5.lab);
   // Todo el historial cabe en 5 años → el total y el "5 años"
   // son el mismo número: una sola frase, sin repetir datos
-  const allIn5 = totalC === y5.closures && totalW === y5.warnings;
+  const allIn5 =
+    totalC === y5.closures && totalW === y5.warnings && labN === y5.lab;
 
   // Agrupado por año; dentro de cada año, los episodios de
   // la zona hermana (attributed_pm) van al final con su
@@ -252,6 +260,12 @@ export default function IncidentHistory({
                   {` aviso${totalW === 1 ? '' : 's'}`}
                 </Text>
               )}
+              {labN > 0 && (
+                <Text style={styles.historyStat}>
+                  <Text style={styles.historySummaryNum}>{labN}</Text>
+                  {` agua no apta`}
+                </Text>
+              )}
               {uncl > 0 && (
                 <Text style={styles.historyStat}>
                   <Text style={styles.historySummaryNum}>{uncl}</Text>
@@ -263,6 +277,13 @@ export default function IncidentHistory({
               {`Este año: ${y1parts || 'sin episodios'}  ·  Últimos 5 años: ${y5parts || 'sin episodios'}`}
             </Text>
           </>
+        )}
+        {/* La denuncia que el contador no puede decir solo:
+            agua no apta = analítica prohibida sin acta de Sanidad */}
+        {labN > 0 && (
+          <Text style={styles.historySummarySub}>
+            Agua no apta: analíticas prohibidas que Sanidad no registró
+          </Text>
         )}
       </View>
       {/* Sin scroll interno: la sección crece con su contenido y

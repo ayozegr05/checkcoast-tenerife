@@ -645,7 +645,7 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
     def _is_closure(i) -> bool:
         return (
             i.via in ("press", "measurement")
-            or re.search("prohib", i.observations or "", re.I) is not None
+            or re.search("proh[ií]b", i.observations or "", re.I) is not None
             or any(
                 p.event_type in ("closure", "reopening") for p in i.press_items
             )
@@ -789,11 +789,15 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
         }
 
     own = [i for i in rows if not i.attributed_pm]
-    total_c = sum(1 for i in own if _is_closure(i))
+    # Episodios de laboratorio aparte: el agua salió no apta pero
+    # Sanidad no registró incidencia — contarlos como "cierres"
+    # afirmaría un acto administrativo que nunca existió
+    lab_n = sum(1 for i in own if i.via == "measurement")
+    total_c = sum(1 for i in own if _is_closure(i) and i.via != "measurement")
     total_w = sum(1 for i in own if not _is_closure(i) and not _is_uncl(i))
     uncl = sum(1 for i in rows if _is_uncl(i))
 
-    def _count_since(cutoff: date) -> tuple[int, int]:
+    def _count_since(cutoff: date) -> tuple[int, int, int]:
         sel = [
             i
             for i in rows
@@ -802,33 +806,41 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             and i.opened_at >= cutoff
         ]
         return (
-            sum(1 for i in sel if _is_closure(i)),
+            sum(1 for i in sel if _is_closure(i) and i.via != "measurement"),
             sum(1 for i in sel if not _is_closure(i)),
+            sum(1 for i in sel if i.via == "measurement"),
         )
 
     y1 = _count_since(date(today.year, 1, 1))
     y5 = _count_since(today - timedelta(days=int(5 * 365.25)))
 
-    def _parts(c: int, w: int) -> str:
+    def _parts(c: int, w: int, lab: int) -> str:
         return " · ".join(
             s
             for s in (
                 f"{c} cierre{'s' if c != 1 else ''}" if c else None,
                 f"{w} aviso{'s' if w != 1 else ''}" if w else None,
+                f"{lab} agua no apta" if lab else None,
             )
             if s
         )
 
     y1p, y5p = _parts(*y1), _parts(*y5)
-    if total_c == y5[0] and total_w == y5[1] and y5p:
+    # La denuncia que el contador no puede decir solo
+    lab_expl = (
+        "agua no apta: analíticas prohibidas que Sanidad no registró"
+        if lab_n
+        else None
+    )
+    if total_c == y5[0] and total_w == y5[1] and lab_n == y5[2] and y5p:
         bits = [f"{y5p} en los últimos 5 años"]
         if y1p != y5p:
             bits.insert(0, f"{y1p or 'Sin episodios'} este año")
         if uncl:
             bits.append(f"{uncl} sin calificar")
-        summary_main, summary_sub = " · ".join(bits), None
+        summary_main, summary_sub = " · ".join(bits), lab_expl
     else:
-        main = _parts(total_c, total_w)
+        main = _parts(total_c, total_w, lab_n)
         if uncl:
             main = (main + " · " if main else "") + f"{uncl} sin calificar"
         summary_main = main or "Sin episodios"
@@ -836,6 +848,8 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             f"Este año: {y1p or 'sin episodios'} · "
             f"Últimos 5 años: {y5p or 'sin episodios'}"
         )
+        if lab_expl:
+            summary_sub += f" · {lab_expl}"
 
     years: dict[int, dict] = {}
     for i in rows:

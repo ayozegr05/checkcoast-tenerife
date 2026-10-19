@@ -476,7 +476,9 @@ def _incident_kind(inc, press_items) -> str:
 
 def _synth_observations(ev: SynthEvent) -> str:
     if ev.via == "measurement":
-        obs = "Laboratorio: agua no apta"
+        # La fila dice lo que los datos sostienen (agua no apta) y
+        # nombra la inacción: Sanidad midió y no registró nada
+        obs = "Laboratorio: agua no apta · Sanidad no registró incidencia"
         if ev.press_reopening and not ev.end_from_press:
             # El ayuntamiento anunció reapertura pero el laboratorio
             # siguió dando prohibido — la fecha de cierre es la apta

@@ -368,4 +368,9 @@ export const styles = StyleSheet.create({
     color: colors.textFaint,
     marginTop: 4,
   },
+  tlCause: {
+    fontSize: 11.5,
+    fontFamily: fonts.semibold,
+    marginTop: 2,
+  },
 });
