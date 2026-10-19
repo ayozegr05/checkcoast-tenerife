@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fonts.semibold,
     color: colors.textFaint,
-    marginTop: 18,
+    marginTop: 12,
     marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,

@@ -167,7 +167,9 @@ export default function MapLayers({
             paint={{
               // radio + translate interpolados al zoom: el pin crece
               // con icon-size y el anillo debe seguir envolviendo la
-              // cabeza (el punto de anclaje es la punta inferior)
+              // cabeza (el punto de anclaje es la punta inferior). Los
+              // dots de zona (dot=true) ya van centrados en el punto —
+              // sin translate
               'circle-radius': [
                 'interpolate',
                 ['linear'],
@@ -180,15 +182,20 @@ export default function MapLayers({
                 18,
               ],
               'circle-translate': [
-                'interpolate',
-                ['linear'],
-                ['zoom'],
-                9,
-                ['literal', [0, -11]],
-                13,
-                ['literal', [0, -18]],
-                16,
-                ['literal', [0, -19]],
+                'case',
+                ['==', ['get', 'dot'], true],
+                ['literal', [0, 0]],
+                [
+                  'interpolate',
+                  ['linear'],
+                  ['zoom'],
+                  9,
+                  ['literal', [0, -11]],
+                  13,
+                  ['literal', [0, -18]],
+                  16,
+                  ['literal', [0, -19]],
+                ],
               ],
               'circle-color': BEACH_COLORS.structural,
               'circle-opacity': 0.2,

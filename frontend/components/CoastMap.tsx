@@ -527,9 +527,18 @@ export default function CoastMap({
     if (pmPoints && pmPoints.features.length > 0) {
       return {
         type: 'FeatureCollection' as const,
-        features: pmPoints.features.filter(
-          (f) => isStructuralClosure(f) && beachSel.has(beachCategory(f)),
-        ),
+        // dot=true: los dots de zona se pintan centrados en el punto
+        // — el circle-translate de la capa solo aplica a los pines,
+        // que anclan por la punta y necesitan subir el anillo a la
+        // cabeza (sin la marca el halo salía descentrado sobre el dot)
+        features: pmPoints.features
+          .filter(
+            (f) => isStructuralClosure(f) && beachSel.has(beachCategory(f)),
+          )
+          .map((f) => ({
+            ...f,
+            properties: { ...f.properties, dot: true },
+          })),
       };
     }
     return {
