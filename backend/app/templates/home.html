@@ -38,7 +38,34 @@
   .hero h1 { margin:0; font-size:19px; line-height:1.3; }
   .hero p { margin:8px 0 0; font-size:14px; line-height:1.5;
           color:#dcebf2; }
-  .stat { background:rgba(255,255,255,.92); border-radius:12px;
+  .stat .stxt { flex:1; min-width:180px; }
+  .sbx { position:relative; flex:none; }
+  .sbx input { font:inherit; font-size:12px; color:#0d3a52;
+          width:200px; padding:6px 10px 6px 28px;
+          border:1px solid #cddfe8; border-radius:999px;
+          background:#fff url(/icons/icon-search.png) no-repeat
+          9px center / 14px; outline:none; }
+  .sbx input:focus { border-color:#17b8ce; }
+  .sbx input::placeholder { color:#a8c0cc; }
+  .bres { position:absolute; top:calc(100% + 5px); right:0;
+          min-width:230px; max-height:280px; overflow-y:auto;
+          background:#fff; border:1px solid #dbe8ee;
+          border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.15);
+          z-index:20; }
+  .bres.hidden { display:none; }
+  .brow { display:flex; align-items:center; gap:8px; width:100%;
+          padding:7px 11px; border:0; background:none;
+          font:inherit; font-size:12px; color:#0d3a52;
+          text-align:left; cursor:pointer; }
+  .brow:hover { background:#f2f8fb; }
+  .brow .bdot { width:8px; height:8px; border-radius:50%;
+          flex:none; }
+  .brow .bname { flex:1; font-weight:600; }
+  .brow .bmuni { font-size:10px; color:#8fa3ad; }
+  .brow .bst { font-size:10px; font-weight:700; }
+  .stat { display:flex; align-items:center; gap:8px;
+          flex-wrap:wrap;
+          background:rgba(255,255,255,.92); border-radius:12px;
           padding:10px 14px; font-size:13px; color:#0d3a52;
           margin-bottom:14px; }
   .stat b { color:#075276; }
@@ -65,6 +92,7 @@
           padding:4px 0; font-size:12px; color:#0d3a52;
           text-decoration:none; border-top:1px solid #eef4f7; }
   .zrow em { font-style:normal; font-weight:700; font-size:11px; }
+  .mk.cxmem[data-tip]:hover::after { margin-top:14px; }
   .mk[data-tip]:hover::after { content:attr(data-tip);
           position:absolute; top:100%; left:50%;
           transform:translateX(-50%);
@@ -353,9 +381,12 @@
       vertidos en un mapa.</p>
   </div>
   <div class="stat"><div class="sl">Ahora mismo en Tenerife</div>
-    <b class="sc">{{ n_closed }}</b> cerradas ·
+    <span class="stxt"><b class="sc">{{ n_closed }}</b> cerradas ·
     <b class="sw">{{ n_warning }}</b> con aviso ·
-    <b>{{ total_beaches }}</b> playas mapeadas</div>
+    <b>{{ total_beaches }}</b> playas mapeadas</span>
+    <div class="sbx"><input id="bq" type="search" autocomplete="off"
+      placeholder="Buscar playa o emisario…" aria-label="Buscar playa">
+      <div id="bres" class="bres hidden"></div></div></div>
   <div class="card">
     <div class="imap hide-unmon hide-olegal hide-oproc">
       <div class="istatic">
@@ -764,6 +795,7 @@ if (window.maplibregl && lmapEl && imap) {
         parentEls.push.apply(parentEls, els);
       } else if (d.cxmember) {
         a.href = '/b/' + d.bid;
+        a.classList.add('cxmem');
         memberEls.push.apply(memberEls, els);
       } else {
         a.href = d.outfall ? '/o/' + d.oid : '/b/' + d.bid;
@@ -802,6 +834,76 @@ if (window.maplibregl && lmapEl && imap) {
     }
     lmap.on('zoom', applySplit);
     applySplit();
+
+    // Buscador: filtra MAP_DOTS (padres de complejo y playas
+    // sueltas; los miembros ya salen al hacer flyTo al padre) —
+    // la fila muestra el estado con su color y el click vuela
+    // al pin; la ficha queda a un clic sobre el pin
+    var KL = { closed: 'Cerrada', structural: 'Cierre estructural',
+      warning: 'Aviso', open: 'Apta', unmon: 'Sin datos',
+      oillegal: 'No autorizado', olegal: 'Autorizado',
+      oproc: 'En trámite' };
+    var KC = { closed: '#c62828', structural: '#8c322a',
+      warning: '#e65100', open: '#0d9488', unmon: '#8fa3ad',
+      oillegal: '#c62828', olegal: '#2e9e6b', oproc: '#f9a825' };
+    var bidx = (window.MAP_DOTS || []).filter(function (d) {
+      return !d.cxmember;
+    });
+    var norm = function (s) {
+      return (s || '').toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '');
+    };
+    var bq = document.getElementById('bq');
+    var bres = document.getElementById('bres');
+    function hideRes() { bres.classList.add('hidden'); }
+    function fly(d) {
+      hideRes(); bq.blur();
+      lmap.flyTo({ center: [d.lon, d.lat],
+        zoom: d.outfall ? 14 : 14.5, duration: 900 });
+    }
+    bq.addEventListener('input', function () {
+      var q = norm(bq.value).trim();
+      bres.innerHTML = '';
+      if (q.length < 2) { hideRes(); return; }
+      var hits = bidx.filter(function (d) {
+        return norm(d.name).indexOf(q) >= 0 ||
+               norm(d.muni).indexOf(q) >= 0;
+      }).slice(0, 8);
+      if (!hits.length) { hideRes(); return; }
+      hits.forEach(function (d) {
+        var b = document.createElement('button');
+        b.className = 'brow';
+        b.type = 'button';
+        var dot = document.createElement('i');
+        dot.className = 'bdot';
+        dot.style.background = KC[d.k] || '#8fa3ad';
+        var nm = document.createElement('span');
+        nm.className = 'bname';
+        nm.textContent = d.name;
+        var mu = document.createElement('span');
+        mu.className = 'bmuni';
+        mu.textContent = d.muni || '';
+        var st = document.createElement('em');
+        st.className = 'bst';
+        st.style.color = KC[d.k] || '#8fa3ad';
+        st.style.fontStyle = 'normal';
+        st.textContent = KL[d.k] || '';
+        b.appendChild(dot); b.appendChild(nm);
+        b.appendChild(mu); b.appendChild(st);
+        b.addEventListener('click', function () { fly(d); });
+        bres.appendChild(b);
+      });
+      bres.classList.remove('hidden');
+    });
+    bq.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && bres.firstChild) {
+        bres.firstChild.click();
+      }
+      if (e.key === 'Escape') { bq.value = ''; hideRes(); }
+    });
+    document.addEventListener('click', function (e) {
+      if (!bres.contains(e.target) && e.target !== bq) hideRes();
+    });
   });
 }
 </script>
