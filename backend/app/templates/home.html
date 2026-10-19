@@ -611,8 +611,14 @@ document.querySelectorAll('.lchip,.ld,.ldlab').forEach(function (b) {
         'unmon', 'oillegal', 'olegal', 'oproc'].filter(function (k) {
         return imap.classList.contains('hide-' + k);
       });
-      window.LMAP.setFilter('beach-names',
-        ['!', ['in', ['get', 'k'], ['literal', hidden]]]);
+      var kf = ['!', ['in', ['get', 'k'], ['literal', hidden]]];
+      [['beach-names', 'n'], ['beach-names-c', 'c'],
+       ['beach-names-m', 'm']].forEach(function (ly) {
+        if (window.LMAP.getLayer(ly[0])) {
+          window.LMAP.setFilter(ly[0],
+            ['all', kf, ['==', ['get', 't'], ly[1]]]);
+        }
+      });
     }
   };
 });
@@ -682,41 +688,51 @@ if (window.maplibregl && lmapEl && imap) {
       nameFeats.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [d.lon, d.lat] },
-        properties: { name: d.name, k: d.k }
+        properties: { name: d.name, k: d.k,
+          t: d.cxmember ? 'm' : (d.complex ? 'c' : 'n') }
       });
     });
     lmap.addSource('beach-names', {
       type: 'geojson',
       data: { type: 'FeatureCollection', features: nameFeats }
     });
-    lmap.addLayer({
-      id: 'beach-names',
-      type: 'symbol',
-      source: 'beach-names',
-      minzoom: 12,
-      filter: ['!', ['in', ['get', 'k'],
-        ['literal', ['unmon', 'olegal', 'oproc']]]],
-      layout: {
-        'text-field': ['get', 'name'],
-        'text-size': 11,
-        'text-font': ['Noto Sans Bold'],
-        'text-offset': [0, 1.0],
-        'text-anchor': 'top',
-        'text-allow-overlap': false,
-        'text-ignore-placement': false
-      },
-      paint: {
-        'text-color': '#0d3a52',
-        'text-halo-color': '#ffffff',
-        'text-halo-width': 1.8
-      }
-    });
+    var nameLayout = {
+      'text-field': ['get', 'name'],
+      'text-size': 11,
+      'text-font': ['Noto Sans Bold'],
+      'text-offset': [0, 1.0],
+      'text-anchor': 'top',
+      'text-allow-overlap': false,
+      'text-ignore-placement': false
+    };
+    var namePaint = {
+      'text-color': '#0d3a52',
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 1.8
+    };
+    // Dos pisos de etiquetas: bajo el umbral el arenal lleva una
+    // sola etiqueta en su pin padre; al acercar salen las zonas —
+    // el mismo desdoble que hace el mapa de la app con los PMs
+    lmap.addLayer({ id: 'beach-names', type: 'symbol',
+      source: 'beach-names', minzoom: 12,
+      filter: ['==', ['get', 't'], 'n'],
+      layout: nameLayout, paint: namePaint });
+    lmap.addLayer({ id: 'beach-names-c', type: 'symbol',
+      source: 'beach-names', minzoom: 12, maxzoom: 13.2,
+      filter: ['==', ['get', 't'], 'c'],
+      layout: nameLayout, paint: namePaint });
+    lmap.addLayer({ id: 'beach-names-m', type: 'symbol',
+      source: 'beach-names', minzoom: 13.2,
+      filter: ['==', ['get', 't'], 'm'],
+      layout: nameLayout, paint: namePaint });
     window.LMAP = lmap;
     lmap.fitBounds([[b[0], b[1]], [b[2], b[3]]], {
       padding: { top: 20, right: 20, bottom: 90, left: 20 },
       duration: 0
     });
+    var parentEls = [], memberEls = [];
     (window.MAP_DOTS || []).forEach(function (d, i) {
+      var els = [];
       if (d.alert) {
         var hw = document.createElement('span');
         hw.className = 'mhw k-' + d.k;
@@ -726,39 +742,25 @@ if (window.maplibregl && lmapEl && imap) {
         hw.appendChild(h);
         new maplibregl.Marker({ element: hw, anchor: 'top-left' })
           .setLngLat([d.lon, d.lat]).addTo(lmap);
+        els.push(hw);
       }
       var a = document.createElement('a');
       a.className = 'mk k-' + d.k;
       if (d.complex) {
-        // Pin de arenal multipunto: un clic despliega sus zonas
-        // (mismo gesto que el ZonePicker de la app)
+        // Pin padre del arenal: un clic vuela al detalle y el mapa
+        // desdobla en los dots de cada zona (como el ZonePicker
+        // de la app al entrar a un complejo multipunto)
         a.href = 'javascript:void(0)';
         (function (dd) {
           a.addEventListener('click', function () {
-            var el = document.createElement('div');
-            el.className = 'zpop';
-            var t = document.createElement('b');
-            t.textContent = dd.name;
-            el.appendChild(t);
-            dd.complex.forEach(function (z) {
-              var zr = document.createElement('a');
-              zr.className = 'zrow';
-              zr.href = '/b/' + z.bid;
-              var zn = document.createElement('span');
-              zn.textContent = z.zone;
-              var zs = document.createElement('em');
-              zs.textContent = z.label;
-              zs.style.color = z.color;
-              zr.appendChild(zn); zr.appendChild(zs);
-              el.appendChild(zr);
-            });
-            new maplibregl.Popup({ closeButton: true, maxWidth: '240px',
-              offset: 14 })
-              .setLngLat([dd.lon, dd.lat])
-              .setDOMContent(el)
-              .addTo(lmap);
+            lmap.flyTo({ center: [dd.lon, dd.lat], zoom: 14.5,
+              duration: 800 });
           });
         })(d);
+        parentEls.push.apply(parentEls, els);
+      } else if (d.cxmember) {
+        a.href = '/b/' + d.bid;
+        memberEls.push.apply(memberEls, els);
       } else {
         a.href = d.outfall ? '/o/' + d.oid : '/b/' + d.bid;
       }
@@ -773,9 +775,22 @@ if (window.maplibregl && lmapEl && imap) {
       img.alt = '';
       img.style.animationDelay = Math.min(i * 4, 700) + 'ms';
       a.appendChild(img);
+      if (d.complex) parentEls.push(a);
+      else if (d.cxmember) memberEls.push(a);
       new maplibregl.Marker({ element: a, anchor: 'top-left' })
         .setLngLat([d.lon, d.lat]).addTo(lmap);
     });
+    function applySplit() {
+      var split = lmap.getZoom() >= 13.2;
+      parentEls.forEach(function (e) {
+        e.style.display = split ? 'none' : '';
+      });
+      memberEls.forEach(function (e) {
+        e.style.display = split ? '' : 'none';
+      });
+    }
+    lmap.on('zoom', applySplit);
+    applySplit();
   });
 }
 </script>

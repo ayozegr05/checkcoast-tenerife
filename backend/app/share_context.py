@@ -2050,6 +2050,28 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 "complex": zones,
             }
         )
+        # Los PMs del arenal también salen como dots propios: bajo el
+        # umbral de zoom van ocultos (solo se ve el pin padre); al
+        # acercar, cada zona muestra su estado y enlaza a su ficha —
+        # el gesto del ZonePicker de la app trasladado al mapa web
+        for beach, lon, lat, x, y, dstate, eff, _pmn in members:
+            beach_dots.append(
+                {
+                    "x": f"{x:.1f}",
+                    "y": f"{y:.1f}",
+                    "pin": _PIN.get(dstate, _PIN["unknown"]),
+                    "col": _STATUS.get(dstate, _STATUS["unknown"])[1],
+                    "alert": eff["alerted"] if eff else False,
+                    "structural": dstate == "structural",
+                    "bid": beach.id,
+                    "k": "unmon" if dstate == "unknown" else dstate,
+                    "name": _display_name(beach.name)
+                    + _zone_suffix(db, beach),
+                    "lon": lon,
+                    "lat": lat,
+                    "cxmember": True,
+                }
+            )
     map_dots.extend(beach_dots)
 
     # Alertas vivas (misma lista que el panel lateral de /b/)
