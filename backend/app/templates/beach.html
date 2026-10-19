@@ -130,13 +130,10 @@
           margin-top:12px; font-size:13px; }
   .row span { color:#7a919c; white-space:nowrap; }
   .row b { color:#0d3a52; font-weight:600; text-align:right; }
-  .sec { margin-top:16px; font-size:13px; font-weight:700;
+  .sec { margin-top:16px; font-size:15px; font-weight:800;
           color:#0d3a52; text-align:center; }
-  .secico { width:17px; height:17px; vertical-align:-3px;
+  .secico { width:20px; height:20px; vertical-align:-4px;
           margin-right:5px; }
-  .sechart { position:relative; display:flex;
-          align-items:center; justify-content:center; }
-  .sechart .ctoggle { position:absolute; right:0; margin:0; }
   .qrow { display:flex; align-items:center; gap:10px;
           padding:7px 0; }
   .qrow + .qrow { border-top:1px solid #eef4f7; }
@@ -186,11 +183,13 @@
           border-top:2px dashed #0b6e99; }
   .inc { position:absolute; top:0; bottom:0; width:2px;
           background:#c62828; }
-  .ctoggle { display:flex; gap:8px; margin-top:8px; }
-  .tbtn { border:1px solid #cddfe8; background:#fff; color:#0d3a52;
-          font-size:12px; font-weight:700; border-radius:999px;
-          padding:5px 12px; cursor:pointer; }
-  .tbtn.ton { background:#075276; color:#fff; border-color:#075276; }
+  .ctoggle { display:flex; gap:6px; margin-top:6px;
+          justify-content:center; }
+  .tbtn { border:1px solid #cddfe8; background:#fff; color:#7a919c;
+          font-size:10px; font-weight:600; border-radius:4px;
+          padding:3px 8px; cursor:pointer; }
+  .tbtn.ton { background:rgba(23,184,206,.18); border-color:#17b8ce;
+          color:#075276; }
   .irow { margin-top:8px; font-size:12px; color:#0d3a52;
           border-left:3px solid #cddfe8; padding-left:10px; }
   .irow.iact { border-left-color:#c62828; }
@@ -321,11 +320,11 @@
       {%- endif %}
       {%- if press %}{{ banner(press) }}{% endif %}
       {%- if chart %}
-      <div class="sec sechart"><img class="secico" src="/icons/icon-stats.png" alt="">Evolución
-        <div class="ctoggle">
+      <div class="sec"><img class="secico" src="/icons/icon-stats.png" alt="">Evolución</div>
+      <div class="ctoggle">
         <button id="tb-ecoli" class="tbtn ton" onclick="setChart('ecoli')">E. coli</button>
         <button id="tb-enterococci" class="tbtn" onclick="setChart('enterococci')">Enterococo</button>
-        </div></div>
+      </div>
       {%- for p in chart.panels %}
       <div id="chart-{{ p.param }}" class="chartarea{% if p.hidden %} hidden{% endif %}">
         <div class="lim" style="bottom:{{ p.lim_y }}px"></div>
