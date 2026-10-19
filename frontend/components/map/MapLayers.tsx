@@ -164,12 +164,13 @@ export default function MapLayers({
           <Layer
             id="beach-pulse-structural"
             type="circle"
+            // Pines: el anclaje es la punta inferior — el anillo sube
+            // para envolver la cabeza
+            filter={['!=', ['get', 'dot'], true]}
             paint={{
               // radio + translate interpolados al zoom: el pin crece
               // con icon-size y el anillo debe seguir envolviendo la
-              // cabeza (el punto de anclaje es la punta inferior). Los
-              // dots de zona (dot=true) ya van centrados en el punto —
-              // sin translate
+              // cabeza (el punto de anclaje es la punta inferior)
               'circle-radius': [
                 'interpolate',
                 ['linear'],
@@ -182,21 +183,32 @@ export default function MapLayers({
                 18,
               ],
               'circle-translate': [
-                'case',
-                ['==', ['get', 'dot'], true],
-                ['literal', [0, 0]],
-                [
-                  'interpolate',
-                  ['linear'],
-                  ['zoom'],
-                  9,
-                  ['literal', [0, -11]],
-                  13,
-                  ['literal', [0, -18]],
-                  16,
-                  ['literal', [0, -19]],
-                ],
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                9,
+                ['literal', [0, -11]],
+                13,
+                ['literal', [0, -18]],
+                16,
+                ['literal', [0, -19]],
               ],
+              'circle-color': BEACH_COLORS.structural,
+              'circle-opacity': 0.2,
+              'circle-stroke-color': BEACH_COLORS.structural,
+              'circle-stroke-width': 2,
+              'circle-stroke-opacity': 0.55,
+            }}
+          />
+          <Layer
+            id="beach-pulse-structural-dots"
+            type="circle"
+            // Dots de zona: van centrados en el punto — circle-
+            // translate no admite expresiones por feature, así que
+            // el anillo de los dots vive en su propia capa sin él
+            filter={['==', ['get', 'dot'], true]}
+            paint={{
+              'circle-radius': 16,
               'circle-color': BEACH_COLORS.structural,
               'circle-opacity': 0.2,
               'circle-stroke-color': BEACH_COLORS.structural,
