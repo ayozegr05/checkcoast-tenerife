@@ -486,7 +486,9 @@ def beach_row(db: Session, beach_id: int):
     )
 
 
-def beach_context(db: Session, beach: Beach, lon: float, lat: float) -> dict:
+def beach_context(
+    db: Session, beach: Beach, lon: float, lat: float, demo: bool = False
+) -> dict:
     """Contexto completo de /b/{id}: queries auxiliares (prensa,
     mediciones, incidencias, emisarios cercanos) + todo el montaje de
     presentación (degradado de cabecera, gráfica, banner de prensa,
@@ -497,6 +499,21 @@ def beach_context(db: Session, beach: Beach, lon: float, lat: float) -> dict:
     # contrario que la app (Benijo "sin datos" vs cerrada)
     effs = effective_states(db)
     eff = effs.get(beach.id)
+    if demo:
+        # ?demo=1: la ficha replica la alerta fabricada de la home —
+        # sin el override, "El Duque cerrada" abriría "Apta" (dato real)
+        all_beaches = (
+            beaches_with_latest_status(db)
+            .add_columns(
+                func.ST_X(Beach.geom).label("lon"),
+                func.ST_Y(Beach.geom).label("lat"),
+            )
+            .all()
+        )
+        fake = {
+            b.id: e for b, e in _demo_alerts(all_beaches, datetime.now(UTC))
+        }
+        eff = fake.get(beach.id, eff)
     state = _display_state(eff)
     press_label = (
         "según prensa" if eff is not None and eff["via"] == "press" else None
@@ -1792,4 +1809,5 @@ def home_context(db: Session, demo: bool = False) -> dict:
         "n_reopened": len(reopened),
         "fresh": fresh,
         "cards": cards,
+        "demo": demo,
     }

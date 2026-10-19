@@ -106,14 +106,18 @@ def share_og(beach_id: int, db: Session = Depends(get_db)) -> Response:
 
 
 @router.get("/b/{beach_id}", response_class=HTMLResponse)
-def share_beach(beach_id: int, db: Session = Depends(get_db)) -> HTMLResponse:
+def share_beach(
+    beach_id: int, demo: bool = False, db: Session = Depends(get_db)
+) -> HTMLResponse:
     """Landing compartible de una playa: OG para la tarjeta del
-    mensajero + mini-ficha con deep-link a la app."""
+    mensajero + mini-ficha con deep-link a la app. ?demo=1 (desde la
+    home en demo) replica la alerta fabricada — la ficha real diría
+    lo contrario que la fila de la que se ha pulsado."""
     row = beach_row(db, beach_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Beach not found")
     beach, _status, lon, lat = row
-    return _page("beach.html", **beach_context(db, beach, lon, lat))
+    return _page("beach.html", **beach_context(db, beach, lon, lat, demo=demo))
 
 
 _og_o_cache: dict[tuple[int, str], bytes] = {}

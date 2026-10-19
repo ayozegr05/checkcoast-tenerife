@@ -409,7 +409,7 @@
         <div class="asec asec-{{ g.sec }}">{{ g.title }} ·
           {{ g.rows|length }}</div>
         {%- for a in g.rows[:4] %}
-        <a class="sal sal-{{ a.cls }}" href="/b/{{ a.beach_id }}"
+        <a class="sal sal-{{ a.cls }}" href="/b/{{ a.beach_id }}{{ '?demo=1' if demo }}"
           style="animation-delay:{{ loop.index * 45 }}ms">
           <i style="background:{{ a.color }}"></i>
           <div class="salmid">
@@ -427,7 +427,7 @@
         {%- if g.rows|length > 4 %}
         <input type="checkbox" id="amore{{ loop.index }}" class="amorechk">
         {%- for a in g.rows[4:] %}
-        <a class="sal sal-{{ a.cls }} xmore" href="/b/{{ a.beach_id }}"
+        <a class="sal sal-{{ a.cls }} xmore" href="/b/{{ a.beach_id }}{{ '?demo=1' if demo }}"
           style="animation-delay:{{ loop.index * 45 }}ms">
           <i style="background:{{ a.color }}"></i>
           <div class="salmid">
@@ -455,7 +455,7 @@
         <span class="secn nr">{{ n_reopened }}</span></div>
       <div class="abox">
         {%- for r in reopened %}
-        <a class="sal sal-r" href="/b/{{ r.beach_id }}"
+        <a class="sal sal-r" href="/b/{{ r.beach_id }}{{ '?demo=1' if demo }}"
           style="animation-delay:{{ loop.index * 45 }}ms">
           <i style="background:#0d9488"></i><div>
           <b>{{ r.name }}</b>
