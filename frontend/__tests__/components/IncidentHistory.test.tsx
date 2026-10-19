@@ -68,10 +68,12 @@ describe('<IncidentHistory />', () => {
     );
     expect(screen.getByText('2015')).toBeTruthy();
     expect(screen.getByText('2014')).toBeTruthy();
-    // Etiqueta de estado teñida por la causa dominante + causas
-    // del episodio debajo (fallback "Contaminación" — la muestra
-    // sin calificar no lleva causa)
-    expect(screen.getAllByText('Cerrada')).toHaveLength(3);
+    // Cierres con badge de causa (sin "Cerrada" — se
+    // sobreentiende), avisos/sin calificar con etiqueta; las causas
+    // van debajo (fallback "Contaminación"; la muestra sin
+    // calificar no lleva causa)
+    expect(screen.queryByText('Cerrada')).toBeNull();
+    expect(screen.getAllByTestId('incident-badge')).toHaveLength(3);
     expect(screen.getByText('Aviso')).toBeTruthy();
     expect(screen.getByText('Sin calificar')).toBeTruthy();
     expect(screen.getAllByTestId('incident-cause')).toHaveLength(4);

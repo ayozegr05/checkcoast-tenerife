@@ -589,10 +589,22 @@ def beach_row(db: Session, beach_id: int):
 
 _PRESS_GROUP_ORDER = ["closure", "warning", "pollution", "reopening", "other"]
 
-# Causas de la familia estructural — tiñen la etiqueta de la fila
-# del historial en granate (como el pin/chip de cierre estructural),
-# no en el rojo de contaminación
+# Causas de la familia estructural — tiñen la fila del historial en
+# granate (como el pin/chip de cierre estructural), no en el rojo de
+# contaminación
 _STRUCT_CAUSES = {"Desprendimientos", "Colapso del terreno", "Obras"}
+
+# Causa del episodio → arte del badge (mismo mapa que causeArt.ts);
+# lo que Sanidad mide (bacterias) y lo no categorizado cae en
+# "contam" — Náyade solo vigila E. coli/enterococos
+_CAUSE_ART = {
+    "Algas": "algas-art",
+    "Medusas": "medusas-art",
+    "Hidrocarburos": "gasoil-art",
+    "Desprendimientos": "rockfall-art",
+    "Colapso del terreno": "rockfall-art",
+    "Obras": "rockfall-art",
+}
 _PRESS_GROUP_LABEL = {
     "closure": "Cierre",
     "warning": "Aviso",
@@ -713,6 +725,17 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             else "#e65100"
         )
         cause_text = None if uncl else " · ".join(causes) or "Contaminación"
+        # En un cierre el badge sustituye al "Cerrada" (la fila ya lo
+        # dice el propio contexto); avisos y sin calificar conservan
+        # su etiqueta porque no se sobreentiende
+        badges: list[str] = []
+        if closure:
+            for c in causes:
+                art = _CAUSE_ART.get(c, "contam-art")
+                if art not in badges:
+                    badges.append(art)
+            if not badges:
+                badges = ["contam-art"]
         ndays = max(((i.closed_at or today) - i.opened_at).days, 0) + 1
         rng = (
             i.opened_at.strftime("%d/%m/%Y")
@@ -739,6 +762,7 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             "state_label": state_label,
             "state_color": state_color,
             "cause_text": cause_text,
+            "badges": badges,
             "accent": state_color,
             "notes": notes,
             "n_press": len(i.press_items),

@@ -9,7 +9,11 @@ import {
   isClosure,
   isUnclassified,
 } from '../../lib/incidents';
-import { incidentCauses, STRUCT_CAUSES } from '../../lib/causeArt';
+import {
+  incidentBadgeArts,
+  incidentCauses,
+  STRUCT_CAUSES,
+} from '../../lib/causeArt';
 import { groupNewsItems } from '../../lib/news';
 import { colors, fonts } from '../../lib/theme';
 import { siblingZoneRef } from '../../lib/zones';
@@ -55,11 +59,9 @@ export default function IncidentHistory({
     // agregadas de sus titulares. Náyade sin prensa cae en
     // "Contaminación" — solo vigila E. coli/enterococos
     const causes = incidentCauses(inc);
-    const stateLabel = unclassified
-      ? 'Sin calificar'
-      : closure
-        ? 'Cerrada'
-        : 'Aviso';
+    // La etiqueta solo pinta cuando no es cierre — en cierres
+    // hablan los badges de causa
+    const stateLabel = unclassified ? 'Sin calificar' : 'Aviso';
     const accent = unclassified
       ? colors.textFaint
       : causes.some((c) => STRUCT_CAUSES.has(c))
@@ -85,9 +87,26 @@ export default function IncidentHistory({
                 } · ${formatDays(days)}`}
           </Text>
           <View style={styles.incidentSide}>
-            <Text style={[styles.incidentState, { color: accent }]}>
-              {stateLabel}
-            </Text>
+            {/* En un cierre el badge sustituye al "Cerrada" — el
+                contexto de la fila ya lo dice; avisos y muestras sin
+                calificar conservan su etiqueta porque no se
+                sobreentiende */}
+            {closure ? (
+              <View style={styles.incidentBadges}>
+                {incidentBadgeArts(inc).map((art, idx) => (
+                  <Image
+                    key={idx}
+                    testID="incident-badge"
+                    source={art}
+                    style={styles.incidentBadge}
+                  />
+                ))}
+              </View>
+            ) : (
+              <Text style={[styles.incidentState, { color: accent }]}>
+                {stateLabel}
+              </Text>
+            )}
             {causeText && (
               <Text style={styles.incidentCause} testID="incident-cause">
                 {causeText}
@@ -339,6 +358,15 @@ const styles = StyleSheet.create({
   incidentSide: {
     alignItems: 'flex-end',
     flexShrink: 0,
+    gap: 1,
+  },
+  incidentBadges: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  incidentBadge: {
+    width: 19,
+    height: 19,
   },
   incidentState: {
     fontSize: 11,

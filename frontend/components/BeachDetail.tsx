@@ -30,7 +30,7 @@ import {
 import { colors, fonts } from '../lib/theme';
 import { causeArt } from '../lib/causeArt';
 import { isFaunaClosure, isStructuralClosure } from '../lib/mapData';
-import { BEACH_STATE_LABEL_LONG } from '../lib/structural';
+import { BEACH_STATE_LABEL_LONG, beachStateKey } from '../lib/structural';
 import SatelliteShot from './SatelliteShot';
 import Skeleton from './Skeleton';
 import IncidentHistory from './beach/IncidentHistory';
@@ -338,12 +338,10 @@ export default function BeachDetail({
           ...(members ?? []).map((m) => ({
             id: `pm-${m.id}`,
             coords: m.geometry.coordinates as [number, number],
-            color:
-              STATUS_COLOR[
-                m.properties.status && m.properties.status !== 'unknown'
-                  ? (m.properties.status as string)
-                  : 'unknown'
-              ] ?? colors.status.unknown,
+            // Estado efectivo igual que en el mapa — un dot de zona
+            // estructural va en granate (status crudo la pintaba
+            // roja), fauna en añil
+            color: STATUS_COLOR[beachStateKey(m)] ?? colors.status.unknown,
             tag: pointLongLabel(m.properties.name) ?? '',
           })),
         ]}

@@ -204,6 +204,8 @@
   .ihead b { font-size:12px; font-weight:600; color:#5a7684; }
   .iside { flex:none; text-align:right; display:flex;
           flex-direction:column; align-items:flex-end; gap:1px; }
+  .iside .ibadges { display:flex; gap:2px; }
+  .iside .ibadges img { width:19px; height:19px; display:block; }
   .iside b { font-size:11px; font-weight:700; }
   .irow .icause { display:block; font-size:10px; color:#8fa3ad;
           padding-right:0; }
@@ -282,8 +284,14 @@
 {% macro incrow(i) %}
       <div class="irow" style="border-left-color:{{ i.accent }}">
         <div class="ihead"><b>{{ i.range }}</b>
-          <div class="iside"><b
-            style="color:{{ i.state_color }}">{{ i.state_label }}</b>
+          <div class="iside">
+            {%- if i.badges %}
+            <span class="ibadges">{%- for b in i.badges %}<img
+              src="/icons/{{ b }}.png" alt="">
+            {%- endfor %}</span>
+            {%- else %}<b
+              style="color:{{ i.state_color }}">{{ i.state_label }}</b>
+            {%- endif %}
             {%- if i.cause_text %}<span
               class="icause">{{ i.cause_text }}</span>{%- endif %}
           </div></div>

@@ -54,3 +54,29 @@ export const STRUCT_CAUSES = new Set([
   'Colapso del terreno',
   'Obras',
 ]);
+
+// Etiqueta canónica → arte del badge (espejo de _CAUSE_ART del
+// backend); lo bacteriológico y lo no categorizado cae en contam —
+// Náyade solo vigila E. coli/enterococos
+const CAUSE_ART_BY_LABEL: Record<string, number> = {
+  Algas: CAUSE_ART.Algas,
+  Medusas: CAUSE_ART.Medusas,
+  Hidrocarburos: CAUSE_ART.Hidrocarburos,
+  Desprendimientos: ROCKFALL_ART,
+  'Colapso del terreno': ROCKFALL_ART,
+  Obras: ROCKFALL_ART,
+};
+
+// Badges de una fila de cierre del historial: uno por causa
+// distinta del episodio (Valleseco: hidrocarburos + algas), en
+// contaminación si ninguna categoriza
+export function incidentBadgeArts(inc: BeachIncident): number[] {
+  const arts = [
+    ...new Set(
+      incidentCauses(inc)
+        .map((c) => CAUSE_ART_BY_LABEL[c])
+        .filter((a): a is number => !!a),
+    ),
+  ];
+  return arts.length ? arts : [CONTAM_ART];
+}
