@@ -595,7 +595,7 @@ def test_cluster_episodes_merges_pms_same_window():
 
 def test_cluster_episodes_merges_mixed_via_same_window():
     """Los Cristianos: cierre oficial en PM2 + prensa en PM4, misma
-    ventana → un episodio oficial con mención a prensa."""
+    ventana → un episodio oficial que agrega la prensa absorbida."""
     eps = [
         Episode(
             beach_id=1,
@@ -626,7 +626,8 @@ def test_cluster_episodes_merges_mixed_via_same_window():
     m = merged_episode(groups[0])
     assert m.via == "official"
     assert m.start == date(2026, 8, 21)  # el más antiguo gana
-    assert "2 noticias en prensa" in (m.obs or "")
+    assert m.obs == "Baño prohibido"  # la fila oficial va limpia
+    assert m.press_count == 2  # la prensa absorbida sigue contando
 
 
 def test_min_closed_since_picks_earliest_same_precision():

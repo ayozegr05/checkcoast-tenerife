@@ -666,10 +666,10 @@ def merged_episode(g: list[Episode]) -> Episode:
     official_obs = next((e.obs for e in g if e.via == "official"), None)
     press_n = sum(e.press_count for e in g)
     if official_obs is not None:
-        media = "noticia" if press_n == 1 else "noticias"
-        obs: str | None = official_obs + (
-            f" · {press_n} {media} en prensa" if press_n else ""
-        )
+        # Los episodios de prensa ya salen como filas propias
+        # ("Cierre según prensa") — repetir la cobertura dentro de la
+        # fila oficial era ruido sin desplegable que la justifique
+        obs: str | None = official_obs
     else:
         # los eventos sintéticos ya llevan la mención a prensa en su obs
         obs = next((e.obs for e in g if e.obs), None)

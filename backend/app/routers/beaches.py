@@ -1,3 +1,4 @@
+import re
 from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from typing import cast as tcast
@@ -475,9 +476,7 @@ def _incident_kind(inc, press_items) -> str:
 
 def _synth_observations(ev: SynthEvent) -> str:
     if ev.via == "measurement":
-        obs = (
-            "Prohibido por analítica del agua, sin incidente oficial en Náyade"
-        )
+        obs = "Laboratorio: agua no apta"
         if ev.press_reopening and not ev.end_from_press:
             # El ayuntamiento anunció reapertura pero el laboratorio
             # siguió dando prohibido — la fecha de cierre es la apta
@@ -490,8 +489,59 @@ def _synth_observations(ev: SynthEvent) -> str:
             # sin muestra que lo acredite — se declara, no se oculta
             obs += f" · Sin muestras entre {_mes(a)} y {_mes(b)}"
         return obs
-    obs = "Cierre según prensa, sin incidente oficial en Náyade"
+    obs = "Cierre según prensa"
     return obs
+
+
+# Náyade escribe sin acentos; la razón tras ":" se conserva en la
+# fila y conviene leerla bien escrita
+_ACCENT_FIX = {
+    "bano": "baño",
+    "proliferacion": "proliferación",
+    "parametros": "parámetros",
+    "microbiologicos": "microbiológicos",
+    "limites": "límites",
+    "contaminacion": "contaminación",
+    "deteccion": "detección",
+}
+
+
+def _fix_accents(text: str) -> str:
+    return re.sub(
+        r"[a-záéíóúñü]+",
+        lambda m: _ACCENT_FIX.get(m.group(0).lower(), m.group(0)),
+        text,
+    )
+
+
+def _display_obs(raw: str | None, kind: str) -> str | None:
+    """Observación oficial → frase consistente: quién y qué, no la
+    redacción del funcionario — Náyade escribe la misma prohibición
+    como "Zona donde queda prohibido el baño temporalmente" o
+    "Prohibido el bano: proliferacion de algas" y cada variante
+    cortaba la fila de una forma. `kind` es el tipo computado del
+    episodio: un aviso que la prensa corroboró como cierre lleva
+    subtítulo de cierre, no el "recomendación" que anotó Sanidad."""
+    if raw is None:
+        return None
+    low = raw.lower()
+    if "prohib" in low:
+        obs = "Sanidad prohíbe el baño"
+        if ":" in raw:
+            reason = raw.split(":", 1)[1].strip().rstrip(".")
+            if reason:
+                obs += f" · {_fix_accents(reason)}"
+        return obs
+    if "recomend" in low:
+        # Aviso elevado a cierre por la prensa (ej. Punta Brava
+        # ago-2026): la fila dice cierre — el tipo manda — y la
+        # cláusula nombra la discrepancia en vez de ocultarla
+        return (
+            "Cierre según prensa · Sanidad recomendó no bañarse"
+            if kind == "closure"
+            else "Sanidad recomienda no bañarse"
+        )
+    return raw
 
 
 @router.get("/incidents", response_model=list[MunicipalityIncidentOut])
@@ -537,17 +587,18 @@ def _collect_episodes(beaches: list[Beach], today: date) -> list[Episode]:
             # Noticias dentro de la ventana oficial (±7 días): la
             # incidencia puede anotar que la prensa también lo recogió
             press_items = _press_in_window(beach, inc.opened_at, end)
+            kind = _incident_kind(inc, press_items)
             episodes.append(
                 Episode(
                     beach_id=inc.beach_id,
                     base=base_name(beach.name),
                     municipality=beach.municipality,
-                    kind=_incident_kind(inc, press_items),
+                    kind=kind,
                     start=inc.opened_at,
                     end=inc.closed_at,
                     via="official",
                     ref_id=inc.id,
-                    obs=inc.observations,
+                    obs=_display_obs(inc.observations, kind),
                     press_count=len(press_items),
                     pm_label=_pm_label(beach.name),
                     # Náyade no dice la causa: la toma la prensa de la
@@ -658,7 +709,7 @@ def beach_incidents(
 
     Incluye los eventos reconstruidos (`via=measurement|press`) para
     que la ficha muestre su procedencia — una fila del historial con
-    "Prohibición por analítica — sin incidencia en Náyade" explica el
+    "Laboratorio: agua no apta" explica el
     suceso aunque Náyade nunca creara acta."""
     beach = db.get(Beach, beach_id)
     if beach is None:
@@ -670,30 +721,32 @@ def beach_incidents(
         .all()
     )
     today = date.today()
-    out = [
-        BeachIncidentOut(
-            id=row.id,
-            beach_id=row.beach_id,
-            opened_at=row.opened_at,
-            closed_at=row.closed_at,
-            observations=row.observations,
-            source_url=row.source_url,
-            # Titulares de la ventana ±7 d que corroboran la
-            # incidencia oficial — la fila los despliega como
-            # evidencia ("según prensa")
-            press_items=[
-                _news_out(n)
-                for n in sorted(
-                    _press_in_window(
-                        beach, row.opened_at, row.closed_at or today
-                    ),
-                    key=lambda n: n.published_at,
-                    reverse=True,
-                )
-            ],
+    out = []
+    for row in rows:
+        # Titulares de la ventana ±7 d que corroboran la
+        # incidencia oficial — la fila los despliega como
+        # evidencia ("según prensa")
+        press_items = [
+            _news_out(n)
+            for n in sorted(
+                _press_in_window(beach, row.opened_at, row.closed_at or today),
+                key=lambda n: n.published_at,
+                reverse=True,
+            )
+        ]
+        out.append(
+            BeachIncidentOut(
+                id=row.id,
+                beach_id=row.beach_id,
+                opened_at=row.opened_at,
+                closed_at=row.closed_at,
+                observations=_display_obs(
+                    row.observations, _incident_kind(row, press_items)
+                ),
+                source_url=row.source_url,
+                press_items=press_items,
+            )
         )
-        for row in rows
-    ]
     synth_id = -1
     live_closed = _latest_closed(db, beach_id)
     # Ventanas oficiales de esta playa: un episodio de prensa que las
@@ -738,7 +791,7 @@ def beach_incidents(
         # "solo prensa" — el cierre tiene respaldo oficial de estado
         # aunque no exista incidencia abierta (Jardín PM4 oct-2026)
         if ev.via == "press" and ev.closed_at is None and live_closed:
-            obs = "Cierre vigente — confirmado por estado oficial en Náyade"
+            obs = "Cierre vigente — confirmado por estado oficial"
         out.append(
             BeachIncidentOut(
                 id=synth_id,

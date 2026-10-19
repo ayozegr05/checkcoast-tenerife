@@ -183,7 +183,7 @@ export default function MuniDetail({
                 : ('closure' as const),
             opened_at: (f.properties.reported_at ?? '').slice(0, 10),
             closed_at: null,
-            observations: 'Según prensa — sin incidente oficial en Náyade',
+            observations: 'Cierre según prensa',
             via: 'press',
           }));
     return (

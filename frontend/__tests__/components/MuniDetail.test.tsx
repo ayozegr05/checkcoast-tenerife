@@ -130,9 +130,7 @@ describe('<MuniDetail />', () => {
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(await screen.findByText('Playa de Benijo')).toBeTruthy();
-    expect(
-      screen.getByText('Según prensa — sin incidente oficial en Náyade'),
-    ).toBeTruthy();
+    expect(screen.getByText('Cierre según prensa')).toBeTruthy();
   });
 
   it('sin incidentes muestra el vacío', async () => {
