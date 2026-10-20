@@ -9,6 +9,7 @@ import {
   nearbyUniqueBeaches,
   operationText,
   originLabel,
+  outfallNewsMeta,
   protectedAreaName,
   protectedAreaNote,
   zoneText,
@@ -172,5 +173,39 @@ describe('nearbyUniqueBeaches', () => {
         row(3, 'La Jaquita'),
       ]).map((r) => r.beach_id),
     ).toEqual([1, 3]);
+  });
+});
+
+describe('outfallNewsMeta (Hito 11.2)', () => {
+  it('junta medio · fecha · playa casada', () => {
+    expect(
+      outfallNewsMeta({
+        id: 1,
+        beach_id: 2,
+        title: 'Rotura del emisario',
+        url: 'https://x.test/a',
+        source: 'El Día',
+        published_at: '2026-10-09T12:00:00Z',
+        event_type: 'infra',
+        cause: 'rotura',
+        beach_name: 'PLAYA JARDIN PM1',
+      }),
+    ).toBe('El Día · 09/10/2026 · Playa Jardín');
+  });
+
+  it('tolera campos ausentes', () => {
+    expect(
+      outfallNewsMeta({
+        id: 1,
+        beach_id: 2,
+        title: 'Vertido',
+        url: 'https://x.test/b',
+        source: null,
+        published_at: null,
+        event_type: 'infra',
+        cause: null,
+        beach_name: null,
+      }),
+    ).toBe('');
   });
 });

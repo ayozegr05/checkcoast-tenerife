@@ -10,7 +10,13 @@ import {
 
 import SatelliteShot from '../SatelliteShot';
 import type { GeoFeature } from '../../lib/api';
-import { OutfallNearbyBeach, fetchOutfallNearbyBeaches } from '../../lib/api';
+import {
+  OutfallNearbyBeach,
+  OutfallNewsItem,
+  OutfallNewsResponse,
+  fetchOutfallNearbyBeaches,
+  fetchOutfallNews,
+} from '../../lib/api';
 import { beachBaseName, displayBeachName, fmtDistance } from '../../lib/format';
 import { outfallRisk, RISK_LABEL, RISK_COLORS } from '../../lib/outfallRisk';
 import { beachStatusKey } from '../../lib/beachStatus';
@@ -25,6 +31,11 @@ import {
   natureParts,
   operationText,
   nearbyUniqueBeaches,
+  OUTFALL_NEWS_TITLE,
+  OUTFALL_NEWS_NOTE,
+  OUTFALL_NEWS_NAMED,
+  OUTFALL_NEWS_ZONE,
+  outfallNewsMeta,
 } from '../../lib/outfallSheet';
 import { colors, fonts } from '../../lib/theme';
 
@@ -39,6 +50,24 @@ type OutfallSheetProps = {
   // Tap en "Playa más cercana" de la ficha de emisario → verla en el mapa
   onSelectBeach?: (feature: GeoFeature) => void;
 };
+
+// Titular enlazable de la sección de prensa: medio · fecha · playa
+// casada — la noticia es DE la playa, el emisario es contexto
+const NewsRow = ({ item }: { item: OutfallNewsItem }) => (
+  <Pressable
+    onPress={() => Linking.openURL(item.url)}
+    accessibilityRole="link"
+    accessibilityLabel={`${item.title}, abrir noticia`}
+    style={({ pressed }) => [styles.newsRow, pressed && styles.pressFx]}
+  >
+    <Text style={styles.newsTitle} numberOfLines={2}>
+      {item.title}
+    </Text>
+    {outfallNewsMeta(item) ? (
+      <Text style={styles.newsMeta}>{outfallNewsMeta(item)}</Text>
+    ) : null}
+  </Pressable>
+);
 
 // Cuerpo de la ficha de EMISARIO: vista satélite, legalidad,
 // funcionamiento, espacio protegido, qué se vierte, dónde y cómo,
@@ -80,16 +109,23 @@ export default function OutfallSheet({
   // Playas en un radio de 1.5 km del vertido (proximidad geométrica,
   // no implica vínculo oficial con ningún cierre)
   const [nearby, setNearby] = useState<OutfallNearbyBeach[]>([]);
+  const [news, setNews] = useState<OutfallNewsResponse | null>(null);
   const [prevFeatureId, setPrevFeatureId] = useState(feature.id);
   if (prevFeatureId !== feature.id) {
     setPrevFeatureId(feature.id);
     setNearby([]);
+    setNews(null);
   }
   useEffect(() => {
     let cancelled = false;
     fetchOutfallNearbyBeaches(feature.id)
       .then((list) => !cancelled && setNearby(nearbyUniqueBeaches(list)))
       .catch(() => !cancelled && setNearby([]));
+    // Sin noticias de infra la sección no se renderiza: un fetch
+    // fallido equivale a "sin sección", nunca a caja vacía
+    fetchOutfallNews(feature.id)
+      .then((res) => !cancelled && setNews(res))
+      .catch(() => !cancelled && setNews(null));
     return () => {
       cancelled = true;
     };
@@ -404,6 +440,38 @@ export default function OutfallSheet({
         </View>
       ) : null}
 
+      {/* Prensa de infraestructura de vertido (Hito 11.2): roturas,
+          vertidos y reparaciones del punto y de su zona — "según
+          prensa", la proximidad nunca implica causalidad */}
+      {news?.named.length || news?.zone.length ? (
+        <View style={[styles.secCard, { borderLeftColor: colors.accent }]}>
+          <View style={styles.secHead}>
+            <Image
+              source={require('../../assets/icons/icon-news.png')}
+              style={[styles.secIcon, { tintColor: colors.accent }]}
+            />
+            <Text style={styles.secCardTitle}>{OUTFALL_NEWS_TITLE}</Text>
+          </View>
+          <Text style={styles.nearSub}>{OUTFALL_NEWS_NOTE}</Text>
+          {news.named.length ? (
+            <View>
+              <Text style={styles.newsGroup}>{OUTFALL_NEWS_NAMED}</Text>
+              {news.named.map((n) => (
+                <NewsRow key={`n${n.id}`} item={n} />
+              ))}
+            </View>
+          ) : null}
+          {news.zone.length ? (
+            <View>
+              <Text style={styles.newsGroup}>{OUTFALL_NEWS_ZONE}</Text>
+              {news.zone.map((n) => (
+                <NewsRow key={`z${n.id}`} item={n} />
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* Fuente oficial como pie discreto — la tabla cruda se fue:
           cada dato relevante ya está narrado en las cards y el resto
           no le dice nada al bañista. Queda el enlace por
@@ -625,6 +693,33 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textFaint,
     marginBottom: 6,
+  },
+  // Prensa del emisario: subtítulo de grupo ("De este punto"/"En la
+  // zona") y fila de titular enlazable — el titular es el enlace
+  newsGroup: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  newsRow: {
+    paddingVertical: 5,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  newsTitle: {
+    fontSize: 13,
+    fontFamily: fonts.semibold,
+    color: colors.primary,
+    lineHeight: 17,
+  },
+  newsMeta: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   nearestName: {
     fontSize: 12,

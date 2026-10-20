@@ -1,5 +1,5 @@
-import type { OutfallNearbyBeach } from './api';
-import { beachBaseName } from './format';
+import type { OutfallNearbyBeach, OutfallNewsItem } from './api';
+import { beachBaseName, displayBeachName, fmtDate } from './format';
 import { colors } from './theme';
 
 // Texto y formato de la ficha de emisario: toda la lógica de "cómo
@@ -289,3 +289,24 @@ export const nearbyUniqueBeaches = (list: OutfallNearbyBeach[]) =>
         (m) => beachBaseName(m.beach_name) === beachBaseName(n.beach_name),
       ) === i,
   );
+
+// --- Prensa de infraestructura de vertido (Hito 11.2) ---
+
+export const OUTFALL_NEWS_TITLE = 'En la prensa';
+// Etiqueta obligatoria: es contexto de prensa, y la proximidad o la
+// coincidencia temporal nunca implican causalidad
+export const OUTFALL_NEWS_NOTE =
+  'Según prensa — coincidencia geográfica, no implica causalidad';
+export const OUTFALL_NEWS_NAMED = 'De este punto';
+export const OUTFALL_NEWS_ZONE = 'En la zona';
+
+// Línea meta bajo el titular: medio · fecha · playa a la que va
+// casada la noticia (es noticia DE la playa, no del punto)
+export const outfallNewsMeta = (n: OutfallNewsItem): string =>
+  [
+    n.source,
+    n.published_at ? fmtDate(n.published_at.slice(0, 10)) : null,
+    n.beach_name ? displayBeachName(beachBaseName(n.beach_name)) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');

@@ -198,6 +198,21 @@ export type OutfallNearbyBeach = {
   distance_m: number;
 };
 
+export type OutfallNewsItem = BeachNews & {
+  // playa a la que está casada la noticia — es noticia DE la playa
+  // cercana, el emisario es contexto geográfico
+  beach_name: string | null;
+};
+
+export type OutfallNewsResponse = {
+  // titulares que nombran ESTE punto (instalación + topónimo del
+  // censo): roturas, vertidos, reparaciones, denuncias
+  named: OutfallNewsItem[];
+  // infraestructura de la zona sin punto concreto nombrado —
+  // contexto de prensa: la proximidad no implica causalidad
+  zone: OutfallNewsItem[];
+};
+
 export type Alert = {
   beach_id: number;
   beach_name: string;
@@ -228,6 +243,8 @@ export const fetchBeachNews = (beachId: number) =>
   getJson<BeachNewsResponse>(`/beaches/${beachId}/news`);
 export const fetchOutfallNearbyBeaches = (outfallId: number) =>
   getJson<OutfallNearbyBeach[]>(`/outfalls/${outfallId}/nearby-beaches`);
+export const fetchOutfallNews = (outfallId: number) =>
+  getJson<OutfallNewsResponse>(`/outfalls/${outfallId}/news`);
 export const fetchBeachNearbyOutfalls = (beachId: number) =>
   getJson<BeachNearbyOutfall[]>(
     `/beaches/${beachId}/nearby-outfalls?radius_m=1000`,
