@@ -472,8 +472,8 @@ que queda (tratamiento, diámetro, nº autorización) se descarta.
 | # | Tarea | Detalle | Esfuerzo |
 |---|-------|---------|----------|
 | 11.1 | **Ficha técnica del censo** | ✅ Hecho en su parte útil — campos principales ya en el modelo y en la ficha; campos restantes descartados por decisión | — |
-| 11.2 | **Noticias de vertidos cercanos** | Posible futuro — endpoint `/outfalls/{id}/news` con news_items de playas a <2 km que mencionen emisario/vertido/depuradora. Reutiliza el pipeline de prensa | 🟡 Medio |
-| 11.3 | **Estado de vertido en el tiempo** | Posible futuro — correlación episodios de cierre fecal ↔ emisario habitual, SIN acusar causalidad (disclaimer obligatorio) | 🔴 Alto |
+| 11.2 | **Noticias de vertidos cercanos** | ✅ Hecho (20-oct) — `GET /outfalls/{id}/news` con `named` (instalación + topónimo propio único del censo) y `zone` (infra de playas a <2 km); segunda vía de extracción `PROMPT_INFRA` en cascada tras el prompt de playa (solo si descarta y el titular casa `INFRA_RE`, cuota propia `news_max_infra_calls`); sin cierres por fecal ni noticias del vecino; sección "En la prensa · según prensa" en ficha app y landing. Solo puntos de residual | 🟡 Medio |
+| 11.3 | **Episodios de contaminación del entorno** | ✅ Hecho (20-oct) — `gather_nearby_episodes`: episodios fusionados (oficiales + reconstruidos) de causa hídrica en playas a <2 km, últimos 5 años, agregado por playa base; card propia en ficha app y landing con disclaimer "estar cerca no implica causar". No toca estados ni alertas | 🔴 Alto |
 
 ---
 
