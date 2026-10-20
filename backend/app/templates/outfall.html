@@ -351,6 +351,26 @@
         {%- endif %}
       </div>
       {%- endif %}
+      {%- if episodes %}
+      <div class="seccard">
+        <div class="sechead">
+          <img src="/icons/icon-episodes.png" alt="">
+          <span>Episodios de contaminación en el entorno</span>
+        </div>
+        <div class="nearsub">Últimos 5 años en playas a menos de
+          2 km — estar cerca no implica causar</div>
+        <div class="srow"><b>{{ episodes.total }}
+          episodio{{ 's' if episodes.total != 1 }}</b>
+          {%- if episodes.closures %} ({{ episodes.closures }}
+          cierre{{ 's' if episodes.closures != 1 }}){%- endif %}
+          {%- if episodes.last %} · el más reciente empezó el
+          {{ episodes.last }}{% endif %}</div>
+        {%- for b in episodes.beaches %}
+        <div class="srow">{{ b.name }} — <b>{{ b.episodes }}</b>
+          {%- if b.last %}, último {{ b.last }}{% endif %}</div>
+        {%- endfor %}
+      </div>
+      {%- endif %}
       {%- if source_url %}
       <p class="src">Fuente: <a href="{{ source_url }}">Censo Vertidos
         Tierra-Mar 2025 ↗</a></p>

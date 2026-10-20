@@ -197,7 +197,7 @@ def test_outfall_news(seed_data):
     # El outfall semilla (nature=None) no es residual → sin sección
     r = client.get(f"/outfalls/{seed_data['outfall_id']}/news")
     assert r.status_code == 200
-    assert r.json() == {"named": [], "zone": []}
+    assert r.json() == {"named": [], "zone": [], "episodes": None}
 
     o = Outfall(
         external_id="ci-seed-resid",
@@ -251,9 +251,71 @@ def test_outfall_news(seed_data):
         item = next(n for n in body["named"] if n["title"] == named.title)
         assert item["beach_name"] == "PLAYA TEST CI (LA) PM1"
         assert item["event_type"] == "infra"
+        # Hito 11.3: sin episodios en la ventana el agregado va vacío
+        assert body["episodes"]["total"] == 0
+        assert body["episodes"]["beaches"] == []
     finally:
         for it in (named, zone, noise):
             db.delete(it)
+        db.delete(o)
+        db.commit()
+        db.close()
+
+
+def test_outfall_news_episodes(seed_data):
+    """Hito 11.3: episodios de contaminación de playas <2 km como
+    contexto — agregado por playa base, últimos 5 años; un episodio
+    de causa no-hídrica no cuenta."""
+    from datetime import date, timedelta
+
+    from geoalchemy2.elements import WKTElement
+
+    from app.db import SessionLocal
+    from app.models import BeachIncident, Outfall, OutfallStatus
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    o = Outfall(
+        external_id="ci-seed-resid-ep",
+        name="Emisario Submarino de Punta Episodios",
+        municipality="Santa Cruz de Tenerife",
+        status=OutfallStatus.legal,
+        nature="Agua residual urbana",
+        location="Punta Episodios",
+        geom=WKTElement("POINT(-16.25 28.46)", srid=4326),
+    )
+    # Cierre oficial por contaminación + aviso no hídrico en la playa
+    # semilla (misma coordenada: a <2 km del punto)
+    inc = BeachIncident(
+        beach_id=beach_id,
+        opened_at=date.today() - timedelta(days=40),
+        closed_at=date.today() - timedelta(days=30),
+        observations="Prohibido el baño por contaminación fecal",
+    )
+    old = BeachIncident(
+        beach_id=beach_id,
+        opened_at=date.today() - timedelta(days=365 * 6),
+        closed_at=date.today() - timedelta(days=365 * 6 - 5),
+        observations="Prohibido el baño por contaminación fecal",
+    )
+    db.add_all([o, inc, old])
+    db.commit()
+    try:
+        body = client.get(f"/outfalls/{o.id}/news").json()
+        ep = body["episodes"]
+        assert ep["total"] >= 1
+        assert ep["closures"] >= 1
+        assert ep["last"] is not None
+        beach = next(b for b in ep["beaches"] if b["beach_id"] == beach_id)
+        assert beach["episodes"] >= 1
+        # El episodio de hace 6 años queda fuera de la ventana
+        assert all(
+            (b["last"] or "") >= str(date.today() - timedelta(days=365 * 5))
+            for b in ep["beaches"]
+        )
+    finally:
+        db.delete(inc)
+        db.delete(old)
         db.delete(o)
         db.commit()
         db.close()

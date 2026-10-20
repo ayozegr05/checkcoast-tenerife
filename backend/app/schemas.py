@@ -161,6 +161,28 @@ class OutfallNewsItemOut(NewsItemOut):
     beach_name: str | None = None
 
 
+class OutfallEpisodeBeachOut(BaseModel):
+    """Episodios de contaminación de una playa del entorno del
+    emisario (Hito 11.3): contexto de la ficha — la proximidad
+    nunca implica causalidad."""
+
+    beach_id: int
+    name: str | None
+    municipality: str | None = None
+    episodes: int
+    closures: int
+    last: date | None = None
+
+
+class OutfallEpisodesOut(BaseModel):
+    # Agregado de episodios de contaminación (familia agua:
+    # CONTAMINATION_CAUSES) en playas a <2 km, últimos 5 años
+    total: int = 0
+    closures: int = 0
+    last: date | None = None
+    beaches: list[OutfallEpisodeBeachOut] = []
+
+
 class OutfallNewsOut(BaseModel):
     # Titulares que nombran ESTE punto concreto: palabra de
     # instalación + topónimo propio ("emisario de Punta Brava")
@@ -168,6 +190,9 @@ class OutfallNewsOut(BaseModel):
     # Infraestructura de la zona sin punto concreto nombrado:
     # contexto de prensa, nunca implica causalidad
     zone: list[OutfallNewsItemOut] = []
+    # Episodios de contaminación del entorno — contexto estadístico,
+    # nunca causalidad; None en puntos no residuales
+    episodes: OutfallEpisodesOut | None = None
 
 
 class BeachNearbyOutfallOut(BaseModel):

@@ -1,4 +1,9 @@
-import type { OutfallNearbyBeach, OutfallNewsItem } from './api';
+import type {
+  OutfallEpisodeBeach,
+  OutfallEpisodes,
+  OutfallNearbyBeach,
+  OutfallNewsItem,
+} from './api';
 import { beachBaseName, displayBeachName, fmtDate } from './format';
 import { colors } from './theme';
 
@@ -307,6 +312,36 @@ export const outfallNewsMeta = (n: OutfallNewsItem): string =>
     n.source,
     n.published_at ? fmtDate(n.published_at.slice(0, 10)) : null,
     n.beach_name ? displayBeachName(beachBaseName(n.beach_name)) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+// --- Episodios de contaminación del entorno (Hito 11.3) ---
+
+export const OUTFALL_EPISODES_TITLE = 'Episodios de contaminación cercanos';
+// Misma regla editorial que la prensa: la proximidad es contexto,
+// nunca acusación — no toca estados ni alertas
+export const OUTFALL_EPISODES_NOTE =
+  'Últimos 5 años en playas a menos de 2 km — estar cerca no implica causar';
+
+// Línea resumen: "12 episodios (9 cierres) · el más reciente en
+// oct 2025" — cierres solo si los hay, fecha solo si existe
+export const outfallEpisodesSummary = (e: OutfallEpisodes): string =>
+  [
+    `${e.total} episodio${e.total === 1 ? '' : 's'}${
+      e.closures ? ` (${e.closures} cierre${e.closures === 1 ? '' : 's'})` : ''
+    }`,
+    e.last ? `el más reciente empezó el ${fmtDate(e.last)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+// Fila por playa: "Playa Jardín — 9 episodios · últ. 09/10/2025"
+export const outfallEpisodeBeachLine = (b: OutfallEpisodeBeach): string =>
+  [
+    b.name ? displayBeachName(b.name) : 'Playa',
+    `${b.episodes} episodio${b.episodes === 1 ? '' : 's'}`,
+    b.last ? `últ. ${fmtDate(b.last)}` : null,
   ]
     .filter(Boolean)
     .join(' · ');

@@ -15,6 +15,7 @@ import re
 import unicodedata
 from collections.abc import Iterable
 from dataclasses import replace
+from datetime import date, timedelta
 
 from geoalchemy2 import Geography, Geometry
 from sqlalchemy import cast, func, literal
@@ -22,6 +23,7 @@ from sqlalchemy import cast, func, literal
 from app.models import Beach, NewsItem, Outfall
 from app.news_llm import EventExtraction, NewsExtractor
 from app.news_sources import RawArticle
+from app.schemas import OutfallEpisodeBeachOut, OutfallEpisodesOut
 
 INFRA_EVENT_TYPE = "infra"
 
@@ -353,3 +355,85 @@ def gather_infra_news(
             zone.append(pair)
         # nombra otro punto concreto → fuera de esta ficha
     return named[:OUTFALL_NEWS_LIMIT], zone[:OUTFALL_NEWS_LIMIT]
+
+
+# Ventana del agregado de episodios: misma convención que la ficha de
+# playa ("los últimos 5 años")
+EPISODE_YEARS = 5
+
+
+def gather_nearby_episodes(
+    db, outfall, radius_m: int = 2000, years: int = EPISODE_YEARS
+) -> OutfallEpisodesOut | None:
+    """Episodios de contaminación en playas del entorno — contexto de
+    la ficha del emisario (Hito 11.3); la proximidad NUNCA implica
+    causalidad.
+
+    Cuenta episodios fusionados (actas oficiales + reconstruidos por
+    analítica/prensa) cuya causa es de la familia agua
+    (CONTAMINATION_CAUSES) en los últimos `years` años, agregados por
+    playa base. `None` en puntos no residuales — sin sección, igual
+    que la prensa."""
+    if "residual" not in (outfall.nature or "").lower():
+        return None
+    from sqlalchemy.orm import selectinload
+
+    from app.queries import CONTAMINATION_CAUSES
+
+    # Import local: routers.beaches carga FastAPI y medio backend;
+    # share_context hace lo mismo con beach_incidents
+    from app.routers.beaches import _collect_episodes, _merged_episode_rows
+
+    outfall_geog = cast(literal(outfall.geom, type_=Geometry), Geography)
+    beaches = (
+        db.query(Beach)
+        .options(
+            selectinload(Beach.incidents),
+            selectinload(Beach.measurements),
+            selectinload(Beach.news_items),
+        )
+        .filter(
+            func.ST_DWithin(Beach.geom.cast(Geography), outfall_geog, radius_m)
+        )
+        .all()
+    )
+    if not beaches:
+        return OutfallEpisodesOut()
+    today = date.today()
+    cutoff = today - timedelta(days=365 * years)
+    rows = [
+        r
+        for r in _merged_episode_rows(
+            _collect_episodes(beaches, today, include_measurement=True)
+        )
+        if r.cause in CONTAMINATION_CAUSES and r.opened_at >= cutoff
+    ]
+    by_beach: dict[tuple[str | None, str | None], dict] = {}
+    for r in rows:
+        b = by_beach.setdefault(
+            (r.beach_name, r.municipality),
+            {
+                "beach_id": r.beach_id,
+                "name": r.beach_name,
+                "municipality": r.municipality,
+                "episodes": 0,
+                "closures": 0,
+                "last": None,
+            },
+        )
+        b["episodes"] += 1
+        b["closures"] += r.kind == "closure"
+        if b["last"] is None or r.opened_at > b["last"]:
+            b["last"], b["beach_id"] = r.opened_at, r.beach_id
+    return OutfallEpisodesOut(
+        total=len(rows),
+        closures=sum(r.kind == "closure" for r in rows),
+        last=max((r.opened_at for r in rows), default=None),
+        beaches=[
+            OutfallEpisodeBeachOut(**b)
+            for b in sorted(
+                by_beach.values(),
+                key=lambda x: (-x["episodes"], x["name"] or ""),
+            )
+        ],
+    )

@@ -31,10 +31,14 @@ import {
   natureParts,
   operationText,
   nearbyUniqueBeaches,
+  OUTFALL_EPISODES_NOTE,
+  OUTFALL_EPISODES_TITLE,
   OUTFALL_NEWS_TITLE,
   OUTFALL_NEWS_NOTE,
   OUTFALL_NEWS_NAMED,
   OUTFALL_NEWS_ZONE,
+  outfallEpisodeBeachLine,
+  outfallEpisodesSummary,
   outfallNewsMeta,
 } from '../../lib/outfallSheet';
 import { colors, fonts } from '../../lib/theme';
@@ -472,6 +476,32 @@ export default function OutfallSheet({
         </View>
       ) : null}
 
+      {/* Episodios de contaminación en playas del entorno (Hito
+          11.3): contexto estadístico — la proximidad no implica
+          causalidad y no toca estados ni alertas */}
+      {news?.episodes?.total ? (
+        <View style={[styles.secCard, { borderLeftColor: colors.accent }]}>
+          <View style={styles.secHead}>
+            <Image
+              source={require('../../assets/icons/icon-episodes.png')}
+              style={[styles.secIcon, { tintColor: colors.accent }]}
+            />
+            <Text style={styles.secCardTitle}>{OUTFALL_EPISODES_TITLE}</Text>
+          </View>
+          <Text style={styles.nearSub}>{OUTFALL_EPISODES_NOTE}</Text>
+          <Text style={styles.row}>
+            <Text style={styles.rowStrong}>
+              {outfallEpisodesSummary(news.episodes)}
+            </Text>
+          </Text>
+          {news.episodes.beaches.map((b) => (
+            <Text key={b.beach_id} style={styles.epBeach}>
+              {outfallEpisodeBeachLine(b)}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+
       {/* Fuente oficial como pie discreto — la tabla cruda se fue:
           cada dato relevante ya está narrado en las cards y el resto
           no le dice nada al bañista. Queda el enlace por
@@ -720,6 +750,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  // Fila por playa del agregado de episodios: nombre · N · último
+  epBeach: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.text,
+    marginTop: 4,
   },
   nearestName: {
     fontSize: 12,

@@ -35,7 +35,7 @@ const vistas = beach(3, 'Playa Las Vistas', { status: 'open' });
 describe('<OutfallSheet />', () => {
   beforeEach(() => {
     // default: sin noticias — los tests que la quieren la configuran
-    newsMock.mockResolvedValue({ named: [], zone: [] });
+    newsMock.mockResolvedValue({ named: [], zone: [], episodes: null });
   });
   afterEach(() => {
     jest.restoreAllMocks();
@@ -153,6 +153,7 @@ describe('<OutfallSheet />', () => {
           beach_name: 'PLAYA JARDIN PM1',
         },
       ],
+      episodes: null,
     });
     const open = jest
       .spyOn(Linking, 'openURL')
@@ -180,10 +181,55 @@ describe('<OutfallSheet />', () => {
   it('sin noticias de infra la sección no se renderiza', async () => {
     jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
     nearbyMock.mockResolvedValue([]);
-    newsMock.mockResolvedValue({ named: [], zone: [] });
+    newsMock.mockResolvedValue({ named: [], zone: [], episodes: null });
 
     await render(<OutfallSheet feature={emisario} />);
 
     expect(screen.queryByText('En la prensa')).toBeNull();
+  });
+
+  it('con episodios cercanos muestra el agregado con disclaimer', async () => {
+    jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
+    nearbyMock.mockResolvedValue([]);
+    newsMock.mockResolvedValue({
+      named: [],
+      zone: [],
+      episodes: {
+        total: 12,
+        closures: 9,
+        last: '2026-10-09',
+        beaches: [
+          {
+            beach_id: 3,
+            name: 'PLAYA JARDIN',
+            municipality: 'Puerto de la Cruz',
+            episodes: 9,
+            closures: 8,
+            last: '2026-10-09',
+          },
+        ],
+      },
+    });
+
+    await render(<OutfallSheet feature={emisario} />);
+
+    expect(
+      await screen.findByText('Episodios de contaminación cercanos'),
+    ).toBeTruthy();
+    expect(screen.getByText(/no implica causar/)).toBeTruthy();
+    expect(screen.getByText(/12 episodios \(9 cierres\)/)).toBeTruthy();
+    expect(screen.getByText(/Playa Jardín · 9 episodios/)).toBeTruthy();
+  });
+
+  it('episodes=null (punto no residual) no renderiza la sección', async () => {
+    jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
+    nearbyMock.mockResolvedValue([]);
+    newsMock.mockResolvedValue({ named: [], zone: [], episodes: null });
+
+    await render(<OutfallSheet feature={emisario} />);
+
+    expect(
+      screen.queryByText('Episodios de contaminación cercanos'),
+    ).toBeNull();
   });
 });

@@ -31,7 +31,7 @@ from app.models import (
 from app.names import PM_SUFFIX
 from app.names import normalize_beach_name as _normalize
 from app.news_episodes import _news_cause, press_episode_summary
-from app.news_infra import gather_infra_news
+from app.news_infra import gather_infra_news, gather_nearby_episodes
 from app.news_matching import _norm_muni
 from app.news_zones import _ZONE_GROUPS, _zone_entry
 from app.queries import (
@@ -898,10 +898,7 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
         elif y5[0]:
             rest = _parts(0, y5[1], y5[2])
             c1 = str(y1[0]) if y1[0] else "ninguno"
-            main = (
-                f"{y5[0]} cierre{'s' if y5[0] != 1 else ''} "
-                f"({c1} este año)"
-            )
+            main = f"{y5[0]} cierre{'s' if y5[0] != 1 else ''} ({c1} este año)"
             if rest:
                 main += f" · {rest}"
             main += uncl_bit
@@ -2068,6 +2065,29 @@ def outfall_context(
         "zone": [_news_card(p) for p in zone_items],
     }
 
+    # Episodios de contaminación del entorno (Hito 11.3): el mismo
+    # agregado que sirve el endpoint — contexto estadístico, el
+    # disclaimer de la plantilla recuerda que cerca no es causalidad
+    ep_raw = gather_nearby_episodes(db, outfall)
+    episodes = None
+    if ep_raw and ep_raw.total:
+        episodes = {
+            "total": ep_raw.total,
+            "closures": ep_raw.closures,
+            "last": (
+                ep_raw.last.strftime("%d/%m/%Y") if ep_raw.last else None
+            ),
+            "beaches": [
+                {
+                    "name": _display_name(b.name) if b.name else "?",
+                    "episodes": b.episodes,
+                    "closures": b.closures,
+                    "last": (b.last.strftime("%d/%m/%Y") if b.last else None),
+                }
+                for b in ep_raw.beaches[:5]
+            ],
+        }
+
     return {
         "title": f"{name} · {muni}",
         "desc": f"Emisario — {label} — CheckCoast Tenerife",
@@ -2107,6 +2127,7 @@ def outfall_context(
         ),
         "nearby": nearby,
         "news": news,
+        "episodes": episodes,
         "source_url": outfall.source_url,
         "n_closed": status_counts.get("closed", 0),
         "n_warning": status_counts.get("warning", 0),

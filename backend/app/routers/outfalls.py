@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Beach, NewsItem, Outfall, OutfallStatus
-from app.news_infra import gather_infra_news
+from app.news_infra import gather_infra_news, gather_nearby_episodes
 from app.queries import clean_cause_text
 from app.schemas import (
     Feature,
@@ -183,4 +183,5 @@ def outfall_news(
     return OutfallNewsOut(
         named=[_outfall_news_out(n, b) for n, b in named],
         zone=[_outfall_news_out(n, b) for n, b in zone],
+        episodes=gather_nearby_episodes(db, outfall),
     )

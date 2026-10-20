@@ -9,6 +9,8 @@ import {
   nearbyUniqueBeaches,
   operationText,
   originLabel,
+  outfallEpisodeBeachLine,
+  outfallEpisodesSummary,
   outfallNewsMeta,
   protectedAreaName,
   protectedAreaNote,
@@ -207,5 +209,50 @@ describe('outfallNewsMeta (Hito 11.2)', () => {
         beach_name: null,
       }),
     ).toBe('');
+  });
+});
+
+describe('outfallEpisodesSummary / outfallEpisodeBeachLine (Hito 11.3)', () => {
+  it('resume totales con cierres y fecha del último', () => {
+    expect(
+      outfallEpisodesSummary({
+        total: 12,
+        closures: 9,
+        last: '2026-10-09',
+        beaches: [],
+      }),
+    ).toBe('12 episodios (9 cierres) · el más reciente empezó el 09/10/2026');
+  });
+
+  it('singulariza y omite lo que falta', () => {
+    expect(
+      outfallEpisodesSummary({
+        total: 1,
+        closures: 1,
+        last: null,
+        beaches: [],
+      }),
+    ).toBe('1 episodio (1 cierre)');
+    expect(
+      outfallEpisodesSummary({
+        total: 3,
+        closures: 0,
+        last: null,
+        beaches: [],
+      }),
+    ).toBe('3 episodios');
+  });
+
+  it('la fila por playa junta nombre · N · último', () => {
+    expect(
+      outfallEpisodeBeachLine({
+        beach_id: 1,
+        name: 'PLAYA JARDIN',
+        municipality: 'Puerto de la Cruz',
+        episodes: 9,
+        closures: 8,
+        last: '2026-10-09',
+      }),
+    ).toBe('Playa Jardín · 9 episodios · últ. 09/10/2026');
   });
 });

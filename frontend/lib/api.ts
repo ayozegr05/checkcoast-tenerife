@@ -204,6 +204,24 @@ export type OutfallNewsItem = BeachNews & {
   beach_name: string | null;
 };
 
+export type OutfallEpisodeBeach = {
+  beach_id: number;
+  name: string | null;
+  municipality: string | null;
+  episodes: number;
+  closures: number;
+  last: string | null;
+};
+
+export type OutfallEpisodes = {
+  // episodios de contaminación (familia agua) en playas a <2 km,
+  // últimos 5 años — contexto estadístico, nunca causalidad
+  total: number;
+  closures: number;
+  last: string | null;
+  beaches: OutfallEpisodeBeach[];
+};
+
 export type OutfallNewsResponse = {
   // titulares que nombran ESTE punto (instalación + topónimo del
   // censo): roturas, vertidos, reparaciones, denuncias
@@ -211,6 +229,9 @@ export type OutfallNewsResponse = {
   // infraestructura de la zona sin punto concreto nombrado —
   // contexto de prensa: la proximidad no implica causalidad
   zone: OutfallNewsItem[];
+  // episodios de contaminación del entorno — contexto; null en
+  // puntos no residuales (sin sección)
+  episodes: OutfallEpisodes | null;
 };
 
 export type Alert = {
