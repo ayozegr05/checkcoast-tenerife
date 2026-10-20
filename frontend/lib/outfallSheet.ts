@@ -1,6 +1,7 @@
 import type {
   OutfallEpisodeBeach,
   OutfallEpisodes,
+  OutfallInfraSummary,
   OutfallNearbyBeach,
   OutfallNewsItem,
 } from './api';
@@ -306,15 +307,30 @@ export const OUTFALL_NEWS_NAMED = 'De este punto';
 export const OUTFALL_NEWS_ZONE = 'En la zona';
 
 // Línea meta bajo el titular: medio · fecha · playa a la que va
-// casada la noticia (es noticia DE la playa, no del punto)
+// casada la noticia (es noticia DE la playa, no del punto) · hecho
+// de infraestructura del cuerpo cuando lo hay
 export const outfallNewsMeta = (n: OutfallNewsItem): string =>
   [
     n.source,
     n.published_at ? fmtDate(n.published_at.slice(0, 10)) : null,
     n.beach_name ? displayBeachName(beachBaseName(n.beach_name)) : null,
+    n.infra_cause,
   ]
     .filter(Boolean)
     .join(' · ');
+
+// Resumen "de este punto" (resumen C): qué cuentan las noticias que
+// nombran el punto — "rotura del emisario · vertido de aguas
+// residuales — 3 noticias lo nombran"
+export const outfallInfraSummary = (s: OutfallInfraSummary): string =>
+  [
+    s.causes.join(' · ') || null,
+    s.named_count === 1
+      ? '1 noticia lo nombra'
+      : `${s.named_count} noticias lo nombran`,
+  ]
+    .filter(Boolean)
+    .join(' — ');
 
 // --- Episodios de contaminación del entorno (Hito 11.3) ---
 

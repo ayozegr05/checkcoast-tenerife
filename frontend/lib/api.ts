@@ -159,7 +159,9 @@ export type BeachNearbyOutfall = {
 
 export type BeachNews = {
   id: number;
-  beach_id: number;
+  // en /beaches/{id}/news siempre va casada; en la ficha de emisario
+  // un ítem atribuido por cuerpo puede no tener playa
+  beach_id: number | null;
   title: string;
   url: string;
   source: string | null;
@@ -202,6 +204,17 @@ export type OutfallNewsItem = BeachNews & {
   // playa a la que está casada la noticia — es noticia DE la playa
   // cercana, el emisario es contexto geográfico
   beach_name: string | null;
+  // hecho de infraestructura extraído del cuerpo del artículo
+  // ("rotura del emisario") — distinto de `cause`, que es la causa
+  // del evento de playa cuando el ítem sirve a las dos fichas
+  infra_cause: string | null;
+};
+
+export type OutfallInfraSummary = {
+  // resumen "de este punto": cuántas noticias lo nombran y qué
+  // hechos de infraestructura describen (roturas, vertidos…)
+  named_count: number;
+  causes: string[];
 };
 
 export type OutfallEpisodeBeach = {
@@ -229,6 +242,9 @@ export type OutfallNewsResponse = {
   // infraestructura de la zona sin punto concreto nombrado —
   // contexto de prensa: la proximidad no implica causalidad
   zone: OutfallNewsItem[];
+  // línea resumen de las `named` ("rotura del emisario — 3 noticias
+  // lo nombran"); null si ninguna nombra el punto
+  summary: OutfallInfraSummary | null;
   // episodios de contaminación del entorno — contexto; null en
   // puntos no residuales (sin sección)
   episodes: OutfallEpisodes | null;

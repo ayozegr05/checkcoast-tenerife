@@ -11,6 +11,7 @@ import {
   originLabel,
   outfallEpisodeBeachLine,
   outfallEpisodesSummary,
+  outfallInfraSummary,
   outfallNewsMeta,
   protectedAreaName,
   protectedAreaNote,
@@ -191,8 +192,26 @@ describe('outfallNewsMeta (Hito 11.2)', () => {
         event_type: 'infra',
         cause: 'rotura',
         beach_name: 'PLAYA JARDIN PM1',
+        infra_cause: null,
       }),
     ).toBe('El Día · 09/10/2026 · Playa Jardín');
+  });
+
+  it('añade el hecho de infra del cuerpo cuando lo hay', () => {
+    expect(
+      outfallNewsMeta({
+        id: 1,
+        beach_id: null,
+        title: 'Cierran la playa',
+        url: 'https://x.test/c',
+        source: 'El Día',
+        published_at: '2026-10-09T12:00:00Z',
+        event_type: 'closure',
+        cause: 'contaminación fecal',
+        beach_name: null,
+        infra_cause: 'fisura en la conducción',
+      }),
+    ).toBe('El Día · 09/10/2026 · fisura en la conducción');
   });
 
   it('tolera campos ausentes', () => {
@@ -207,8 +226,28 @@ describe('outfallNewsMeta (Hito 11.2)', () => {
         event_type: 'infra',
         cause: null,
         beach_name: null,
+        infra_cause: null,
       }),
     ).toBe('');
+  });
+});
+
+describe('outfallInfraSummary (resumen C)', () => {
+  it('junta hechos de infra + recuento de noticias que lo nombran', () => {
+    expect(
+      outfallInfraSummary({
+        named_count: 3,
+        causes: ['rotura del emisario', 'vertido de aguas residuales'],
+      }),
+    ).toBe(
+      'rotura del emisario · vertido de aguas residuales — 3 noticias lo nombran',
+    );
+  });
+
+  it('singulariza y funciona sin causas', () => {
+    expect(outfallInfraSummary({ named_count: 1, causes: [] })).toBe(
+      '1 noticia lo nombra',
+    );
   });
 });
 

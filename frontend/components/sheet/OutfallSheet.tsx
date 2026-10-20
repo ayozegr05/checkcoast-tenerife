@@ -39,6 +39,7 @@ import {
   OUTFALL_NEWS_ZONE,
   outfallEpisodeBeachLine,
   outfallEpisodesSummary,
+  outfallInfraSummary,
   outfallNewsMeta,
 } from '../../lib/outfallSheet';
 import { colors, fonts } from '../../lib/theme';
@@ -460,6 +461,11 @@ export default function OutfallSheet({
           {news.named.length ? (
             <View>
               <Text style={styles.newsGroup}>{OUTFALL_NEWS_NAMED}</Text>
+              {news.summary ? (
+                <Text style={styles.newsMeta}>
+                  {outfallInfraSummary(news.summary)}
+                </Text>
+              ) : null}
               {news.named.map((n) => (
                 <NewsRow key={`n${n.id}`} item={n} />
               ))}

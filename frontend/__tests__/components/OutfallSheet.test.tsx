@@ -35,7 +35,12 @@ const vistas = beach(3, 'Playa Las Vistas', { status: 'open' });
 describe('<OutfallSheet />', () => {
   beforeEach(() => {
     // default: sin noticias — los tests que la quieren la configuran
-    newsMock.mockResolvedValue({ named: [], zone: [], episodes: null });
+    newsMock.mockResolvedValue({
+      named: [],
+      zone: [],
+      summary: null,
+      episodes: null,
+    });
   });
   afterEach(() => {
     jest.restoreAllMocks();
@@ -138,6 +143,7 @@ describe('<OutfallSheet />', () => {
           event_type: 'infra',
           cause: 'rotura del emisario',
           beach_name: 'PLAYA JARDIN PM4',
+          infra_cause: 'rotura del emisario',
         },
       ],
       zone: [
@@ -151,8 +157,13 @@ describe('<OutfallSheet />', () => {
           event_type: 'closure',
           cause: 'fisura',
           beach_name: 'PLAYA JARDIN PM1',
+          infra_cause: null,
         },
       ],
+      summary: {
+        named_count: 1,
+        causes: ['rotura del emisario'],
+      },
       episodes: null,
     });
     const open = jest
@@ -167,8 +178,14 @@ describe('<OutfallSheet />', () => {
     expect(screen.getByText(/no implica causalidad/)).toBeTruthy();
     expect(screen.getByText('De este punto')).toBeTruthy();
     expect(screen.getByText('En la zona')).toBeTruthy();
-    // meta: medio · fecha · playa casada
-    expect(screen.getByText(/El Día · 09\/10\/2026/)).toBeTruthy();
+    // meta: medio · fecha · playa casada · hecho de infra del cuerpo
+    expect(
+      screen.getByText(/El Día · 09\/10\/2026 · Playa Jardín · rotura/),
+    ).toBeTruthy();
+    // línea resumen "de este punto" (resumen C)
+    expect(
+      screen.getByText(/rotura del emisario — 1 noticia lo nombra/),
+    ).toBeTruthy();
 
     await fireEvent.press(
       screen.getByRole('link', {
@@ -181,7 +198,12 @@ describe('<OutfallSheet />', () => {
   it('sin noticias de infra la sección no se renderiza', async () => {
     jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
     nearbyMock.mockResolvedValue([]);
-    newsMock.mockResolvedValue({ named: [], zone: [], episodes: null });
+    newsMock.mockResolvedValue({
+      named: [],
+      zone: [],
+      summary: null,
+      episodes: null,
+    });
 
     await render(<OutfallSheet feature={emisario} />);
 
@@ -194,6 +216,7 @@ describe('<OutfallSheet />', () => {
     newsMock.mockResolvedValue({
       named: [],
       zone: [],
+      summary: null,
       episodes: {
         total: 12,
         closures: 9,
@@ -224,7 +247,12 @@ describe('<OutfallSheet />', () => {
   it('episodes=null (punto no residual) no renderiza la sección', async () => {
     jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
     nearbyMock.mockResolvedValue([]);
-    newsMock.mockResolvedValue({ named: [], zone: [], episodes: null });
+    newsMock.mockResolvedValue({
+      named: [],
+      zone: [],
+      summary: null,
+      episodes: null,
+    });
 
     await render(<OutfallSheet feature={emisario} />);
 
