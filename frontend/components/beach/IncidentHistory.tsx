@@ -269,11 +269,9 @@ export default function IncidentHistory({
                 <Text style={styles.historySummaryNum}>
                   {`${y5.closures} cierre${y5.closures === 1 ? '' : 's'}`}
                 </Text>
-                {' ('}
                 <Text style={styles.historySummaryNum}>
-                  {y1.closures ? String(y1.closures) : 'ninguno'}
+                  {` (${y1.closures ? y1.closures : 'ninguno'} este año)`}
                 </Text>
-                {' este año)'}
                 {y5rest ? ' · ' : ''}
                 {y5rest ? (
                   <Text style={styles.historySummaryNum}>{y5rest}</Text>
