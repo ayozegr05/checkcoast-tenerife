@@ -243,6 +243,19 @@ class NewsItem(Base):
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    # Vía infra (Hito 11): enriquecimiento con el cuerpo del artículo.
+    # `infra_outfall_id` = el punto del censo que el titular/cuerpo
+    # NOMBRA (None = ninguno concreto o varios); `infra_checked_at` =
+    # marca de "ya se escaneó el cuerpo" para reanudación; `infra_cause`
+    # guarda el hecho de infraestructura ("rotura del emisario") sin
+    # pisar `cause`, que sigue siendo la causa del evento de playa.
+    infra_outfall_id: Mapped[int | None] = mapped_column(
+        ForeignKey("outfalls.id", ondelete="SET NULL")
+    )
+    infra_checked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    infra_cause: Mapped[str | None] = mapped_column(Text)
     # Push: el envío es fire-and-forget en la ingesta — estas marcas
     # permiten reintentar en la siguiente pasada lo que no salió
     push_pending: Mapped[bool] = mapped_column(default=False)

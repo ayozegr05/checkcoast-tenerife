@@ -18,7 +18,7 @@ from dataclasses import replace
 from datetime import date, timedelta
 
 from geoalchemy2 import Geography, Geometry
-from sqlalchemy import cast, func, literal
+from sqlalchemy import cast, func, literal, or_
 
 from app.models import Beach, NewsItem, Outfall
 from app.news_llm import EventExtraction, NewsExtractor
@@ -26,6 +26,23 @@ from app.news_sources import RawArticle
 from app.schemas import OutfallEpisodeBeachOut, OutfallEpisodesOut
 
 INFRA_EVENT_TYPE = "infra"
+
+
+def infra_cause_of(n: NewsItem) -> str | None:
+    """Hecho de infraestructura del artículo ("rotura del emisario",
+    "obstrucción por toallitas").
+
+    - `infra_cause` lo guarda la pasada de cuerpo sobre ítems duales
+      playa+infra (su `cause` sigue siendo la del evento de playa).
+    - En ítems puramente infra (`event_type='infra'`) la causa YA es
+      el hecho de infraestructura: se reutiliza tal cual.
+    """
+    if n.infra_cause:
+        return n.infra_cause
+    if n.event_type == INFRA_EVENT_TYPE:
+        return n.cause
+    return None
+
 
 # Léxico de infraestructura de vertido: puerta del segundo extractor
 # en la ingesta y filtro de la sección de noticias del emisario.
@@ -257,10 +274,8 @@ def _named_re(key: str) -> re.Pattern:
     )
 
 
-def outfall_named_patterns(
-    outfall_id: int, outfalls: Iterable
-) -> tuple[list[re.Pattern], list[re.Pattern]]:
-    """(patrones que nombran ESTE punto, patrones de otros puntos).
+def _toponym_owners(outfalls: Iterable) -> dict[str, set[int]]:
+    """topónimo del censo → ids de puntos que lo comparten.
 
     Un topónimo solo puede atribuir cuando es único en todo el censo:
     "Bajamar" lo comparten 5 puntos del clúster — la noticia que dice
@@ -270,13 +285,39 @@ def outfall_named_patterns(
     for o in outfalls:
         for k in outfall_keys(o):
             owners.setdefault(k, set()).add(o.id)
+    return owners
+
+
+def outfall_named_patterns(
+    outfall_id: int, outfalls: Iterable
+) -> tuple[list[re.Pattern], list[re.Pattern]]:
+    """(patrones que nombran ESTE punto, patrones de otros puntos)."""
     own: list[re.Pattern] = []
     other: list[re.Pattern] = []
-    for key, ids in owners.items():
+    for key, ids in _toponym_owners(outfalls).items():
         if len(ids) != 1:
             continue
         (own if outfall_id in ids else other).append(_named_re(key))
     return own, other
+
+
+def infra_outfall_for_text(text: str, outfalls: Iterable) -> int | None:
+    """id del punto que el TEXTO nombra (instalación + topónimo
+    único) — None si ninguno o si nombra a varios distintos.
+
+    Sirve igual para titular que para cuerpo: "el cuerpo cuenta que la
+    fisura está en el emisario de Punta Brava" → id de ese emisario.
+    Si el artículo menciona "el emisario de Punta Brava" y también
+    "la depuradora de Valle Guerra" (dos puntos distintos), la
+    atribución es ambigua → None, y el ítem queda en zona.
+    """
+    t = norm_txt(text)
+    found = {
+        next(iter(ids))
+        for key, ids in _toponym_owners(outfalls).items()
+        if len(ids) == 1 and _named_re(key).search(t)
+    }
+    return found.pop() if len(found) == 1 else None
 
 
 # --- Sección de prensa del emisario (endpoint + landing) ---
@@ -288,26 +329,43 @@ OUTFALL_NEWS_LIMIT = 10
 def gather_infra_news(
     db, outfall
 ) -> tuple[
-    list[tuple[NewsItem, str | None]], list[tuple[NewsItem, str | None]]
+    list[tuple[NewsItem, str | None]],
+    list[tuple[NewsItem, str | None]],
+    dict | None,
 ]:
     """(named, zone) de la ficha del emisario, como (item, playa).
 
     - Solo puntos de residual: pluviales, salmueras y piscinas no
       son infra de saneamiento — su ficha no lleva sección.
-    - Noticias `relevant` casadas a playas a <2 km cuyo TITULAR habla
-      de la instalación o del suceso (INFRA_TITLE_RE): un cierre de
-      playa por contaminación fecal ya vive en la ficha de la playa.
-    - `named` = instalación + topónimo propio único del censo;
-      `zone` = infra sin punto concreto. Si el titular nombra OTRO
-      punto del clúster, se omite — cada ficha habla de lo suyo.
+    - Dos fuentes de candidatos:
+      a) `infra_outfall_id` = este punto — atribución persistida por
+         el escáner de titular/cuerpo; no exige playa cercana ni
+         titular con léxico (el nombre puede salir solo en el cuerpo);
+      b) noticias `relevant` casadas a playas a <2 km.
+    - El filtro de titular INFRA_TITLE_RE aplica solo a la vía (b):
+      un cierre de playa por contaminación fecal ya vive en la ficha
+      de la playa. Un ítem con atribución persistida a ESTE punto se
+      sirve aunque el titular no hable de infra — el cuerpo ya
+      demostró que lo nombra.
+    - `named` = atribución persistida propia, o instalación +
+      topónimo propio único en el titular; `zone` = infra sin punto
+      concreto. Si el ítem nombra OTRO punto (columna o titular), se
+      omite — cada ficha habla de lo suyo.
+    - `infra_checked_at` marca cuerpo ya escaneado: si no hay
+      `infra_outfall_id`, el ítem no nombra a nadie → zona (nunca
+      "named" por re-juzgar el titular con otros criterios).
     - La proximidad es contexto de prensa: nunca implica causalidad.
+    - Devuelve además `summary` (dict {"named_count", "causes"} o
+      None): la línea resumen "de este punto" — recuento sobre TODAS
+      las named, no solo las que caben en el límite.
     """
-    empty: tuple[list, list] = ([], [])
+    empty: tuple[list, list, None] = ([], [], None)
     if "residual" not in (outfall.nature or "").lower():
         return empty
     outfall_geog = cast(literal(outfall.geom, type_=Geometry), Geography)
-    beach_rows = (
-        db.query(Beach.id, Beach.name)
+    beach_names = {
+        b.id: b.name
+        for b in db.query(Beach.id, Beach.name)
         .filter(
             func.ST_DWithin(
                 Beach.geom.cast(Geography),
@@ -316,45 +374,57 @@ def gather_infra_news(
             )
         )
         .all()
-    )
-    if not beach_rows:
-        return empty
-    beach_names = {b.id: b.name for b in beach_rows}
+    }
+    cond = NewsItem.infra_outfall_id == outfall.id
+    if beach_names:
+        cond = or_(cond, NewsItem.beach_id.in_(beach_names))
     rows = (
         db.query(NewsItem)
-        .filter(
-            NewsItem.relevant.is_(True),
-            NewsItem.beach_id.in_(beach_names),
-        )
+        .filter(NewsItem.relevant.is_(True), cond)
         .order_by(NewsItem.published_at.desc().nulls_last())
         .all()
     )
-    # dedup por URL: la misma noticia se replica en cada PM de la playa
-    seen: set[str] = set()
-    items = []
-    for n in rows:
-        if n.url in seen:
-            continue
-        if not INFRA_TITLE_RE.search(n.title):
-            continue
-        seen.add(n.url)
-        items.append(n)
-    if not items:
+    if not rows:
         return empty
     own_res, other_res = outfall_named_patterns(
         outfall.id, db.query(Outfall).all()
     )
     named: list[tuple[NewsItem, str | None]] = []
     zone: list[tuple[NewsItem, str | None]] = []
-    for n in items:
-        text = norm_txt(n.title)
+    seen: set[str] = set()  # dedup por URL: réplicas en cada PM
+    for n in rows:
+        if n.url in seen:
+            continue
+        seen.add(n.url)
         pair = (n, beach_names.get(n.beach_id))
+        if n.infra_outfall_id is not None:
+            # Atribución persistida (titular o cuerpo): propio →
+            # named; otro punto → fuera de esta ficha
+            if n.infra_outfall_id == outfall.id:
+                named.append(pair)
+            continue
+        if n.infra_checked_at is not None:
+            # Cuerpo ya escaneado sin punto concreto: solo zona si el
+            # titular habla de la instalación/suceso
+            if INFRA_TITLE_RE.search(n.title):
+                zone.append(pair)
+            continue
+        # Sin revisión infra persistida: clasificación por titular
+        if not INFRA_TITLE_RE.search(n.title):
+            continue
+        text = norm_txt(n.title)
         if any(p.search(text) for p in own_res):
             named.append(pair)
         elif not any(p.search(text) for p in other_res):
             zone.append(pair)
         # nombra otro punto concreto → fuera de esta ficha
-    return named[:OUTFALL_NEWS_LIMIT], zone[:OUTFALL_NEWS_LIMIT]
+    summary = None
+    if named:
+        causes = list(
+            dict.fromkeys(c for n, _ in named if (c := infra_cause_of(n)))
+        )
+        summary = {"named_count": len(named), "causes": causes[:3]}
+    return named[:OUTFALL_NEWS_LIMIT], zone[:OUTFALL_NEWS_LIMIT], summary
 
 
 # Ventana del agregado de episodios: misma convención que la ficha de

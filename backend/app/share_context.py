@@ -2059,11 +2059,22 @@ def outfall_context(
             meta += f" · {_display_name(bname)}"
         return {"url": n.url, "title": n.title, "meta": meta}
 
-    named_items, zone_items = gather_infra_news(db, outfall)
-    news = {
+    named_items, zone_items, news_summary = gather_infra_news(db, outfall)
+    news: dict = {
         "named": [_news_card(p) for p in named_items],
         "zone": [_news_card(p) for p in zone_items],
     }
+    if news_summary:
+        # Resumen "de este punto" — misma línea que la app:
+        # "rotura del emisario · vertido — 3 noticias lo nombran"
+        causes = [clean_cause_text(c) or c for c in news_summary["causes"]]
+        cnt = news_summary["named_count"]
+        count_txt = (
+            "1 noticia lo nombra" if cnt == 1 else f"{cnt} noticias lo nombran"
+        )
+        news["summary"] = " — ".join(
+            p for p in (" · ".join(causes), count_txt) if p
+        )
 
     # Episodios de contaminación del entorno (Hito 11.3): el mismo
     # agregado que sirve el endpoint — contexto estadístico, el

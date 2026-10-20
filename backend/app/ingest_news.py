@@ -31,9 +31,14 @@ from datetime import UTC, datetime, timedelta
 
 from app.config import settings
 from app.db import SessionLocal
-from app.models import Beach, BeachState, BeachStatus, NewsItem
+from app.models import Beach, BeachState, BeachStatus, NewsItem, Outfall
 from app.names import PM_SUFFIX
-from app.news_infra import INFRA_RE, extract_infra_event
+from app.news_infra import (
+    INFRA_EVENT_TYPE,
+    INFRA_RE,
+    extract_infra_event,
+    infra_outfall_for_text,
+)
 from app.news_llm import EventExtraction, GeminiExtractor, extract_event
 from app.news_matching import _MIN_NAME_LEN, _press_key, match_beaches
 from app.news_resolve import resolve_and_fetch
@@ -223,11 +228,13 @@ def _enrich_with_body(
     beaches: list[Beach],
     extractor,
     rescue: bool = False,
-) -> tuple[EventExtraction | None, list[Beach], bool, bool]:
-    """Devuelve (ext, hits, consumió_descarga, verificado_por_cuerpo).
-    `verificado_por_cuerpo` es True cuando la extracción devuelta se
-    obtuvo del cuerpo completo — distinto de la mera descarga, que
-    también ocurre cuando el fetch del cuerpo falla."""
+) -> tuple[EventExtraction | None, list[Beach], bool, bool, str | None]:
+    """Devuelve (ext, hits, consumió_descarga, verificado_por_cuerpo,
+    cuerpo). `verificado_por_cuerpo` es True cuando la extracción
+    devuelta se obtuvo del cuerpo completo — distinto de la mera
+    descarga, que también ocurre cuando el fetch del cuerpo falla.
+    `cuerpo` permite a la vía de infra reutilizar el texto ya bajado
+    sin un segundo fetch (piggyback)."""
     """Segunda pasada híbrida: titular → cuerpo del artículo.
 
     Se dispara cuando el titular no basta: noticia relevante que no casó
@@ -253,10 +260,10 @@ def _enrich_with_body(
     "sin evidencia nueva: conservar la fila como estaba"."""
     if not ext.relevant:
         if not rescue:
-            return ext, hits, False, False
+            return ext, hits, False, False, None
         body = resolve_and_fetch(art.url)
         if not body:
-            return None, hits, True, False
+            return None, hits, True, False, None
         ext2 = extract_event(replace(art, body=body), extractor)
         time.sleep(2)
         if ext2 is not None and ext2.relevant:
@@ -265,10 +272,11 @@ def _enrich_with_body(
                 match_beaches(ext2, beaches, title=art.title),
                 True,
                 True,
+                body,
             )
         if ext2 is None:
-            return None, hits, True, False
-        return ext, hits, True, False  # el cuerpo confirma: no relevante
+            return None, hits, True, False, body
+        return ext, hits, True, False, body  # el cuerpo confirma: no relevante
     cause = _short_cause(ext.cause)
     if (
         hits
@@ -278,17 +286,23 @@ def _enrich_with_body(
         and not _cause_is_generic(ext.cause)
         and not _name_is_ambiguous(ext, hits, beaches)
     ):
-        return ext, hits, False, False
+        return ext, hits, False, False, None
     body = resolve_and_fetch(art.url)
     if not body:
-        return ext, hits, True, False
+        return ext, hits, True, False, None
     ext2 = extract_event(replace(art, body=body), extractor)
     time.sleep(2)  # segunda llamada LLM: respirar igual que la primera
     if ext2 is None or not ext2.relevant:
         # el titular parecía relevante: no degradar por un cuerpo quizá
         # truncado o de paywall
-        return ext, hits, True, False
-    return ext2, match_beaches(ext2, beaches, title=art.title), True, True
+        return ext, hits, True, False, body
+    return (
+        ext2,
+        match_beaches(ext2, beaches, title=art.title),
+        True,
+        True,
+        body,
+    )
 
 
 def _push_key(beach: Beach, event_type: str) -> tuple[str, str, str]:
@@ -354,6 +368,9 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
                     extracted_municipality=item.extracted_municipality,
                     confidence=item.confidence,
                     body_verified=item.body_verified,
+                    infra_outfall_id=item.infra_outfall_id,
+                    infra_checked_at=item.infra_checked_at,
+                    infra_cause=item.infra_cause,
                 )
             )
         rematched += 1
@@ -535,6 +552,7 @@ def run(
     ] = {}
     try:
         beaches = db.query(Beach).all()
+        outfalls = db.query(Outfall).all()  # atribución infra por topónimo
         if backfill_year is not None:
             articles = fetch_backfill(
                 backfill_year,
@@ -599,8 +617,9 @@ def run(
                 else []
             )
             verified = False
+            body = None
             if body_left > 0:
-                ext, hits, used, verified = _enrich_with_body(
+                ext, hits, used, verified, body = _enrich_with_body(
                     art, ext, hits, beaches, extractor
                 )
                 body_left -= used
@@ -620,21 +639,21 @@ def run(
                 len(hits) > 1
                 and ext.event_type in _PRESS_PUSH_EVENTS
                 and body_left > 0
+                and body is None
             ):
                 body = resolve_and_fetch(art.url)
                 body_left -= 1
-                if body:
-                    hits = narrow_hits_by_zone(
-                        hits,
-                        ext.beach_name,
-                        art.title,
-                        body=body,
-                        all_beaches=beaches,
-                    )
+            if len(hits) > 1 and ext.event_type in _PRESS_PUSH_EVENTS and body:
+                hits = narrow_hits_by_zone(
+                    hits,
+                    ext.beach_name,
+                    art.title,
+                    body=body,
+                    all_beaches=beaches,
+                )
             # Cascada de infraestructura (Hito 11.2): la vía de playa
             # no resolvió el artículo y el titular habla de la
-            # instalación de vertido → se re-extrae con PROMPT_INFRA.
-            # Lo ya resuelto como noticia de playa nunca se re-procesa
+            # instalación de vertido → se re-extrae con PROMPT_INFRA
             if (
                 infra_left > 0
                 and (not ext.relevant or not hits)
@@ -653,6 +672,40 @@ def run(
                         art.title,
                         all_beaches=beaches,
                     )
+            # Enriquecimiento infra de lo ya resuelto como noticia de
+            # playa (Hito 11, A+B): el artículo puede servir a las dos
+            # fichas — la playa conserva su extracción; el emisario
+            # gana la atribución del punto y el hecho de infraestructura
+            # del cuerpo ("la fisura está en el emisario de Punta
+            # Brava"). Nunca despierta push ni toca `cause`.
+            infra_outfall_id = None
+            infra_checked_at = None
+            infra_cause = None
+            if ext.relevant and INFRA_RE.search(art.title):
+                if body is None and body_left > 0:
+                    body = resolve_and_fetch(art.url)
+                    body_left -= 1
+                infra_outfall_id = infra_outfall_for_text(
+                    f"{art.title} {body or ''}", outfalls
+                )
+                if body:
+                    infra_checked_at = datetime.now(UTC)
+                if (
+                    body
+                    and ext.event_type != INFRA_EVENT_TYPE
+                    and infra_left > 0
+                    and INFRA_RE.search(body)
+                ):
+                    # Pasada LLM sobre el cuerpo (B): causa de infra
+                    # fina ("obstrucción por toallitas") sin pisar la
+                    # de playa — cuota infra propia, no la de playas
+                    infra_left -= 1
+                    ext_i = extract_infra_event(
+                        replace(art, body=body), extractor
+                    )
+                    time.sleep(2)
+                    if ext_i is not None and ext_i.relevant:
+                        infra_cause = ext_i.cause
             # una fila por PM de la playa
             press_beaches: Iterable[Beach | None] = hits or [None]
             for beach in press_beaches:
@@ -670,6 +723,9 @@ def run(
                     extracted_municipality=ext.municipality,
                     confidence=ext.confidence,
                     body_verified=verified,
+                    infra_outfall_id=infra_outfall_id,
+                    infra_checked_at=infra_checked_at,
+                    infra_cause=infra_cause,
                 )
                 if (
                     not backfill

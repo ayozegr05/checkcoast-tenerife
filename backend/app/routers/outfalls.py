@@ -1,5 +1,3 @@
-from typing import cast as tcast
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2 import Geography, Geometry
 from sqlalchemy import cast, func, literal
@@ -7,11 +5,16 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Beach, NewsItem, Outfall, OutfallStatus
-from app.news_infra import gather_infra_news, gather_nearby_episodes
+from app.news_infra import (
+    gather_infra_news,
+    gather_nearby_episodes,
+    infra_cause_of,
+)
 from app.queries import clean_cause_text
 from app.schemas import (
     Feature,
     FeatureCollection,
+    OutfallInfraSummaryOut,
     OutfallNearbyBeachOut,
     OutfallNewsItemOut,
     OutfallNewsOut,
@@ -152,7 +155,7 @@ def _outfall_news_out(
 ) -> OutfallNewsItemOut:
     return OutfallNewsItemOut(
         id=n.id,
-        beach_id=tcast(int, n.beach_id),
+        beach_id=n.beach_id,
         title=n.title,
         url=n.url,
         source=n.source,
@@ -160,6 +163,7 @@ def _outfall_news_out(
         event_type=n.event_type,
         cause=clean_cause_text(n.cause),
         beach_name=beach_name,
+        infra_cause=clean_cause_text(infra_cause_of(n)),
     )
 
 
@@ -179,9 +183,17 @@ def outfall_news(
     outfall = db.get(Outfall, outfall_id)
     if outfall is None:
         raise HTTPException(status_code=404, detail="Outfall not found")
-    named, zone = gather_infra_news(db, outfall)
+    named, zone, summary = gather_infra_news(db, outfall)
     return OutfallNewsOut(
         named=[_outfall_news_out(n, b) for n, b in named],
         zone=[_outfall_news_out(n, b) for n, b in zone],
+        summary=(
+            OutfallInfraSummaryOut(
+                named_count=summary["named_count"],
+                causes=[clean_cause_text(c) or c for c in summary["causes"]],
+            )
+            if summary
+            else None
+        ),
         episodes=gather_nearby_episodes(db, outfall),
     )

@@ -329,6 +329,8 @@
           causar: la proximidad es contexto, no causalidad</div>
         {%- if news.named %}
         <div class="ngroup">De este punto</div>
+        {%- if news.summary %}<div class="nbmeta" style="margin-left:10px">
+          {{ news.summary }}</div>{%- endif %}
         {%- for n in news.named %}
         <a class="nrow" href="{{ n.url }}" target="_blank"
           rel="noopener">

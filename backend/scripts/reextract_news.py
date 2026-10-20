@@ -117,7 +117,7 @@ def main() -> None:
                 if ext.relevant
                 else []
             )
-            ext, hits, used, verified = _enrich_with_body(
+            ext, hits, used, verified, _body = _enrich_with_body(
                 art,
                 ext,
                 hits,

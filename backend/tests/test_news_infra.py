@@ -8,6 +8,7 @@ from app.news_infra import (
     INFRA_RE,
     PROMPT_INFRA,
     extract_infra_event,
+    infra_outfall_for_text,
     norm_txt,
     outfall_keys,
     outfall_named_patterns,
@@ -225,3 +226,62 @@ def test_shared_toponym_never_attributes():
     own, other = outfall_named_patterns(1, [a, b])
     assert not any(p.search(text) for p in own)
     assert not any(p.search(text) for p in other)
+
+
+# --- Escáner de cuerpo: qué punto nombra el texto (A) ---
+
+
+def _cluster():
+    return [
+        _FakeOutfall(
+            62,
+            "Emisario Submarino de Punta Brava",
+            municipality="Puerto de la Cruz",
+            location="Punta Brava",
+        ),
+        _FakeOutfall(
+            129,
+            "Aliviadero EBAR Playa Jardín",
+            municipality="Puerto de la Cruz",
+            location="Playa Jardín",
+            origin="EBAR Playa Jardín",
+        ),
+        _FakeOutfall(
+            130,
+            "Aliviadero EBAR San Telmo",
+            municipality="Puerto de la Cruz",
+            location="San Telmo",
+        ),
+    ]
+
+
+def test_infra_outfall_for_text_body_names_point():
+    """El caso del hito: titular de playa, cuerpo que cuenta qué
+    instalación se rompió → atribuye ese punto, no los vecinos."""
+    body = (
+        "Cierran Playa Jardín por contaminación fecal. Fuentes "
+        "municipales señalan una fisura en el emisario submarino de "
+        "Punta Brava, que vierte aguas residuales sin tratar."
+    )
+    assert infra_outfall_for_text(body, _cluster()) == 62
+
+
+def test_infra_outfall_for_text_none_when_generic():
+    text = "La red de saneamiento de la costa colapsa con las lluvias"
+    assert infra_outfall_for_text(text, _cluster()) is None
+
+
+def test_infra_outfall_for_text_none_when_ambiguous():
+    """Dos puntos distintos nombrados → ambiguo → sin atribución."""
+    text = (
+        "La fisura del emisario de Punta Brava coincide con un reboso "
+        "del aliviadero de San Telmo"
+    )
+    assert infra_outfall_for_text(text, _cluster()) is None
+
+
+def test_infra_outfall_for_text_toponym_alone_is_not_attribution():
+    """'Playa Jardín' a secas nombra la playa, no el aliviadero:
+    sin palabra de instalación no hay atribución."""
+    text = "Cierran Playa Jardín hasta nuevo aviso"
+    assert infra_outfall_for_text(text, _cluster()) is None

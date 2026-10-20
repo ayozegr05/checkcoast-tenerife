@@ -36,7 +36,9 @@ class BeachStatusOut(BaseModel):
 
 class NewsItemOut(BaseModel):
     id: int
-    beach_id: int
+    # En /beaches/{id}/news siempre va casada; en la ficha de emisario
+    # un ítem atribuido por cuerpo puede no tener playa
+    beach_id: int | None
     title: str
     url: str
     source: str | None
@@ -156,9 +158,24 @@ class OutfallNearbyBeachOut(BaseModel):
 class OutfallNewsItemOut(NewsItemOut):
     """Noticia servida en la ficha de un emisario: igual que
     NewsItemOut más el nombre de la playa a la que está casada — la
-    noticia es DE la playa cercana, el emisario es solo contexto."""
+    noticia es DE la playa cercana, el emisario es solo contexto.
+    `infra_cause` es el hecho de infraestructura extraído del cuerpo
+    ("rotura del emisario") — distinto de `cause`, que sigue siendo
+    la causa del evento de playa cuando el ítem es dual."""
 
+    # Un ítem atribuido por cuerpo puede no tener playa casada —
+    # se sirve igual en la ficha del punto que nombra
+    beach_id: int | None = None
     beach_name: str | None = None
+    infra_cause: str | None = None
+
+
+class OutfallInfraSummaryOut(BaseModel):
+    """Resumen "de este punto" (Hito 11, resumen C): cuántas noticias
+    nombran el punto y qué hechos de infraestructura describen."""
+
+    named_count: int
+    causes: list[str] = []
 
 
 class OutfallEpisodeBeachOut(BaseModel):
@@ -185,11 +202,15 @@ class OutfallEpisodesOut(BaseModel):
 
 class OutfallNewsOut(BaseModel):
     # Titulares que nombran ESTE punto concreto: palabra de
-    # instalación + topónimo propio ("emisario de Punta Brava")
+    # instalación + topónimo propio ("emisario de Punta Brava"), en
+    # titular o cuerpo (atribución persistida `infra_outfall_id`)
     named: list[OutfallNewsItemOut] = []
     # Infraestructura de la zona sin punto concreto nombrado:
     # contexto de prensa, nunca implica causalidad
     zone: list[OutfallNewsItemOut] = []
+    # Resumen de lo que las `named` afirman sobre ESTE punto
+    # (roturas, vertidos, denuncias…); None si no hay named
+    summary: OutfallInfraSummaryOut | None = None
     # Episodios de contaminación del entorno — contexto estadístico,
     # nunca causalidad; None en puntos no residuales
     episodes: OutfallEpisodesOut | None = None

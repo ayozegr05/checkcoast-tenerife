@@ -197,7 +197,12 @@ def test_outfall_news(seed_data):
     # El outfall semilla (nature=None) no es residual → sin sección
     r = client.get(f"/outfalls/{seed_data['outfall_id']}/news")
     assert r.status_code == 200
-    assert r.json() == {"named": [], "zone": [], "episodes": None}
+    assert r.json() == {
+        "named": [],
+        "zone": [],
+        "summary": None,
+        "episodes": None,
+    }
 
     o = Outfall(
         external_id="ci-seed-resid",
@@ -258,6 +263,120 @@ def test_outfall_news(seed_data):
         for it in (named, zone, noise):
             db.delete(it)
         db.delete(o)
+        db.commit()
+        db.close()
+
+
+def test_outfall_news_infra_attribution(seed_data):
+    """Hito 11 (A+B): la atribución persistida `infra_outfall_id`
+    manda sobre el titular — un ítem cuyo CUERPO nombra ESTE punto se
+    sirve named aunque el titular no hable de infra y no tenga playa
+    casada; el que nombra a OTRO punto se oculta de esta ficha aunque
+    esté a <2 km. `infra_checked_at` sin id = cuerpo ya escaneado sin
+    punto concreto → solo puede ser zona."""
+    from datetime import UTC, datetime
+
+    from geoalchemy2.elements import WKTElement
+
+    from app.db import SessionLocal
+    from app.models import NewsItem, Outfall, OutfallStatus
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    o = Outfall(
+        external_id="ci-seed-infra-own",
+        name="Emisario Submarino de Punta Columna",
+        municipality="Santa Cruz de Tenerife",
+        status=OutfallStatus.legal,
+        nature="Agua residual urbana",
+        location="Punta Columna",
+        geom=WKTElement("POINT(-16.25 28.46)", srid=4326),
+    )
+    o2 = Outfall(
+        external_id="ci-seed-infra-vecino",
+        name="Aliviadero EBAR Punta Vecina",
+        municipality="Santa Cruz de Tenerife",
+        status=OutfallStatus.legal,
+        nature="Agua residual urbana",
+        location="Punta Vecina",
+        geom=WKTElement("POINT(-16.25 28.46)", srid=4326),
+    )
+    db.add_all([o, o2])
+    db.flush()
+    # El cuerpo nombró ESTE punto: titular de playa a secas, sin
+    # beach_id — se sirve named por atribución persistida
+    body_named = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-body-named",
+        title="Cierran la playa por contaminación",
+        source="Test Press",
+        relevant=True,
+        beach_id=None,
+        event_type="closure",
+        cause="contaminación fecal",
+        infra_outfall_id=o.id,
+        infra_checked_at=datetime.now(UTC),
+        infra_cause="fisura en la conducción",
+    )
+    # El cuerpo nombró a OTRO punto del clúster: oculto aquí aunque
+    # el titular hable de infraestructura genérica
+    other_named = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-body-other",
+        title="Vertido de aguas residuales en la costa",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        cause="vertido",
+        infra_outfall_id=o2.id,
+        infra_checked_at=datetime.now(UTC),
+    )
+    # Cuerpo escaneado sin punto concreto: la vía de titular ya no
+    # puede reclamarlo como named — zona si el titular es de infra
+    checked_zone = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-body-zone",
+        title="La red de saneamiento de la zona colapsa por la lluvia",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        cause="vertido",
+        infra_checked_at=datetime.now(UTC),
+    )
+    checked_noise = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-body-noise",
+        title="Cierran la playa por contaminación fecal",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        cause="contaminación fecal",
+        infra_checked_at=datetime.now(UTC),
+    )
+    db.add_all([body_named, other_named, checked_zone, checked_noise])
+    db.commit()
+    try:
+        body = client.get(f"/outfalls/{o.id}/news").json()
+        named_titles = [n["title"] for n in body["named"]]
+        zone_titles = [n["title"] for n in body["zone"]]
+        assert body_named.title in named_titles
+        assert other_named.title not in named_titles + zone_titles
+        assert checked_zone.title in zone_titles
+        assert checked_noise.title not in named_titles + zone_titles
+        # infra_cause = el hecho de infra, no la causa de playa
+        item = next(n for n in body["named"] if n["title"] == body_named.title)
+        assert item["infra_cause"] == "fisura en la conducción"
+        assert item["cause"] == "contaminación fecal"
+        assert body["summary"]["named_count"] == len(body["named"])
+        assert "fisura en la conducción" in body["summary"]["causes"]
+        # En la ficha del vecino, la suya sí aparece named
+        body2 = client.get(f"/outfalls/{o2.id}/news").json()
+        assert other_named.title in [n["title"] for n in body2["named"]]
+        assert body_named.title not in [n["title"] for n in body2["named"]]
+    finally:
+        for it in (body_named, other_named, checked_zone, checked_noise):
+            db.delete(it)
+        db.delete(o)
+        db.delete(o2)
         db.commit()
         db.close()
 
