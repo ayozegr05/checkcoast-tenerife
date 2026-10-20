@@ -87,7 +87,7 @@ def outfall_with_news(seed_data):
 def test_share_outfall_news_section(outfall_with_news):
     html = client.get(f"/o/{outfall_with_news}").text
     assert "En la prensa" in html
-    assert "De este punto" in html
+    assert "De este emisario" in html
     assert "Rotura del emisario de Punta Share" in html
     assert "Test Press" in html
     assert "no implica" in html

@@ -12,12 +12,19 @@ import SatelliteShot from '../SatelliteShot';
 import type { GeoFeature } from '../../lib/api';
 import {
   OutfallNearbyBeach,
+  OutfallNewsFamily,
+  OutfallNewsGroup,
   OutfallNewsItem,
   OutfallNewsResponse,
   fetchOutfallNearbyBeaches,
   fetchOutfallNews,
 } from '../../lib/api';
-import { beachBaseName, displayBeachName, fmtDistance } from '../../lib/format';
+import {
+  beachBaseName,
+  displayBeachName,
+  fmtDate,
+  fmtDistance,
+} from '../../lib/format';
 import { outfallRisk, RISK_LABEL, RISK_COLORS } from '../../lib/outfallRisk';
 import { beachStatusKey } from '../../lib/beachStatus';
 import {
@@ -31,15 +38,10 @@ import {
   natureParts,
   operationText,
   nearbyUniqueBeaches,
-  OUTFALL_EPISODES_NOTE,
-  OUTFALL_EPISODES_TITLE,
   OUTFALL_NEWS_TITLE,
   OUTFALL_NEWS_NOTE,
   OUTFALL_NEWS_NAMED,
   OUTFALL_NEWS_ZONE,
-  outfallEpisodeBeachLine,
-  outfallEpisodesSummary,
-  outfallInfraSummary,
   outfallNewsMeta,
 } from '../../lib/outfallSheet';
 import { colors, fonts } from '../../lib/theme';
@@ -56,22 +58,80 @@ type OutfallSheetProps = {
   onSelectBeach?: (feature: GeoFeature) => void;
 };
 
-// Titular enlazable de la sección de prensa: medio · fecha · playa
-// casada — la noticia es DE la playa, el emisario es contexto
-const NewsRow = ({ item }: { item: OutfallNewsItem }) => (
-  <Pressable
-    onPress={() => Linking.openURL(item.url)}
-    accessibilityRole="link"
-    accessibilityLabel={`${item.title}, abrir noticia`}
-    style={({ pressed }) => [styles.newsRow, pressed && styles.pressFx]}
-  >
-    <Text style={styles.newsTitle} numberOfLines={2}>
-      {item.title}
-    </Text>
-    {outfallNewsMeta(item) ? (
-      <Text style={styles.newsMeta}>{outfallNewsMeta(item)}</Text>
-    ) : null}
-  </Pressable>
+// Fuente dentro de una familia: hecho como lead en negrita
+// ("fisura del emisario · 28/05/25"), titular y meta debajo. Sin
+// hecho (o si repetiría el titular) la fila es solo «titular»+meta
+const NewsSrc = ({ item }: { item: OutfallNewsItem }) => {
+  const date = item.published_at ? fmtDate(item.published_at.slice(0, 10)) : '';
+  const meta = outfallNewsMeta(item, !item.fact);
+  return (
+    <Pressable
+      onPress={() => Linking.openURL(item.url)}
+      accessibilityRole="link"
+      accessibilityLabel={`${item.title}, abrir noticia`}
+      style={({ pressed }) => [styles.newsSrc, pressed && styles.pressFx]}
+    >
+      {item.fact ? (
+        <Text style={styles.newsLead} numberOfLines={2}>
+          {item.fact}
+          {date ? <Text style={styles.newsLeadDate}> · {date}</Text> : null}
+        </Text>
+      ) : null}
+      <Text
+        style={item.fact ? styles.newsSrcTitle : styles.newsSrcText}
+        numberOfLines={2}
+      >
+        «{item.title}»
+      </Text>
+      {meta ? <Text style={styles.newsSrcMeta}>{meta}</Text> : null}
+    </Pressable>
+  );
+};
+
+// Una familia dentro de un año: nombre + contador + máx 2 fuentes
+// a la vista, el resto expandible
+const SRCS_PER_FAMILY = 2;
+
+const NewsFamilyBlock = ({ f }: { f: OutfallNewsFamily }) => {
+  const [open, setOpen] = useState(false);
+  const shown = open ? f.items : f.items.slice(0, SRCS_PER_FAMILY);
+  const extra = f.items.length - SRCS_PER_FAMILY;
+  return (
+    <View>
+      <View style={styles.newsFamRow}>
+        <Text style={styles.newsFam}>{f.family}</Text>
+        <Text style={styles.newsFamCount}>{f.count}</Text>
+      </View>
+      {shown.map((n) => (
+        <NewsSrc key={`n${n.id}`} item={n} />
+      ))}
+      {extra > 0 ? (
+        <Pressable
+          onPress={() => setOpen(!open)}
+          accessibilityRole="button"
+          accessibilityLabel={open ? 'Ver menos' : `Ver ${extra} más`}
+        >
+          <Text style={styles.newsMore}>
+            {open ? 'Ver menos' : `Ver ${extra} más`}
+          </Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+};
+
+// Un solo encabezado por año; dentro, familias con su contador
+const NewsYears = ({ groups }: { groups: OutfallNewsGroup[] }) => (
+  <>
+    {groups.map((y, yi) => (
+      <View key={`y${yi}`}>
+        <Text style={styles.newsYear}>{y.year ?? 'Sin fecha'}</Text>
+        {y.families.map((f, fi) => (
+          <NewsFamilyBlock key={`y${yi}f${fi}`} f={f} />
+        ))}
+      </View>
+    ))}
+  </>
 );
 
 // Cuerpo de la ficha de EMISARIO: vista satélite, legalidad,
@@ -448,7 +508,7 @@ export default function OutfallSheet({
       {/* Prensa de infraestructura de vertido (Hito 11.2): roturas,
           vertidos y reparaciones del punto y de su zona — "según
           prensa", la proximidad nunca implica causalidad */}
-      {news?.named.length || news?.zone.length ? (
+      {news?.named_groups.length || news?.zone_groups.length ? (
         <View style={[styles.secCard, { borderLeftColor: colors.accent }]}>
           <View style={styles.secHead}>
             <Image
@@ -457,56 +517,31 @@ export default function OutfallSheet({
             />
             <Text style={styles.secCardTitle}>{OUTFALL_NEWS_TITLE}</Text>
           </View>
-          <Text style={styles.nearSub}>{OUTFALL_NEWS_NOTE}</Text>
-          {news.named.length ? (
+          {news.named_groups.length ? (
             <View>
-              <Text style={styles.newsGroup}>{OUTFALL_NEWS_NAMED}</Text>
-              {news.summary ? (
-                <Text style={styles.newsMeta}>
-                  {outfallInfraSummary(news.summary)}
-                </Text>
-              ) : null}
-              {news.named.map((n) => (
-                <NewsRow key={`n${n.id}`} item={n} />
-              ))}
+              <Text style={styles.newsGroup}>
+                {OUTFALL_NEWS_NAMED}
+                {news.summary ? ` · ${news.summary.named_count} noticias` : ''}
+              </Text>
+              <NewsYears groups={news.named_groups} />
             </View>
           ) : null}
-          {news.zone.length ? (
+          {news.zone_groups.length ? (
             <View>
               <Text style={styles.newsGroup}>{OUTFALL_NEWS_ZONE}</Text>
-              {news.zone.map((n) => (
-                <NewsRow key={`z${n.id}`} item={n} />
-              ))}
+              <NewsYears groups={news.zone_groups} />
             </View>
           ) : null}
+          {/* El disclaimer al pie: es un "por si acaso", no
+              contenido — no debe competir con el primer titular */}
+          <Text style={styles.newsNote}>{OUTFALL_NEWS_NOTE}</Text>
         </View>
       ) : null}
 
-      {/* Episodios de contaminación en playas del entorno (Hito
-          11.3): contexto estadístico — la proximidad no implica
-          causalidad y no toca estados ni alertas */}
-      {news?.episodes?.total ? (
-        <View style={[styles.secCard, { borderLeftColor: colors.accent }]}>
-          <View style={styles.secHead}>
-            <Image
-              source={require('../../assets/icons/icon-episodes.png')}
-              style={[styles.secIcon, { tintColor: colors.accent }]}
-            />
-            <Text style={styles.secCardTitle}>{OUTFALL_EPISODES_TITLE}</Text>
-          </View>
-          <Text style={styles.nearSub}>{OUTFALL_EPISODES_NOTE}</Text>
-          <Text style={styles.row}>
-            <Text style={styles.rowStrong}>
-              {outfallEpisodesSummary(news.episodes)}
-            </Text>
-          </Text>
-          {news.episodes.beaches.map((b) => (
-            <Text key={b.beach_id} style={styles.epBeach}>
-              {outfallEpisodeBeachLine(b)}
-            </Text>
-          ))}
-        </View>
-      ) : null}
+      {/* (La card de episodios del entorno se retiró: era un espejo
+          del contador de cada playa y su total invitaba a leer
+          causalidad. El endpoint sigue sirviendo el dato en
+          `episodes` para quien lo quiera.) */}
 
       {/* Fuente oficial como pie discreto — la tabla cruda se fue:
           cada dato relevante ya está narrado en las cards y el resto
@@ -730,7 +765,7 @@ const styles = StyleSheet.create({
     color: colors.textFaint,
     marginBottom: 6,
   },
-  // Prensa del emisario: subtítulo de grupo ("De este punto"/"En la
+  // Prensa del emisario: subtítulo de grupo ("De este emisario"/"En la
   // zona") y fila de titular enlazable — el titular es el enlace
   newsGroup: {
     fontSize: 11,
@@ -740,29 +775,92 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 2,
   },
-  newsRow: {
-    paddingVertical: 5,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  // Jerarquía de la historia del punto: año > familia (con
+  // contador) > fuentes con su hecho como lead
+  newsYear: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+    color: colors.textFaint,
+    textTransform: 'uppercase',
+    marginTop: 8,
   },
-  newsTitle: {
-    fontSize: 13,
-    fontFamily: fonts.semibold,
+  newsFamRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    marginTop: 1,
+  },
+  newsFam: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    color: colors.text,
+    marginBottom: 1,
+  },
+  newsFamCount: {
+    fontSize: 10,
+    fontFamily: fonts.bold,
     color: colors.primary,
-    lineHeight: 17,
+    backgroundColor: `${colors.primary}1a`,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    overflow: 'hidden',
   },
-  newsMeta: {
+  newsSrc: {
+    marginTop: 3,
+    marginLeft: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: '#f4f9fb',
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+    borderTopRightRadius: 6,
+    borderBottomRightRadius: 6,
+  },
+  newsLead: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+    lineHeight: 16,
+  },
+  newsLeadDate: {
+    fontSize: 10,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+  },
+  newsSrcTitle: {
     fontSize: 11,
     fontFamily: fonts.regular,
     color: colors.textMuted,
-    marginTop: 2,
+    lineHeight: 15,
+    marginTop: 1,
   },
-  // Fila por playa del agregado de episodios: nombre · N · último
-  epBeach: {
-    fontSize: 12,
+  newsSrcMeta: {
+    fontSize: 10,
     fontFamily: fonts.regular,
-    color: colors.text,
+    color: colors.textFaint,
+    marginTop: 1,
+  },
+  newsSrcText: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    lineHeight: 15,
+  },
+  // "Ver N más": despliega las réplicas ocultas de una familia
+  newsMore: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.primary,
     marginTop: 4,
+    marginLeft: 12,
+  },
+  // Disclaimers de prensa/episodios: al pie de la card, discreto
+  newsNote: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    marginTop: 8,
   },
   nearestName: {
     fontSize: 12,

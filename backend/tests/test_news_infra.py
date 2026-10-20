@@ -9,6 +9,7 @@ from app.news_infra import (
     PROMPT_INFRA,
     extract_infra_event,
     infra_outfall_for_text,
+    news_by_year_family,
     norm_txt,
     outfall_keys,
     outfall_named_patterns,
@@ -285,3 +286,228 @@ def test_infra_outfall_for_text_toponym_alone_is_not_attribution():
     sin palabra de instalación no hay atribución."""
     text = "Cierran Playa Jardín hasta nuevo aviso"
     assert infra_outfall_for_text(text, _cluster()) is None
+
+
+class _FakeNews:
+    """ORM duck-typed para el agrupador: los campos que lee
+    named_by_family/_infra_family."""
+
+    def __init__(
+        self,
+        title: str,
+        published_at=None,
+        infra_cause: str | None = None,
+        cause: str | None = None,
+        event_type: str | None = None,
+    ):
+        self.title = title
+        self.published_at = published_at
+        self.infra_cause = infra_cause
+        self.cause = cause
+        self.event_type = event_type
+
+
+def _dt(y: int, m: int = 1):
+    from datetime import datetime
+
+    return datetime(y, m, 15)
+
+
+def test_news_by_year_family_groups_year_then_semantic_family():
+    """Un solo bloque por año con TODAS las familias dentro; las
+    réplicas de un mismo suceso se apilan bajo la misma familia."""
+    named = [
+        (
+            _FakeNews(
+                "Cierran la playa por contaminación",
+                _dt(2026, 10),
+                infra_cause="fisura en la conducción",
+            ),
+            None,
+        ),
+        (
+            _FakeNews(
+                "Licitado el arreglo de urgencia",
+                _dt(2026, 5),
+                infra_cause="reparación del emisario",
+            ),
+            None,
+        ),
+        (
+            _FakeNews(
+                "Rotura detectada en la tubería",
+                _dt(2025, 8),
+                infra_cause="rotura del emisario",
+            ),
+            None,
+        ),
+        (
+            _FakeNews(
+                "Otra fisura en el mismo tramo",
+                _dt(2025, 2),
+                infra_cause="fisura en el emisario",
+            ),
+            None,
+        ),
+    ]
+    groups = news_by_year_family(named)
+    # 2026 primero, 2025 después — un bloque por año; Reparación
+    # encabeza el orden de familias (la respuesta va antes que el
+    # daño: es la noticia más accionable)
+    assert [g["year"] for g in groups] == [2026, 2025]
+    assert [f["family"] for f in groups[0]["families"]] == [
+        "Reparaciones y obras",
+        "Roturas y averías",
+    ]
+    # las dos roturas de 2025 comparten familia pero son hechos
+    # distintos: ítems planos ordenados por firma — el más reciente
+    # de cada bloque primero
+    rot25 = groups[1]["families"][0]
+    assert rot25["family"] == "Roturas y averías"
+    assert rot25["count"] == 2
+    assert len(rot25["items"]) == 2
+    assert rot25["items"][0][0].infra_cause == "rotura del emisario"
+
+
+def test_news_by_year_family_orders_same_fact_together():
+    """El mismo hecho contado por varios medios queda contiguo: la
+    firma semántica ordena las filas — las réplicas se leen como
+    corroboración, no intercaladas con otros sucesos."""
+    named = [
+        (
+            _FakeNews(
+                "Rotura detectada en la tubería",
+                _dt(2026, 9),
+                infra_cause="rotura del emisario",
+            ),
+            None,
+        ),
+        (
+            _FakeNews(
+                "Fisura en la conducción",
+                _dt(2026, 7),
+                infra_cause="fisura del emisario",
+            ),
+            None,
+        ),
+        (
+            _FakeNews(
+                "Otra noticia de la rotura",
+                _dt(2026, 5),
+                infra_cause="rotura del emisario",
+            ),
+            None,
+        ),
+    ]
+    groups = news_by_year_family(named)
+    fam = groups[0]["families"][0]
+    assert fam["count"] == 3
+    # las dos roturas contiguas aunque la fisura se publicó en
+    # medio: cada bloque de firma se ordena por su noticia más
+    # reciente
+    assert [n.infra_cause for n, _ in fam["items"]] == [
+        "rotura del emisario",
+        "rotura del emisario",
+        "fisura del emisario",
+    ]
+
+
+def test_news_by_year_family_signature_groups_paraphrases():
+    """La firma ignora la prosa: "vertido de aguas residuales",
+    "contaminación por vertidos…" y "problemas de saneamiento" son
+    la misma firma → se ordenan como un solo bloque contiguo."""
+    named = [
+        (
+            _FakeNews(
+                "Fisura en la conducción",
+                _dt(2026, 8),
+                infra_cause="fisura del emisario",
+            ),
+            None,
+        ),
+        (
+            _FakeNews(
+                "Cierre por contaminación",
+                _dt(2026, 10),
+                infra_cause="contaminación por vertidos de aguas residuales",
+            ),
+            None,
+        ),
+        (
+            _FakeNews(
+                "Cerrada por vertidos",
+                _dt(2026, 5),
+                infra_cause="vertido de aguas residuales",
+            ),
+            None,
+        ),
+        (
+            _FakeNews(
+                "El saneamiento sigue sin solución",
+                _dt(2026, 3),
+                infra_cause="problemas de saneamiento y vertidos",
+            ),
+            None,
+        ),
+    ]
+    groups = news_by_year_family(named)
+    # la fisura cae en Roturas; los tres vertidos-paráfrasis en Vertidos
+    assert [f["family"] for f in groups[0]["families"]] == [
+        "Roturas y averías",
+        "Vertidos",
+    ]
+    fam = groups[0]["families"][1]
+    assert fam["count"] == 3
+    # un solo bloque de firma: los tres quedan contiguos por recencia
+    assert [n.published_at.month for n, _ in fam["items"]] == [10, 5, 3]
+
+
+def test_news_by_year_family_denuncia_beats_vertido():
+    """'Denuncia por vertidos' es una noticia de denuncia: el
+    titular también cuenta — "La Fiscalía denuncia…" gana aunque el
+    hecho extraído solo diga "vertido" (cajón final)."""
+    groups = news_by_year_family(
+        [
+            (
+                _FakeNews(
+                    "La Fiscalía denuncia a seis cargos públicos",
+                    _dt(2025),
+                    infra_cause="vertido de aguas fecales",
+                ),
+                None,
+            )
+        ]
+    )
+    assert groups[0]["families"][0]["family"] == "Denuncias e investigaciones"
+
+
+def test_news_by_year_family_ignores_playa_cause():
+    """Un ítem dual (closure de playa) sin infra_cause: la causa de
+    playa no decide la familia — cae el titular."""
+    groups = news_by_year_family(
+        [
+            (
+                _FakeNews(
+                    "Cierran la playa por una tubería reventada",
+                    _dt(2026),
+                    cause="contaminación fecal",
+                    event_type="closure",
+                ),
+                None,
+            )
+        ]
+    )
+    assert groups[0]["families"][0]["family"] == "Roturas y averías"
+
+
+def test_news_by_year_family_fallback_other_and_sin_fecha():
+    groups = news_by_year_family(
+        [
+            (
+                _FakeNews("La depuradora estará lista en 2030", None),
+                None,
+            )
+        ]
+    )
+    assert groups[0]["year"] is None
+    assert groups[0]["families"][0]["family"] == "Otros sucesos"

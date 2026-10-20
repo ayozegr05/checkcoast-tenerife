@@ -31,7 +31,11 @@ from app.models import (
 from app.names import PM_SUFFIX
 from app.names import normalize_beach_name as _normalize
 from app.news_episodes import _news_cause, press_episode_summary
-from app.news_infra import gather_infra_news, gather_nearby_episodes
+from app.news_infra import (
+    gather_infra_news,
+    infra_cause_of,
+    norm_txt,
+)
 from app.news_matching import _norm_muni
 from app.news_zones import _ZONE_GROUPS, _zone_entry
 from app.queries import (
@@ -2076,6 +2080,24 @@ def outfall_context(
         outfall.length_m,
         outfall.outfall_depth,
     )
+    # KPI tiles del dato hero: distancia a orilla y profundidad del
+    # vertido — los números que el ciudadano escanea primero, en
+    # sustitución de la frase (no el dato dos veces). Si el vertido
+    # sale a ras de mar la frase cuenta algo que la tile no cubre —
+    # entonces se conserva el texto
+    kpis = []
+    if outfall.shore_m is not None:
+        kpis.append({"v": f"{round(outfall.shore_m)} m", "l": "de la orilla"})
+    if outfall.outfall_depth is not None and outfall.outfall_depth < 0:
+        kpis.append(
+            {
+                "v": f"{abs(outfall.outfall_depth):g} m",
+                "l": "de profundidad",
+            }
+        )
+    kpi_mode = bool(kpis) and (
+        outfall.outfall_depth is None or outfall.outfall_depth < 0
+    )
     protected = None
     if outfall.protected_area:
         protected = {
@@ -2100,45 +2122,65 @@ def outfall_context(
             meta += f" · {_display_name(bname)}"
         return {"url": n.url, "title": n.title, "meta": meta}
 
-    named_items, zone_items, news_summary = gather_infra_news(db, outfall)
-    news: dict = {
-        "named": [_news_card(p) for p in named_items],
-        "zone": [_news_card(p) for p in zone_items],
-    }
-    if news_summary:
-        # Resumen "de este punto" — misma línea que la app:
-        # "rotura del emisario · vertido — 3 noticias lo nombran"
-        causes = [clean_cause_text(c) or c for c in news_summary["causes"]]
-        cnt = news_summary["named_count"]
-        count_txt = (
-            "1 noticia lo nombra" if cnt == 1 else f"{cnt} noticias lo nombran"
-        )
-        news["summary"] = " — ".join(
-            p for p in (" · ".join(causes), count_txt) if p
-        )
+    # Cada fuente lleva su hecho como lead: `fact` limpio + fecha
+    # encima del titular ("fisura del emisario · 28/05/25"); meta
+    # pierde la fecha para no escribirla dos veces. Si el hecho ES
+    # el titular (ítem sin causa extraída), la fila solo enseña
+    # titular + meta
+    def _news_row(pair: tuple) -> dict:
+        n, bname = pair
+        fact = clean_cause_text(infra_cause_of(n))
+        if fact and norm_txt(fact) != norm_txt(n.title):
+            meta = n.source or ""
+            if bname:
+                meta += f" · {_display_name(bname)}"
+            return {
+                "url": n.url,
+                "title": n.title,
+                "fact": fact,
+                "date": (
+                    n.published_at.strftime("%d/%m/%y")
+                    if n.published_at
+                    else ""
+                ),
+                "meta": meta,
+            }
+        card = _news_card(pair)
+        card["fact"] = None
+        card["date"] = ""
+        return card
 
-    # Episodios de contaminación del entorno (Hito 11.3): el mismo
-    # agregado que sirve el endpoint — contexto estadístico, el
-    # disclaimer de la plantilla recuerda que cerca no es causalidad
-    ep_raw = gather_nearby_episodes(db, outfall)
-    episodes = None
-    if ep_raw and ep_raw.total:
-        episodes = {
-            "total": ep_raw.total,
-            "closures": ep_raw.closures,
-            "last": (
-                ep_raw.last.strftime("%d/%m/%Y") if ep_raw.last else None
-            ),
-            "beaches": [
-                {
-                    "name": _display_name(b.name) if b.name else "?",
-                    "episodes": b.episodes,
-                    "closures": b.closures,
-                    "last": (b.last.strftime("%d/%m/%Y") if b.last else None),
-                }
-                for b in ep_raw.beaches[:5]
-            ],
-        }
+    # año → familias → filas con lead; "rows" y no "items": en
+    # Jinja, f.items resolvería al método del dict
+    def _years(groups: list[dict]) -> list[dict]:
+        return [
+            {
+                "year": y["year"],
+                "count": sum(f["count"] for f in y["families"]),
+                "families": [
+                    {
+                        "family": f["family"],
+                        "count": f["count"],
+                        "rows": [_news_row(p) for p in f["items"]],
+                    }
+                    for f in y["families"]
+                ],
+            }
+            for y in groups
+        ]
+
+    _, _, news_summary, news_groups = gather_infra_news(db, outfall)
+    news: dict = {
+        "named_groups": _years(news_groups["named"]),
+        "zone_groups": _years(news_groups["zone"]),
+        # cabecera-estadística: "De este emisario · 14 noticias"
+        "named_count": (news_summary or {}).get("named_count", 0),
+    }
+    # La card de episodios del entorno se retiró: era un espejo del
+    # contador que cada playa ya lleva en su ficha y su número
+    # agregado invitaba a leer causalidad en el emisario. El dato
+    # sigue sirviéndose por /outfalls/{id}/news (campo episodes)
+    # para quien lo quiera consumir — la landing no lo muestra.
 
     return {
         "title": f"{name} · {muni}",
@@ -2168,7 +2210,11 @@ def outfall_context(
         "parts": parts,
         "responsible": responsible,
         "place_text": place_text,
-        "conduit": conduit,
+        "conduit": None if kpi_mode else conduit,
+        "kpi_lead": (
+            f"{conduit[0]['t']} vierte a:" if kpi_mode and conduit else None
+        ),
+        "kpis": kpis if kpi_mode else [],
         "condition": (
             {
                 "text": outfall.condition.lower(),
@@ -2179,7 +2225,6 @@ def outfall_context(
         ),
         "nearby": nearby,
         "news": news,
-        "episodes": episodes,
         "source_url": outfall.source_url,
         "n_closed": status_counts.get("closed", 0),
         "n_warning": status_counts.get("warning", 0),

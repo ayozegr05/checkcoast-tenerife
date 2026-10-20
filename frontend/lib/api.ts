@@ -208,6 +208,9 @@ export type OutfallNewsItem = BeachNews & {
   // ("rotura del emisario") — distinto de `cause`, que es la causa
   // del evento de playa cuando el ítem sirve a las dos fichas
   infra_cause: string | null;
+  // lead de la fila: hecho limpio delante del titular; null cuando
+  // no hay causa extraída o repetiría el titular
+  fact: string | null;
 };
 
 export type OutfallInfraSummary = {
@@ -215,6 +218,22 @@ export type OutfallInfraSummary = {
   // hechos de infraestructura describen (roturas, vertidos…)
   named_count: number;
   causes: string[];
+};
+
+export type OutfallNewsFamily = {
+  // familia semántica dentro de un año, con su total de noticias;
+  // los ítems van planos, ordenados para que el mismo hecho quede
+  // contiguo — cada fuente lleva su hecho como lead (`item.fact`)
+  family: string;
+  count: number;
+  items: OutfallNewsItem[];
+};
+
+export type OutfallNewsGroup = {
+  // un año con todas sus familias dentro — no un año repetido por
+  // cada causa
+  year: number | null;
+  families: OutfallNewsFamily[];
 };
 
 export type OutfallEpisodeBeach = {
@@ -242,6 +261,11 @@ export type OutfallNewsResponse = {
   // infraestructura de la zona sin punto concreto nombrado —
   // contexto de prensa: la proximidad no implica causalidad
   zone: OutfallNewsItem[];
+  // `named` y `zone` agrupadas año → familias — la vista "historia
+  // del punto" y del sistema de la zona (las listas planas se
+  // conservan para consumidores simples)
+  named_groups: OutfallNewsGroup[];
+  zone_groups: OutfallNewsGroup[];
   // línea resumen de las `named` ("rotura del emisario — 3 noticias
   // lo nombran"); null si ninguna nombra el punto
   summary: OutfallInfraSummary | null;

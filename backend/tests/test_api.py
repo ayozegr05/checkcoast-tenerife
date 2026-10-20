@@ -199,6 +199,8 @@ def test_outfall_news(seed_data):
     assert r.status_code == 200
     assert r.json() == {
         "named": [],
+        "named_groups": [],
+        "zone_groups": [],
         "zone": [],
         "summary": None,
         "episodes": None,
@@ -256,6 +258,20 @@ def test_outfall_news(seed_data):
         item = next(n for n in body["named"] if n["title"] == named.title)
         assert item["beach_name"] == "PLAYA TEST CI (LA) PM1"
         assert item["event_type"] == "infra"
+        # agrupación año → familias → fuentes con lead: sin fecha →
+        # year None; la causa del ítem decide familia y el `fact` de
+        # la fila
+        ygrp, fam, row = next(
+            (y, f, it)
+            for y in body["named_groups"]
+            for f in y["families"]
+            for it in f["items"]
+            if it["title"] == named.title
+        )
+        assert fam["family"] == "Roturas y averías"
+        assert fam["count"] == 1
+        assert row["fact"] == "rotura del emisario"
+        assert ygrp["year"] is None
         # Hito 11.3: sin episodios en la ventana el agregado va vacío
         assert body["episodes"]["total"] == 0
         assert body["episodes"]["beaches"] == []

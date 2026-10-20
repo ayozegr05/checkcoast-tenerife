@@ -15,7 +15,7 @@ import re
 import unicodedata
 from collections.abc import Iterable
 from dataclasses import replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from geoalchemy2 import Geography, Geometry
 from sqlalchemy import cast, func, literal, or_
@@ -23,6 +23,7 @@ from sqlalchemy import cast, func, literal, or_
 from app.models import Beach, NewsItem, Outfall
 from app.news_llm import EventExtraction, NewsExtractor
 from app.news_sources import RawArticle
+from app.queries import clean_cause_text
 from app.schemas import OutfallEpisodeBeachOut, OutfallEpisodesOut
 
 INFRA_EVENT_TYPE = "infra"
@@ -325,6 +326,129 @@ def infra_outfall_for_text(text: str, outfalls: Iterable) -> int | None:
 OUTFALL_NEWS_RADIUS_M = 2000
 OUTFALL_NEWS_LIMIT = 10
 
+# Familias semánticas para agrupar las noticias "de este punto": la
+# causa del LLM es texto libre ("vertido de aguas residuales" vs
+# "contaminación por vertidos…"), así que el grupo se decide por
+# palabras clave. El hecho (infra_cause/cause) manda sobre el
+# titular; "Vertido" va de cajón final — una denuncia o reparación
+# por vertido sigue siendo noticia de denuncia/reparación
+_INFRA_FAMILIES: list[tuple[str, re.Pattern]] = [
+    (
+        "Reparaciones y obras",
+        re.compile(r"repara|obra|arregl|licit|concurso|retras", re.I),
+    ),
+    (
+        "Denuncias e investigaciones",
+        re.compile(
+            r"denunc|investig|fiscal|sanci[oó]n|multa|judi|archiv", re.I
+        ),
+    ),
+    (
+        "Roturas y averías",
+        re.compile(r"rotur|fisur|revent|aver[ií]a|derrame", re.I),
+    ),
+    ("Obstrucciones", re.compile(r"obstru|atasc|toallita|colaps", re.I)),
+    ("Vertidos", re.compile(r"vertido|rebos|desbord|saneamiento", re.I)),
+]
+_INFRA_FAMILY_OTHER = "Otros sucesos"
+
+
+def _infra_family(n: NewsItem) -> str:
+    # Cada familia se busca en el hecho Y en el titular, en orden de
+    # especificidad: "denuncia por vertidos" es Denuncia (el titular
+    # dice "La Fiscalía denuncia…") aunque el hecho extraído solo
+    # diga "vertido" — Vertido es el cajón final, no el primero
+    primary = norm_txt(f"{n.infra_cause or ''} {n.cause or ''}")
+    if n.event_type != INFRA_EVENT_TYPE and not n.infra_cause:
+        primary = ""  # causa de playa: no decide la familia de infra
+    title = norm_txt(n.title)
+    for label, rx in _INFRA_FAMILIES:
+        if rx.search(primary) or rx.search(title):
+            return label
+    return _INFRA_FAMILY_OTHER
+
+
+# Palabras que NO distinguen un hecho: "vertido de aguas
+# residuales" y "contaminación por vertidos de aguas residuales"
+# son el mismo suceso con otra prosa — su firma (las palabras que
+# quedan tras quitar estas) es idéntica y comparten bloque
+_FACT_GENERIC = frozenset(
+    """
+    de la el en por del al a y o un una los las con sin para que su
+    sus se es más tras desde hasta ante durante varios nuevo nueva
+    vertido vertidos aguas residuales fecales contaminación
+    contaminacion mar costa zona caso casos problema problemas
+    saneamiento submarino
+    """.split()
+)
+
+
+def _fact_key(fact: str) -> frozenset:
+    """Palabras que de verdad distinguen un hecho: {fisura, emisario}
+    vs {rotura, emisario} son sucesos distintos; dos paráfrasis del
+    vertido genérico caen en la firma vacía y se fusionan."""
+    return frozenset(
+        w for w in norm_txt(fact).split() if w not in _FACT_GENERIC
+    )
+
+
+def _items_by_fact_signature(
+    items: list[tuple[NewsItem, str | None]],
+) -> list[tuple[NewsItem, str | None]]:
+    """Ordena las fuentes de una familia por firma del hecho: las
+    filas que describen el mismo suceso quedan contiguas (fisura
+    junto a fisura, rotura junto a rotura) en vez de intercaladas —
+    la repetición del lead se lee como corroboración ordenada, no
+    como caos. Cada bloque se ordena por su noticia más reciente;
+    dentro, fecha desc."""
+    groups: dict[frozenset, list[tuple[NewsItem, str | None]]] = {}
+    for pair in items:
+        n, _ = pair
+        fact = clean_cause_text(infra_cause_of(n)) or n.title
+        groups.setdefault(_fact_key(fact), []).append(pair)
+    ordered = sorted(
+        groups.values(),
+        key=lambda g: max((n.published_at or datetime.min) for n, _ in g),
+        reverse=True,
+    )
+    return [p for g in ordered for p in g]
+
+
+def news_by_year_family(
+    pairs: list[tuple[NewsItem, str | None]],
+) -> list[dict]:
+    """Ítems agrupados año (desc) → familias → fuentes.
+
+    Un solo bloque por año con TODAS las familias dentro — no un
+    "2026" repetido por cada causa. El hecho ya no es un nivel de
+    agrupación: cada fuente lo lleva como lead propio (ver
+    `_news_fact_row`/app), y la firma semántica solo se usa para
+    ORDENAR las filas — mismo suceso contiguo. Cada familia lleva
+    `count` (total de noticias) e `items` planos. Sirve igual para
+    named que para zone.
+    """
+    by_fam: dict[tuple[int, str], list[tuple[NewsItem, str | None]]] = {}
+    for pair in pairs:
+        n, _ = pair
+        year = n.published_at.year if n.published_at else 0
+        by_fam.setdefault((year, _infra_family(n)), []).append(pair)
+    order = {label: i for i, (label, _) in enumerate(_INFRA_FAMILIES)}
+    years: dict[int, list[dict]] = {}
+    for (year, fam), items in by_fam.items():
+        years.setdefault(year, []).append(
+            {
+                "family": fam,
+                "count": len(items),
+                "items": _items_by_fact_signature(items),
+            }
+        )
+    out: list[dict] = []
+    for year, fams in years.items():
+        fams.sort(key=lambda f: order.get(f["family"], len(order)))
+        out.append({"year": year or None, "families": fams})
+    out.sort(key=lambda g: -(g["year"] or 0))
+    return out
+
 
 def gather_infra_news(
     db, outfall
@@ -332,6 +456,7 @@ def gather_infra_news(
     list[tuple[NewsItem, str | None]],
     list[tuple[NewsItem, str | None]],
     dict | None,
+    dict,
 ]:
     """(named, zone) de la ficha del emisario, como (item, playa).
 
@@ -357,9 +482,17 @@ def gather_infra_news(
     - La proximidad es contexto de prensa: nunca implica causalidad.
     - Devuelve además `summary` (dict {"named_count", "causes"} o
       None): la línea resumen "de este punto" — recuento sobre TODAS
-      las named, no solo las que caben en el límite.
+      las named, no solo las que caben en el límite — y `groups`
+      ({"named": [...], "zone": [...]}), ambas listas agrupadas
+      año → familia semántica (la zona también tiene ruido: mismas
+      réplicas apiladas bajo el mismo hecho).
     """
-    empty: tuple[list, list, None] = ([], [], None)
+    empty: tuple[list, list, None, dict] = (
+        [],
+        [],
+        None,
+        {"named": [], "zone": []},
+    )
     if "residual" not in (outfall.nature or "").lower():
         return empty
     outfall_geog = cast(literal(outfall.geom, type_=Geometry), Geography)
@@ -424,7 +557,17 @@ def gather_infra_news(
             dict.fromkeys(c for n, _ in named if (c := infra_cause_of(n)))
         )
         summary = {"named_count": len(named), "causes": causes[:3]}
-    return named[:OUTFALL_NEWS_LIMIT], zone[:OUTFALL_NEWS_LIMIT], summary
+    shown = named[:OUTFALL_NEWS_LIMIT]
+    shown_zone = zone[:OUTFALL_NEWS_LIMIT]
+    return (
+        shown,
+        shown_zone,
+        summary,
+        {
+            "named": news_by_year_family(shown),
+            "zone": news_by_year_family(shown_zone),
+        },
+    )
 
 
 # Ventana del agregado de episodios: misma convención que la ficha de

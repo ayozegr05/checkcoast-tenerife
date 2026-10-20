@@ -168,6 +168,10 @@ class OutfallNewsItemOut(NewsItemOut):
     beach_id: int | None = None
     beach_name: str | None = None
     infra_cause: str | None = None
+    # Lead de la fila: hecho limpio listo para mostrar delante del
+    # titular ("fisura del emisario"); None cuando no hay causa
+    # extraída o repite el titular — entonces el lead ES el título
+    fact: str | None = None
 
 
 class OutfallInfraSummaryOut(BaseModel):
@@ -176,6 +180,25 @@ class OutfallInfraSummaryOut(BaseModel):
 
     named_count: int
     causes: list[str] = []
+
+
+class OutfallNewsFamilyOut(BaseModel):
+    """Familia semántica dentro de un año: los ítems van planos,
+    ordenados para que el mismo hecho quede contiguo — cada fuente
+    lleva su hecho como lead (`item.fact`), no como cabecera de
+    grupo."""
+
+    family: str
+    count: int = 0
+    items: list[OutfallNewsItemOut] = []
+
+
+class OutfallNewsYearOut(BaseModel):
+    """Un año con todas sus familias dentro — no un "2026" repetido
+    por cada causa."""
+
+    year: int | None = None
+    families: list[OutfallNewsFamilyOut] = []
 
 
 class OutfallEpisodeBeachOut(BaseModel):
@@ -208,6 +231,10 @@ class OutfallNewsOut(BaseModel):
     # Infraestructura de la zona sin punto concreto nombrado:
     # contexto de prensa, nunca implica causalidad
     zone: list[OutfallNewsItemOut] = []
+    # `named` y `zone` agrupadas año → familias — la vista "historia
+    # del punto" y del sistema de la zona (mismo ruido, mismo orden)
+    named_groups: list[OutfallNewsYearOut] = []
+    zone_groups: list[OutfallNewsYearOut] = []
     # Resumen de lo que las `named` afirman sobre ESTE punto
     # (roturas, vertidos, denuncias…); None si no hay named
     summary: OutfallInfraSummaryOut | None = None

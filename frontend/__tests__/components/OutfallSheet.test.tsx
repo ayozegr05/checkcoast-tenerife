@@ -37,7 +37,9 @@ describe('<OutfallSheet />', () => {
     // default: sin noticias — los tests que la quieren la configuran
     newsMock.mockResolvedValue({
       named: [],
+      named_groups: [],
       zone: [],
+      zone_groups: [],
       summary: null,
       episodes: null,
     });
@@ -128,36 +130,60 @@ describe('<OutfallSheet />', () => {
     expect(screen.getByText(/Teno-Rasca/)).toBeTruthy();
   });
 
-  it('prensa de infra: named primero, zona después, titulares enlazables', async () => {
+  it('prensa de infra: año→familia, hecho delante, titular anexo, disclaimer al pie', async () => {
     jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
     nearbyMock.mockResolvedValue([]);
+    const namedItem = {
+      id: 1,
+      beach_id: 3,
+      title: 'Rotura del emisario de Punta Brava',
+      url: 'https://x.test/rotura',
+      source: 'El Día',
+      published_at: '2026-10-09T12:00:00Z',
+      event_type: 'infra',
+      cause: 'rotura del emisario',
+      beach_name: 'PLAYA JARDIN PM4',
+      infra_cause: 'rotura del emisario',
+      fact: 'rotura del emisario',
+    };
+    const zoneItem = {
+      id: 2,
+      beach_id: 3,
+      title: 'Fisura en la red de saneamiento del puerto',
+      url: 'https://x.test/fisura',
+      source: 'Diario',
+      published_at: '2026-10-05T08:00:00Z',
+      event_type: 'closure',
+      cause: 'fisura',
+      beach_name: 'PLAYA JARDIN PM1',
+      infra_cause: null,
+      fact: null,
+    };
     newsMock.mockResolvedValue({
-      named: [
+      named: [namedItem],
+      named_groups: [
         {
-          id: 1,
-          beach_id: 3,
-          title: 'Rotura del emisario de Punta Brava',
-          url: 'https://x.test/rotura',
-          source: 'El Día',
-          published_at: '2026-10-09T12:00:00Z',
-          event_type: 'infra',
-          cause: 'rotura del emisario',
-          beach_name: 'PLAYA JARDIN PM4',
-          infra_cause: 'rotura del emisario',
+          year: 2026,
+          families: [
+            {
+              family: 'Roturas y averías',
+              count: 1,
+              items: [namedItem],
+            },
+          ],
         },
       ],
-      zone: [
+      zone: [zoneItem],
+      zone_groups: [
         {
-          id: 2,
-          beach_id: 3,
-          title: 'Fisura en la red de saneamiento del puerto',
-          url: 'https://x.test/fisura',
-          source: 'Diario',
-          published_at: '2026-10-05T08:00:00Z',
-          event_type: 'closure',
-          cause: 'fisura',
-          beach_name: 'PLAYA JARDIN PM1',
-          infra_cause: null,
+          year: 2026,
+          families: [
+            {
+              family: 'Vertidos',
+              count: 1,
+              items: [zoneItem],
+            },
+          ],
         },
       ],
       summary: {
@@ -174,18 +200,21 @@ describe('<OutfallSheet />', () => {
 
     expect(newsMock).toHaveBeenCalledWith(9);
     expect(await screen.findByText('En la prensa')).toBeTruthy();
-    // etiqueta "según prensa" + aviso de no-causalidad obligatorios
-    expect(screen.getByText(/no implica causalidad/)).toBeTruthy();
-    expect(screen.getByText('De este punto')).toBeTruthy();
+    // cabecera-estadística con recuento
+    expect(screen.getByText(/De este emisario · 1 noticias/)).toBeTruthy();
     expect(screen.getByText('En la zona')).toBeTruthy();
-    // meta: medio · fecha · playa casada · hecho de infra del cuerpo
+    // año → familia (con contador) → fuente con lead de hecho; el
+    // titular va dentro de la caja (el año aparece también como
+    // bloque de la zona)
+    expect(screen.getAllByText('2026').length).toBeGreaterThan(0);
+    expect(screen.getByText('Roturas y averías')).toBeTruthy();
+    expect(screen.getByText(/rotura del emisario/)).toBeTruthy();
     expect(
-      screen.getByText(/El Día · 09\/10\/2026 · Playa Jardín · rotura/),
+      screen.getByText('«Rotura del emisario de Punta Brava»'),
     ).toBeTruthy();
-    // línea resumen "de este punto" (resumen C)
-    expect(
-      screen.getByText(/rotura del emisario — 1 noticia lo nombra/),
-    ).toBeTruthy();
+    expect(screen.getByText(/El Día · Playa Jardín/)).toBeTruthy();
+    // el disclaimer sigue ahí, al pie de la card
+    expect(screen.getByText(/no implica causalidad/)).toBeTruthy();
 
     await fireEvent.press(
       screen.getByRole('link', {
@@ -195,12 +224,68 @@ describe('<OutfallSheet />', () => {
     expect(open).toHaveBeenCalledWith('https://x.test/rotura');
   });
 
+  it('familias con más de 2 fuentes: "Ver N más" despliega el resto', async () => {
+    jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
+    nearbyMock.mockResolvedValue([]);
+    const mk = (id: number, title: string) => ({
+      id,
+      beach_id: 3,
+      title,
+      url: `https://x.test/${id}`,
+      source: 'El Día',
+      published_at: '2026-10-09T12:00:00Z',
+      event_type: 'infra',
+      cause: 'vertido',
+      beach_name: 'PLAYA JARDIN PM4',
+      infra_cause: 'vertido de aguas residuales',
+      fact: 'vertido de aguas residuales',
+    });
+    newsMock.mockResolvedValue({
+      named: [],
+      named_groups: [
+        {
+          year: 2026,
+          families: [
+            {
+              family: 'Vertidos',
+              count: 4,
+              items: [
+                mk(1, 'Uno'),
+                mk(2, 'Dos'),
+                mk(3, 'Tres'),
+                mk(4, 'Cuatro'),
+              ],
+            },
+          ],
+        },
+      ],
+      zone: [],
+      zone_groups: [],
+      summary: { named_count: 4, causes: ['vertido de aguas residuales'] },
+      episodes: null,
+    });
+
+    await render(<OutfallSheet feature={emisario} />);
+
+    // el lead de cada fuente es el hecho; 2 fuentes a la vista, el
+    // resto tras "Ver 2 más"
+    expect(await screen.findByText('«Uno»')).toBeTruthy();
+    expect(
+      screen.getAllByText(/vertido de aguas residuales/).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/«Tres»/)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Ver 2 más' }));
+    expect(screen.getByText(/«Cuatro»/)).toBeTruthy();
+  });
+
   it('sin noticias de infra la sección no se renderiza', async () => {
     jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
     nearbyMock.mockResolvedValue([]);
     newsMock.mockResolvedValue({
       named: [],
+      named_groups: [],
       zone: [],
+      zone_groups: [],
       summary: null,
       episodes: null,
     });
@@ -208,56 +293,5 @@ describe('<OutfallSheet />', () => {
     await render(<OutfallSheet feature={emisario} />);
 
     expect(screen.queryByText('En la prensa')).toBeNull();
-  });
-
-  it('con episodios cercanos muestra el agregado con disclaimer', async () => {
-    jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
-    nearbyMock.mockResolvedValue([]);
-    newsMock.mockResolvedValue({
-      named: [],
-      zone: [],
-      summary: null,
-      episodes: {
-        total: 12,
-        closures: 9,
-        last: '2026-10-09',
-        beaches: [
-          {
-            beach_id: 3,
-            name: 'PLAYA JARDIN',
-            municipality: 'Puerto de la Cruz',
-            episodes: 9,
-            closures: 8,
-            last: '2026-10-09',
-          },
-        ],
-      },
-    });
-
-    await render(<OutfallSheet feature={emisario} />);
-
-    expect(
-      await screen.findByText('Episodios de contaminación cercanos'),
-    ).toBeTruthy();
-    expect(screen.getByText(/no implica causar/)).toBeTruthy();
-    expect(screen.getByText(/12 episodios \(9 cierres\)/)).toBeTruthy();
-    expect(screen.getByText(/Playa Jardín · 9 episodios/)).toBeTruthy();
-  });
-
-  it('episodes=null (punto no residual) no renderiza la sección', async () => {
-    jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
-    nearbyMock.mockResolvedValue([]);
-    newsMock.mockResolvedValue({
-      named: [],
-      zone: [],
-      summary: null,
-      episodes: null,
-    });
-
-    await render(<OutfallSheet feature={emisario} />);
-
-    expect(
-      screen.queryByText('Episodios de contaminación cercanos'),
-    ).toBeNull();
   });
 });

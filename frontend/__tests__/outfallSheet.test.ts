@@ -193,11 +193,14 @@ describe('outfallNewsMeta (Hito 11.2)', () => {
         cause: 'rotura',
         beach_name: 'PLAYA JARDIN PM1',
         infra_cause: null,
+        fact: null,
       }),
     ).toBe('El Día · 09/10/2026 · Playa Jardín');
   });
 
-  it('añade el hecho de infra del cuerpo cuando lo hay', () => {
+  it('el hecho de infra va de titular de fila, no en la meta', () => {
+    // infra_cause se pinta como lead de la NewsRow; la meta queda
+    // solo con medio · fecha (· playa) — sin duplicar el hecho
     expect(
       outfallNewsMeta({
         id: 1,
@@ -210,8 +213,30 @@ describe('outfallNewsMeta (Hito 11.2)', () => {
         cause: 'contaminación fecal',
         beach_name: null,
         infra_cause: 'fisura en la conducción',
+        fact: 'fisura en la conducción',
       }),
-    ).toBe('El Día · 09/10/2026 · fisura en la conducción');
+    ).toBe('El Día · 09/10/2026');
+  });
+
+  it('withDate:false omite la fecha (el lead ya la lleva)', () => {
+    expect(
+      outfallNewsMeta(
+        {
+          id: 1,
+          beach_id: 2,
+          title: 'Vertido',
+          url: 'https://x.test/b',
+          source: 'El Día',
+          published_at: '2026-10-09T12:00:00Z',
+          event_type: 'infra',
+          cause: null,
+          beach_name: 'PLAYA JARDIN PM1',
+          infra_cause: 'vertido',
+          fact: 'vertido',
+        },
+        false,
+      ),
+    ).toBe('El Día · Playa Jardín');
   });
 
   it('tolera campos ausentes', () => {
@@ -227,6 +252,7 @@ describe('outfallNewsMeta (Hito 11.2)', () => {
         cause: null,
         beach_name: null,
         infra_cause: null,
+        fact: null,
       }),
     ).toBe('');
   });

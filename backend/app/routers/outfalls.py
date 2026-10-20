@@ -9,6 +9,7 @@ from app.news_infra import (
     gather_infra_news,
     gather_nearby_episodes,
     infra_cause_of,
+    norm_txt,
 )
 from app.queries import clean_cause_text
 from app.schemas import (
@@ -16,8 +17,10 @@ from app.schemas import (
     FeatureCollection,
     OutfallInfraSummaryOut,
     OutfallNearbyBeachOut,
+    OutfallNewsFamilyOut,
     OutfallNewsItemOut,
     OutfallNewsOut,
+    OutfallNewsYearOut,
     PointGeometry,
 )
 
@@ -153,6 +156,11 @@ def outfall_nearby_beaches(
 def _outfall_news_out(
     n: NewsItem, beach_name: str | None
 ) -> OutfallNewsItemOut:
+    fact = clean_cause_text(infra_cause_of(n))
+    # lead duplicado: si el hecho ES el titular, la fila solo enseña
+    # el título — fact=None lo dice
+    if fact and norm_txt(fact) == norm_txt(n.title):
+        fact = None
     return OutfallNewsItemOut(
         id=n.id,
         beach_id=n.beach_id,
@@ -164,6 +172,7 @@ def _outfall_news_out(
         cause=clean_cause_text(n.cause),
         beach_name=beach_name,
         infra_cause=clean_cause_text(infra_cause_of(n)),
+        fact=fact,
     )
 
 
@@ -183,10 +192,29 @@ def outfall_news(
     outfall = db.get(Outfall, outfall_id)
     if outfall is None:
         raise HTTPException(status_code=404, detail="Outfall not found")
-    named, zone, summary = gather_infra_news(db, outfall)
+
+    def _years_out(groups: list[dict]) -> list[OutfallNewsYearOut]:
+        return [
+            OutfallNewsYearOut(
+                year=y["year"],
+                families=[
+                    OutfallNewsFamilyOut(
+                        family=f["family"],
+                        count=f["count"],
+                        items=[_outfall_news_out(n, b) for n, b in f["items"]],
+                    )
+                    for f in y["families"]
+                ],
+            )
+            for y in groups
+        ]
+
+    named, zone, summary, groups = gather_infra_news(db, outfall)
     return OutfallNewsOut(
         named=[_outfall_news_out(n, b) for n, b in named],
         zone=[_outfall_news_out(n, b) for n, b in zone],
+        named_groups=_years_out(groups["named"]),
+        zone_groups=_years_out(groups["zone"]),
         summary=(
             OutfallInfraSummaryOut(
                 named_count=summary["named_count"],

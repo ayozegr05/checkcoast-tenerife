@@ -63,8 +63,8 @@
             text-transform:uppercase; letter-spacing:.4px; }
     .stag { font-size:14px; line-height:1.55; color:#dcebf2;
             margin:16px 0; text-shadow:0 1px 3px rgba(0,0,0,.35); }
-    .sleg { margin-top:12px; background:rgba(255,255,255,.88);
-            border:1px solid rgba(255,255,255,.25); border-radius:12px;
+    .sleg { margin-top:12px; background:rgba(255,255,255,.95);
+            border:1px solid #e2e8f0; border-radius:12px;
             padding:12px 14px; font-size:12px; color:#33566b; }
     .sleg div { display:flex; align-items:center; gap:9px;
             margin:5px 0; }
@@ -84,7 +84,8 @@
     .sal b { display:block; font-size:12px; color:#0d3a52;
             font-weight:600; }
     .sal:hover b { color:#075276; }
-    .sal span { font-size:10.5px; color:#7a919c; }
+    .sal span { font-size:10.5px; color:#7a919c;
+            line-height:1.45; }
     .sfoot { margin-top:14px; font-size:11px; color:#a8c4d2; }
   }
   .head { background:{{ head_bg }}; color:#fff;
@@ -101,7 +102,7 @@
   .odot { position:absolute; width:24px;
           transform:translate(-50%,-95%);
           filter:drop-shadow(0 1px 3px rgba(0,0,0,.5)); }
-  .zoom { position:absolute; top:30px; right:8px; display:flex;
+  .zoom { position:absolute; top:30px; right:14px; display:flex;
           flex-direction:column; border-radius:8px; overflow:hidden;
           box-shadow:0 1px 4px rgba(0,0,0,.35); }
   .zbtn { border:0; background:rgba(255,255,255,.92); color:#0d3a52;
@@ -132,16 +133,20 @@
           text-transform:uppercase; }
   .pbox .pn { font-size:12px; font-weight:600; color:#0d3a52;
           margin-top:1px; }
-  /* "Qué se vierte" — la respuesta protagonista */
-  .herobox { margin-top:8px; border-left:3px solid #17b8ce;
-          background:#f4f9fb; border-radius:4px;
+  /* "Qué se vierte" — la respuesta protagonista. Las secciones
+     descriptivas van PLANAS (hairline + fondo suave): el borde
+     lateral de color se reserva para lo semántico — estado/riesgo
+     (opbox), ZEC (pbox) y fuentes enlazables (nsrc/nbrow) */
+  .herobox { margin-top:8px; border:1px solid #e2e8f0;
+          background:#f8fafc; border-radius:8px;
           padding:8px 10px; }
   .sechead { display:flex; align-items:center; gap:7px;
-          justify-content:center;
-          justify-content:center; margin-bottom:2px; }
+          justify-content:center; margin-bottom:6px; }
   .sechead img { width:20px; height:20px; }
   .sechead span { font-size:15px; font-weight:700; color:#075276; }
-  .hval { font-size:15px; font-weight:700; color:#0d3a52;
+  .hlead { font-size:13.5px; color:#0d3a52; margin-top:2px;
+          line-height:1.45; }
+  .hval { font-size:14px; font-weight:600; color:#0d3a52;
           text-align:center; margin-top:1px; }
   .hsub { font-size:13px; color:#7a919c; text-align:center;
           margin-top:2px; }
@@ -151,10 +156,20 @@
   .hresp { font-size:13px; color:#7a919c; margin-top:6px;
           border-top:1px solid #dbe7ee; padding-top:6px; }
   .hresp b { color:#0d3a52; font-weight:600; }
-  .seccard { margin-top:10px; border-left:3px solid #17b8ce;
-          background:#f4f9fb; border-radius:4px;
+  .seccard { margin-top:10px; border:1px solid #e2e8f0;
+          background:#f8fafc; border-radius:8px;
           padding:8px 10px; }
-  .srow { font-size:13px; color:#33566b; margin-top:4px;
+  /* KPI tiles: los números hero del emisario (orilla/profundidad)
+     como métricas escaneables, no enterradas en la frase */
+  .kpirow { display:flex; align-items:center; gap:10px;
+          margin-top:8px; }
+  .kpilead { flex:1; }
+  .kpi { background:#fff; border:1px solid #e2e8f0;
+          border-radius:8px; padding:6px 10px; }
+  .kv { font-size:17px; font-weight:700; color:#075276; }
+  .kl { font-size:10px; color:#7a919c; text-transform:uppercase;
+          letter-spacing:.3px; margin-top:1px; }
+  .srow { font-size:13px; color:#33566b; margin-top:6px;
           line-height:1.5; }
   .srow b { color:#0d3a52; font-weight:600; }
   .nearsub { font-size:11px; color:#7a919c; margin-top:2px; }
@@ -170,10 +185,50 @@
   .ngroup { font-size:11px; font-weight:700; color:#075276;
             text-transform:uppercase; letter-spacing:.4px;
             margin-top:10px; }
+  /* Prensa: mismo idioma que la card de playa — año como acordeón
+     (chip + hairline, solo el más reciente abierto), familia con
+     pill de contador a la derecha, hecho en negrita y fuentes como
+     cajitas; "Ver más" queda DEBAJO de las filas que despliega */
+  .iyr { margin-top:10px; }
+  .iyr > summary { display:flex; align-items:center; gap:8px;
+          cursor:pointer; list-style:none; margin-bottom:4px; }
+  .iyr > summary::-webkit-details-marker { display:none; }
+  .ychip { font-size:11px; font-weight:700; color:#075276;
+          background:rgba(7,82,118,.08); border-radius:5px;
+          padding:2px 7px; letter-spacing:.4px; }
+  .ycaret { font-size:9px; color:#7a919c; }
+  .iyr[open] .ycaret { transform:rotate(90deg); }
+  .ycount { font-size:10px; color:#8fa3ad; }
+  .iyr[open] .ycount { display:none; }
+  .yrule { flex:1; border-top:1px solid #dbe7ee; }
+  .nfamrow { display:flex; align-items:center; gap:6px;
+          margin-top:8px; margin-left:10px; }
+  .nfam { font-size:12px; font-weight:700; color:#16323f; }
+  .ncount { font-size:10px; font-weight:700; color:#075276;
+          background:rgba(7,82,118,.10); border-radius:999px;
+          padding:1px 7px; }
+  .nsrc { display:block; font-size:11px; color:#7a919c;
+          margin-top:4px; margin-left:18px; padding:4px 8px;
+          background:#f8fafc; border-left:3px solid #a8ccd8;
+          border-radius:0 6px 6px 0; text-decoration:none;
+          line-height:1.4; }
+  .nsrc:hover { background:#e8f2f7; border-left-color:#17b8ce; }
+  .nslead { display:block; font-size:12px; font-weight:600;
+          color:#0d3a52; }
+  .nstitle { display:block; }
+  .nsmeta { display:block; font-size:10px; color:#8fa3ad;
+          margin-top:1px; }
+  .nmore { display:flex; flex-direction:column; }
+  .nmore summary { order:2; font-size:11px; color:#075276;
+          cursor:pointer; font-weight:600; margin-top:5px;
+          margin-left:18px; list-style:none; }
+  .nmore summary::-webkit-details-marker { display:none; }
+  .nmore .nlbl-c { display:none; }
+  .nmore[open] .nlbl-o { display:none; }
+  .nmore[open] .nlbl-c { display:inline; }
   .nrow { display:block; margin-top:6px; padding:7px 10px;
           border-left:3px solid #17b8ce; background:#f4f9fb;
-          border-radius:0 8px 8px 0; text-decoration:none; }
-  .nrow:hover { background:#e8f2f7; }
+          border-radius:0 8px 8px 0; text-decoration:none; }  .nrow:hover { background:#e8f2f7; }
   .ntitle { font-size:13px; font-weight:600; color:#0d3a52;
             line-height:1.45; }
   .src { margin-top:14px; font-size:11px; color:#7a919c; }
@@ -262,6 +317,12 @@
           <span>Qué se vierte</span>
         </div>
         {%- if nature %}
+        {%- if parts|length == 1 %}
+        <div class="hlead"><b>{{ origin_label or parts[0].label
+          }}</b>: vierte <b>{{ nature | lower }}{% if parts[0].desc %}
+          ({{ parts[0].desc }}){% endif %}</b></div>
+        <div class="hnote">{{ parts[0].note | capitalize }}</div>
+        {%- else %}
         <div class="hval">{{ nature }}</div>
         {%- if origin_label %}<div class="hsub">{{ origin_label }}</div>
         {%- endif %}
@@ -272,12 +333,13 @@
           {% else %} —{% endif %} {{ pt.note }}</div>
         {%- endfor %}
         {%- endif %}
+        {%- endif %}
         {%- if responsible %}
         <div class="hresp">Responsable: <b>{{ responsible }}</b></div>
         {%- endif %}
       </div>
       {%- endif %}
-      {%- if place_text or conduit or condition %}
+      {%- if place_text or conduit or condition or kpis %}
       <div class="seccard">
         <div class="sechead">
           <img src="/icons/icon-map.png" alt="">
@@ -285,7 +347,15 @@
         </div>
         {%- if place_text %}<div class="srow">{{ place_text }}</div>
         {%- endif %}
-        {%- if conduit %}
+        {%- if kpis %}
+        <div class="srow kpirow">
+          <span class="kpilead">{{ kpi_lead }}</span>
+          {%- for k in kpis %}
+          <div class="kpi"><div class="kv">{{ k.v }}</div>
+            <div class="kl">{{ k.l }}</div></div>
+          {%- endfor %}
+        </div>
+        {%- elif conduit %}
         <div class="srow">
           {%- for s in conduit %}
           {%- if s.b %}<b>{{ s.t }}</b>{% else %}{{ s.t }}{% endif -%}
@@ -304,73 +374,79 @@
           <img src="/icons/icon-wave.png" alt="">
           <span>Playas cercanas</span>
         </div>
-        <div class="nearsub">Proximidad geométrica — no implica
-          vínculo oficial con ningún cierre</div>
         {%- for n in nearby %}
         <a class="nbrow" style="border-left-color:{{ n.dcol }}"
           href="/b/{{ n.beach_id }}">
           <div style="flex:1"><div class="nbname">{{ n.name }}</div>
           {%- if n.muni %}<div class="nbmeta">{{ n.muni }}</div>
           {%- endif %}</div>
-          <span class="nbdist" style="color:{{ n.dcol }}">a
-            {{ n.dist }} m</span>
-          <span class="nbchev">›</span>
+          <span class="nbdist" style="color:{{ n.dcol }}">{{ n.dist
+            }} m</span>
+          <span class="nbchev" style="color:{{ n.dcol }}">›</span>
         </a>
         {%- endfor %}
       </div>
       {%- endif %}
-      {%- if news.named or news.zone %}
+      {%- macro news_src(n) %}
+        <a class="nsrc" href="{{ n.url }}" target="_blank"
+          rel="noopener">
+          {%- if n.fact %}
+          <span class="nslead">{{ n.fact }}{% if n.date %} ·
+            {{ n.date }}{% endif %}</span>
+          <span class="nstitle">«{{ n.title }}»</span>
+          {%- else %}«{{ n.title }}»
+          {%- endif %}
+          {%- if n.meta %}<span class="nsmeta">{{ n.meta }}</span>
+          {%- endif %}
+        </a>
+      {%- endmacro %}
+      {%- macro news_years(groups) %}
+        {%- for y in groups %}
+        <details class="iyr"{% if loop.first %} open{% endif %}>
+          <summary>
+            <span class="ychip">{{ y.year or "Sin fecha" }}</span>
+            <span class="ycaret">▸</span>
+            <span class="ycount">{{ y.count }}
+              noticia{{ 's' if y.count != 1 }}</span>
+            <span class="yrule"></span>
+          </summary>
+          {%- for f in y.families %}
+          <div class="nfamrow">
+            <span class="nfam">{{ f.family }}</span>
+            <span class="ncount">{{ f.count }}</span>
+          </div>
+          {%- for n in f.rows[:2] %}{{ news_src(n) }}{%- endfor %}
+          {%- if f.rows|length > 2 %}
+          <details class="nmore">
+            <summary><span class="nlbl-o">Ver
+              {{ f.rows|length - 2 }} más</span><span
+              class="nlbl-c">Ver menos</span></summary>
+            {%- for n in f.rows[2:] %}{{ news_src(n) }}{%- endfor %}
+          </details>
+          {%- endif %}
+          {%- endfor %}
+        </details>
+        {%- endfor %}
+      {%- endmacro %}
+      {%- if news.named_groups or news.zone_groups %}
       <div class="seccard">
         <div class="sechead">
           <img src="/icons/icon-news.png" alt="">
           <span>En la prensa</span>
         </div>
-        <div class="nearsub">Según prensa — estar cerca no implica
-          causar: la proximidad es contexto, no causalidad</div>
-        {%- if news.named %}
-        <div class="ngroup">De este punto</div>
-        {%- if news.summary %}<div class="nbmeta" style="margin-left:10px">
-          {{ news.summary }}</div>{%- endif %}
-        {%- for n in news.named %}
-        <a class="nrow" href="{{ n.url }}" target="_blank"
-          rel="noopener">
-          <div class="ntitle">{{ n.title }}</div>
-          {%- if n.meta %}<div class="nbmeta">{{ n.meta }}</div>
-          {%- endif %}
-        </a>
-        {%- endfor %}
+        {%- if news.named_groups %}
+        <div class="ngroup">De este emisario
+          {%- if news.named_count %} · {{ news.named_count }}
+            noticias{%- endif %}</div>
+        {{ news_years(news.named_groups) }}
         {%- endif %}
-        {%- if news.zone %}
+        {%- if news.zone_groups %}
         <div class="ngroup">En la zona</div>
-        {%- for n in news.zone %}
-        <a class="nrow" href="{{ n.url }}" target="_blank"
-          rel="noopener">
-          <div class="ntitle">{{ n.title }}</div>
-          {%- if n.meta %}<div class="nbmeta">{{ n.meta }}</div>
-          {%- endif %}
-        </a>
-        {%- endfor %}
+        {{ news_years(news.zone_groups) }}
         {%- endif %}
-      </div>
-      {%- endif %}
-      {%- if episodes %}
-      <div class="seccard">
-        <div class="sechead">
-          <img src="/icons/icon-episodes.png" alt="">
-          <span>Episodios de contaminación en el entorno</span>
-        </div>
-        <div class="nearsub">Últimos 5 años en playas a menos de
-          2 km — estar cerca no implica causar</div>
-        <div class="srow"><b>{{ episodes.total }}
-          episodio{{ 's' if episodes.total != 1 }}</b>
-          {%- if episodes.closures %} ({{ episodes.closures }}
-          cierre{{ 's' if episodes.closures != 1 }}){%- endif %}
-          {%- if episodes.last %} · el más reciente empezó el
-          {{ episodes.last }}{% endif %}</div>
-        {%- for b in episodes.beaches %}
-        <div class="srow">{{ b.name }} — <b>{{ b.episodes }}</b>
-          {%- if b.last %}, último {{ b.last }}{% endif %}</div>
-        {%- endfor %}
+        <div class="nearsub" style="margin-top:10px">Según prensa —
+          estar cerca no implica causar: la proximidad es contexto,
+          no causalidad</div>
       </div>
       {%- endif %}
       {%- if source_url %}

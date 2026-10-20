@@ -303,18 +303,18 @@ export const OUTFALL_NEWS_TITLE = 'En la prensa';
 // coincidencia temporal nunca implican causalidad
 export const OUTFALL_NEWS_NOTE =
   'Según prensa — coincidencia geográfica, no implica causalidad';
-export const OUTFALL_NEWS_NAMED = 'De este punto';
+export const OUTFALL_NEWS_NAMED = 'De este emisario';
 export const OUTFALL_NEWS_ZONE = 'En la zona';
 
-// Línea meta bajo el titular: medio · fecha · playa a la que va
-// casada la noticia (es noticia DE la playa, no del punto) · hecho
-// de infraestructura del cuerpo cuando lo hay
-export const outfallNewsMeta = (n: OutfallNewsItem): string =>
+// Línea meta bajo el hecho/titular: medio · fecha · playa a la que
+// va casada la noticia (es noticia DE la playa, no del punto). Con
+// `withDate:false` la fecha se omite — la fila con lead de hecho ya
+// la lleva junto al hecho y no se escribe dos veces
+export const outfallNewsMeta = (n: OutfallNewsItem, withDate = true): string =>
   [
     n.source,
-    n.published_at ? fmtDate(n.published_at.slice(0, 10)) : null,
+    withDate && n.published_at ? fmtDate(n.published_at.slice(0, 10)) : null,
     n.beach_name ? displayBeachName(beachBaseName(n.beach_name)) : null,
-    n.infra_cause,
   ]
     .filter(Boolean)
     .join(' · ');
