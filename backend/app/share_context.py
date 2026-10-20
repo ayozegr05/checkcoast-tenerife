@@ -30,6 +30,7 @@ from app.models import (
 from app.names import PM_SUFFIX
 from app.names import normalize_beach_name as _normalize
 from app.news_episodes import _news_cause
+from app.news_infra import gather_infra_news
 from app.news_matching import _norm_muni
 from app.news_zones import _ZONE_GROUPS, _zone_entry
 from app.queries import (
@@ -1979,6 +1980,24 @@ def outfall_context(
     total_beaches = db.query(func.count(Beach.id)).scalar()
     salerts = _alert_cards(_alert_entries(db, effs)[:4], datetime.now(UTC), db)
 
+    # Prensa de infra del punto — misma regla que /outfalls/{id}/news:
+    # named = nombra ESTE punto, zone = infra genérica del entorno;
+    # nunca cierres de playa por fecal (eso vive en la ficha de playa)
+    def _news_card(pair: tuple) -> dict:
+        n, bname = pair
+        meta = n.source or ""
+        if n.published_at:
+            meta += f" · {n.published_at.strftime('%d/%m/%Y')}"
+        if bname:
+            meta += f" · {_display_name(bname)}"
+        return {"url": n.url, "title": n.title, "meta": meta}
+
+    named_items, zone_items = gather_infra_news(db, outfall)
+    news = {
+        "named": [_news_card(p) for p in named_items],
+        "zone": [_news_card(p) for p in zone_items],
+    }
+
     return {
         "title": f"{name} · {muni}",
         "desc": f"Emisario — {label} — CheckCoast Tenerife",
@@ -2017,6 +2036,7 @@ def outfall_context(
             else None
         ),
         "nearby": nearby,
+        "news": news,
         "source_url": outfall.source_url,
         "n_closed": status_counts.get("closed", 0),
         "n_warning": status_counts.get("warning", 0),

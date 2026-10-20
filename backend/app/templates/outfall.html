@@ -167,6 +167,15 @@
   .nbmeta { font-size:11px; color:#7a919c; margin-top:1px; }
   .nbdist { font-size:14px; font-weight:700; white-space:nowrap; }
   .nbchev { font-size:16px; font-weight:600; color:#a8c0cc; }
+  .ngroup { font-size:11px; font-weight:700; color:#075276;
+            text-transform:uppercase; letter-spacing:.4px;
+            margin-top:10px; }
+  .nrow { display:block; margin-top:6px; padding:7px 10px;
+          border-left:3px solid #17b8ce; background:#f4f9fb;
+          border-radius:0 8px 8px 0; text-decoration:none; }
+  .nrow:hover { background:#e8f2f7; }
+  .ntitle { font-size:13px; font-weight:600; color:#0d3a52;
+            line-height:1.45; }
   .src { margin-top:14px; font-size:11px; color:#7a919c; }
   .src a { color:#075276; text-decoration:none; }
   .src a:hover { text-decoration:underline; }
@@ -308,6 +317,38 @@
           <span class="nbchev">›</span>
         </a>
         {%- endfor %}
+      </div>
+      {%- endif %}
+      {%- if news.named or news.zone %}
+      <div class="seccard">
+        <div class="sechead">
+          <img src="/icons/icon-news.png" alt="">
+          <span>En la prensa</span>
+        </div>
+        <div class="nearsub">Según prensa — estar cerca no implica
+          causar: la proximidad es contexto, no causalidad</div>
+        {%- if news.named %}
+        <div class="ngroup">De este punto</div>
+        {%- for n in news.named %}
+        <a class="nrow" href="{{ n.url }}" target="_blank"
+          rel="noopener">
+          <div class="ntitle">{{ n.title }}</div>
+          {%- if n.meta %}<div class="nbmeta">{{ n.meta }}</div>
+          {%- endif %}
+        </a>
+        {%- endfor %}
+        {%- endif %}
+        {%- if news.zone %}
+        <div class="ngroup">En la zona</div>
+        {%- for n in news.zone %}
+        <a class="nrow" href="{{ n.url }}" target="_blank"
+          rel="noopener">
+          <div class="ntitle">{{ n.title }}</div>
+          {%- if n.meta %}<div class="nbmeta">{{ n.meta }}</div>
+          {%- endif %}
+        </a>
+        {%- endfor %}
+        {%- endif %}
       </div>
       {%- endif %}
       {%- if source_url %}

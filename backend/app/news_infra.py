@@ -16,6 +16,10 @@ import unicodedata
 from collections.abc import Iterable
 from dataclasses import replace
 
+from geoalchemy2 import Geography, Geometry
+from sqlalchemy import cast, func, literal
+
+from app.models import Beach, NewsItem, Outfall
 from app.news_llm import EventExtraction, NewsExtractor
 from app.news_sources import RawArticle
 
@@ -271,3 +275,81 @@ def outfall_named_patterns(
             continue
         (own if outfall_id in ids else other).append(_named_re(key))
     return own, other
+
+
+# --- Sección de prensa del emisario (endpoint + landing) ---
+
+OUTFALL_NEWS_RADIUS_M = 2000
+OUTFALL_NEWS_LIMIT = 10
+
+
+def gather_infra_news(
+    db, outfall
+) -> tuple[
+    list[tuple[NewsItem, str | None]], list[tuple[NewsItem, str | None]]
+]:
+    """(named, zone) de la ficha del emisario, como (item, playa).
+
+    - Solo puntos de residual: pluviales, salmueras y piscinas no
+      son infra de saneamiento — su ficha no lleva sección.
+    - Noticias `relevant` casadas a playas a <2 km cuyo TITULAR habla
+      de la instalación o del suceso (INFRA_TITLE_RE): un cierre de
+      playa por contaminación fecal ya vive en la ficha de la playa.
+    - `named` = instalación + topónimo propio único del censo;
+      `zone` = infra sin punto concreto. Si el titular nombra OTRO
+      punto del clúster, se omite — cada ficha habla de lo suyo.
+    - La proximidad es contexto de prensa: nunca implica causalidad.
+    """
+    empty: tuple[list, list] = ([], [])
+    if "residual" not in (outfall.nature or "").lower():
+        return empty
+    outfall_geog = cast(literal(outfall.geom, type_=Geometry), Geography)
+    beach_rows = (
+        db.query(Beach.id, Beach.name)
+        .filter(
+            func.ST_DWithin(
+                Beach.geom.cast(Geography),
+                outfall_geog,
+                OUTFALL_NEWS_RADIUS_M,
+            )
+        )
+        .all()
+    )
+    if not beach_rows:
+        return empty
+    beach_names = {b.id: b.name for b in beach_rows}
+    rows = (
+        db.query(NewsItem)
+        .filter(
+            NewsItem.relevant.is_(True),
+            NewsItem.beach_id.in_(beach_names),
+        )
+        .order_by(NewsItem.published_at.desc().nulls_last())
+        .all()
+    )
+    # dedup por URL: la misma noticia se replica en cada PM de la playa
+    seen: set[str] = set()
+    items = []
+    for n in rows:
+        if n.url in seen:
+            continue
+        if not INFRA_TITLE_RE.search(n.title):
+            continue
+        seen.add(n.url)
+        items.append(n)
+    if not items:
+        return empty
+    own_res, other_res = outfall_named_patterns(
+        outfall.id, db.query(Outfall).all()
+    )
+    named: list[tuple[NewsItem, str | None]] = []
+    zone: list[tuple[NewsItem, str | None]] = []
+    for n in items:
+        text = norm_txt(n.title)
+        pair = (n, beach_names.get(n.beach_id))
+        if any(p.search(text) for p in own_res):
+            named.append(pair)
+        elif not any(p.search(text) for p in other_res):
+            zone.append(pair)
+        # nombra otro punto concreto → fuera de esta ficha
+    return named[:OUTFALL_NEWS_LIMIT], zone[:OUTFALL_NEWS_LIMIT]

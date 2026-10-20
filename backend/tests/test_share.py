@@ -46,6 +46,60 @@ def test_share_beach_not_found():
 
 
 @pytest.fixture
+def outfall_with_news(seed_data):
+    """Emisario residual + noticia de infra que lo nombra — para la
+    sección "En la prensa" de la landing /o/{id}."""
+    from app.db import SessionLocal
+    from app.models import NewsItem, Outfall, OutfallStatus
+
+    with SessionLocal() as db:
+        o = Outfall(
+            external_id="ci-share-outfall-news",
+            name="Emisario Submarino de Punta Share",
+            municipality="Santa Cruz de Tenerife",
+            status=OutfallStatus.legal,
+            nature="Agua residual urbana",
+            location="Punta Share",
+            geom=WKTElement("POINT(-16.25 28.46)", srid=4326),
+        )
+        db.add(o)
+        db.flush()
+        n = NewsItem(
+            url="https://news.google.com/rss/articles/pytest-share-news",
+            title="Rotura del emisario de Punta Share",
+            source="Test Press",
+            relevant=True,
+            beach_id=seed_data["beach_id"],
+            event_type="infra",
+        )
+        db.add(n)
+        db.commit()
+        oid = o.id
+    yield oid
+    with SessionLocal() as db:
+        db.query(NewsItem).filter(
+            NewsItem.url.like("%pytest-share-news%")
+        ).delete()
+        db.query(Outfall).filter(Outfall.id == oid).delete()
+        db.commit()
+
+
+def test_share_outfall_news_section(outfall_with_news):
+    html = client.get(f"/o/{outfall_with_news}").text
+    assert "En la prensa" in html
+    assert "De este punto" in html
+    assert "Rotura del emisario de Punta Share" in html
+    assert "Test Press" in html
+    assert "no implica" in html
+
+
+def test_share_outfall_no_news_section(seed_data):
+    # El outfall semilla no es residual → la landing no lleva sección
+    html = client.get(f"/o/{seed_data['outfall_id']}").text
+    assert "En la prensa" not in html
+
+
+@pytest.fixture
 def hostile_beach():
     from app.db import SessionLocal
     from app.models import Beach
