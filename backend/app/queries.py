@@ -1,3 +1,4 @@
+import re
 import unicodedata
 from datetime import UTC, date, datetime, timedelta
 
@@ -170,6 +171,48 @@ def _short_cause(text: str | None) -> str | None:
         if any(k in t for k in keys):
             return label
     return None
+
+
+_CAUSE_VALUE_RE = re.compile(
+    r"\s*[><≥≤~]?\s*\d[\d.,]*\s*UFC\s*/\s*100\s*m?l?\b", re.I
+)
+
+
+# Parámetros de laboratorio: forma canónica con mayúscula propia del
+# género bacteriano — incluye variantes y erratas frecuentes de la
+# extracción ("enterococos intestinales", "enterocos", "esterococos",
+# "Escherichia coli", "E.coli")
+_CAUSE_CANON = (
+    (
+        re.compile(r"\benterococos?\s+intestinales\b", re.IGNORECASE),
+        "Enterococos",
+    ),
+    (
+        re.compile(
+            r"\b(?:enterococos?|enterocos|esterococos)\b", re.IGNORECASE
+        ),
+        "Enterococos",
+    ),
+    (
+        re.compile(r"\bescherichia\s+coli\b|\be\.?\s*coli\b", re.IGNORECASE),
+        "E. coli",
+    ),
+)
+
+
+def clean_cause_text(text: str | None) -> str | None:
+    """La causa se muestra sin cifras de laboratorio — el valor
+    exacto vive en la gráfica; en banners y etiquetas solo estorba
+    ("enterococos intestinales 220 UFC/100 ml y E. coli 190 UFC/100
+    ml" → "Enterococos y E. coli"). Los parámetros se normalizan a
+    su forma canónica."""
+    if not text:
+        return text
+    t = _CAUSE_VALUE_RE.sub("", text)
+    for rx, canon in _CAUSE_CANON:
+        t = rx.sub(canon, t)
+    t = re.sub(r"\s{2,}", " ", t).strip(" ,·")
+    return t or text
 
 
 def is_ungraded_note(obs: str | None) -> bool:

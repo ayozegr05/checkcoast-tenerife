@@ -92,6 +92,29 @@ describe('incidents', () => {
     expect(isUnclassified(inc({ observations: 'Prohibido' }))).toBe(false);
   });
 
+  it('isUnclassified: con prensa corroborante es el episodio real', () => {
+    // Gaviotas: la nota "Sin Calificar" del 08/06 con titulares de
+    // cierre por desprendimientos ES el registro oficial del cierre
+    // — no una nota administrativa
+    const corroborated = inc({
+      observations: 'Sin Calificar',
+      press_items: [news('closure', 'desprendimientos')],
+    });
+    expect(isUnclassified(corroborated)).toBe(false);
+    expect(isClosure(corroborated)).toBe(true);
+    // Sin prensa sigue siendo solo una muestra sin evaluar
+    expect(isUnclassified(inc({ observations: 'Sin Calificar' }))).toBe(true);
+    // Prensa sin tipo de evento tampoco corrobora
+    expect(
+      isUnclassified(
+        inc({
+          observations: 'Sin Calificar',
+          press_items: [news(null, null)],
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it('episodesInYears cuenta cierres y avisos dentro de la ventana', () => {
     const now = Date.parse('2026-10-01');
     const list = [

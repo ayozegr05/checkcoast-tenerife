@@ -23,6 +23,7 @@ from app.queries import (
     _episode_params,
     _press_cause,
     _short_cause,
+    clean_cause_text,
     is_ungraded_note,
 )
 
@@ -66,14 +67,15 @@ def _news_cause(items: list[NewsItem]) -> str | None:
         return None
     if cat == "E. coli y enterococos":
         # Etiqueta compuesta: muestra el texto del ítem que nombre los
-        # dos parámetros (suele llevar la cifra, "E. coli >800 UFC…")
+        # dos parámetros (suele llevar la cifra — clean_cause_text la
+        # quita: el valor exacto vive en la gráfica)
         for it in items:
             if _episode_params([it]) == {"E. coli", "Enterococos"}:
-                return it.cause
+                return clean_cause_text(it.cause)
         return cat
     for it in items:
         if _short_cause(it.cause) == cat:
-            return it.cause
+            return clean_cause_text(it.cause)
     return cat
 
 
@@ -201,7 +203,14 @@ def press_episode_summary(
                 (p.date() for i in e.press_items if (p := i.published_at)),
                 default=e.opened_at,
             ),
-            e.last_closure or e.opened_at,
+            # La ventana cubre TODA la cobertura del episodio vivo:
+            # sin ella el fallback a opened_at degeneraba el span a
+            # su primer día y cualquier hueco >GAP partía el episodio
+            # (Gaviotas: jun-16→sep-14 quedaba fuera → 1 titular)
+            max(
+                (p.date() for i in e.press_items if (p := i.published_at)),
+                default=e.last_closure or e.opened_at,
+            ),
         )
         for e in evs
         if e.via == "press" and e.closed_at is None and _is_structural(e)

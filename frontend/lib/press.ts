@@ -31,6 +31,12 @@ export const pressSummary = (
     // Nombre de la playa de esta ficha — resuelve el nombre común
     // de la cala hermana cuando el complejo está mapeado
     beachName?: string;
+    // Inicio del incidente oficial del episodio: cuando Sanidad
+    // documenta el cierre, su opened_at es más real que la primera
+    // cobertura de prensa (`since` puede llegar días tarde). Solo
+    // gana a `since`; `closed_since` (inicio afirmado por el texto)
+    // sigue mandando
+    episodeStart?: string | null;
   },
 ) => {
   const [noun, prep, dmark] = NEWS_EVENT_LINE[s.event_type ?? 'other'] ?? [
@@ -60,11 +66,11 @@ export const pressSummary = (
     const closedFor =
       s.closed_since && s.closed_since.length < 10
         ? `desde ${fmtPartialDate(s.closed_since)}`
-        : s.closed_since || s.since
-          ? `desde el ${fmtDate((s.closed_since || s.since!).slice(0, 10))}`
+        : s.closed_since || opts.episodeStart || s.since
+          ? `desde el ${fmtDate((s.closed_since || opts.episodeStart || s.since!).slice(0, 10))}`
           : null;
     // Cuánto estuvo cerrada: con inicio parcial es aproximado ("~")
-    const startRaw = s.closed_since || s.since;
+    const startRaw = s.closed_since || opts.episodeStart || s.since;
     const startIso = startRaw
       ? startRaw.length === 4
         ? `${startRaw}-01-01`
@@ -96,8 +102,10 @@ export const pressSummary = (
       : null;
   const sinceIsPartial = !!s.closed_since && s.closed_since.length < 10;
   // Inicio del episodio como día ISO: con precisión parcial se asume
-  // el día 1 y el conteo se marca con "~" (no inventamos día exacto)
-  const startRaw = s.closed_since || s.since;
+  // el día 1 y el conteo se marca con "~" (no inventamos día exacto).
+  // El opened_at oficial gana a la primera cobertura de prensa —
+  // Sanidad actúa antes de que salgan los titulares
+  const startRaw = s.closed_since || opts.episodeStart || s.since;
   const startIso = startRaw
     ? startRaw.length === 4
       ? `${startRaw}-01-01`

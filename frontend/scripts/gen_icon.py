@@ -4,6 +4,7 @@
 from PIL import Image, ImageDraw, ImageFilter
 import json
 import math
+import os
 import urllib.request
 
 S = 1024
@@ -370,6 +371,21 @@ def draw_alert_icon():
     img.save("assets/icons/icon-alert.png")
 
 
+def draw_timeline_icon():
+    """Linea temporal (espina + eventos con tick) para la seccion
+    Episodios de la ficha. Blanco: la app lo tine con tintColor.
+    La variante navy para la landing es el mismo trazo teñido
+    (#16323f) en backend/app/static/icons/."""
+    img = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle([27, 12, 39, 84], radius=6, fill=WHITE)
+    for y in (22, 48, 74):
+        d.ellipse([20, y - 10, 40, y + 10], fill=WHITE)
+        d.rounded_rectangle([46, y - 4, 84, y + 4], radius=4, fill=WHITE)
+    img.save("assets/icons/icon-timeline.png")
+
+
+
 draw_map_icon()
 draw_satellite_icon()
 draw_layers_icon()
@@ -377,6 +393,46 @@ draw_faucet_icon()
 draw_wave_icon()
 draw_townhall_icon()
 draw_help_icon()
+def draw_episodes_icon():
+    """Documentos apilados con ola (ilustracion elegida por el autor)
+    para la seccion Episodios. El trazo se extrae por luminancia de
+    scripts/icon-episodes-src.jpg y se exporta en blanco (la app lo
+    tine con tintColor) y en navy para la landing
+    (backend/app/static/icons/)."""
+    src = Image.open(
+        os.path.join(os.path.dirname(__file__), "icon-episodes-src.jpg")
+    ).convert("RGB")
+    alpha = src.convert("L").point(
+        lambda p: max(0, min(255, (215 - p) * 3))
+    )
+    x0, y0, x1, y1 = alpha.getbbox()
+    pad = 4
+    alpha = alpha.crop(
+        (
+            max(0, x0 - pad), max(0, y0 - pad),
+            min(src.width, x1 + pad), min(src.height, y1 + pad),
+        )
+    )
+    canvas, inner = 96, 94
+    w, h = alpha.size
+    s = min(inner / w, inner / h)
+    alpha = alpha.resize((round(w * s), round(h * s)), Image.LANCZOS)
+    for color, out in (
+        (WHITE, "assets/icons/icon-episodes.png"),
+        (NAVY, "../backend/app/static/icons/icon-episodes.png"),
+    ):
+        img = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
+        glyph = Image.new("RGBA", alpha.size, color + (255,))
+        glyph.putalpha(alpha)
+        img.alpha_composite(
+            glyph,
+            ((canvas - alpha.width) // 2, (canvas - alpha.height) // 2),
+        )
+        img.save(out)
+
+
 draw_alert_icon()
+draw_timeline_icon()
+draw_episodes_icon()
 
 print("assets generados")

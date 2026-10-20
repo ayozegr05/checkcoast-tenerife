@@ -44,11 +44,22 @@ PRESS_CLUSTER_GAP = timedelta(days=45)
 # Mismo umbral que PRESS_ALERT_MAX_AGE en /alerts: un cierre de prensa
 # sin reapertura ni mención reciente no se muestra como "activo"
 PRESS_STALE = timedelta(days=21)
+# Techo de la exención estructural: una obra viva aguanta silencios
+# de meses sin cobertura (nadie repite la misma noticia mientras
+# dura), pero un hueco >6 meses es indistinguible de una reapertura
+# que nadie cubrió — el episodio se da por terminado en su última
+# mención y la siguiente ola abre uno nuevo (Gaviotas: el
+# desprendimiento puntual de jul-2025 ≠ las obras de jun-2026)
+STRUCT_STALE = timedelta(days=180)
 # Una pieza retrospectiva sobre un episodio ya reabierto sale en los
 # días siguientes a la reapertura (resúmenes, análisis); un cierre
 # real "de nuevo" puede llegar con 1 solo medio — pasada esta ventana
 # se respeta siempre como episodio nuevo aunque sea minoritario
 RETRO_WINDOW = timedelta(days=7)
+# Hueco máximo entre actas oficiales consecutivas para considerarlas
+# UNA clausura continua: un silencio largo sin reapertura es una
+# reapertura no cubierta (Gaviotas), no continuidad
+ACTA_FUSE_GAP = timedelta(days=10)
 # Sin reapertura ni muestra apta, el "fin" de un cierre de prensa es
 # incierto: usamos la última mención y lo declaramos en el texto
 # Hueco entre muestras dentro de una racha de prohibido: Náyade deja
@@ -283,10 +294,13 @@ def synthesize_events(
                 continue
             # La noticia cubre una incidencia oficial: no duplicar.
             # Una incidencia la "cubre" solo si su fin no precede al
-            # inicio que afirma el texto: closed_since posterior al
-            # closed_at oficial es un episodio NUEVO (Jardín PM4: la
+            # inicio que afirma el texto: closed_since EN o posterior
+            # al closed_at oficial es un episodio NUEVO (Jardín PM4: la
             # incidencia cerró el 3-sep y la prensa del 30-sep grita
             # "cerrada desde el 29-sep", que es el cierre VIGENTE).
+            # Igualdad incluida: el cierre que "empieza" el día que
+            # acaba el acta es otro suceso (Jardín oct-2026: acta
+            # 5→7-oct y prensa "cuarta vez" con closed_since 07/10)
             # Y un clúster de prensa vivo absorbe la mención aunque
             # caiga dentro del fuzz de una incidencia vieja — pero
             # solo si la mención seguiría al clúster (hueco ≤GAP desde
@@ -305,7 +319,7 @@ def synthesize_events(
             )
             covered = any(
                 _in_window(pub, o_s, o_e, today)
-                and (o_e is None or cs_d is None or cs_d <= o_e)
+                and (o_e is None or cs_d is None or cs_d < o_e)
                 for o_s, o_e in official
             )
             if covered and not live:
@@ -342,7 +356,9 @@ def synthesize_events(
             # misma obra que sigue sin terminar — Gaviotas siguió
             # cerrada de jun a sep sin noticias, y el titular del 14-sep
             # ("Costas autoriza obras para reabrir") es ese episodio,
-            # no uno nuevo
+            # no uno nuevo. Techo STRUCT_STALE: un silencio de >6 meses
+            # ya no es "la misma obra" — es otra (el desprendimiento
+            # puntual de jul-2025 no es la obra de jun-2026)
             if (
                 current is None
                 or boundary
@@ -350,7 +366,10 @@ def synthesize_events(
                     pub - (current.last_closure or current.opened_at)
                     > PRESS_CLUSTER_GAP
                     and not (
-                        current.closed_at is None and _is_structural(current)
+                        current.closed_at is None
+                        and _is_structural(current)
+                        and pub - (current.last_closure or current.opened_at)
+                        <= STRUCT_STALE
                     )
                 )
             ):
@@ -407,8 +426,47 @@ def synthesize_events(
             # Una reapertura dentro de la ventana de una incidencia
             # oficial resuelve ESE episodio: no cierra el clúster de
             # prensa vigente (El Médano: la ola del 25/09 resolvía la
-            # incidencia oficial 21→24-sep, no un cierre añejo)
-            if any(_in_window(pub, o_s, o_e, today) for o_s, o_e in official):
+            # incidencia oficial 21→24-sep, no un cierre añejo) —
+            # SALVO que el clúster abierto empezara al terminar el
+            # acta: entonces la reapertura es suya (Jardín: acta
+            # 30-sep→7-oct y la prensa documenta un 4.º cierre el
+            # 7-oct que reabre el 9 — si la reapertura solo resolviera
+            # la ventana oficial, el episodio del 7-oct quedaría
+            # abierto para siempre)
+            cover = [
+                (o_s, o_e)
+                for o_s, o_e in official
+                if _in_window(pub, o_s, o_e, today)
+            ]
+            if cover:
+                off_end = max(
+                    (o_e for _s, o_e in cover if o_e is not None),
+                    default=None,
+                )
+                last_c = None
+                if current is not None and current.closed_at is None:
+                    last_c = current.last_closure or current.opened_at
+                if (
+                    current is not None
+                    and off_end is not None
+                    and last_c is not None
+                    and off_end <= last_c <= pub
+                ):
+                    current.closed_at = pub
+                    _add_press(current, n, pub)
+                    last_closed = current
+                elif (
+                    last_closed is not None
+                    and last_closed.closed_at is not None
+                    and pub - last_closed.closed_at <= RETRO_WINDOW
+                ):
+                    # La ola de reapertura del episodio recién cerrado
+                    # también es suya, aunque caiga en la ventana del
+                    # acta (Jardín: "reabre tras su CUARTO cierre" del
+                    # 9-11 oct evidencia el episodio 7→9-oct, no la
+                    # fila oficial 5→7-oct). Ventana corta: ola = días,
+                    # una reapertura semanas después es otro suceso
+                    _add_press(last_closed, n, pub)
                 continue
             if (
                 current is not None
@@ -492,9 +550,13 @@ def synthesize_events(
         # se fusiona con el episodio vivo y el "desde" miente años
         # atrás (Punta Larga: vertido ago-2021 ≠ socavación may-2026)
         for ev in press_evs:
-            if ev.closed_at is None and not _is_structural(ev):
+            if ev.closed_at is None:
                 last = ev.last_closure or ev.opened_at
-                if today - last > PRESS_STALE:
+                # Estructural aguanta más (la obra sigue sin noticias)
+                # pero no indefinidamente: >STRUCT_STALE sin mención
+                # tampoco puede afirmarse vigente
+                stale = STRUCT_STALE if _is_structural(ev) else PRESS_STALE
+                if today - last > stale:
                     ev.closed_at = last
                     ev.end_estimated = True
 
@@ -562,13 +624,13 @@ def synthesize_events(
         events += merged_evs
     else:
         # Cierre de prensa frío sin reapertura: el fin es incierto —
-        # usamos la última mención como cota y lo declaramos, salvo
-        # causa estructural (sigue abierta aunque nadie lo repita)
+        # usamos la última mención como cota y lo declaramos. La
+        # estructural aguanta más silencio (la obra sigue sin que
+        # nadie lo repita) pero tampoco indefinidamente — STRUCT_STALE
         for ev in open_press:
-            if _is_structural(ev):
-                continue
             last = ev.last_closure or ev.opened_at
-            if today - last > PRESS_STALE:
+            stale = STRUCT_STALE if _is_structural(ev) else PRESS_STALE
+            if today - last > stale:
                 ev.closed_at = last
                 ev.end_estimated = True
         events += press_evs
@@ -713,13 +775,14 @@ def merged_episode(g: list[Episode]) -> Episode:
             if e.pm_label in named and e.beach_id not in zone_beach_ids:
                 zone_beach_ids.append(e.beach_id)
     return Episode(
-        # El PM representativo es la zona nombrada por la prensa (si
-        # solo nombró una) o, en su defecto, la del último tramo: al
-        # abrir la ficha desde la fila del episodio se ve la zona del
-        # suceso, no un PM arbitrario del complejo
+        # El PM representativo es la primera zona nombrada por la
+        # prensa o, en su defecto, la del último tramo: al abrir la
+        # ficha desde la fila del episodio se ve la zona del suceso,
+        # no un PM arbitrario del complejo (Jardín: la etiqueta dice
+        # "Punta Brava y El Charcón" pero min() abría El Castillo)
         beach_id=(
             zone_beach_ids[0]
-            if len(zone_beach_ids) == 1
+            if zone_beach_ids
             else leg.beach_id
             if leg
             else min(e.beach_id for e in g)
@@ -751,4 +814,54 @@ def merged_episode(g: list[Episode]) -> Episode:
         )[0],
         last_leg_start=last_leg_start,
         zone_beach_ids=zone_beach_ids,
+    )
+
+
+def fuse_official_episodes(rows: list, news_items: list) -> list[list]:
+    """Agrupa actas oficiales consecutivas que la prensa demuestra ser
+    UNA clausura continua — cada grupo sale como un solo episodio.
+
+    Jardín PM4 (oct-2026): Sanidad registró las actas 28→30-sep y
+    5→7-oct, pero la prensa narra una única clausura (anuncio
+    "tercera vez" el 30-sep, ni una reapertura hasta el 7-oct — el
+    bañista estuvo 8 días cerrado). La nota en la fila cuenta que
+    Sanidad lo registró como dos incidencias."""
+    groups: list[list] = []
+    for inc in sorted(rows, key=lambda i: i.opened_at):
+        if groups and _fuse_acta_ok(groups[-1][-1], inc, news_items):
+            groups[-1].append(inc)
+        else:
+            groups.append([inc])
+    return groups
+
+
+def _fuse_acta_ok(a, b, news_items) -> bool:
+    """Continuidad entre dos actas exige las TRES condiciones: hueco
+    corto, cero reaperturas en él y evidencia positiva (un cierre
+    publicado en el hueco que afirma `closed_since` ≤ fin del acta
+    anterior — "sigue cerrada desde aquel episodio"). Un hueco
+    silencioso NUNCA funde: que nadie cubriera la reapertura no
+    prueba continuidad."""
+    if a.closed_at is None or b.opened_at is None:
+        return False
+    # Una nota "Sin calificar" no es un acta de cierre — fundirla
+    # distorsionaría su significado administrativo
+    if is_ungraded_note(a.observations) or is_ungraded_note(b.observations):
+        return False
+    if not (0 <= (b.opened_at - a.closed_at).days <= ACTA_FUSE_GAP.days):
+        return False
+    mid = [
+        n
+        for n in news_items
+        if n.relevant
+        and n.published_at
+        and a.closed_at < n.published_at.date() <= b.opened_at
+    ]
+    if any(n.event_type == "reopening" for n in mid):
+        return False
+    return any(
+        n.event_type == "closure"
+        and (cs := _closed_since_date(n.closed_since)) is not None
+        and cs <= a.closed_at
+        for n in mid
     )

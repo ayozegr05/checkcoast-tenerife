@@ -50,7 +50,13 @@ export default function NewsGroupList({
   return (
     <>
       {groups.map((g) => {
-        const accent = accentOverride ?? NEWS_PHASE_COLOR[g.type];
+        // La reapertura siempre va en su verde de fase — un override
+        // (acento del episodio o banner reabierto) nunca la tiñe:
+        // verde = "se acabó", sea cual sea la causa del cierre
+        const accent =
+          g.type === 'reopening'
+            ? NEWS_PHASE_COLOR.reopening
+            : (accentOverride ?? NEWS_PHASE_COLOR[g.type]);
         return (
           <View key={g.label} style={styles.newsGroup}>
             <Text style={[styles.newsGroupTitle, { color: accent }]}>

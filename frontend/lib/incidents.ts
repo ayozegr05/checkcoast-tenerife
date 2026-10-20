@@ -25,11 +25,26 @@ export const isMuteLab = (inc: BeachIncident) =>
   inc.via === 'measurement' && inc.press_confirmed !== true;
 
 // Náyade a veces abre una "incidencia" cuyo texto es solo la
-// evaluación pendiente de una muestra (p.ej. Las Gaviotas 08/06/2026:
-// playa cerrada por obras, muestra tomada y nunca clasificada). No es
-// un incidente real: se muestra con etiqueta y texto propios
+// evaluación pendiente de una muestra. Es una nota administrativa,
+// no un incidente real — SALVO que la prensa adjunta documente el
+// evento: entonces es el registro oficial del episodio y se muestra
+// como tal (Las Gaviotas 08/06/2026: "Sin Calificar" pero la prensa
+// prueba el cierre por desprendimientos que sigue vigente)
+// Regex cruda sobre el texto de la observación — el render la usa
+// para decidir la nota legible ("muestra nunca clasificada") aunque
+// el episodio esté corroborado por prensa
+export const isUnclassifiedObs = (obs?: string | null) =>
+  /sin\s*calificar/i.test(obs ?? '');
+
 export const isUnclassified = (inc: BeachIncident) =>
-  /sin\s*calificar/i.test(inc.observations ?? '');
+  isUnclassifiedObs(inc.observations) &&
+  !(inc.press_items ?? []).some(
+    (p) =>
+      p.event_type === 'closure' ||
+      p.event_type === 'reopening' ||
+      p.event_type === 'warning' ||
+      p.event_type === 'pollution',
+  );
 
 // Episodios (cierres / avisos / agua no apta) con apertura a partir
 // de `cutoff` (ms epoch). Los atribuidos a un punto hermano no

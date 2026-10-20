@@ -46,7 +46,7 @@ describe('<IncidentHistory />', () => {
         onToggleIncident={jest.fn()}
       />,
     );
-    expect(screen.getByText('Historial de incidencias (5)')).toBeTruthy();
+    expect(screen.getByText('Episodios (5)')).toBeTruthy();
     // 2 cierres propios (oficial prohibido + prensa), 1 aviso, 1 sin calificar
     expect(screen.getByText('2 cierres')).toBeTruthy();
     expect(screen.getByText('1 aviso')).toBeTruthy();
@@ -78,9 +78,11 @@ describe('<IncidentHistory />', () => {
     expect(screen.getByText('Sin calificar')).toBeTruthy();
     expect(screen.getAllByTestId('incident-cause')).toHaveLength(4);
     expect(screen.getByText('01/08/2015 → 04/08/2015 · 4 días')).toBeTruthy();
+    // El detalle "muestra sin clasificar" no aporta: la etiqueta
+    // lo dice y no se repite como nota
     expect(
-      screen.getByText('Muestra tomada pero nunca clasificada por Sanidad'),
-    ).toBeTruthy();
+      screen.queryByText('Muestra tomada pero nunca clasificada por Sanidad'),
+    ).toBeNull();
     expect(screen.getByText('En la zona 4')).toBeTruthy();
     expect(screen.getByText('Ocurrió en la zona 4')).toBeTruthy();
   });
@@ -91,7 +93,7 @@ describe('<IncidentHistory />', () => {
       opened_at: '2015-10-01',
       closed_at: '2015-10-20',
       via: 'measurement',
-      observations: 'Laboratorio: agua no apta',
+      observations: 'Laboratorio: muestra no apta · Sin cierre oficial',
     });
     await render(
       <IncidentHistory
@@ -104,13 +106,8 @@ describe('<IncidentHistory />', () => {
     expect(screen.getAllByTestId('incident-badge')).toHaveLength(1);
     expect(screen.getByText('Agua no apta')).toBeTruthy();
     expect(screen.queryByText('Aviso')).toBeNull();
-    // El resumen lo cuenta aparte
-    expect(screen.getByText('1 agua no apta')).toBeTruthy();
-    expect(
-      screen.getByText(
-        'Agua no apta: episodios detectados en las analíticas oficiales',
-      ),
-    ).toBeTruthy();
+    // El resumen lo cuenta aparte, con nombre propio de muestra
+    expect(screen.getByText('1 muestra no apta')).toBeTruthy();
   });
 
   it('despliega los titulares del episodio', async () => {

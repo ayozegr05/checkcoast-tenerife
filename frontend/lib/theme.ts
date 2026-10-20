@@ -29,6 +29,10 @@ export const colors = {
     // Añil de fauna marina: cerrada transitoria que no contamina el
     // agua (medusas/carabelas) — el tono sale de medusas-art
     fauna: '#4f6ab8',
+    // Ámbar de episodio de laboratorio mudo: dato de analítica sin
+    // cierre demostrado — ni rojo de cierre ni naranja de aviso.
+    // Mismo #f9a825 que la ficha web (share_context._is_mute)
+    lab: '#f9a825',
     unknown: '#8fa3ad',
     unmonitored: '#8fa3ad',
   } as Record<string, string>,

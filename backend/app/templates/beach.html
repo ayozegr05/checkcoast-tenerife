@@ -141,6 +141,9 @@
   .sec { margin-top:16px; padding-top:14px; font-size:15px;
           font-weight:800; color:#0d3a52; text-align:center;
           border-top:1px solid #d8e6ec; }
+  /* Primera sección tras la pastilla de estado: el chip ya cierra
+     la cabecera, otra línea divisoria sobra */
+  .sec.nodiv { border-top:0; padding-top:0; margin-top:8px; }
   .secico { width:20px; height:20px; vertical-align:-4px;
           margin-right:5px; }
   .qrow { display:flex; align-items:center; gap:10px;
@@ -214,18 +217,31 @@
   .irow { margin-top:8px; font-size:12px; color:#5a7684;
           border-left:3px solid #cddfe8; padding:4px 0 4px 10px;
           background:#f4f9fb; border-radius:0 4px 4px 0;
-          display:flex; align-items:center; gap:8px; }
-  .imain { flex:1; min-width:0; }
-  .ihead b { font-size:12px; font-weight:600; color:#5a7684; }
+          /* wrap: el bloque de titulares baja a una línea propia a
+             ancho completo, debajo de notas y badge */
+          display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .imain { flex:1; min-width:0; align-self:stretch;
+          display:flex; flex-direction:column; }
+  /* Las notas bajan al pie de la columna: quedan a la altura de la
+     etiqueta de causa del lateral (badge + texto) en vez de colgar
+     de las fechas */
+  .inotes { margin-top:auto; }
+  /* El rango de fechas es la identidad de la fila, no metadato:
+     casi negro como en la app */
+  .imain > b { font-size:12px; font-weight:700; color:#16323f; }
   .iside { flex:none; text-align:right; display:flex;
           flex-direction:column; align-items:flex-end; gap:1px;
-          align-self:center; padding-right:8px; }
+          /* Anclado arriba: al desplegar titulares la fila crece
+             y un bloque centrado se desplazaba hacia abajo */
+          align-self:flex-start; padding-right:8px; }
   .iside .ibadges { display:flex; gap:2px; }
   .iside .ibadges img { width:27px; height:27px;
           display:block; }
   .iside b { font-size:11px; font-weight:700; }
-  .irow .icause { display:block; font-size:11.5px;
-          color:#8fa3ad; padding-right:0; margin-top:2px; }
+  /* La causa es el "por qué" del episodio: negrita y casi negro,
+     no gris de metadato */
+  .irow .icause { display:block; font-size:11.5px; font-weight:700;
+          color:#16323f; padding-right:0; margin-top:2px; }
   .irow span { display:block; color:#7a919c; font-size:12px;
           padding-right:8px; }
   .isum { margin-top:7px; margin-bottom:2px; font-size:12px;
@@ -238,7 +254,8 @@
           letter-spacing:.5px; }
   .isub { margin-top:6px; margin-bottom:2px; font-size:10px;
           font-weight:600; color:#8fa3ad; }
-  .itit { margin-top:4px; padding-right:8px; }
+  .itit { margin-top:4px; padding-right:8px;
+          flex:0 0 100%; }
   .itit summary { font-size:12px; font-weight:600; color:#e65100;
           cursor:pointer; list-style:none; }
   .itit summary::-webkit-details-marker { display:none; }
@@ -302,21 +319,9 @@
       <div class="irow" style="border-left-color:{{ i.accent }}">
         <div class="imain">
         <b>{{ i.range }}</b>
+        <div class="inotes">
         {%- for n in i.notes %}<span>{{ n }}</span>{% endfor %}
-        {%- if i.groups %}
-        <details class="itit"><summary
-          style="color:{{ i.accent }}">Ver titulares
-          ({{ i.n_press }}) ▾</summary>
-          {%- for g in i.groups %}
-          <div class="igroup" style="color:{{ i.accent }}">{{ g.label }}</div>
-          {%- for t in g.headlines %}
-          <a class="ititle" href="{{ t.url }}" target="_blank"
-            rel="noopener">{{ t.title }}
-            <span>{{ t.source }} · {{ t.date }}</span></a>
-          {%- endfor %}
-          {%- endfor %}
-        </details>
-        {%- endif %}
+        </div>
         </div>
         <div class="iside">
           {%- if i.badges %}
@@ -329,6 +334,20 @@
           {%- if i.cause_text %}<span
             class="icause">{{ i.cause_text }}</span>{%- endif %}
         </div>
+        {%- if i.groups %}
+        <details class="itit"><summary
+          style="color:{{ i.accent }}">Ver titulares
+          ({{ i.n_press }}) ▾</summary>
+          {%- for g in i.groups %}
+          <div class="igroup" style="color:{{ g.color }}">{{ g.label }}</div>
+          {%- for t in g.headlines %}
+          <a class="ititle" href="{{ t.url }}" target="_blank"
+            rel="noopener">{{ t.title }}
+            <span>{{ t.source }} · {{ t.date }}</span></a>
+          {%- endfor %}
+          {%- endfor %}
+        </details>
+        {%- endif %}
       </div>
 {% endmacro %}
 
@@ -379,8 +398,9 @@
       {%- if notice %}{{ banner(notice) }}{% endif %}
       {%- if press %}{{ banner(press) }}{% endif %}
       {%- if incidents %}
-      <div class="sec"><img class="secico" src="/icons/icon-alert.png"
-        alt="">Historial de incidencias ({{ incidents.count }})</div>
+      <div class="sec nodiv"><img class="secico"
+        src="/icons/icon-episodes.png"
+        alt="">Episodios ({{ incidents.count }})</div>
       <div class="isum">{{ incidents.summary_main }}
         {%- if incidents.summary_sub %}<span>
           {{- incidents.summary_sub }}</span>{% endif %}</div>

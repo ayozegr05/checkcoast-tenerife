@@ -211,7 +211,7 @@ export default function BeachDetail({
   // que el banner puede decir "la zona 4 SIGUE cerrada" sin mirar
   // filas del historial propio
   const pressEpisodeOpen = !!news?.summary.attributed_pm;
-  const pressReopenedAt = useMemo(() => {
+  const pressEpisodeSpan = useMemo(() => {
     if (pressStillClosed || !news?.summary.since) return null;
     const since = news.summary.since.slice(0, 10);
     const lim = new Date(`${since}T00:00:00Z`);
@@ -230,9 +230,14 @@ export default function BeachDetail({
           i.closed_at >= since &&
           i.opened_at <= limStr,
       )
-      .map((i) => i.closed_at as string)
-      .sort();
-    return later[later.length - 1] ?? null;
+      .sort((a, b) => (a.closed_at! < b.closed_at! ? -1 : 1));
+    const hit = later[later.length - 1];
+    if (!hit) return null;
+    // El inicio REAL del episodio es el opened_at del incidente
+    // oficial — la prensa suele cubrir días después de que Sanidad
+    // actuara (Jardín: cerró el 05/10, titulares desde el 07/10 →
+    // el banner decía "del 07 al 07" inventando 1 día)
+    return { start: hit.opened_at, end: hit.closed_at! };
   }, [incidents, news, pressStillClosed]);
 
   // isStructuralClosure mira el flag del backend; hasAlert es prop de
@@ -279,7 +284,8 @@ export default function BeachDetail({
     news !== null && news.items.length > 0
       ? pressSummary(news.summary, {
           stillClosed: pressStillClosed || pressEpisodeOpen,
-          reopenedAt: pressReopenedAt,
+          reopenedAt: pressEpisodeSpan?.end ?? null,
+          episodeStart: pressEpisodeSpan?.start ?? null,
           siblingPm: news.summary.attributed_pm,
           beachName: p.name,
         })

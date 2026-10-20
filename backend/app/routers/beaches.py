@@ -14,8 +14,10 @@ from app.events import (
     Episode,
     SynthEvent,
     _closed_since_date,
+    _corroborated_closed_since,
     base_name,
     cluster_episodes,
+    fuse_official_episodes,
     merged_episode,
     synthesize_events,
 )
@@ -37,6 +39,7 @@ from app.queries import (
     _press_cause,
     _short_cause,
     beaches_with_latest_status,
+    clean_cause_text,
     effective_states,
     is_ungraded_note,
 )
@@ -487,7 +490,9 @@ def _news_out(n: NewsItem) -> NewsItemOut:
         source=n.source,
         published_at=n.published_at,
         event_type=n.event_type,
-        cause=n.cause,
+        # Sin cifras de laboratorio: el valor vive en la gráfica, en
+        # etiquetas y banners solo ensucia
+        cause=clean_cause_text(n.cause),
     )
 
 
@@ -511,9 +516,9 @@ def _synth_observations(ev: SynthEvent) -> str:
             # laboratorio prueba que el agua estaba mala — el
             # episodio escala a cierre con doble fuente
             return "Cierre según prensa · confirmado por analíticas"
-        # Mudo: la fila dice solo lo que los datos sostienen (agua
-        # no apta) — no afirma cierre ni ausencia de acta
-        obs = "Laboratorio: agua no apta"
+        # Mudo: la fila nombra la muestra y aclara que no consta
+        # cierre en el registro — no afirma que nunca existiera
+        obs = "Laboratorio: muestra no apta · Sin cierre oficial"
         if ev.press_reopening and not ev.end_from_press:
             # El ayuntamiento anunció reapertura pero el laboratorio
             # siguió dando prohibido — la fecha de cierre es la apta
@@ -658,25 +663,33 @@ def _collect_episodes(
     como cierres según prensa."""
     episodes: list[Episode] = []
     for beach in beaches:
-        for inc in beach.incidents:
+        # Actas consecutivas que son UNA clausura continua según la
+        # prensa cuentan como un solo episodio (Jardín PM4:
+        # 28-sep→7-oct fueron dos incidencias de Sanidad)
+        for grp in fuse_official_episodes(beach.incidents, beach.news_items):
+            inc = grp[-1]  # el acta más reciente: obs y referencia
             if is_ungraded_note(inc.observations):
                 continue  # nota administrativa sin alerta real
-            end = inc.closed_at or today
+            end = grp[-1].closed_at or today
             # Noticias dentro de la ventana oficial (±7 días): la
             # incidencia puede anotar que la prensa también lo recogió
-            press_items = _press_in_window(beach, inc.opened_at, end)
+            press_items = _press_in_window(beach, grp[0].opened_at, end)
             kind = _incident_kind(inc, press_items)
+            obs = _display_obs(inc.observations, kind)
+            if len(grp) > 1:
+                note = f"Registrada como {len(grp)} incidencias en Sanidad"
+                obs = f"{obs} · {note}" if obs else note
             episodes.append(
                 Episode(
                     beach_id=inc.beach_id,
                     base=base_name(beach.name),
                     municipality=beach.municipality,
                     kind=kind,
-                    start=inc.opened_at,
-                    end=inc.closed_at,
+                    start=grp[0].opened_at,
+                    end=grp[-1].closed_at,
                     via="official",
                     ref_id=inc.id,
-                    obs=_display_obs(inc.observations, kind),
+                    obs=obs,
                     press_count=len(press_items),
                     pm_label=_pm_label(beach.name),
                     # Náyade no dice la causa: la toma la prensa de la
@@ -809,27 +822,48 @@ def beach_incidents(
     )
     today = date.today()
     out = []
-    for row in rows:
+    # Actas consecutivas que la prensa demuestra ser UNA clausura
+    # continua salen como un solo episodio (Jardín PM4: 28-sep→7-oct
+    # con dos incidencias de Sanidad) — la nota lo cuenta
+    groups = fuse_official_episodes(rows, beach.news_items)
+    for grp in groups:
+        row = grp[-1]  # el acta más reciente aporta obs y url
+        opened, closed = grp[0].opened_at, row.closed_at
         # Titulares de la ventana ±7 d que corroboran la
         # incidencia oficial — la fila los despliega como
         # evidencia ("según prensa")
-        press_items = [
-            _news_out(n)
-            for n in sorted(
-                _press_in_window(beach, row.opened_at, row.closed_at or today),
-                key=lambda n: n.published_at,
-                reverse=True,
-            )
-        ]
+        press_rows = sorted(
+            _press_in_window(beach, opened, closed or today),
+            key=lambda n: n.published_at,
+            reverse=True,
+        )
+        press_items = [_news_out(n) for n in press_rows]
+        obs = _display_obs(row.observations, _incident_kind(row, press_items))
+        if is_ungraded_note(row.observations) and any(
+            n.event_type in ("closure", "reopening", "warning", "pollution")
+            for n in press_rows
+        ):
+            # Nota "Sin calificar" con prensa que documenta el suceso:
+            # es el registro oficial del episodio — se narra como lo
+            # que es (un cierre según prensa) y empieza donde la
+            # prensa corrobora que empezó, no cuando Náyade anotó la
+            # muestra (Gaviotas: municipio cerró el 03/06, acta 08/06)
+            obs = "Cierre según prensa"
+            cs = _closed_since_date(_corroborated_closed_since(press_rows))
+            if cs is not None and cs < opened:
+                opened = cs
+        if len(grp) > 1:
+            # Un episodio, varias actas: la nota lo cuenta sin
+            # inflar el contador de episodios
+            note = f"Registrada como {len(grp)} incidencias en Sanidad"
+            obs = f"{obs} · {note}" if obs else note
         out.append(
             BeachIncidentOut(
                 id=row.id,
                 beach_id=row.beach_id,
-                opened_at=row.opened_at,
-                closed_at=row.closed_at,
-                observations=_display_obs(
-                    row.observations, _incident_kind(row, press_items)
-                ),
+                opened_at=opened,
+                closed_at=closed,
+                observations=obs,
                 source_url=row.source_url,
                 press_items=press_items,
             )
@@ -842,11 +876,11 @@ def beach_incidents(
     # corroboración (Jardín PM5: "2 cierres el 22/06 de distinta
     # fuente" era UN suceso — el de prensa retrofechado por
     # closed_since con cobertura hasta agosto)
-    official_rows = [
-        (inc, o)
-        for inc, o in zip(rows, out)
-        if not is_ungraded_note(inc.observations)
-    ]
+    # Las notas "Sin calificar" también son posible fila oficial:
+    # si la prensa corrobora el evento, el episodio se funde en ella
+    # (Gaviotas: la nota del 08/06/2026 ES el registro del cierre
+    # vigente por desprendimientos — una fila, no dos)
+    official_rows = list(zip((g[-1] for g in groups), out))
     synth_evs = synthesize_events(beach)
     # Ventanas de cierre vecinas del punto (oficiales o corroboradas
     # por prensa): las mudas se anotan como recaída/preludio de ellas
@@ -859,19 +893,75 @@ def beach_incidents(
         for i in beach.incidents
         if not is_ungraded_note(i.observations)
     ]
+
+    # A qué fila oficial se funde cada episodio de prensa (mismo
+    # suceso = solapa la vida del acta). Un episodio que ABRE al
+    # cerrar el acta se funde en ella — cobertura tardía del mismo
+    # suceso — SALVO que ese día hubiera reapertura documentada: la
+    # reapertura prueba que el acta terminó de verdad y lo que sigue
+    # es otro suceso (Jardín: el 7-oct coexisten "vuelve a abrir" y
+    # "vuelve a cerrar por cuarta vez" → reabrió y cerró el mismo
+    # día, dos episodios; el 3-sep solo hay cierres → el acta 2→3
+    # sep y la cobertura 3→4 sep son UN suceso)
+    reopen_days = {
+        n.published_at.date()
+        for n in beach.news_items
+        if n.relevant and n.event_type == "reopening" and n.published_at
+    }
+
+    def _merge_target(ev: SynthEvent) -> int | None:
+        for i, (_inc, o) in enumerate(official_rows):
+            if o.opened_at <= (ev.closed_at or today) and (
+                o.closed_at is None
+                or ev.opened_at < o.closed_at
+                or (
+                    ev.opened_at == o.closed_at
+                    and ev.opened_at not in reopen_days
+                )
+            ):
+                return i
+        return None
+
+    ev_target = {
+        id(ev): _merge_target(ev) for ev in synth_evs if ev.via == "press"
+    }
+    # Titulares de episodios que NO se funden en cada fila: fuera de
+    # su evidencia — la ventana ±7 d corrobora, no puede colar la
+    # ola del episodio vecino (la fila contaba 29 titulares de dos
+    # cierres distintos)
+    for i, (_inc, o) in enumerate(official_rows):
+        foreign = {
+            n.id
+            for ev in synth_evs
+            if ev.via == "press" and ev_target.get(id(ev)) != i
+            for n in ev.press_items
+        }
+        if foreign:
+            o.press_items = [p for p in o.press_items if p.id not in foreign]
     for ev in synth_evs:
         if ev.via == "press":
-            hit = next(
-                (
-                    (inc, o)
-                    for inc, o in official_rows
-                    if ev.opened_at <= (inc.closed_at or today)
-                    and inc.opened_at <= (ev.closed_at or today)
-                ),
-                None,
-            )
+            ti = ev_target.get(id(ev))
+            hit = official_rows[ti] if ti is not None else None
             if hit is not None:
-                _, o = hit
+                inc2, o = hit
+                # Una nota "Sin calificar" que absorbe un episodio de
+                # prensa ES el registro oficial del suceso — la obs
+                # cuenta lo que pasó, no el detalle administrativo
+                if is_ungraded_note(inc2.observations):
+                    o.observations = "Cierre según prensa"
+                # El inicio mostrado es el más antiguo evidenciado:
+                # si la prensa sitúa el episodio antes que el acta
+                # (Gaviotas: cerrada desde jul-2025, Náyade anotó la
+                # muestra en jun-2026), la fila cuenta el suceso
+                # real, no solo el trámite — y cuadra con el banner
+                if ev.opened_at < o.opened_at:
+                    o.opened_at = ev.opened_at
+                if (
+                    ev.closed_at is not None
+                    and o.closed_at is not None
+                    and ev.closed_at > o.closed_at
+                ):
+                    o.closed_at = ev.closed_at
                 have = {p.id for p in o.press_items}
                 extra = [
                     _news_out(n) for n in ev.press_items if n.id not in have

@@ -9,6 +9,7 @@ import {
   isClosure,
   isMuteLab,
   isUnclassified,
+  isUnclassifiedObs,
 } from '../../lib/incidents';
 import {
   incidentBadgeArts,
@@ -42,6 +43,8 @@ export default function IncidentHistory({
 }: IncidentHistoryProps) {
   const renderInc = (inc: BeachIncident) => {
     const closure = isClosure(inc);
+    // unclassified = nota "Sin calificar" sin evidencia de prensa;
+    // con prensa corroborante la fila es el episodio real
     const unclassified = isUnclassified(inc);
     // Analítica prohibida sin corroboración: no es cierre ni aviso
     // — badge propio (tubo + aviso) y color de aviso, nunca rojo
@@ -74,7 +77,7 @@ export default function IncidentHistory({
     const accent = unclassified
       ? colors.textFaint
       : muteLab
-        ? colors.status.warning
+        ? colors.status.lab
         : causes.some((c) => STRUCT_CAUSES.has(c))
           ? colors.status.structural
           : causes.includes('Medusas')
@@ -83,10 +86,20 @@ export default function IncidentHistory({
               ? colors.status.closed
               : colors.status.warning;
     const causeText = unclassified
-      ? null
+      ? // La nota "Sin calificar" no es un cierre — pero si la
+        // prensa adjunta sabe el motivo, se muestra igualmente
+        causes.join(' · ') || null
       : muteLab
         ? 'Agua no apta'
         : causes.join(' · ') || 'Contaminación';
+    // En un cierre la evidencia útil es el ciclo cierre→reapertura:
+    // avisos y piezas de contexto ("mala calidad del agua") no
+    // cuentan el episodio y ensucian la lista de titulares
+    const pressItems = closure
+      ? (inc.press_items ?? []).filter(
+          (n) => n.event_type === 'closure' || n.event_type === 'reopening',
+        )
+      : (inc.press_items ?? []);
     return (
       <View key={inc.id} style={[styles.incident, { borderLeftColor: accent }]}>
         {/* Cuerpo: fechas + notas + titulares a la izquierda; el
@@ -103,73 +116,64 @@ export default function IncidentHistory({
                   inc.closed_at ? fmtDate(inc.closed_at) : 'hoy'
                 } · ${formatDays(days)}`}
           </Text>
-          {inc.attributed_pm ? (
-            <Text style={styles.incidentObs}>
-              {`Ocurrió en la ${siblingZoneRef(beachName, inc.attributed_pm)}`}
-            </Text>
-          ) : null}
-          {inc.observations ? (
-            unclassified ? (
+          {/* Las notas van pegadas al fondo de la columna: quedan a
+              la altura de la etiqueta de causa de la derecha (badge
+              + texto), no colgando de las fechas — igual que .inotes
+              con margin-top:auto en la ficha web */}
+          <View style={styles.incidentNotes}>
+            {inc.attributed_pm ? (
               <Text style={styles.incidentObs}>
-                Muestra tomada pero nunca clasificada por Sanidad
+                {`Ocurrió en la ${siblingZoneRef(beachName, inc.attributed_pm)}`}
               </Text>
-            ) : (
-              // Una cláusula por línea (como la ficha web): la
-              // observación viene en fragmentos unidos por "·" y
-              // en bloque quedaba apretada; además el corte limpio
-              // en "oficial" deja respirar al badge de la derecha
-              inc.observations
-                .split('·')
-                .map((c) => c.trim())
-                .filter(Boolean)
-                .map((c, i) => (
-                  <Text key={i} style={styles.incidentObs}>
-                    {c.replace(' oficial en Náyade', '\noficial en Náyade')}
-                  </Text>
-                ))
-            )
-          ) : null}
-          {/* Evidencia del episodio: titulares que lo
+            ) : null}
+            {/* "Sin Calificar" no se repite como nota — la etiqueta
+                de la derecha ya lo dice y el detalle no aporta */}
+            {inc.observations && !isUnclassifiedObs(inc.observations)
+              ? // Una cláusula por línea (como la ficha web): la
+                // observación viene en fragmentos unidos por "·" y
+                // en bloque quedaba apretada; además el corte limpio
+                // en "oficial" deja respirar al badge de la derecha
+                inc.observations
+                  .split('·')
+                  .map((c) => c.trim())
+                  .filter(Boolean)
+                  .map((c, i) => (
+                    <Text key={i} style={styles.incidentObs}>
+                      {c.replace(' oficial en Náyade', '\noficial en Náyade')}
+                    </Text>
+                  ))
+              : null}
+            {/* Evidencia del episodio: titulares que lo
               sustentan (prensa) o lo corroboraron (oficial) */}
-          {(inc.press_items?.length ?? 0) > 0 && (
-            <>
-              <Pressable
-                onPress={() => onToggleIncident(inc.id)}
-                hitSlop={8}
-                style={({ pressed }) => pressed && styles.pressFx}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  openIncs.has(inc.id)
-                    ? 'Ocultar titulares del episodio'
-                    : `Ver ${inc.press_items!.length} titulares del episodio`
-                }
-              >
-                <Text style={[styles.newsToggle, { color: accent }]}>
-                  {openIncs.has(inc.id)
-                    ? 'Ocultar titulares ▴'
-                    : `Ver titulares (${inc.press_items!.length}) ▾`}
-                </Text>
-              </Pressable>
-              {/* Agrupados por fase del episodio: las
-                  noticias de cierre y las de reapertura son
-                  evidencias distintas del mismo suceso. Teñidas con
-                  el acento de la fila (Medusas → añil), igual que
-                  la ficha web */}
-              {openIncs.has(inc.id) && (
-                <NewsGroupList
-                  groups={groupNewsItems(inc.press_items!)}
-                  accentOverride={accent}
-                />
-              )}
-            </>
-          )}
+            {pressItems.length > 0 && (
+              <>
+                <Pressable
+                  onPress={() => onToggleIncident(inc.id)}
+                  hitSlop={8}
+                  style={({ pressed }) => pressed && styles.pressFx}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    openIncs.has(inc.id)
+                      ? 'Ocultar titulares del episodio'
+                      : `Ver ${pressItems.length} titulares del episodio`
+                  }
+                >
+                  <Text style={[styles.newsToggle, { color: accent }]}>
+                    {openIncs.has(inc.id)
+                      ? 'Ocultar titulares ▴'
+                      : `Ver titulares (${pressItems.length}) ▾`}
+                  </Text>
+                </Pressable>
+              </>
+            )}
+          </View>
         </View>
         <View style={styles.incidentSide}>
           {/* En un cierre el badge sustituye al "Cerrada" — el
               contexto de la fila ya lo dice; avisos y muestras sin
               calificar conservan su etiqueta porque no se
               sobreentiende */}
-          {closure || muteLab ? (
+          {(closure || muteLab) && !unclassified ? (
             <View style={styles.incidentBadges}>
               {(muteLab ? [LAB_ART] : incidentBadgeArts(inc)).map(
                 (art, idx) => (
@@ -193,6 +197,18 @@ export default function IncidentHistory({
             </Text>
           )}
         </View>
+        {/* Titulares desplegados a ancho completo de la fila (wrap
+            debajo de ambas columnas): agrupados por fase y teñidos
+            con el acento del episodio (Medusas → añil) salvo la
+            reapertura, que siempre va en su verde de fase */}
+        {pressItems.length > 0 && openIncs.has(inc.id) && (
+          <View style={styles.incidentTitles}>
+            <NewsGroupList
+              groups={groupNewsItems(pressItems)}
+              accentOverride={accent}
+            />
+          </View>
+        )}
       </View>
     );
   };
@@ -213,12 +229,15 @@ export default function IncidentHistory({
     [
       c ? `${c} cierre${c === 1 ? '' : 's'}` : null,
       w ? `${w} aviso${w === 1 ? '' : 's'}` : null,
-      l ? `${l} agua no apta` : null,
+      l
+        ? `${l} muestra${l === 1 ? '' : 's'} no apta${l === 1 ? '' : 's'}`
+        : null,
     ]
       .filter(Boolean)
       .join(' · ');
   const y1parts = parts(y1.closures, y1.warnings, y1.lab);
   const y5parts = parts(y5.closures, y5.warnings, y5.lab);
+  const y5rest = parts(0, y5.warnings, y5.lab);
   // Todo el historial cabe en 5 años → el total y el "5 años"
   // son el mismo número: una sola frase, sin repetir datos
   const allIn5 =
@@ -233,35 +252,49 @@ export default function IncidentHistory({
     <View style={styles.history}>
       <View style={styles.secHead}>
         <Image
-          source={require('../../assets/icons/icon-alert.png')}
-          style={[styles.secIcon, { tintColor: colors.status.warning }]}
+          source={require('../../assets/icons/icon-episodes.png')}
+          style={[styles.secIcon, { tintColor: colors.primaryDark }]}
         />
         <Text style={styles.secCardTitle}>
-          Historial de incidencias ({incidents.length})
+          Episodios ({incidents.length})
         </Text>
       </View>
       <View style={styles.historySummary}>
         {allIn5 && y5parts ? (
-          <View style={styles.historyStatRow}>
-            {y1parts !== y5parts && (
-              <Text style={styles.historyStat}>
+          // "6 cierres (4 este año) · 2 muestras no aptas" — el
+          // paréntesis va pegado a los cierres y con el mismo tono
+          <Text style={styles.historyStat}>
+            {y5.closures > 0 && y1parts !== y5parts ? (
+              <>
                 <Text style={styles.historySummaryNum}>
-                  {y1parts || 'Sin episodios'}
+                  {`${y5.closures} cierre${y5.closures === 1 ? '' : 's'}`}
                 </Text>
-                {' este año'}
-              </Text>
+                {' ('}
+                <Text style={styles.historySummaryNum}>
+                  {y1.closures ? String(y1.closures) : 'ninguno'}
+                </Text>
+                {' este año)'}
+                {y5rest ? ' · ' : ''}
+                {y5rest ? (
+                  <Text style={styles.historySummaryNum}>{y5rest}</Text>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Text style={styles.historySummaryNum}>{y5parts}</Text>
+                {y1parts === y5parts
+                  ? ' este año'
+                  : ` (${y1parts || 'sin episodios'} este año)`}
+              </>
             )}
-            <Text style={styles.historyStat}>
-              <Text style={styles.historySummaryNum}>{y5parts}</Text>
-              {y1parts === y5parts ? ' este año' : ' en los últimos 5 años'}
-            </Text>
             {uncl > 0 && (
-              <Text style={styles.historyStat}>
+              <>
+                {' · '}
                 <Text style={styles.historySummaryNum}>{uncl}</Text>
-                {` sin calificar`}
-              </Text>
+                {' sin calificar'}
+              </>
             )}
-          </View>
+          </Text>
         ) : (
           <>
             <View style={styles.historyStatRow}>
@@ -278,7 +311,7 @@ export default function IncidentHistory({
               {labN > 0 && (
                 <Text style={styles.historyStat}>
                   <Text style={styles.historySummaryNum}>{labN}</Text>
-                  {` agua no apta`}
+                  {` muestra${labN === 1 ? '' : 's'} no apta${labN === 1 ? '' : 's'}`}
                 </Text>
               )}
               {uncl > 0 && (
@@ -292,12 +325,6 @@ export default function IncidentHistory({
               {`Este año: ${y1parts || 'sin episodios'}  ·  Últimos 5 años: ${y5parts || 'sin episodios'}`}
             </Text>
           </>
-        )}
-        {/* Qué es "agua no apta": el contador no lo explica solo */}
-        {labN > 0 && (
-          <Text style={styles.historySummarySub}>
-            Agua no apta: episodios detectados en las analíticas oficiales
-          </Text>
         )}
       </View>
       {/* Sin scroll interno: la sección crece con su contenido y
@@ -334,9 +361,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   history: {
+    // Sin línea divisoria: la pastilla de estado ya cierra la
+    // cabecera — igual que .sec.nodiv en la ficha web
     marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
     paddingTop: 8,
   },
   secHead: {
@@ -361,7 +388,7 @@ const styles = StyleSheet.create({
   },
   historySummary: {
     marginTop: 4,
-    marginBottom: 8,
+    marginBottom: 2,
   },
   historyStatRow: {
     flexDirection: 'row',
@@ -387,8 +414,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fonts.semibold,
     color: colors.textFaint,
-    marginTop: 12,
-    marginBottom: 6,
+    marginTop: 10,
+    marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -401,6 +428,9 @@ const styles = StyleSheet.create({
   },
   incident: {
     flexDirection: 'row',
+    // wrap: los titulares desplegados bajan a una línea propia a
+    // ancho completo, debajo de notas y badge
+    flexWrap: 'wrap',
     borderLeftWidth: 3,
     paddingLeft: 10,
     paddingVertical: 4,
@@ -411,12 +441,22 @@ const styles = StyleSheet.create({
   incidentMain: {
     flex: 1,
   },
+  // Las notas bajan al pie de la columna para quedar a la altura
+  // del texto de causa del lateral (misma idea que la ficha web)
+  incidentNotes: {
+    marginTop: 'auto',
+  },
   incidentSide: {
     alignItems: 'flex-end',
-    justifyContent: 'center',
+    // Anclado arriba: al desplegar titulares la fila crece y un
+    // bloque centrado se desplazaba hacia abajo
+    justifyContent: 'flex-start',
     flexShrink: 0,
     paddingRight: 6,
     gap: 1,
+  },
+  incidentTitles: {
+    width: '100%',
   },
   incidentBadges: {
     flexDirection: 'row',
@@ -430,16 +470,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fonts.bold,
   },
+  // La causa es el "por qué" del episodio, no un apunte: negrita
+  // y casi negro en vez del gris de metadato
   incidentCause: {
     fontSize: 11.5,
-    fontFamily: fonts.regular,
-    color: colors.textFaint,
+    fontFamily: fonts.bold,
+    color: colors.text,
     marginTop: 2,
   },
+  // Las fechas son la identidad de la fila (el "cuándo" que se
+  // escanea primero): mismo peso/casi negro que la causa
   incidentDates: {
     fontSize: 12,
-    fontFamily: fonts.semibold,
-    color: colors.textMuted,
+    fontFamily: fonts.bold,
+    color: colors.text,
   },
   incidentObs: {
     fontSize: 12,

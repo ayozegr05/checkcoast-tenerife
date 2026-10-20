@@ -148,7 +148,7 @@ describe('<BeachDetail />', () => {
     );
     expect(screen.getByText('Cierre activo')).toBeTruthy();
     expect(
-      await screen.findByText('Historial de incidencias (1)'),
+      await screen.findByText('Episodios (1)'),
     ).toBeTruthy();
 
     await fireEvent.press(

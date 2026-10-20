@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from app.events import (
     Episode,
     cluster_episodes,
+    fuse_official_episodes,
     merged_episode,
     synthesize_events,
 )
@@ -644,3 +645,63 @@ def test_min_closed_since_picks_earliest_same_precision():
     assert _min_closed_since(["2026", "2026-09"]) == "2026-09"
     # Y el año más antiguo manda sobre precisión
     assert _min_closed_since(["2026-09-29", "2024"]) == "2024"
+
+
+def test_actas_with_continuity_coverage_fuse():
+    """Dos actas separadas por un hueco sin reapertura y con un
+    cierre que afirma empezar durante la primera = un episodio
+    (Jardín PM4: actas 28→30-sep y 5→7-oct eran la 'tercera vez')."""
+    a = inc(date(2026, 9, 28), date(2026, 9, 30), "Baño prohibido")
+    b = inc(date(2026, 10, 5), date(2026, 10, 7), "Baño prohibido")
+    items = [news(date(2026, 10, 1), "closure", closed_since="2026-09-30")]
+    groups = fuse_official_episodes([b, a], items)
+    assert len(groups) == 1
+    assert groups[0][0] is a and groups[0][1] is b
+
+
+def test_actas_with_reopening_in_gap_stay_separate():
+    """Una reapertura en el hueco prueba dos episodios — es la
+    frontera real aunque después haya cierres retrofechados."""
+    a = inc(date(2026, 9, 28), date(2026, 9, 30))
+    b = inc(date(2026, 10, 5), date(2026, 10, 7))
+    items = [
+        news(date(2026, 10, 1), "closure", closed_since="2026-09-30"),
+        news(date(2026, 10, 2), "reopening"),
+    ]
+    assert len(fuse_official_episodes([a, b], items)) == 2
+
+
+def test_silent_gap_never_fuses():
+    """Sin cobertura en el hueco no hay prueba de continuidad —
+    ausencia de reapertura no equivale a clausura continua."""
+    a = inc(date(2026, 9, 28), date(2026, 9, 30))
+    b = inc(date(2026, 10, 5), date(2026, 10, 7))
+    assert len(fuse_official_episodes([a, b], [])) == 2
+
+
+def test_new_closure_in_gap_stays_separate():
+    """Un cierre en el hueco que afirma empezar DESPUÉS del fin del
+    acta es un episodio nuevo (el 'cuarta vez' del 7-oct afirma
+    cs=07/10), no continuidad del anterior."""
+    a = inc(date(2026, 10, 5), date(2026, 10, 7))
+    b = inc(date(2026, 10, 12), date(2026, 10, 14))
+    items = [news(date(2026, 10, 9), "closure", closed_since="2026-10-09")]
+    assert len(fuse_official_episodes([a, b], items)) == 2
+
+
+def test_ungraded_note_never_fuses():
+    """Una nota 'Sin Calificar' no es un acta de cierre — no se
+    funde con incidencias de prohibición."""
+    a = inc(date(2026, 9, 28), date(2026, 9, 30), "Sin Calificar")
+    b = inc(date(2026, 10, 5), date(2026, 10, 7), "Baño prohibido")
+    items = [news(date(2026, 10, 1), "closure", closed_since="2026-09-30")]
+    assert len(fuse_official_episodes([a, b], items)) == 2
+
+
+def test_long_gap_never_fuses():
+    """Un hueco >10 días sin reapertura es una reapertura no
+    cubierta, no continuidad (principio Gaviotas)."""
+    a = inc(date(2026, 9, 1), date(2026, 9, 3))
+    b = inc(date(2026, 9, 30), date(2026, 10, 2))
+    items = [news(date(2026, 9, 10), "closure", closed_since="2026-09-03")]
+    assert len(fuse_official_episodes([a, b], items)) == 2

@@ -664,7 +664,11 @@ export default function BeachList({
                             } · ${st.own_warnings} ${
                               st.own_warnings === 1 ? 'aviso' : 'avisos'
                             }${
-                              st.own_lab ? ` · ${st.own_lab} agua no apta` : ''
+                              st.own_lab
+                                ? ` · ${st.own_lab} muestra${
+                                    st.own_lab === 1 ? ' no apta' : 's no aptas'
+                                  }`
+                                : ''
                             }`
                           : null,
                       ]

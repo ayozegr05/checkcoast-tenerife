@@ -19,6 +19,7 @@ from sqlalchemy import cast, func, literal
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.events import _closed_since_date, synthesize_events
 from app.models import (
     Beach,
     BeachIncident,
@@ -29,7 +30,7 @@ from app.models import (
 )
 from app.names import PM_SUFFIX
 from app.names import normalize_beach_name as _normalize
-from app.news_episodes import _news_cause
+from app.news_episodes import _news_cause, press_episode_summary
 from app.news_infra import gather_infra_news
 from app.news_matching import _norm_muni
 from app.news_zones import _ZONE_GROUPS, _zone_entry
@@ -37,6 +38,7 @@ from app.queries import (
     _CAUSE_RANK,
     _short_cause,
     beaches_with_latest_status,
+    clean_cause_text,
     effective_states,
 )
 
@@ -615,6 +617,11 @@ _PRESS_GROUP_LABEL = {
     "other": "Noticia",
 }
 
+# Color de fase: la reapertura va en el verde mar de "apta" (status.open
+# de la app, pins de la home), nunca en el acento del episodio —
+# verde = "se acabó", sea cual sea la causa del cierre
+_PRESS_REOPEN_COLOR = "#0d9488"
+
 
 def _sibling_zone_ref(beach: Beach, pm: str) -> str:
     """'cala Punta Brava' si el PM hermano es una cala mapeada; 'zona 4'
@@ -656,9 +663,14 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
         )
 
     def _is_uncl(i) -> bool:
-        return (
-            re.search(r"sin\s*calificar", i.observations or "", re.I)
-            is not None
+        # Nota "Sin calificar" sin evidencia de prensa = nota admin.
+        # Con prensa corroborante es el registro oficial del episodio
+        # real — se muestra como cierre/aviso con su causa
+        return re.search(
+            r"sin\s*calificar", i.observations or "", re.I
+        ) is not None and not any(
+            p.event_type in ("closure", "reopening", "warning", "pollution")
+            for p in i.press_items
         )
 
     def _is_mute(i) -> bool:
@@ -666,7 +678,7 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
         agua no apta sin cierre demostrado; nunca cuenta como tal."""
         return i.via == "measurement" and not i.press_confirmed
 
-    def _press_groups(items) -> list[dict]:
+    def _press_groups(items, accent: str) -> list[dict]:
         by_type: dict[str, list] = {}
         for n in items:
             by_type.setdefault(n.event_type or "other", []).append(n)
@@ -686,6 +698,9 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             label = _PRESS_GROUP_LABEL.get(t, "Noticia")
             out.append(
                 {
+                    "color": (
+                        _PRESS_REOPEN_COLOR if t == "reopening" else accent
+                    ),
                     "label": (
                         f"{label} · {phrase}".upper()
                         if phrase
@@ -759,7 +774,9 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
         cause_text = (
             "Agua no apta"
             if mute
-            else None
+            # "Sin calificar" no es cierre — pero si la prensa
+            # adjunta sabe el motivo, se muestra igualmente
+            else " · ".join(causes) or None
             if uncl
             else " · ".join(causes) or "Contaminación"
         )
@@ -769,7 +786,7 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
         badges: list[str] = []
         if mute:
             badges = ["lab-art"]  # tubo + aviso: el lab detectó, no hay acta
-        elif closure:
+        elif closure and not uncl:
             for c in causes:
                 art = _CAUSE_ART.get(c, "contam-art")
                 if art not in badges:
@@ -792,27 +809,36 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
                 f"Ocurrió en la {_sibling_zone_ref(beach, i.attributed_pm)}"
             )
         if i.observations:
-            if uncl:
-                notes.append(
-                    "Muestra tomada pero nunca clasificada por Sanidad"
-                )
-            else:
+            if not re.search(r"sin\s*calificar", i.observations, re.I):
                 # Una cláusula por línea: la fila respira y ninguna
                 # invade la zona del badge (la observación ya viene
                 # redactada como fragmentos unidos por "·")
                 notes += [
                     c.strip() for c in i.observations.split("·") if c.strip()
                 ]
+        # En un cierre la evidencia útil es el ciclo cierre→reapertura:
+        # avisos y piezas de contexto ("mala calidad del agua") no
+        # cuentan el episodio y ensucian la lista de titulares
+        disp = (
+            [
+                p
+                for p in i.press_items
+                if p.event_type in ("closure", "reopening")
+            ]
+            if closure
+            else i.press_items
+        )
         return {
             "range": rng,
             "state_label": state_label,
             "state_color": state_color,
+            "mute": mute,
             "cause_text": cause_text,
             "badges": badges,
             "accent": state_color,
             "notes": notes,
-            "n_press": len(i.press_items),
-            "groups": _press_groups(i.press_items),
+            "n_press": len(disp),
+            "groups": _press_groups(disp, state_color),
             "opened": i.opened_at,
         }
 
@@ -852,25 +878,36 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             for s in (
                 f"{c} cierre{'s' if c != 1 else ''}" if c else None,
                 f"{w} aviso{'s' if w != 1 else ''}" if w else None,
-                f"{lab} agua no apta" if lab else None,
+                (
+                    f"{lab} muestra{'s' if lab != 1 else ''} "
+                    f"no apta{'s' if lab != 1 else ''}"
+                    if lab
+                    else None
+                ),
             )
             if s
         )
 
     y1p, y5p = _parts(*y1), _parts(*y5)
-    # Qué es "agua no apta": el contador no lo explica solo
-    lab_expl = (
-        "agua no apta: episodios detectados en las analíticas oficiales"
-        if lab_n
-        else None
-    )
     if total_c == y5[0] and total_w == y5[1] and lab_n == y5[2] and y5p:
-        bits = [f"{y5p} en los últimos 5 años"]
-        if y1p != y5p:
-            bits.insert(0, f"{y1p or 'Sin episodios'} este año")
-        if uncl:
-            bits.append(f"{uncl} sin calificar")
-        summary_main, summary_sub = " · ".join(bits), lab_expl
+        # "6 cierres (4 este año) · 2 muestras no aptas" — el
+        # paréntesis va pegado a los cierres, no colgando al final
+        uncl_bit = f" · {uncl} sin calificar" if uncl else ""
+        if y1p == y5p:
+            main = f"{y5p}{uncl_bit} este año"
+        elif y5[0]:
+            rest = _parts(0, y5[1], y5[2])
+            c1 = str(y1[0]) if y1[0] else "ninguno"
+            main = (
+                f"{y5[0]} cierre{'s' if y5[0] != 1 else ''} "
+                f"({c1} este año)"
+            )
+            if rest:
+                main += f" · {rest}"
+            main += uncl_bit
+        else:
+            main = f"{y5p}{uncl_bit} ({y1p or 'sin episodios'} este año)"
+        summary_main, summary_sub = main, None
     else:
         main = _parts(total_c, total_w, lab_n)
         if uncl:
@@ -880,8 +917,6 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             f"Este año: {y1p or 'sin episodios'} · "
             f"Últimos 5 años: {y5p or 'sin episodios'}"
         )
-        if lab_expl:
-            summary_sub += f" · {lab_expl}"
 
     years: dict[int, dict] = {}
     for i in rows:
@@ -1227,10 +1262,35 @@ def beach_context(
             if it.cause:
                 ccount[it.cause] = ccount.get(it.cause, 0) + 1
         cause = max(ccount, key=ccount.__getitem__) if ccount else None
-        since = min(
-            (it.published_at for it in dom_items if it.published_at),
-            default=None,
-        )
+        banner_items: list[NewsItem] = dom_items
+        if dom == "closure":
+            # El "desde" es el inicio del episodio VIVO, no la
+            # cobertura más vieja del saco: misma cadena de episodios
+            # que la app (closed_since corroborado > ancla de
+            # cobertura) — Gaviotas: el titular más antiguo era del
+            # cierre de acceso de 2024 y el banner mentía "desde el
+            # 03/05/2024"
+            summ = press_episode_summary(
+                list(news_items),
+                synthesize_events(beach),
+                list(incidents),
+                date.today(),
+            )
+            since = _closed_since_date(summ.closed_since) or (
+                summ.since.date() if summ.since else None
+            )
+            cause = clean_cause_text(summ.cause or cause)
+            if summ.episode_items:
+                banner_items = summ.episode_items
+        else:
+            since = min(
+                (
+                    it.published_at.date()
+                    for it in dom_items
+                    if it.published_at
+                ),
+                default=None,
+            )
         outlets = len({it.source for it in news_items if it.source})
         ev_word = {
             "closure": "Cerrada",
@@ -1240,18 +1300,28 @@ def beach_context(
         }.get(dom or "", "Mencionada")
         if dom == "closure" and state not in ("closed", "structural"):
             ev_word = "Estuvo cerrada" if state == "open" else "Cerrada"
-        line = ev_word + (f" por {cause}" if cause else "")
-        if since:
-            line += f" · desde el {since.strftime('%d/%m/%Y')}"
-        # reapertura oficial probada: incidente cerrado tras el titular
-        closed_after = next(
+        # reapertura oficial probada: incidente cerrado tras el titular.
+        # Se resuelve ANTES de componer la línea porque el acta puede
+        # documentar un inicio anterior al ancla de prensa (Punta
+        # Brava: prensa anclaba al 07/10, Náyade abrió el 05/10)
+        reopening_inc = next(
             (
-                i.closed_at
+                i
                 for i in incidents
-                if i.closed_at and since and i.closed_at >= since.date()
+                if i.closed_at and since and i.closed_at >= since
             ),
             None,
         )
+        closed_after = reopening_inc.closed_at if reopening_inc else None
+        if (
+            reopening_inc
+            and reopening_inc.opened_at
+            and (since is None or reopening_inc.opened_at < since)
+        ):
+            since = reopening_inc.opened_at
+        line = ev_word + (f" por {cause}" if cause else "")
+        if since:
+            line += f" · desde el {since.strftime('%d/%m/%Y')}"
         if closed_after:
             line += (
                 f" · Sanidad la reabrió el {closed_after.strftime('%d/%m/%Y')}"
@@ -1273,7 +1343,7 @@ def beach_context(
                         else ""
                     ),
                 }
-                for n in news_items[:3]
+                for n in banner_items[:3]
             ],
         }
 
