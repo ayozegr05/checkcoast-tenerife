@@ -135,7 +135,12 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     `reextract_news.py` (refresca extracciones guardadas: `--beach`,
     `--max`, `--all`; re-casa `beach_id` si la nueva extracción
     identifica otra playa, creando/limpiando réplicas por PM; NO toca
-    filas de la Guía — solo-titular las degradaría)
+    filas de la Guía — solo-titular las degradaría),
+    `rescue_infra_news.py` (rescate retroactivo Hito 11.2: re-extrae
+    con PROMPT_INFRA los ítems que la vía de playa descartó y cuyo
+    titular casa `INFRA_TITLE_RE`; marca las procesadas con
+    `event_type='infra'` — reanudable y excluidas de reextract;
+    `--max`, `--year`, `--dry-run` lista candidatas sin LLM)
   - `alembic/` — migraciones (`alembic upgrade head`)
   - `tests/` — pytest: `test_api.py`, `test_nayade_parser.py`,
     `test_osm_ingest.py`, `test_news_matching.py`, `test_news_llm.py`.
