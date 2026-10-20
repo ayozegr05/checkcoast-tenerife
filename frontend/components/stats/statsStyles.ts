@@ -233,11 +233,10 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.textFaint,
   },
   tlGo: {
-    fontSize: 18,
-    fontFamily: fonts.bold,
-    color: colors.textFaint,
+    fontSize: 11.5,
+    fontFamily: fonts.semibold,
+    color: colors.primary,
     marginLeft: 6,
-    marginTop: -2,
   },
   rowSub: {
     fontSize: 12,
@@ -343,6 +342,9 @@ export const styles = StyleSheet.create({
     marginLeft: 6,
     marginBottom: 10,
     elevation: 1,
+    // Raya de acento por causa como las filas de Episodios de la
+    // ficha — el color se inyecta en línea
+    borderLeftWidth: 3,
   },
   tlHeader: {
     flexDirection: 'row',

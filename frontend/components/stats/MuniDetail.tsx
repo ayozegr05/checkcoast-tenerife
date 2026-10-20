@@ -80,13 +80,17 @@ function TimelineRow({
         {!isLast && <View style={styles.tlLine} />}
       </View>
       <Pressable
-        style={({ pressed }) => [styles.tlBody, pressed && styles.pressFx]}
+        style={({ pressed }) => [
+          styles.tlBody,
+          { borderLeftColor: accent },
+          pressed && styles.pressFx,
+        ]}
         onPress={() => onSelectBeach?.(inc.beach_id)}
         accessibilityRole="button"
         accessibilityLabel={`Ver ficha de ${displayBeachName(inc.beach_name)}`}
       >
         <View style={styles.tlHeader}>
-          <Text style={styles.tlBeach} numberOfLines={1}>
+          <Text style={styles.tlBeach} numberOfLines={2}>
             {displayBeachName(inc.beach_name)}
           </Text>
           <Text
@@ -110,15 +114,14 @@ function TimelineRow({
                 : 'Aviso'}
             {active && !unclassified ? ' activo' : ''}
           </Text>
-          <Text style={styles.tlGo}>›</Text>
+          <Text style={styles.tlGo}>Ver ficha ›</Text>
         </View>
         <Text style={styles.tlDates}>
           {inc.end_estimated
             ? // Fin estimado (última mención en prensa):
-              // no se muestra — solo el día del cierre
-              inc.opened_at
-              ? fmtDate(inc.opened_at)
-              : '—'
+              // no se muestra, pero la fecha pelada parece dato
+              // roto — el "según prensa" la contextualiza
+              `${inc.opened_at ? fmtDate(inc.opened_at) : '—'} · según prensa`
             : `${inc.opened_at ? fmtDate(inc.opened_at) : '—'} → ${
                 inc.closed_at ? fmtDate(inc.closed_at) : 'activo'
               }${inc.opened_at ? ` · ${formatDays(durationDays(inc))}` : ''}`}
