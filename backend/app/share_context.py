@@ -230,15 +230,17 @@ def _sample_note(measurements: list) -> dict | None:
 
     anom = [g for g in gaps if any(x in months for x in interior(g[0], g[1]))]
     if anom:
+        # Etiqueta + rangos con → como en la app (el template usa
+        # white-space:pre-line para respetar el salto)
         parts = [
             f"desde {_MONTHS[a.month - 1]} {a.year}"
             if op
-            else f"entre {_MONTHS[a.month - 1]} {a.year} y "
+            else f"{_MONTHS[a.month - 1]} {a.year} → "
             f"{_MONTHS[b.month - 1]} {b.year}"
             for a, b, op in anom
         ]
         return {
-            "text": f"Anomalía: sin muestras {' · '.join(parts)}",
+            "text": f"Anomalía: sin muestras\n{' · '.join(parts)}",
             "warn": True,
         }
     a, b, _ = max(gaps, key=lambda g: (g[1] - g[0]).days)
@@ -840,6 +842,7 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             "n_press": len(disp),
             "groups": _press_groups(disp, state_color),
             "opened": i.opened_at,
+            "closed": i.closed_at,
         }
 
     own = [i for i in rows if not i.attributed_pm]
@@ -926,6 +929,14 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             g["sib_label"] = _sibling_zone_ref(beach, i.attributed_pm)
         else:
             g["rows"].append(_row(i))
+
+    # Acordeón por año: actual y anterior abiertos; el resto llegan
+    # colapsados con su conteo — pero con pocos episodios (≤10) todo
+    # abierto, el acordeón solo paga cuando hay volumen
+    many = len(rows) > 10
+    for g in years.values():
+        g["count"] = len(g["rows"]) + len(g["sib_rows"])
+        g["collapsed"] = many and g["year"] < datetime.now().year - 1
 
     return {
         "count": len(rows),
@@ -1169,12 +1180,12 @@ def beach_context(
             if (v := _num(getattr(m, param))) is not None
         ]
     if any(len(pts) >= 2 for pts in series.values()):
-        # Marcas verticales en las fechas de incidente, interpoladas
-        # sobre el rango de fechas de las muestras. Misma matriz que el
-        # historial (oficial + prensa + reconstruidos), todas
-        # discontinuas: un solo canal — color = tipo (rojo cierre,
-        # amarillo aviso). La procedencia ya la cuenta el historial.
-        # "Sin calificar" no marca
+        # Franjas de fondo por período de incidente [apertura→cierre],
+        # interpoladas sobre el rango de fechas de las muestras. Misma
+        # matriz que el historial (oficial + prensa + reconstruidos):
+        # color = tipo (rojo cierre, amarillo aviso). El velo explica
+        # de un vistazo tanto la duración como los huecos sin
+        # muestreo. "Sin calificar" no marca
         all_dates = [d for pts in series.values() for d, _ in pts]
         d0, d1 = min(all_dates), max(all_dates)
         span = max((d1 - d0).days, 1)
@@ -1183,16 +1194,35 @@ def beach_context(
             for y in (incident_ctxs or {}).get("years", [])
             for i in y["rows"]
         ]
+
+        def _pos(d: date) -> float:
+            return max(0.0, min(100.0, ((d - d0).days / span) * 100))
+
         inc_marks = [
             {
-                "pos": f"{pos:.1f}",
+                "pos": f"{pf:.1f}",
+                "w": f"{max(pt - pf, 1.0):.1f}",
                 "color": (
                     "#c62828" if i["state_label"] == "Cerrada" else "#f9a825"
                 ),
+                # Fechas exactas + duración vía tooltip: en el eje
+                # saturarían (días inclusive, como la app)
+                "title": (
+                    f"{i['opened'].strftime('%d/%m/%Y')} → "
+                    + (
+                        i["closed"].strftime("%d/%m/%Y")
+                        if i["closed"]
+                        else "hoy"
+                    )
+                    + f" · {((i['closed'] or date.today()) - i['opened']).days + 1} días"
+                    + f" · {i['state_label'].lower()}"
+                ),
             }
             for i in inc_rows
-            for pos in [((i["opened"] - d0).days / span) * 100]
-            if i["state_label"] != "Sin calificar" and 0 <= pos <= 100
+            for pf, pt in [
+                (_pos(i["opened"]), _pos(i["closed"] or date.today()))
+            ]
+            if i["state_label"] != "Sin calificar" and pt > 0 and pf < 100
         ]
         panels = []
         for param in ("ecoli", "enterococci"):
@@ -1236,8 +1266,19 @@ def beach_context(
         if state == "warning"
         else "press"
     )
+    # Misma regla que la app: el banner solo narra episodios vivos
+    # (estado efectivo cerrado/aviso) o cobertura reciente ≤90 d —
+    # un titular viejo de episodio resuelto ya vive en Episodios
+    latest_news = max(
+        (it.published_at for it in news_items if it.published_at),
+        default=None,
+    )
+    press_fresh = latest_news is not None and (
+        (date.today() - latest_news.date()).days <= 90
+    )
+    press_live = state in ("closed", "structural", "warning")
     press = None
-    if news_items:
+    if news_items and (press_live or press_fresh):
         counts_ev: dict[str, int] = {}
         for it in news_items:
             if it.event_type and it.event_type != "other":

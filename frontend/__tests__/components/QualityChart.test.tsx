@@ -24,6 +24,7 @@ const props = (
   chartW: 300,
   onChartWidth: jest.fn(),
   incidentRanges: [],
+  sampleNote: null,
   ...over,
 });
 
@@ -32,7 +33,7 @@ describe('<QualityChart />', () => {
     await render(<QualityChart {...props()} />);
     expect(screen.getByText(/^3 muestreos/)).toBeTruthy();
     expect(screen.getByText(/\(500 UFC\/100\s+mL\)/)).toBeTruthy();
-    expect(screen.queryByText(/línea roja/)).toBeNull();
+    expect(screen.queryByText(/franja/)).toBeNull();
     expect(screen.getByText('2025')).toBeTruthy();
     expect(screen.getByText('2026')).toBeTruthy();
   });
@@ -50,15 +51,57 @@ describe('<QualityChart />', () => {
     expect(p.onChangeParam).toHaveBeenCalledWith('ecoli');
   });
 
-  it('con incidentes añade la leyenda de la línea roja', async () => {
+  it('con incidentes añade la leyenda de la franja roja', async () => {
     await render(
       <QualityChart
         {...props({
-          incidentRanges: [{ from: '2025-08-01', to: '2025-08-05' }],
+          incidentRanges: [
+            { from: '2025-08-01', to: '2025-08-05', label: 'cerrada' },
+          ],
         })}
       />,
     );
-    expect(screen.getByText(/línea roja = cierre\/aviso/)).toBeTruthy();
+    expect(screen.getByText(/franja = cierre\/aviso/)).toBeTruthy();
+  });
+
+  it('tocar una franja muestra sus fechas; tocarla otra vez las quita', async () => {
+    await render(
+      <QualityChart
+        {...props({
+          incidentRanges: [
+            { from: '2025-08-01', to: '2025-08-05', label: 'cerrada' },
+          ],
+        })}
+      />,
+    );
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Episodio 01/08/2025' }),
+    );
+    expect(
+      screen.getByText('01/08/2025 → 05/08/2025 · 5 días · cerrada'),
+    ).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Episodio 01/08/2025' }),
+    );
+    expect(
+      screen.queryByText('01/08/2025 → 05/08/2025 · 5 días · cerrada'),
+    ).toBeNull();
+  });
+
+  it('nota de hueco de muestreo a pie de gráfica', async () => {
+    await render(
+      <QualityChart
+        {...props({
+          sampleNote: {
+            text: 'Anomalía: sin muestras entre jul 2024 y ene 2025',
+            anomalous: true,
+          },
+        })}
+      />,
+    );
+    expect(
+      screen.getByText(/sin muestras entre jul 2024 y ene 2025/),
+    ).toBeTruthy();
   });
 
   it('informa del ancho medido', async () => {

@@ -4,11 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import type { BeachMeasurement } from '../../lib/api';
 import { fmtDate } from '../../lib/format';
-import {
-  QUALITY_THRESHOLDS,
-  classifyValue,
-  type SampleNote,
-} from '../../lib/quality';
+import { QUALITY_THRESHOLDS, classifyValue } from '../../lib/quality';
 import { colors, fonts } from '../../lib/theme';
 
 type QualityCardProps = {
@@ -16,16 +12,11 @@ type QualityCardProps = {
   // Estado efectivo: con playa abierta y última evaluación mala se
   // enseña la nota "pendiente de nueva muestra"
   beachKey: string;
-  sampleNote: SampleNote | null;
 };
 
 // Última muestra oficial: E. coli / enterococo frente al límite
 // normativo + notas de huecos de muestreo
-export default function QualityCard({
-  quality,
-  beachKey,
-  sampleNote,
-}: QualityCardProps) {
+export default function QualityCard({ quality, beachKey }: QualityCardProps) {
   return (
     <View style={styles.qualityCard}>
       <View style={styles.secHead}>
@@ -75,13 +66,6 @@ export default function QualityCard({
       /prohib|calificar/i.test(quality[0].evaluation ?? '') ? (
         <Text style={styles.staleNote}>
           El incidente oficial ya está cerrado · pendiente de nueva muestra
-        </Text>
-      ) : null}
-      {sampleNote ? (
-        <Text
-          style={sampleNote.anomalous ? styles.gapNoteAnomaly : styles.gapNote}
-        >
-          {sampleNote.text}
         </Text>
       ) : null}
     </View>
@@ -151,20 +135,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fonts.regular,
     color: colors.textFaint,
-    marginTop: 4,
-  },
-  // Hueco de muestreo esperado (calendario de la playa): ámbar
-  gapNote: {
-    fontSize: 11,
-    fontFamily: fonts.semibold,
-    color: colors.status.warning,
-    marginTop: 4,
-  },
-  // Hueco anómalo (Sanidad dejó de medirla en periodo normal): rojo
-  gapNoteAnomaly: {
-    fontSize: 11,
-    fontFamily: fonts.semibold,
-    color: colors.danger,
     marginTop: 4,
   },
 });

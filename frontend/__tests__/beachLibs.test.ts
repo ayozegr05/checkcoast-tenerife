@@ -203,7 +203,7 @@ describe('quality', () => {
       '2024-08-01',
     );
     expect(note?.anomalous).toBe(true);
-    expect(note?.text).toMatch(/^Anomalía: sin muestras entre /);
+    expect(note?.text).toMatch(/^Anomalía: sin muestras\n.*→/s);
   });
 
   it('samplingNote: parada estacional = calendario de Sanidad', () => {

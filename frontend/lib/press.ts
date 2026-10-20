@@ -69,7 +69,8 @@ export const pressSummary = (
         : s.closed_since || opts.episodeStart || s.since
           ? `desde el ${fmtDate((s.closed_since || opts.episodeStart || s.since!).slice(0, 10))}`
           : null;
-    // Cuánto estuvo cerrada: con inicio parcial es aproximado ("~")
+    // Cuánto estuvo cerrada: con inicio parcial es aproximado ("~").
+    // +1 = conteo inclusivo (convención de episodios/temporada)
     const startRaw = s.closed_since || opts.episodeStart || s.since;
     const startIso = startRaw
       ? startRaw.length === 4
@@ -79,7 +80,7 @@ export const pressSummary = (
           : startRaw.slice(0, 10)
       : null;
     const dur = startIso
-      ? ` · ~${formatDays(Math.max(1, Math.round((Date.parse(opts.reopenedAt!.slice(0, 10)) - Date.parse(startIso)) / 86_400_000)))}`
+      ? ` · ~${formatDays(Math.max(1, Math.round((Date.parse(opts.reopenedAt!.slice(0, 10)) - Date.parse(startIso)) / 86_400_000) + 1))}`
       : '';
     return {
       main: pmShort
@@ -113,8 +114,11 @@ export const pressSummary = (
         ? `${startRaw}-01`
         : startRaw.slice(0, 10)
     : null;
+  // Días naturales incluyendo el inicial — misma convención que las
+  // filas de Episodios, la temporada y el tooltip de la gráfica (un
+  // cierre del 7 al 9 duró 3 días, no 2)
   const daySpan = (a: string, b: string) =>
-    Math.max(1, Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000));
+    Math.max(1, Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000) + 1);
   const approx = sinceIsPartial ? '~' : '';
   const todayIso = (opts.now ?? new Date()).toISOString().slice(0, 10);
 

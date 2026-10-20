@@ -174,11 +174,13 @@ export function useMapCamera({
     const { center, zoom } = lastView.current;
     // Mismo padding que fitBeachBounds: con padding 0 el centro pasaría
     // al centro real de pantalla y el contenido caería ~200px solo por
-    // el reseteo de padding, tapando el desplazamiento que queremos
+    // el reseteo de padding, tapando el desplazamiento que queremos.
+    // +64 abajo: el dot del PM quedaba pegado al borde superior de la
+    // ficha — con la reserva extra sube a la mitad de la franja libre
     const pad = {
       top: cardPad.top + 60,
       right: 64,
-      bottom: cardPad.bottom,
+      bottom: cardPad.bottom + 64,
       left: 64,
     };
     if (opening) {

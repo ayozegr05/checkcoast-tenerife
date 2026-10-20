@@ -147,9 +147,7 @@ describe('<BeachDetail />', () => {
       />,
     );
     expect(screen.getByText('Cierre activo')).toBeTruthy();
-    expect(
-      await screen.findByText('Episodios (1)'),
-    ).toBeTruthy();
+    expect(await screen.findByText('Episodios (1)')).toBeTruthy();
 
     await fireEvent.press(
       screen.getByRole('button', { name: 'Ver 1 titulares de prensa' }),

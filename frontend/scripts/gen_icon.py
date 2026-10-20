@@ -431,8 +431,29 @@ def draw_episodes_icon():
         img.save(out)
 
 
+def draw_calendar_icon():
+    """Calendario a color (marco navy + papel blanco + banda
+    turquesa + días navy) para los rótulos de año de Episodios.
+    Mismo asset en app y landing: va dentro de la pastilla y no
+    se tine — es ilustración, no glifo monocromo."""
+    img = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle([16, 22, 80, 84], radius=8, fill=NAVY)
+    d.rounded_rectangle([20, 26, 76, 80], radius=5, fill=WHITE)
+    d.rounded_rectangle([20, 26, 76, 46], radius=5, fill=TURQ)
+    d.rectangle([20, 40, 76, 46], fill=TURQ)  # base de la banda recta
+    d.rounded_rectangle([32, 12, 40, 34], radius=4, fill=NAVY)
+    d.rounded_rectangle([56, 12, 64, 34], radius=4, fill=NAVY)
+    for yy in (58, 72):
+        for xx in (30, 48, 66):
+            d.ellipse([xx - 4, yy - 4, xx + 4, yy + 4], fill=NAVY)
+    img.save("assets/icons/icon-calendar.png")
+    img.save("../backend/app/static/icons/icon-calendar.png")
+
+
 draw_alert_icon()
 draw_timeline_icon()
 draw_episodes_icon()
+draw_calendar_icon()
 
 print("assets generados")

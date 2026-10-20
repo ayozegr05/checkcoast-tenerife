@@ -152,11 +152,13 @@ export function samplingNote(
     // "jul 2024" (con espacio) en los huecos reales
     const my = (iso: string) =>
       fmtPartialDate(iso.slice(0, 7)).replace('-', ' ');
+    // Etiqueta + rangos en línea aparte: el run-on "entre X y Y ·
+    // entre X y Y" era el bloque más denso de la gráfica
     const parts = anomalous.map((g) =>
-      g.open ? `desde ${my(g.a)}` : `entre ${my(g.a)} y ${my(g.b)}`,
+      g.open ? `desde ${my(g.a)}` : `${my(g.a)} → ${my(g.b)}`,
     );
     return {
-      text: `Anomalía: sin muestras ${parts.join(' · ')}`,
+      text: `Anomalía: sin muestras\n${parts.join(' · ')}`,
       anomalous: true,
     };
   }

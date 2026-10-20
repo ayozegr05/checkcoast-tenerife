@@ -161,11 +161,11 @@ export default function FeatureSheet({
         }`
       : '';
   const muni = isBeach ? beachFeature.properties.municipality : null;
-  const title =
-    (showPmPicker
-      ? displayBeachName(beachBaseName(p.name))
-      : displayBeachName(stripPm(beachFeature.properties.name)) + pmSuffix) +
-    (muni ? ` · ${muni}` : '');
+  // Municipio fuera del título: va de subtítulo pequeño — es contexto,
+  // no identidad ("Playa Jardín · Punta Brava" ya dice qué playa es)
+  const title = showPmPicker
+    ? displayBeachName(beachBaseName(p.name))
+    : displayBeachName(stripPm(beachFeature.properties.name)) + pmSuffix;
 
   // Acento de la cabecera según estado (playa o vertido): tinta sutil
   // + línea superior del color de estado
@@ -188,6 +188,7 @@ export default function FeatureSheet({
           <Text style={styles.title} numberOfLines={2}>
             {title}
           </Text>
+          {muni ? <Text style={styles.subtitle}>{muni}</Text> : null}
         </View>
         <Pressable
           onPress={requestClose}
@@ -322,6 +323,14 @@ const styles = StyleSheet.create({
     // margen simétrico: la ✕ va absoluta a la esquina y el título
     // queda centrado sin chocar con ella aunque ocupe 2 líneas
     marginHorizontal: 54,
+  },
+  // Municipio como subtítulo: contexto geográfico, no identidad
+  subtitle: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.text,
+    textAlign: 'center',
+    marginTop: -1,
   },
   close: {
     fontSize: 18,

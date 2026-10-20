@@ -37,6 +37,18 @@ const incidents = [
   }),
 ];
 
+// Los años antiguos llegan colapsados (acordeón): los tests que
+// miran filas tienen que expandirlos primero
+const expandYears = async () => {
+  for (;;) {
+    const btn = screen
+      .queryAllByRole('button')
+      .find((b) => (b.props.accessibilityLabel ?? '').includes('expandir'));
+    if (!btn) break;
+    await fireEvent.press(btn);
+  }
+};
+
 describe('<IncidentHistory />', () => {
   it('resumen de cifras sin contar la zona hermana', async () => {
     await render(
@@ -68,6 +80,7 @@ describe('<IncidentHistory />', () => {
     );
     expect(screen.getByText('2015')).toBeTruthy();
     expect(screen.getByText('2014')).toBeTruthy();
+    await expandYears();
     // Cierres con badge de causa (sin "Cerrada" — se
     // sobreentiende), avisos/sin calificar con etiqueta; las causas
     // van debajo (fallback "Contaminación"; la muestra sin
@@ -103,6 +116,7 @@ describe('<IncidentHistory />', () => {
       />,
     );
     // Icono propio (tubo + aviso) + etiqueta, jamás "Cierre"
+    await expandYears();
     expect(screen.getAllByTestId('incident-badge')).toHaveLength(1);
     expect(screen.getByText('Agua no apta')).toBeTruthy();
     expect(screen.queryByText('Aviso')).toBeNull();
@@ -119,6 +133,7 @@ describe('<IncidentHistory />', () => {
         onToggleIncident={onToggle}
       />,
     );
+    await expandYears();
     expect(screen.queryByText('Cierran la playa por vertido')).toBeNull();
     await fireEvent.press(
       screen.getByRole('button', { name: 'Ver 1 titulares del episodio' }),

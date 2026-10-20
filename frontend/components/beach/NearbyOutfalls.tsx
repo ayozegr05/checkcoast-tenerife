@@ -29,26 +29,27 @@ export default function NearbyOutfalls({
     >
       <View style={styles.secHead}>
         <Image
+          // El asset ya va a color (asa roja, gotas verdes): aquí es
+          // ilustración, sin tintColor — el navy teñido lo usan
+          // topbar/ayuda/intro con su propio tintColor
           source={require('../../assets/icons/icon-faucet.png')}
-          style={[
-            styles.secIcon,
-            { tintColor: colors.primaryDark, marginBottom: -0.8 },
-          ]}
+          style={[styles.secIcon, { marginBottom: -0.8 }]}
         />
         <Text style={styles.secCardTitle}>Emisarios cercanos</Text>
       </View>
       <Text style={styles.nearSub}>
         {nearby.length} a menos de 1 km · el más próximo a{' '}
         <Text
+          // La distancia es EL dato de la línea: casi negro semibold;
+          // ámbar solo cuando el emisario pilla muy encima (<500 m)
           style={
             nearby[0].distance_m < 500
-              ? { color: colors.status.warning }
-              : undefined
+              ? { color: colors.status.warning, fontFamily: fonts.semibold }
+              : { color: colors.text, fontFamily: fonts.semibold }
           }
         >
           {fmtDistance(nearby[0].distance_m).replace(' ', ' ')}
         </Text>
-        {' · aleja el zoom si no los ves'}
       </Text>
       {nearby.map((o) => {
         const accent = colors.outfall[o.status] ?? colors.status.unknown;
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
   nearSub: {
     fontSize: 11,
     fontFamily: fonts.regular,
-    color: colors.textFaint,
+    color: colors.textMuted,
     marginBottom: 6,
   },
   outfallRow: {

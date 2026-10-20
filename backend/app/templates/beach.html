@@ -157,11 +157,11 @@
   .qfill { height:100%; border-radius:3px; }
   .qcls { font-size:11px; font-weight:600; }
   .qnote { margin-top:8px; font-size:11px; color:#8a9aa3;
-          font-style:italic; }
+          font-style:italic; white-space:pre-line; }
   .qnote.qwarn { color:#e65100; font-style:normal; }
   .ofsub { margin-top:7px; margin-bottom:8px; font-size:12px;
-          color:#7a919c; }
-  .ofsub b { font-weight:600; }
+          color:#5c7a89; }
+  .ofsub b { font-weight:600; color:#16323f; }
   .ofsub b.near { color:#e65100; }
   .ofrow { margin-top:8px; padding:8px 12px; border-left:3px solid;
           background:#f4f9fb; border-radius:0 8px 8px 0;
@@ -198,14 +198,19 @@
   .chartcols { width:max-content; min-width:100%; }
   .chartarea { position:relative; height:{{ chart_h }}px; display:flex;
           align-items:flex-end; gap:1px; padding:0 6px; }
-  .bar { flex:1 0 8px; border-radius:2px 2px 0 0; }
+  .bar { flex:1 0 8px; border-radius:2px 2px 0 0; position:relative; }
   .yrow { display:flex; gap:1px; padding:3px 6px 0; }
   .yrcell { flex:1 0 8px; font-size:9px; font-weight:600; color:#8fa3ad;
           white-space:nowrap; overflow:visible; }
-  .lim { position:absolute; left:4px; right:4px;
+  /* z-index: la línea corona la gráfica por encima de barras y
+     franjas de incidente */
+  .lim { position:absolute; left:4px; right:4px; z-index:2;
           border-top:2px dashed #0b6e99; }
-  .inc { position:absolute; top:0; bottom:0; width:0;
-          border-left:2px dashed #c62828; }
+  /* Franja de período cerrado/en aviso: velo tenue detrás de las
+     barras — la anchura es la duración y explica los huecos sin
+     muestras; dos solapadas se oscurecen entre sí */
+  .inc { position:absolute; top:0; bottom:0; border-radius:2px;
+          opacity:.18; }
   .ctoggle { display:flex; gap:6px; margin-top:8px;
           margin-bottom:6px;
           justify-content:center; }
@@ -249,9 +254,22 @@
           color:#0d3a52; }
   .isum span { font-size:11px; font-weight:400; color:#8fa3ad;
           margin-top:2px; }
-  .iyr { margin-top:12px; margin-bottom:6px; font-size:11px;
-          font-weight:600; color:#8fa3ad; text-transform:uppercase;
-          letter-spacing:.5px; }
+  /* Cabecera de año: calendario + pastilla sutil + hairline; el
+     details hace de acordeón (años viejos llegan colapsados) */
+  .iyr { margin-top:12px; }
+  .iyr > summary { display:flex; align-items:center; gap:8px;
+          cursor:pointer; list-style:none; margin-bottom:6px; }
+  .iyr > summary::-webkit-details-marker { display:none; }
+  .ychip { display:inline-flex; align-items:center; gap:4px;
+          font-size:11px; font-weight:600; color:#075276;
+          background:rgba(7,82,118,.08); border-radius:5px;
+          padding:2px 7px; letter-spacing:.4px; }
+  .yico { width:14px; height:14px; margin-top:-1px; }
+  .ycaret { font-size:9px; }
+  .iyr[open] .ycaret { transform:rotate(90deg); }
+  .ycount { font-size:10px; color:#8fa3ad; }
+  .yrule { flex:1; border-top:1px solid #dbe7ee; }
+  .iyr[open] .ycount { display:none; }
   .isub { margin-top:6px; margin-bottom:2px; font-size:10px;
           font-weight:600; color:#8fa3ad; }
   .itit { margin-top:4px; padding-right:8px;
@@ -405,16 +423,23 @@
         {%- if incidents.summary_sub %}<span>
           {{- incidents.summary_sub }}</span>{% endif %}</div>
       {%- for y in incidents.years %}
-      <div class="iyr">{{ y.year }}</div>
-      {%- for i in y.rows %}{{ incrow(i) }}{% endfor %}
-      {%- if y.sib_rows %}
-      <div class="isub">En la {{ y.sib_label }}</div>
-      {%- for i in y.sib_rows %}{{ incrow(i) }}{% endfor %}
-      {%- endif %}
+      <details class="iyr"{% if not y.collapsed %} open{% endif %}>
+        <summary><span class="ychip"><img class="yico"
+          src="/icons/icon-calendar.png" alt="">{{ y.year }}<span
+          class="ycaret">▸</span></span>
+          <span class="ycount">{{ y.count }} episodio{{ 's' if
+            y.count != 1 }}</span><span class="yrule"></span></summary>
+        {%- for i in y.rows %}{{ incrow(i) }}{% endfor %}
+        {%- if y.sib_rows %}
+        <div class="isub">En la {{ y.sib_label }}</div>
+        {%- for i in y.sib_rows %}{{ incrow(i) }}{% endfor %}
+        {%- endif %}
+      </details>
       {%- endfor %}
       {%- endif %}
       {%- if outfalls %}
-      <div class="sec"><img class="secico" src="/icons/icon-faucet.png"
+      <div class="sec"><img class="secico"
+        src="/icons/icon-faucet.png"
         alt="">Emisarios cercanos</div>
       <div class="ofsub">{{ outfalls|length }} a menos de 1 km · el más
         próximo a <b{% if outfalls[0].near %} class="near"{% endif %}>
@@ -443,7 +468,10 @@
         <div class="qcls" style="color:{{ p.color }}">{{ p.cls }} ·
           {{ p.pct }}% del límite</div></div></div>
       {%- endfor %}
-      {%- if quality.note %}
+      {#- La nota de huecos vive a pie de gráfica (explica los tramos
+          vacíos donde se ven); sin gráfica se queda aquí para no
+          perderse #}
+      {%- if quality.note and not chart %}
       <div class="qnote{% if quality.note.warn %} qwarn{% endif %}">
         {{- quality.note.text }}</div>
       {%- endif %}
@@ -460,7 +488,8 @@
           <div class="chartarea">
             <div class="lim" style="bottom:{{ p.lim_y }}px"></div>
             {%- for m in chart.inc_marks %}<div class="inc"
-              style="left:{{ m.pos }}%;border-color:{{ m.color }}"></div>{% endfor %}
+              style="left:{{ m.pos }}%;width:{{ m.w }}%;background:{{ m.color }}"
+              title="{{ m.title }}"></div>{% endfor %}
             {%- for b in p.bars %}<div class="bar" style="height:{{ b.h }}px;background:{{ b.color }}"
               title="{{ b.title }}"></div>{% endfor %}
           </div>
@@ -472,13 +501,22 @@
       {%- endfor %}
       <div class="radius">
         {%- for p in chart.panels %}
-        <span id="foot-{{ p.param }}"{% if p.hidden %} class="hidden"{% endif %}>
-          {{- p.n }} muestreos · cada barra = un análisis oficial
-          · línea azul = límite normativo ({{ p.good }} UFC/100 mL)
-          · roja discontinua = cierre · amarilla discontinua =
-          aviso</span>
+        <span id="foot-{{ p.param }}"{% if p.hidden %} class="hidden"{% endif %}
+          style="color:#5c7a89">
+          {{- p.n }} muestreos · barras:
+          <b style="color:#0d9488">■</b> apta ·
+          <b style="color:#f9a825">■</b> al límite ·
+          <b style="color:#c62828">■</b> no apta ·
+          <b style="color:#0b6e99">┄</b> límite normativo
+          ({{ p.good }} UFC/100 mL) ·
+          <b style="color:#c62828">■</b> franja = cierre ·
+          <b style="color:#f9a825">■</b> franja = aviso</span>
         {%- endfor %}
       </div>
+      {%- if quality and quality.note %}
+      <div class="qnote{% if quality.note.warn %} qwarn{% endif %}">
+        {{- quality.note.text }}</div>
+      {%- endif %}
       {%- endif %}
       <a class="open" href="{{ deep }}" onclick="openApp(); return false;">
         Abrir en la app</a>

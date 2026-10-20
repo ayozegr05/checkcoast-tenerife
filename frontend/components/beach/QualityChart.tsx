@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -9,8 +9,10 @@ import {
   valueColor,
   type ChartPoint,
   type QualityParam,
+  type SampleNote,
 } from '../../lib/quality';
 import { colors, fonts } from '../../lib/theme';
+import { fmtDate } from '../../lib/format';
 import ScrollChips from '../ScrollChips';
 
 type QualityChartProps = {
@@ -20,7 +22,10 @@ type QualityChartProps = {
   // Ancho medido de la card (0 hasta el primer onLayout)
   chartW: number;
   onChartWidth: (width: number) => void;
-  incidentRanges: { from: string; to: string }[];
+  incidentRanges: { from: string; to: string; label: string }[];
+  // Nota de huecos de muestreo — va a pie de gráfica: explica los
+  // tramos vacíos justo donde se ven
+  sampleNote: SampleNote | null;
 };
 
 // Gráfica de evolución: barras log-escala por muestreo + límite
@@ -32,7 +37,11 @@ export default function QualityChart({
   chartW,
   onChartWidth,
   incidentRanges,
+  sampleNote,
 }: QualityChartProps) {
+  // Franja seleccionada al tocar: muestra sus fechas bajo el eje —
+  // el "tooltip" táctil. Toggle: mismo índice deselecciona
+  const [sel, setSel] = useState<number | null>(null);
   // Ancho de columna: repartir el ancho de la card entre las muestras;
   // mínimo 8px — si hay muchas, sigue habiendo scroll horizontal
   const colW =
@@ -93,14 +102,51 @@ export default function QualityChart({
       <ScrollChips fadeRgb="255, 255, 255" a11yLabel="la gráfica" anchorEnd>
         <View style={styles.chartInner}>
           <View style={styles.chartArea}>
-            <View
-              style={[
-                styles.limitLine,
-                {
-                  bottom: barH(QUALITY_THRESHOLDS[chartParam].good),
-                },
-              ]}
-            />
+            {(() => {
+              const first = Date.parse(chartData[0].date);
+              const last = Date.parse(chartData[chartData.length - 1].date);
+              const span = Math.max(last - first, 1);
+              const toX = (pos: number) =>
+                Math.round(pos * (chartData.length - 1) * colW);
+              // Franja por incidente [from→to] antes de las barras:
+              // queda de fondo y el tramo cerrado se lee de un vistazo
+              // — también explica los huecos sin muestras. La caja
+              // tocable es más ancha que la franja (hay tramos de 1-3px)
+              return incidentRanges.map((r, i) => {
+                const from = Math.min(
+                  1,
+                  Math.max(0, (Date.parse(r.from) - first) / span),
+                );
+                const to = Math.min(
+                  1,
+                  Math.max(0, (Date.parse(r.to) - first) / span),
+                );
+                // Fuera del rango de muestreo por completo → no dibujar
+                // (un borde 3px inventaría un cierre en el eje)
+                if (to <= 0 || from >= 1) return null;
+                const w = Math.max(3, toX(to) - toX(from));
+                return (
+                  <Pressable
+                    key={i}
+                    onPress={() => setSel(sel === i ? null : i)}
+                    style={[
+                      styles.bandHit,
+                      { left: toX(from) - 8, width: w + 16 },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Episodio ${fmtDate(r.from)}`}
+                  >
+                    <View
+                      style={[
+                        styles.incidentBand,
+                        { left: 8, width: w },
+                        sel === i && styles.incidentBandSel,
+                      ]}
+                    />
+                  </Pressable>
+                );
+              });
+            })()}
             {chartData.map((d, i) => {
               const color = valueColor(chartParam, d.value);
               return (
@@ -121,28 +167,16 @@ export default function QualityChart({
                 </View>
               );
             })}
-            {(() => {
-              const first = Date.parse(chartData[0].date);
-              const last = Date.parse(chartData[chartData.length - 1].date);
-              const span = Math.max(last - first, 1);
-              return incidentRanges.map((r, i) => {
-                const pos = Math.min(
-                  1,
-                  Math.max(0, (Date.parse(r.from) - first) / span),
-                );
-                return (
-                  <View
-                    key={i}
-                    style={[
-                      styles.incidentTick,
-                      {
-                        left: Math.round(pos * (chartData.length - 1) * colW),
-                      },
-                    ]}
-                  />
-                );
-              });
-            })()}
+            {/* Último: la línea del límite corona la gráfica — por
+                encima de barras y franjas, discontinua como la web */}
+            <View
+              style={[
+                styles.limitLine,
+                {
+                  bottom: barH(QUALITY_THRESHOLDS[chartParam].good),
+                },
+              ]}
+            />
           </View>
           <View style={styles.yearRow}>
             {chartData.map((d, i) => (
@@ -158,11 +192,46 @@ export default function QualityChart({
           </View>
         </View>
       </ScrollChips>
+      {sel !== null && incidentRanges[sel]
+        ? (() => {
+            const r = incidentRanges[sel];
+            const end =
+              r.to === '9999-12-31'
+                ? new Date().toISOString().slice(0, 10)
+                : r.to;
+            // Días inclusive: el episodio del 28/09 al 07/10 son 10
+            const days =
+              Math.round((Date.parse(end) - Date.parse(r.from)) / 86400000) + 1;
+            return (
+              <Text style={styles.bandCaption}>
+                {fmtDate(r.from)} →{' '}
+                {r.to === '9999-12-31' ? 'hoy' : fmtDate(r.to)} · {days}{' '}
+                {days === 1 ? 'día' : 'días'} · {r.label}
+              </Text>
+            );
+          })()
+        : null}
+      {sampleNote ? (
+        <Text
+          style={sampleNote.anomalous ? styles.gapNoteAnomaly : styles.gapNote}
+        >
+          {sampleNote.text}
+        </Text>
+      ) : null}
       <Text style={styles.chartFoot}>
-        {chartData.length} muestreos · cada barra = un análisis oficial · línea
-        azul = límite normativo ({QUALITY_THRESHOLDS[chartParam].good} UFC/100
-        mL)
-        {incidentRanges.length > 0 ? ' · línea roja = cierre/aviso' : ''}
+        {chartData.length} muestreos · barras:{' '}
+        <Text style={{ color: colors.status.open }}>■</Text> apta ·{' '}
+        <Text style={{ color: colors.outfall.unknown }}>■</Text> al límite ·{' '}
+        <Text style={{ color: colors.status.closed }}>■</Text> no apta ·{' '}
+        <Text style={{ color: colors.primaryDark }}>┄</Text> límite normativo (
+        {QUALITY_THRESHOLDS[chartParam].good} UFC/100 mL)
+        {incidentRanges.length > 0 ? (
+          <>
+            {' · '}
+            <Text style={{ color: colors.status.closed }}>■</Text>
+            {' franja = cierre/aviso'}
+          </>
+        ) : null}
       </Text>
     </View>
   );
@@ -234,8 +303,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    height: 2,
-    backgroundColor: colors.primaryDark,
+    height: 0,
+    borderTopWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.primaryDark,
     opacity: 0.85,
   },
   chartInner: {
@@ -271,18 +342,53 @@ const styles = StyleSheet.create({
     width: 6,
     borderRadius: 2,
   },
-  incidentTick: {
+  // Caja tocable: más ancha que la franja visible (hay tramos de
+  // 1-3px intocables); dentro va la franja centrada (left:8)
+  bandHit: {
     position: 'absolute',
     top: 0,
     bottom: -5,
-    width: 1.5,
+  },
+  incidentBand: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    borderRadius: 2,
     backgroundColor: colors.status.closed,
-    opacity: 0.75,
+    // Velo tenue: cubre barras/huecos sin taparlos; dos franjas
+    // solapadas se oscurecen entre sí, lo cual informa (solape real)
+    opacity: 0.16,
+  },
+  incidentBandSel: {
+    opacity: 0.4,
+  },
+  // "Tooltip" táctil: fechas de la franja tocada bajo el eje
+  bandCaption: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+    marginTop: 6,
   },
   chartFoot: {
+    // gris un punto más oscuro que el resto de notas: es leyenda,
+    // no ruido de fondo
     fontSize: 10,
     fontFamily: fonts.regular,
-    color: colors.textFaint,
+    color: colors.textMuted,
     marginTop: 4,
+  },
+  // Hueco de muestreo esperado (calendario de la playa): ámbar
+  gapNote: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.status.warning,
+    marginTop: 6,
+  },
+  // Hueco anómalo (Sanidad dejó de medirla en periodo normal): rojo
+  gapNoteAnomaly: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.danger,
+    marginTop: 6,
   },
 });

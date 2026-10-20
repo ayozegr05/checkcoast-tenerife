@@ -18,7 +18,6 @@ describe('<QualityCard />', () => {
       <QualityCard
         quality={[measurement({ ecoli: '100', enterococci: '300' })]}
         beachKey="open"
-        sampleNote={null}
       />,
     );
     expect(screen.getByText('Calidad del agua · 01/07/2026')).toBeTruthy();
@@ -34,7 +33,6 @@ describe('<QualityCard />', () => {
       <QualityCard
         quality={[measurement({ ecoli: null, enterococci: '150' })]}
         beachKey="open"
-        sampleNote={null}
       />,
     );
     expect(screen.getByText('—')).toBeTruthy();
@@ -44,26 +42,10 @@ describe('<QualityCard />', () => {
   it('playa abierta con última muestra prohibida: pendiente de muestra', async () => {
     const quality = [measurement({ evaluation: 'Baño prohibido' })];
     const { rerender } = await render(
-      <QualityCard quality={quality} beachKey="open" sampleNote={null} />,
+      <QualityCard quality={quality} beachKey="open" />,
     );
     expect(screen.getByText(STALE)).toBeTruthy();
-    await rerender(
-      <QualityCard quality={quality} beachKey="closed" sampleNote={null} />,
-    );
+    await rerender(<QualityCard quality={quality} beachKey="closed" />);
     expect(screen.queryByText(STALE)).toBeNull();
-  });
-
-  it('muestra la nota de hueco de muestreo', async () => {
-    await render(
-      <QualityCard
-        quality={[measurement()]}
-        beachKey="open"
-        sampleNote={{
-          text: 'Sin muestras desde hace 40 días',
-          anomalous: true,
-        }}
-      />,
-    );
-    expect(screen.getByText('Sin muestras desde hace 40 días')).toBeTruthy();
   });
 });

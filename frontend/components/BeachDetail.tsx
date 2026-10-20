@@ -19,6 +19,7 @@ import {
   fmtDate,
   pointLongLabel,
 } from '../lib/format';
+import { isClosure, isMuteLab, isUnclassified } from '../lib/incidents';
 import { groupNewsItems } from '../lib/news';
 import { pressSummary } from '../lib/press';
 import {
@@ -161,15 +162,23 @@ export default function BeachDetail({
     };
   }, [feature.id, unmonitored]);
 
-  // Intervalos de incidentes [apertura, cierre]: se marcan en el eje
-  // temporal con un rombo rojo interpolado por fecha entre barras —
-  // un cierre casi nunca coincide con un dia de muestreo
+  // Intervalos de incidentes [apertura, cierre]: se dibujan como
+  // franja de fondo interpolada por fecha entre barras — el tramo
+  // cerrado se lee de un vistazo y explica los huecos sin muestras.
+  // "Sin calificar" no marca (misma regla que la landing)
   const incidentRanges = useMemo(
     () =>
-      (incidents ?? []).map((i) => ({
-        from: i.opened_at,
-        to: i.closed_at ?? '9999-12-31',
-      })),
+      (incidents ?? [])
+        .filter((i) => !isUnclassified(i))
+        .map((i) => ({
+          from: i.opened_at,
+          to: i.closed_at ?? '9999-12-31',
+          label: isClosure(i)
+            ? 'cerrada'
+            : isMuteLab(i)
+              ? 'agua no apta'
+              : 'aviso',
+        })),
     [incidents],
   );
 
@@ -280,8 +289,24 @@ export default function BeachDetail({
     Share.share({ message: lines.join('\n') }).catch(() => {});
   };
 
+  // El banner de prensa solo narra episodios VIVOS (playa cerrada,
+  // hermana con episodio abierto, reapertura ≤7 d) o cobertura
+  // reciente (≤90 d). Un titular viejo de un episodio resuelto ya
+  // está documentado en Episodios — en el banner solo hace ruido
+  const pressLive =
+    pressStillClosed ||
+    pressEpisodeOpen ||
+    (pressEpisodeSpan?.end
+      ? new Date().getTime() - Date.parse(pressEpisodeSpan.end) <=
+        7 * 86_400_000
+      : false);
+  const pressRecent = (news?.items ?? []).some(
+    (n) =>
+      n.published_at &&
+      new Date().getTime() - Date.parse(n.published_at) <= 90 * 86_400_000,
+  );
   const press =
-    news !== null && news.items.length > 0
+    news !== null && news.items.length > 0 && (pressLive || pressRecent)
       ? pressSummary(news.summary, {
           stillClosed: pressStillClosed || pressEpisodeOpen,
           reopenedAt: pressEpisodeSpan?.end ?? null,
@@ -434,11 +459,7 @@ export default function BeachDetail({
       )}
 
       {quality !== null && quality.length > 0 && (
-        <QualityCard
-          quality={quality}
-          beachKey={beachKey}
-          sampleNote={sampleNote}
-        />
+        <QualityCard quality={quality} beachKey={beachKey} />
       )}
 
       {chartData.length >= 2 && (
@@ -449,6 +470,7 @@ export default function BeachDetail({
           chartW={chartW}
           onChartWidth={setChartW}
           incidentRanges={incidentRanges}
+          sampleNote={sampleNote}
         />
       )}
 

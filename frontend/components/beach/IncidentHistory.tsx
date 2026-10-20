@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { BeachIncident } from '../../lib/api';
@@ -41,6 +41,16 @@ export default function IncidentHistory({
   onToggleIncident,
   beachName = '',
 }: IncidentHistoryProps) {
+  // Acordeón por año: el actual y el anterior abiertos, el resto
+  // colapsados — en 15 años de historial la lista no se hace eterna.
+  // Con pocos episodios (≤10) todo abierto: el acordeón solo paga
+  // cuando hay volumen que esconder
+  const [yearOpen, setYearOpen] = useState<Record<string, boolean>>({});
+  const collapsible = incidents.length > 10;
+  const yearDefault = (y: string) => Number(y) >= new Date().getFullYear() - 1;
+  const isYearOpen = (y: string) =>
+    !collapsible || (yearOpen[y] ?? yearDefault(y));
+
   const renderInc = (inc: BeachIncident) => {
     const closure = isClosure(inc);
     // unclassified = nota "Sin calificar" sin evidencia de prensa;
@@ -255,9 +265,7 @@ export default function IncidentHistory({
           source={require('../../assets/icons/icon-episodes.png')}
           style={[styles.secIcon, { tintColor: colors.primaryDark }]}
         />
-        <Text style={styles.secCardTitle}>
-          Episodios ({incidents.length})
-        </Text>
+        <Text style={styles.secCardTitle}>Episodios ({incidents.length})</Text>
       </View>
       <View style={styles.historySummary}>
         {allIn5 && y5parts ? (
@@ -333,16 +341,52 @@ export default function IncidentHistory({
           const rows = incidents.filter((i) => i.opened_at.startsWith(y));
           const ownRows = rows.filter((i) => !i.attributed_pm);
           const sib = rows.filter((i) => i.attributed_pm);
+          const open = isYearOpen(y);
           return (
             <View key={y}>
-              <Text style={styles.historyGroupTitle}>{y}</Text>
-              {ownRows.map(renderInc)}
-              {sib.length > 0 && (
-                <>
-                  <Text style={styles.historySubGroupTitle}>
-                    En la {siblingZoneRef(beachName, sib[0].attributed_pm!)}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.yearHead,
+                  collapsible && pressed && styles.pressFx,
+                ]}
+                onPress={
+                  collapsible
+                    ? () => setYearOpen((o) => ({ ...o, [y]: !open }))
+                    : undefined
+                }
+                accessibilityRole={collapsible ? 'button' : 'text'}
+                accessibilityLabel={`${y}, ${rows.length} episodios${
+                  collapsible ? (open ? ', contraer' : ', expandir') : ''
+                }`}
+              >
+                <View style={styles.yearChip}>
+                  <Image
+                    source={require('../../assets/icons/icon-calendar.png')}
+                    style={styles.yearIcon}
+                  />
+                  <Text style={styles.yearChipText}>{y}</Text>
+                  {collapsible && (
+                    <Text style={styles.yearCaret}>{open ? '▾' : '▸'}</Text>
+                  )}
+                </View>
+                {!open && (
+                  <Text style={styles.yearCount}>
+                    {`${rows.length} episodio${rows.length === 1 ? '' : 's'}`}
                   </Text>
-                  {sib.map(renderInc)}
+                )}
+                <View style={styles.yearRule} />
+              </Pressable>
+              {open && (
+                <>
+                  {ownRows.map(renderInc)}
+                  {sib.length > 0 && (
+                    <>
+                      <Text style={styles.historySubGroupTitle}>
+                        En la {siblingZoneRef(beachName, sib[0].attributed_pm!)}
+                      </Text>
+                      {sib.map(renderInc)}
+                    </>
+                  )}
                 </>
               )}
             </View>
@@ -408,14 +452,51 @@ const styles = StyleSheet.create({
     color: colors.textFaint,
     marginTop: 2,
   },
-  historyGroupTitle: {
+  // Cabecera de año: icono calendario + pastilla sutil + hairline
+  // hasta el borde — click = expande/colapsa el grupo
+  yearHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  yearIcon: {
+    width: 15,
+    height: 15,
+    // Óptica: el calendario rellena casi toda la pastilla; el leve
+    // margen negativo lo centra con la línea base del año
+    marginTop: -1,
+  },
+  yearChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(7,82,118,0.08)',
+    borderRadius: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  yearChipText: {
     fontSize: 11,
     fontFamily: fonts.semibold,
+    color: colors.primaryDark,
+    letterSpacing: 0.4,
+  },
+  yearCaret: {
+    fontSize: 9,
+    fontFamily: fonts.semibold,
+    color: colors.primaryDark,
+  },
+  yearCount: {
+    fontSize: 10,
+    fontFamily: fonts.regular,
     color: colors.textFaint,
-    marginTop: 10,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  },
+  yearRule: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
   },
   historySubGroupTitle: {
     fontSize: 10,

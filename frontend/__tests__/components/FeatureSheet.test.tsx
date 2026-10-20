@@ -154,7 +154,9 @@ describe('<FeatureSheet />', () => {
     );
     expect(nearbyMock).not.toHaveBeenCalled();
     expect(screen.getByText('2 zonas de esta playa')).toBeTruthy();
-    expect(screen.getByText('Playa Jardín · Puerto de la Cruz')).toBeTruthy();
+    // Municipio como subtítulo aparte — el título lleva solo el nombre
+    expect(screen.getByText('Playa Jardín')).toBeTruthy();
+    expect(screen.getByText('Puerto de la Cruz')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'El Castillo, Cierre activo' }),
     ).toBeTruthy();
@@ -163,9 +165,7 @@ describe('<FeatureSheet />', () => {
       screen.getByRole('button', { name: 'Punta Brava, Sin alertas activas' }),
     );
     expect(screen.getByText('ficha: Playa Jardín PM4')).toBeTruthy();
-    expect(
-      screen.getByText('Playa Jardín · Punta Brava · Puerto de la Cruz'),
-    ).toBeTruthy();
+    expect(screen.getByText('Playa Jardín · Punta Brava')).toBeTruthy();
     expect(onZoneShown).toHaveBeenLastCalledWith(jardin2);
 
     // ✕ con una zona abierta vuelve al selector en vez de cerrar
@@ -200,7 +200,8 @@ describe('<FeatureSheet />', () => {
       />,
     );
     expect(screen.getByText('ficha: Playa Las Vistas')).toBeTruthy();
-    expect(screen.getByText('Playa Las Vistas · Arona')).toBeTruthy();
+    expect(screen.getByText('Playa Las Vistas')).toBeTruthy();
+    expect(screen.getByText('Arona')).toBeTruthy();
     await fireEvent.press(screen.getByText('ver emisario'));
     expect(onSelectOutfall).toHaveBeenCalledWith(emisario, vistas);
     // «Ver en el mapa» cierra la hoja con animación y después vuela

@@ -25,7 +25,7 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     });
     expect(r.main).toBe(
       'Cerrada por riesgo de desprendimientos\n' +
-        'desde el 03/06/2026 · lleva 116 días',
+        'desde el 03/06/2026 · lleva 117 días',
     );
     expect(r.sub).toBe('según prensa · 9 medios');
   });
@@ -45,7 +45,7 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     );
     expect(r.main).toBe(
       'Estuvo cerrada por vertido de gasoil\n' +
-        'del 21/08/2026 al 26/08/2026 · 5 días',
+        'del 21/08/2026 al 26/08/2026 · 6 días',
     );
     expect(r.sub).toBe('según prensa · 1 medio');
   });
@@ -74,7 +74,7 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     expect(r.main).toBe('Reabierta el 25/09/2026');
     expect(r.sub).toBe(
       'según prensa · 9 medios · estuvo cerrada desde el ' +
-        '23/09/2026 · ~2 días',
+        '23/09/2026 · ~3 días',
     );
   });
 
