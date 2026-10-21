@@ -2095,9 +2095,18 @@ def outfall_context(
                 "l": "de profundidad",
             }
         )
-    kpi_mode = bool(kpis) and (
-        outfall.outfall_depth is None or outfall.outfall_depth < 0
-    )
+    elif outfall.outfall_depth is not None and outfall.outfall_depth > 0:
+        # Elevado: el tubo desemboca sobre la lámina — la altura es el
+        # dato honesto, no hay profundidad que ocultar
+        kpis.append(
+            {
+                "v": f"{outfall.outfall_depth:g} m",
+                "l": "sobre el mar",
+            }
+        )
+    # depth == 0 ("a ras de mar") se queda en frase: una tile de 0 m
+    # sería ruido, no información
+    kpi_mode = bool(kpis) and (outfall.outfall_depth != 0)
     protected = None
     if outfall.protected_area:
         protected = {

@@ -5,6 +5,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import {
   conduitSegs,
+  kpiSegs,
   natureParts,
   nearbyUniqueBeaches,
   operationText,
@@ -100,6 +101,37 @@ describe('conduitSegs', () => {
 
   it('sin datos no dice nada', () => {
     expect(conduitSegs(null, null, null, null)).toBeNull();
+  });
+});
+
+describe('kpiSegs', () => {
+  it('orilla + profundidad sumergida → lead + tiles', () => {
+    expect(kpiSegs('emisario submarino', 922, -41)).toEqual({
+      lead: 'Emisario submarino vierte a:',
+      tiles: [
+        { v: '922 m', l: 'de la orilla' },
+        { v: '41 m', l: 'de profundidad' },
+      ],
+    });
+  });
+
+  it('a ras de mar → null (la frase conserva el matiz)', () => {
+    expect(kpiSegs('emisario submarino', 100, 0)).toBeNull();
+  });
+
+  it('desemboca elevado → tile de altura "sobre el mar"', () => {
+    expect(kpiSegs('conducción', 300, 20)).toEqual({
+      lead: 'Conducción vierte a:',
+      tiles: [
+        { v: '300 m', l: 'de la orilla' },
+        { v: '20 m', l: 'sobre el mar' },
+      ],
+    });
+  });
+
+  it('sin métricas → null; sin tipo → "La conducción"', () => {
+    expect(kpiSegs('emisario submarino', null, null)).toBeNull();
+    expect(kpiSegs(null, 500, null)!.lead).toBe('La conducción vierte a:');
   });
 });
 

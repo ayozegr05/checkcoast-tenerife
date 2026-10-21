@@ -31,6 +31,7 @@ import {
   OUTFALL_STATUS_LABELS,
   CONDITION_COLORS,
   conduitSegs,
+  kpiSegs,
   zoneText,
   originLabel,
   protectedAreaName,
@@ -148,6 +149,13 @@ export default function OutfallSheet({
   const statusKey = p.status ?? 'unknown';
   const operationLine = operationText(p.is_active, p.continuity);
   const risk = outfallRisk(p);
+  const parts = p.nature
+    ? natureParts(p.nature, p.origin, p.outfall_depth, p.zone_desc)
+    : [];
+  // El dato hero como tiles (orilla/profundidad) sustituye a la
+  // frase cuando el vertido es sumergido; a ras de mar la frase
+  // cuenta un matiz que la tile no cubre — misma regla que /o/{id}
+  const kpi = kpiSegs(p.kind, p.shore_m, p.outfall_depth);
 
   // Ubicación en una línea: punto concreto · núcleo urbano, sin
   // repetir el municipio ni valores duplicados ("Barranco de Troya
@@ -326,49 +334,72 @@ export default function OutfallSheet({
                   />
                   <Text style={styles.secCardTitle}>Qué se vierte</Text>
                 </View>
-                <Text style={styles.heroValue}>{p.nature}</Text>
-                {p.origin ? (
-                  <Text style={styles.heroSub}>{originLabel(p.origin)}</Text>
-                ) : null}
-                {natureParts(
-                  p.nature,
-                  p.origin,
-                  p.outfall_depth,
-                  p.zone_desc,
-                ).map((pt, i) => {
-                  // Si la etiqueta repite el subtítulo ("Desaladora"
-                  // bajo "Desaladora") no se pinta: queda solo la
-                  // frase explicativa
-                  const dup =
-                    !!p.origin &&
-                    pt.label.toLowerCase() ===
-                      originLabel(p.origin).toLowerCase();
-                  const desc = pt.desc
-                    ? dup
-                      ? pt.desc[0].toUpperCase() + pt.desc.slice(1)
-                      : pt.desc
-                    : null;
-                  return (
-                    <Text key={i} style={styles.heroNote}>
-                      {dup ? null : (
-                        <Text style={styles.heroRespStrong}>
-                          {pt.label[0].toUpperCase() + pt.label.slice(1)}
-                          {pt.colon ? ':' : ''}
-                        </Text>
-                      )}
-                      {desc ? (
-                        <Text style={styles.heroRespStrong}>
-                          {dup ? desc : ` ${desc}`}
-                        </Text>
-                      ) : null}
-                      {dup && !desc
-                        ? pt.note[0].toUpperCase() + pt.note.slice(1)
-                        : pt.colon
-                          ? ` ${pt.note}`
-                          : ` — ${pt.note}`}
+                {parts.length === 1 ? (
+                  // Una sola sustancia → lead comunicativo
+                  // "Depuradora: vierte agua residual urbana" —
+                  // instalación y tipo de agua en negrita, sin
+                  // titular gigante ni origen repetido
+                  <>
+                    <Text style={styles.heroLead}>
+                      <Text style={styles.heroLeadStrong}>
+                        {p.origin ? originLabel(p.origin) : parts[0].label}
+                      </Text>
+                      : vierte{' '}
+                      <Text style={styles.heroLeadStrong}>
+                        {p.nature.toLowerCase()}
+                        {parts[0].desc ? ` (${parts[0].desc})` : ''}
+                      </Text>
                     </Text>
-                  );
-                })}
+                    <Text style={styles.heroNote}>
+                      {parts[0].note[0].toUpperCase() + parts[0].note.slice(1)}
+                    </Text>
+                  </>
+                ) : (
+                  // Varias sustancias → naturaleza + desglose por
+                  // líneas con su nota de impacto
+                  <>
+                    <Text style={styles.heroValue}>{p.nature}</Text>
+                    {p.origin ? (
+                      <Text style={styles.heroSub}>
+                        {originLabel(p.origin)}
+                      </Text>
+                    ) : null}
+                    {parts.map((pt, i) => {
+                      // Si la etiqueta repite el subtítulo ("Desaladora"
+                      // bajo "Desaladora") no se pinta: queda solo la
+                      // frase explicativa
+                      const dup =
+                        !!p.origin &&
+                        pt.label.toLowerCase() ===
+                          originLabel(p.origin).toLowerCase();
+                      const desc = pt.desc
+                        ? dup
+                          ? pt.desc[0].toUpperCase() + pt.desc.slice(1)
+                          : pt.desc
+                        : null;
+                      return (
+                        <Text key={i} style={styles.heroNote}>
+                          {dup ? null : (
+                            <Text style={styles.heroRespStrong}>
+                              {pt.label[0].toUpperCase() + pt.label.slice(1)}
+                              {pt.colon ? ':' : ''}
+                            </Text>
+                          )}
+                          {desc ? (
+                            <Text style={styles.heroRespStrong}>
+                              {dup ? desc : ` ${desc}`}
+                            </Text>
+                          ) : null}
+                          {dup && !desc
+                            ? pt.note[0].toUpperCase() + pt.note.slice(1)
+                            : pt.colon
+                              ? ` ${pt.note}`
+                              : ` — ${pt.note}`}
+                        </Text>
+                      );
+                    })}
+                  </>
+                )}
               </>
             ) : null}
             {/* Solo el responsable: la distinción titular/gestor
@@ -397,7 +428,7 @@ export default function OutfallSheet({
       p.length_m != null ||
       p.outfall_depth != null ||
       p.condition ? (
-        <View style={[styles.secCard, { borderLeftColor: colors.accent }]}>
+        <View style={styles.secCard}>
           <View style={styles.secHead}>
             <Image
               source={require('../../assets/icons/icon-map.png')}
@@ -406,7 +437,19 @@ export default function OutfallSheet({
             <Text style={styles.secCardTitle}>Dónde y cómo</Text>
           </View>
           {placeText ? <Text style={styles.zoneDesc}>{placeText}</Text> : null}
-          {conduitSegs(p.kind, p.shore_m, p.length_m, p.outfall_depth) ? (
+          {kpi ? (
+            <View style={styles.kpiWrap}>
+              <Text style={styles.kpiLead}>{kpi.lead}</Text>
+              <View style={styles.kpiTiles}>
+                {kpi.tiles.map((t) => (
+                  <View key={t.l} style={styles.kpiTile}>
+                    <Text style={styles.kpiValue}>{t.v}</Text>
+                    <Text style={styles.kpiLabel}>{t.l}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : conduitSegs(p.kind, p.shore_m, p.length_m, p.outfall_depth) ? (
             <Text style={styles.row}>
               {conduitSegs(p.kind, p.shore_m, p.length_m, p.outfall_depth)!.map(
                 (s, i) =>
@@ -441,7 +484,7 @@ export default function OutfallSheet({
       {/* Playas cercanas como card: es la respuesta a "¿dónde me
           afecta?" — las filas abren la playa en el mapa */}
       {nearby.length > 0 ? (
-        <View style={[styles.secCard, { borderLeftColor: colors.accent }]}>
+        <View style={styles.secCard}>
           <View style={styles.secHead}>
             <Image
               source={require('../../assets/icons/icon-wave.png')}
@@ -449,9 +492,6 @@ export default function OutfallSheet({
             />
             <Text style={styles.secCardTitle}>Playas cercanas</Text>
           </View>
-          <Text style={styles.nearSub}>
-            Si no las ves en el mapa, aleja el zoom
-          </Text>
           {nearby.map((n) => {
             const beachTarget = (beaches ?? []).find(
               (b) => b.id === n.beach_id,
@@ -497,7 +537,9 @@ export default function OutfallSheet({
                   {fmtDistance(n.distance_m)}
                 </Text>
                 {beachTarget && onSelectBeach && (
-                  <Text style={styles.nearestChevron}>›</Text>
+                  <Text style={[styles.nearestChevron, { color: distColor }]}>
+                    ›
+                  </Text>
                 )}
               </Pressable>
             );
@@ -509,7 +551,7 @@ export default function OutfallSheet({
           vertidos y reparaciones del punto y de su zona — "según
           prensa", la proximidad nunca implica causalidad */}
       {news?.named_groups.length || news?.zone_groups.length ? (
-        <View style={[styles.secCard, { borderLeftColor: colors.accent }]}>
+        <View style={styles.secCard}>
           <View style={styles.secHead}>
             <Image
               source={require('../../assets/icons/icon-news.png')}
@@ -616,6 +658,43 @@ const styles = StyleSheet.create({
   rowStrong: {
     fontFamily: fonts.semibold,
   },
+  // KPI del dato hero: "vierte a:" en su línea y las tiles de
+  // orilla/profundidad en fila debajo — inline estrangulaba el
+  // texto cuando el tipo de conducción era largo
+  kpiWrap: {
+    marginTop: 8,
+  },
+  kpiLead: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.text,
+  },
+  kpiTiles: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 6,
+  },
+  kpiTile: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  kpiValue: {
+    fontSize: 17,
+    fontFamily: fonts.bold,
+    color: colors.primaryDark,
+  },
+  kpiLabel: {
+    fontSize: 10,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginTop: 1,
+  },
   zoneDesc: {
     fontSize: 13,
     fontFamily: fonts.regular,
@@ -623,18 +702,33 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   // Respuesta protagonista del emisario: "qué se vierte" con icono —
-  // no una fila más, es la pregunta que abre la ficha
+  // no una fila más, es la pregunta que abre la ficha. Card plana:
+  // el acento de color se reserva para lo semántico (riesgo, ZEC,
+  // enlaces) — misma regla que la landing
   heroBox: {
     marginTop: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.accent,
+    borderWidth: 1,
+    borderColor: colors.border,
     backgroundColor: colors.background,
-    borderRadius: 4,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   heroText: {
     flex: 1,
+  },
+  // Lead comunicativo de una sola sustancia: "Depuradora: vierte
+  // agua residual urbana" — instalación y agua en negrita dentro
+  // de una frase, no como título gigante
+  heroLead: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.text,
+    lineHeight: 19,
+    marginTop: 2,
+  },
+  heroLeadStrong: {
+    fontFamily: fonts.extrabold,
   },
   heroValue: {
     fontSize: 15,
@@ -670,13 +764,16 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     color: colors.text,
   },
-  // Sección como mini-card: barra de color + icono + título, mismo
-  // lenguaje que heroBox y la caja de espacio protegido
+  // Sección como mini-card plana (hairline + fondo suave) con
+  // icono + título: el borde de color se reserva para lo semántico
+  // — riesgo (opBox), ZEC, fuentes enlazables y playas por
+  // exposición
   secCard: {
     marginTop: 10,
-    borderLeftWidth: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
     backgroundColor: colors.background,
-    borderRadius: 4,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
@@ -758,12 +855,6 @@ const styles = StyleSheet.create({
     marginRight: 6,
     minWidth: 46,
     textAlign: 'right',
-  },
-  nearSub: {
-    fontSize: 11,
-    fontFamily: fonts.regular,
-    color: colors.textFaint,
-    marginBottom: 6,
   },
   // Prensa del emisario: subtítulo de grupo ("De este emisario"/"En la
   // zona") y fila de titular enlazable — el titular es el enlace

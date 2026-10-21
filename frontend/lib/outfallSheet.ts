@@ -116,6 +116,32 @@ export const conduitSegs = (
   return segs;
 };
 
+// KPI del dato hero (misma regla que la landing /o/{id}): orilla y
+// profundidad como tiles escaneables junto al "vierte a:", en vez
+// de enterradas en la frase. Con vertido a ras de mar la tile no
+// cubre el matiz → null y la ficha conserva conduitSegs
+export const kpiSegs = (
+  kind: string | null | undefined,
+  shore: number | null | undefined,
+  depth: number | null | undefined,
+): { lead: string; tiles: { v: string; l: string }[] } | null => {
+  // depth === 0 ("a ras de mar") se queda en frase: una tile de 0 m
+  // sería ruido, no información. Con altura (depth > 0) el tubo
+  // desemboca sobre la lámina — el número honesto va en tile
+  if (depth === 0) return null;
+  const tiles: { v: string; l: string }[] = [];
+  if (shore != null)
+    tiles.push({ v: `${Math.round(shore)} m`, l: 'de la orilla' });
+  if (depth != null)
+    tiles.push({
+      v: `${Math.abs(depth)} m`,
+      l: depth < 0 ? 'de profundidad' : 'sobre el mar',
+    });
+  if (!tiles.length) return null;
+  const label = kind ? kind[0].toUpperCase() + kind.slice(1) : 'La conducción';
+  return { lead: `${label} vierte a:`, tiles };
+};
+
 // La descripción del censo mezcla frases completas ("El vertido se
 // produce bajo el muro del paseo…") con fragmentos secos
 // ("Escollera de protección."). Las frases se limpian del sujeto

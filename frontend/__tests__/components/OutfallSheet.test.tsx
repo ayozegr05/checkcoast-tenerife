@@ -62,7 +62,8 @@ describe('<OutfallSheet />', () => {
     expect(nearbyMock).toHaveBeenCalledWith(9);
     expect(screen.getByText('No autorizado')).toBeTruthy();
     expect(screen.getByText('Qué se vierte')).toBeTruthy();
-    expect(screen.getByText('Residual urbana')).toBeTruthy();
+    // una sola sustancia → lead comunicativo, no título gigante
+    expect(screen.getByText(/: vierte /)).toBeTruthy();
     expect(screen.getByText('Está en Santa Cruz de Tenerife.')).toBeTruthy();
 
     await fireEvent.press(

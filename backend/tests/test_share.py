@@ -169,13 +169,23 @@ def test_share_outfall_kpi_tiles(make_outfall):
 
 
 def test_share_outfall_kpi_fallback_surface(make_outfall):
-    """Vertido a ras de mar: las tiles no cuentan el matiz → se
-    conserva la frase narrativa y no hay KPI."""
+    """Vertido a ras de mar (depth=0): una tile de 0 m sería ruido →
+    se conserva la frase narrativa y no hay KPI."""
     oid = make_outfall(kind="Emisario submarino", shore_m=100, outfall_depth=0)
     html = client.get(f"/o/{oid}").text
     assert "que vierte a" in html
     assert "sale a ras de mar" in html
     assert 'class="srow kpirow"' not in html
+
+
+def test_share_outfall_kpi_height(make_outfall):
+    """Desemboca elevado (depth>0): la altura va en tile honesta —
+    '20 m sobre el mar', no una profundidad inventada."""
+    oid = make_outfall(kind="Conducción", shore_m=300, outfall_depth=20)
+    html = client.get(f"/o/{oid}").text
+    assert "vierte a:" in html
+    assert "20" in html and "sobre el mar" in html
+    assert "cae sobre la superficie" not in html
 
 
 def test_share_outfall_fact_lead_and_dup(make_outfall):
