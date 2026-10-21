@@ -644,7 +644,8 @@ def municipality_incidents(
         .all()
     )
     out = _merged_episode_rows(
-        _collect_episodes(beaches, date.today(), include_measurement=False)
+        _collect_episodes(beaches, date.today(), include_measurement=False),
+        with_press=True,
     )
     out.sort(key=lambda r: r.opened_at, reverse=True)
     return out
@@ -701,6 +702,7 @@ def _collect_episodes(
                         or "Contaminación"
                     ),
                     titles=frozenset(n.title for n in press_items if n.title),
+                    press_items=list(press_items),
                 )
             )
     synth_id = -1
@@ -741,6 +743,7 @@ def _collect_episodes(
                     titles=frozenset(
                         n.title for n in ev.press_items if n.title
                     ),
+                    press_items=list(ev.press_items),
                 )
             )
             synth_id -= 1
@@ -748,10 +751,14 @@ def _collect_episodes(
 
 
 def _merged_episode_rows(
-    episodes: list[Episode],
+    episodes: list[Episode], with_press: bool = False
 ) -> list[MunicipalityIncidentOut]:
     """Agrupa los episodios por playa base + municipio y los convierte
-    en filas de salida (una por episodio real, no por PM)."""
+    en filas de salida (una por episodio real, no por PM).
+
+    `with_press` emite la evidencia de prensa de cada episodio —
+    la línea temporal municipal la despliega por fila; `/episodes`
+    insular no la pide (payload)."""
     return [
         MunicipalityIncidentOut(
             id=m.ref_id,
@@ -767,6 +774,9 @@ def _merged_episode_rows(
             end_estimated=m.end_estimated,
             last_leg_start=m.last_leg_start,
             zone_beach_ids=m.zone_beach_ids,
+            press_items=(
+                [_news_out(n) for n in m.press_items] if with_press else []
+            ),
         )
         for m in (merged_episode(g) for g in cluster_episodes(episodes))
     ]

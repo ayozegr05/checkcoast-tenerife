@@ -232,12 +232,6 @@ export const styles = StyleSheet.create({
   tlDotEnded: {
     backgroundColor: colors.textFaint,
   },
-  tlGo: {
-    fontSize: 11.5,
-    fontFamily: fonts.semibold,
-    color: colors.primary,
-    marginLeft: 6,
-  },
   rowSub: {
     fontSize: 12,
     fontFamily: fonts.regular,
@@ -346,6 +340,37 @@ export const styles = StyleSheet.create({
     // ficha — el color se inyecta en línea
     borderLeftWidth: 3,
   },
+  // Cuerpo en dos columnas como la fila de Episodios de la ficha:
+  // identidad/fechas/obs a la izquierda, badge de causa (o
+  // etiqueta de estado) + causa a la derecha
+  tlRow: {
+    flexDirection: 'row',
+    // wrap: los titulares desplegados bajan a línea propia a ancho
+    // completo, debajo de las dos columnas (como la ficha)
+    flexWrap: 'wrap',
+  },
+  tlMain: {
+    flex: 1,
+  },
+  tlSide: {
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
+    flexShrink: 0,
+    paddingLeft: 8,
+    gap: 1,
+  },
+  tlBadge: {
+    width: 27,
+    height: 27,
+  },
+  tlState: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+  },
+  tlActive: {
+    fontSize: 10,
+    fontFamily: fonts.semibold,
+  },
   tlHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -370,9 +395,42 @@ export const styles = StyleSheet.create({
     color: colors.textFaint,
     marginTop: 4,
   },
+  // La causa es el "por qué" del episodio: negrita y casi negro,
+  // mismo tratamiento que incidentCause en la ficha
   tlCause: {
     fontSize: 11.5,
-    fontFamily: fonts.semibold,
+    fontFamily: fonts.bold,
+    color: colors.text,
     marginTop: 2,
+    textAlign: 'right',
+  },
+  // Línea de acciones de la fila: "Ver titulares ▾" a la izquierda,
+  // pill "Ficha ›" empujado a la derecha
+  tlActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  // Toggle de titulares — mismo tono que newsToggle en la ficha:
+  // color de acento del episodio inyectado en línea
+  tlNewsToggle: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+  },
+  // Pill outline con el acento del episodio: pista explícita de que
+  // la fila navega a la ficha — del tamaño de los demás chips
+  tlFichaPill: {
+    marginLeft: 'auto',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  tlFichaPillText: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+  },
+  tlTitles: {
+    width: '100%',
   },
 });

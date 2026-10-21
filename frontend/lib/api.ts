@@ -118,6 +118,10 @@ export type MunicipalityIncident = {
   // backend la infiere de la prensa en ventana; un cierre de Sanidad
   // sin contexto es Contaminación por definición
   cause?: string | null;
+  // Evidencia de prensa del episodio — la fila del timeline la
+  // despliega ("Ver titulares"), igual que en la ficha de playa.
+  // Solo /incidents la emite; /episodes insular va sin ella
+  press_items?: BeachNews[];
 };
 
 export type BeachStats = {

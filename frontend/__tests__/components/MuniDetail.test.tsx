@@ -75,7 +75,10 @@ describe('<MuniDetail />', () => {
       'Ver ficha de Playa Martiánez',
       'Ver ficha de Playa Jardín',
     ]);
-    expect(screen.getByText('Cierre activo')).toBeTruthy();
+    // Cierre vivo: badge circular de causa + marca "activo" en el
+    // lateral, mismo idioma que las filas de Episodios de la ficha
+    expect(screen.getAllByTestId('incident-badge')).toBeTruthy();
+    expect(screen.getByText('activo')).toBeTruthy();
     expect(screen.getByText('01/07/2025 → 03/07/2025 · 3 días')).toBeTruthy();
     expect(screen.getByText('Oleaje')).toBeTruthy();
   });
@@ -84,14 +87,14 @@ describe('<MuniDetail />', () => {
     const { rerender } = await render(
       <MuniDetail {...props({ yearCause: 'Contaminación' })} />,
     );
-    expect(await screen.findByText('Playa Martiánez')).toBeTruthy();
-    expect(screen.queryByText('Playa Jardín')).toBeNull();
+    expect(await screen.findByText(/Playa Martiánez/)).toBeTruthy();
+    expect(screen.queryByText(/Playa Jardín/)).toBeNull();
 
     await rerender(
       <MuniDetail {...props({ isYearMode: true, selYear: 2025 })} />,
     );
-    expect(await screen.findByText('Playa Jardín')).toBeTruthy();
-    expect(screen.queryByText('Playa Martiánez')).toBeNull();
+    expect(await screen.findByText(/Playa Jardín/)).toBeTruthy();
+    expect(screen.queryByText(/Playa Martiánez/)).toBeNull();
     expect(screen.getByText(/· 2025 · más reciente primero/)).toBeTruthy();
   });
 
@@ -129,7 +132,7 @@ describe('<MuniDetail />', () => {
       />,
     );
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(await screen.findByText('Playa de Benijo')).toBeTruthy();
+    expect(await screen.findByText(/Playa de Benijo/)).toBeTruthy();
     expect(screen.getByText('Cierre según prensa')).toBeTruthy();
   });
 

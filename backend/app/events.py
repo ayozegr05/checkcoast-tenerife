@@ -680,6 +680,10 @@ class Episode:
     # Titulares de prensa del tramo — `named_zones` detecta qué zona
     # de un complejo nombró la prensa en el episodio
     titles: frozenset = frozenset()
+    # Ítems de prensa del episodio (ORM NewsItem) — la línea
+    # temporal municipal los emite como evidencia desplegable
+    # ("según prensa"), igual que la fila de Episodios de la ficha
+    press_items: list = field(default_factory=list)
     # PMs de las zonas que la prensa nombró en el episodio (complejo
     # multipunto): vacío si el episodio fue genérico — la fila dice
     # la playa a secas solo si el suceso fue de toda la playa
@@ -814,6 +818,13 @@ def merged_episode(g: list[Episode]) -> Episode:
         )[0],
         last_leg_start=last_leg_start,
         zone_beach_ids=zone_beach_ids,
+        # Evidencia del episodio fusionado: unión de la prensa de los
+        # tramos, deduplicada por id (ventanas solapadas recogen el
+        # mismo titular dos veces) y ordenada por fecha
+        press_items=sorted(
+            {n.id: n for e in g for n in e.press_items}.values(),
+            key=lambda n: n.published_at or datetime.min,
+        ),
     )
 
 

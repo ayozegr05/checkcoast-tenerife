@@ -82,6 +82,13 @@ const CAUSE_ART_BY_LABEL: Record<string, number> = {
   Obras: ROCKFALL_ART,
 };
 
+// Arte de UNA etiqueta de causa normalizada — la línea temporal
+// municipal solo conoce la causa agregada del episodio, no las de
+// cada titular: un solo badge
+export function causeLabelArt(label: string | null | undefined): number {
+  return CAUSE_ART_BY_LABEL[label ?? ''] ?? CONTAM_ART;
+}
+
 // Badges de una fila de cierre del historial: uno por causa
 // distinta del episodio (Valleseco: hidrocarburos + algas), en
 // contaminación si ninguna categoriza

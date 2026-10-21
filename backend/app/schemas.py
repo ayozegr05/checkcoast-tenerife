@@ -96,6 +96,10 @@ class MunicipalityIncidentOut(BaseModel):
     # dentro → la UI muestra "estuvo cerrada" desde aquí, no desde
     # el opened_at administrativo de Náyade)
     last_leg_start: date | None = None
+    # Evidencia de prensa del episodio, desplegable en la línea
+    # temporal municipal — solo /incidents la emite (/episodes va
+    # sin ella para no inflar el payload insular)
+    press_items: list[NewsItemOut] = []
     # PMs de las zonas que la prensa nombró en el episodio (complejo
     # multipunto): la UI los muestra "Playa Jardín · Punta Brava";
     # vacío si el episodio fue genérico — la playa se nombra a secas
