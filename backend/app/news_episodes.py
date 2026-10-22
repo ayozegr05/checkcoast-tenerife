@@ -394,12 +394,24 @@ def press_episode_summary(
         elif ep_start is None:
             ep_start = d
         prev_d = d
-    episode_items = [
+    ep_items_full = [
         r
         for r in ep_pool
         if r.published_at
         and ep_start is not None
         and r.published_at >= ep_start
+    ]
+    # Los desplegables enseñan los hitos del episodio (cierre/
+    # reapertura/aviso/contaminación): una pieza "other" es contexto
+    # de la ola pero no narra el suceso ("Salud Pública estudia un
+    # cierre prolongado" — Jardín oct-2026: el banner decía 15
+    # titulares y la fila del episodio 14 hitos). Salvo que el
+    # dominante sea "other": ahí la pieza de contexto ES el episodio
+    # y quitarla vaciaría la lista
+    episode_items = [
+        r
+        for r in ep_items_full
+        if dominant == "other" or r.event_type != "other"
     ]
     # closed_since: el propio texto puede afirmar un inicio real muy
     # anterior a la cobertura (Benijo: "cerrada desde julio de 2024"
@@ -436,7 +448,7 @@ def press_episode_summary(
                 )
     return PressSummary(
         dominant=dominant,
-        cause=_news_cause(episode_items or rows),
+        cause=_news_cause(ep_items_full or rows),
         since=since,
         closed_since=closed_since,
         episode_items=episode_items,
