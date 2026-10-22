@@ -89,7 +89,9 @@ def test_sea_state_items_filtered_with_contamination_guard():
     assert is_sea_state_cause("temporal de mar") is True
     assert is_sea_state_cause("rescate en el mar") is True
     # la guarda de contaminación salva el ítem
-    assert is_sea_state_cause("vertido causado por el temporal de mar") is False
+    assert (
+        is_sea_state_cause("vertido causado por el temporal de mar") is False
+    )
     assert is_sea_state_cause("marejada que removió un vertido") is False
     assert is_sea_state_cause("contaminación por E. coli") is False
     assert is_sea_state_cause(None) is False

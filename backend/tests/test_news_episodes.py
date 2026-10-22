@@ -23,9 +23,7 @@ def news(
     hour: int = 0,
 ):
     return SimpleNamespace(
-        published_at=datetime(
-            day.year, day.month, day.day, hour, tzinfo=UTC
-        ),
+        published_at=datetime(day.year, day.month, day.day, hour, tzinfo=UTC),
         event_type=event_type,
         source=source,
         closed_since=closed_since,
@@ -152,9 +150,7 @@ def test_retro_closure_between_reopenings_stays_in_episode():
     # dejaba since=25-sep y solo 6 titulares; el episodio completo
     # arranca el 23 y el banner enseña cierre + reapertura
     rows = [
-        news(
-            date(2026, 9, 23), "closure", "a", closed_since="2026-09-23"
-        ),
+        news(date(2026, 9, 23), "closure", "a", closed_since="2026-09-23"),
         news(date(2026, 9, 23), "closure", "b"),
         news(date(2026, 9, 24), "closure", "a"),
         news(date(2026, 9, 25), "reopening", "x", hour=7),

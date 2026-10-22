@@ -149,6 +149,7 @@ def is_sea_state_cause(text: str | None) -> bool:
     t = _norm_text(text)
     return bool(_SEA_STATE_RE.search(t)) and not _CONTAM_GUARD_RE.search(t)
 
+
 # Jerarquía entre categorías cuando un episodio tiene varias: gana la
 # más específica; la mayoría solo desempata dentro del mismo nivel y
 # el genérico ("Contaminación" por mala calidad del agua) va el último

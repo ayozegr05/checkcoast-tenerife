@@ -1182,11 +1182,7 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
             # no de toda la historia de la playa — "N medios" debe
             # cuadrar con los titulares que el desplegable enseña
             outlets_count=len(
-                {
-                    r.source
-                    for r in (summary.episode_items or rows)
-                    if r.source
-                }
+                {r.source for r in (summary.episode_items or rows) if r.source}
             ),
             since=summary.since,
             closed_since=summary.closed_since,

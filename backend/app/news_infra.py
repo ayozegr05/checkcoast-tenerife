@@ -217,6 +217,7 @@ def _zone_title_ok(n: NewsItem) -> bool:
         return _FACILITY_TITLE_RE.search(n.title or "") is not None
     return True
 
+
 # Topónimos demasiado genéricos para atribuir un punto concreto
 _GENERIC_TOPONYMS = {
     "puerto",

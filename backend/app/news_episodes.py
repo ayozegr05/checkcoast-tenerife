@@ -9,6 +9,7 @@ sale de Náyade.
 
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
+from typing import cast
 
 from app.events import (
     PRESS_CLUSTER_GAP,
@@ -173,9 +174,10 @@ def press_episode_summary(
             # decide la corroboración de medios como si no hubiera cs
             if cs > reopen.date():
                 return True
-            if cs == reopen.date() and len(
-                outlets_by_day.get(pub.date(), set())
-            ) >= 2:
+            if (
+                cs == reopen.date()
+                and len(outlets_by_day.get(pub.date(), set())) >= 2
+            ):
                 return True
             return False
         # Pasada la ventana retrospectiva, un cierre de 1 solo medio
@@ -191,12 +193,16 @@ def press_episode_summary(
     dominant_rows = [
         r for r in rows if r.event_type == dominant and r.published_at
     ]
-    dominant_items = sorted(dominant_rows, key=lambda r: r.published_at)
+    dominant_items = sorted(
+        dominant_rows, key=lambda r: cast(datetime, r.published_at)
+    )
     if dominant == "closure" and last_reopen is not None:
         post_reopen = [
             r
             for r in dominant_items
-            if r.published_at > last_reopen and _is_new_episode_closure(r)
+            if r.published_at
+            and r.published_at > last_reopen
+            and _is_new_episode_closure(r)
         ]
         if post_reopen:
             dominant_items = post_reopen
@@ -238,22 +244,25 @@ def press_episode_summary(
     since = None
     prev = None
     for item in dominant_items:
-        d = item.published_at
-        inside_open_struct = prev is not None and any(
-            lo <= prev.date() <= hi and lo <= d.date() <= hi
-            for lo, hi in open_struct_spans
-        )
-        boundary = prev is not None and (
-            (d - prev > PRESS_CLUSTER_GAP and not inside_open_struct)
-            or any(
-                prev < rd < d
+        d = cast(datetime, item.published_at)
+        inside_open_struct = False
+        boundary = False
+        if prev is not None:
+            p = prev
+            inside_open_struct = any(
+                lo <= p.date() <= hi and lo <= d.date() <= hi
+                for lo, hi in open_struct_spans
+            )
+            boundary = (
+                d - p > PRESS_CLUSTER_GAP and not inside_open_struct
+            ) or any(
+                p < rd < d
                 and (
                     item.event_type != "closure"
                     or _is_new_episode_closure(item, rd)
                 )
                 for rd in reopen_dates
             )
-        )
         if since is None or boundary:
             since = d
         prev = d
@@ -305,17 +314,17 @@ def press_episode_summary(
     prev_adv = None
     for r in sorted(
         (it for it in rows if it.published_at),
-        key=lambda it: it.published_at,
+        key=lambda it: cast(datetime, it.published_at),
     ):
         if r.event_type not in ("closure", "warning", "pollution"):
             continue
-        d = r.published_at
+        d = cast(datetime, r.published_at)
         if prev_adv is not None:
-            cut = d - prev_adv > PRESS_CLUSTER_GAP or any(
-                prev_adv < rd < d
+            pa = prev_adv
+            cut = d - pa > PRESS_CLUSTER_GAP or any(
+                pa < rd < d
                 and (
-                    r.event_type != "closure"
-                    or _is_new_episode_closure(r, rd)
+                    r.event_type != "closure" or _is_new_episode_closure(r, rd)
                 )
                 for rd in reopen_dates
             )

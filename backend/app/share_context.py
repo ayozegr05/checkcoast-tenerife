@@ -28,10 +28,12 @@ from app.models import (
     NewsItem,
     Outfall,
 )
-from app.names import ARENAL_BASES, PM_SUFFIX
-from app.names import arenal_base
-from app.names import normalize_beach_name
-from app.names import normalize_beach_name as _normalize
+from app.names import (
+    ARENAL_BASES,
+    PM_SUFFIX,
+    arenal_base,
+    normalize_beach_name,
+)
 from app.news_episodes import _news_cause, press_episode_summary
 from app.news_infra import (
     gather_infra_news,
@@ -812,10 +814,7 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             # Familia bacteriana: la cadena causal se cuenta emisario
             # (fuente: hubo vertido) → bacteria (evidencia: el lab la
             # midió) — doble badge como en la app
-            if (
-                set(causes) & _BACTERIAL_CAUSES
-                and "contam-art" not in badges
-            ):
+            if set(causes) & _BACTERIAL_CAUSES and "contam-art" not in badges:
                 badges.insert(0, "contam-art")
             if not badges:
                 badges = ["contam-art"]

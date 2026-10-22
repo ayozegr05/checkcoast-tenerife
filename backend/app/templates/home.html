@@ -86,6 +86,7 @@
           border-radius:50%; border:2px solid #fff;
           transform:translate(-50%,-50%); display:block;
           box-shadow:0 1px 3px rgba(0,0,0,.35); }
+  .zpop { min-width:170px; }
   .zpop b { display:block; font-size:13px; color:#0d3a52;
           margin-bottom:4px; }
   .zrow { display:flex; justify-content:space-between; gap:14px;
@@ -405,8 +406,9 @@
         style="left:clamp(16px,{{ d.x }}%,calc(100% - 16px));
         top:max({{ d.y }}%,50px);
         animation-delay:{{ [loop.index * 7, 850] | min }}ms" alt=""></a>
-      {%- else %}
-      <a class="k-{{ d.k }}" href="/b/{{ d.bid }}"
+      {%- elif not d.cxmember %}
+      <a class="k-{{ d.k }}" href="/b/{{ d.complex[0].bid if
+        d.complex else d.bid }}"
         title="{{ d.name }}"><img
         class="mpin{% if d.alert %} big{% endif %}"
         src="/icons/{{ d.pin }}.png"
@@ -791,6 +793,29 @@ if (window.maplibregl && lmapEl && imap) {
           a.addEventListener('click', function () {
             lmap.flyTo({ center: [dd.lon, dd.lat], zoom: 14.5,
               duration: 800 });
+            // ZonePicker web: el pin padre no navega — muestra la
+            // lista de zonas del arenal, cada una con su estado y
+            // enlace directo a su ficha (como el sheet de la app)
+            var pop = document.createElement('div');
+            pop.className = 'zpop';
+            var bt = document.createElement('b');
+            bt.textContent = dd.name;
+            pop.appendChild(bt);
+            dd.complex.forEach(function (z) {
+              var r = document.createElement('a');
+              r.className = 'zrow';
+              r.href = '/b/' + z.bid;
+              var zn = document.createElement('span');
+              zn.textContent = z.zone;
+              var zs = document.createElement('em');
+              zs.textContent = z.label;
+              zs.style.color = z.color;
+              r.appendChild(zn); r.appendChild(zs);
+              pop.appendChild(r);
+            });
+            new maplibregl.Popup({ closeButton: true, offset: 16 })
+              .setLngLat([dd.lon, dd.lat]).setDOMContent(pop)
+              .addTo(lmap);
           });
         })(d);
         parentEls.push.apply(parentEls, els);
@@ -836,8 +861,9 @@ if (window.maplibregl && lmapEl && imap) {
     lmap.on('zoom', applySplit);
     applySplit();
 
-    // Buscador: filtra MAP_DOTS (padres de complejo y playas
-    // sueltas; los miembros ya salen al hacer flyTo al padre) —
+    // Buscador: filtra MAP_DOTS — padres de complejo, playas sueltas
+    // y también los miembros de zona (su nombre lleva el sufijo
+    // «· Punta Brava», así «brava» resuelve al punto concreto) —
     // la fila muestra el estado con su color y el click vuela
     // al pin; la ficha queda a un clic sobre el pin
     var KL = { closed: 'Cerrada', structural: 'Cierre estructural',
@@ -847,9 +873,7 @@ if (window.maplibregl && lmapEl && imap) {
     var KC = { closed: '#c62828', structural: '#8c322a',
       warning: '#e65100', open: '#0d9488', unmon: '#8fa3ad',
       oillegal: '#c62828', olegal: '#2e9e6b', oproc: '#f9a825' };
-    var bidx = (window.MAP_DOTS || []).filter(function (d) {
-      return !d.cxmember;
-    });
+    var bidx = window.MAP_DOTS || [];
     var norm = function (s) {
       return (s || '').toLowerCase()
         .normalize('NFD').replace(/[̀-ͯ]/g, '');

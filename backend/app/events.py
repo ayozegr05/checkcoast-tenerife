@@ -254,7 +254,9 @@ def synthesize_events(
         (
             n
             for n in beach.news_items
-            if n.relevant and n.published_at and n.event_type
+            if n.relevant
+            and n.published_at
+            and n.event_type
             # Cierres preventivos por estado del mar (oleaje,
             # temporal) no generan episodios — no son problema de
             # agua/gestión, solo meteo

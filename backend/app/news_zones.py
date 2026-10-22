@@ -101,6 +101,7 @@ _ZONE_COMPLEXES: dict[str, list[frozenset[str]]] = {
     ],
 }
 
+
 def _zone_entry(beach: Beach) -> dict | None:
     """Entrada de zona del punto en su complejo; None si la playa no
     está en un complejo mapeado. La sub-clave es el token distintivo

@@ -292,20 +292,29 @@
   .ptitle { display:block; margin-top:6px; font-size:12px;
           font-weight:500; color:#0d3a52; text-decoration:none; }
   .pmeta { font-size:11px; color:#7a919c; margin-top:3px; }
+  .ptit { margin-top:6px; }
+  .ptit summary { font-size:12px; font-weight:600; color:#8a5a00;
+          cursor:pointer; list-style:none; }
+  .ptit summary::-webkit-details-marker { display:none; }
+  .ptit[open] summary { margin-bottom:2px; }
   .actrow { display:flex; align-items:center; gap:8px;
           margin-top:16px; }
   .open { flex:1; display:block; text-align:center;
           background:linear-gradient(90deg,#075276,#17b8ce); color:#fff;
           text-decoration:none; font-weight:700; border-radius:12px;
-          padding:12px 10px; font-size:13px; letter-spacing:.15px;
+          padding:12px 10px; font-size:14px; letter-spacing:.15px;
           box-shadow:0 3px 10px rgba(7,82,118,.28);
           transition:filter .15s, transform .05s; }
   .open:hover { filter:brightness(1.08); }
   .open:active { transform:translateY(1px); }
-  .open.alt { background:#fff; color:#075276;
-          border:1.5px solid rgba(7,82,118,.55); font-weight:600;
+  .open.alt { background:#e8f3f8; color:#075276;
+          border:1.5px solid rgba(7,82,118,.45);
           box-shadow:0 1px 4px rgba(7,82,118,.12); }
-  .open.alt:hover { background:#eef6fa; filter:none; }
+  .open.alt:hover { background:#dcedf4; filter:none; }
+  .open svg { width:15px; height:15px; vertical-align:-2px;
+          margin-right:6px; }
+  .open img.opin { width:17px; height:17px; vertical-align:-3px;
+          margin-right:5px; }
   .qrtag { display:none; width:54px; height:54px; flex:none;
           border-radius:8px; border:1px solid #dfe9ee; }
   .src { margin-top:14px; font-size:11px; color:#7a919c; }
@@ -329,10 +338,15 @@
 {% macro banner(b) %}
 <div class="{{ b.cls }}"><div class="psum">{{ b.line }}</div>
   <div class="ptag">{{ b.tag }}</div>
-  {%- for t in b.titles %}
-  <a class="ptitle" href="{{ t.url }}">{{ t.title }}</a>
-  <div class="pmeta">{{ t.meta }}</div>
-  {%- endfor %}
+  {%- if b.titles %}
+  <details class="ptit"><summary>Ver titulares
+    ({{ b.titles|length }}) ▾</summary>
+    {%- for t in b.titles %}
+    <a class="ptitle" href="{{ t.url }}">{{ t.title }}</a>
+    <div class="pmeta">{{ t.meta }}</div>
+    {%- endfor %}
+  </details>
+  {%- endif %}
 </div>
 {% endmacro %}
 {% macro incrow(i) %}
@@ -511,8 +525,8 @@
           <b style="color:#c62828">■</b> no apta ·
           <b style="color:#0b6e99">┄</b> límite normativo
           ({{ p.good }} UFC/100 mL) ·
-          <b style="color:rgba(198,40,40,.35)">■</b> franja = cierre ·
-          <b style="color:rgba(249,168,37,.45)">■</b> franja = aviso</span>
+          <b style="color:rgba(198,40,40,.18)">■</b> franja = cierre ·
+          <b style="color:rgba(249,168,37,.18)">■</b> franja = aviso</span>
         {%- endfor %}
       </div>
       {%- if quality and quality.note %}
@@ -522,8 +536,17 @@
       {%- endif %}
       <div class="actrow">
         <a class="open" href="{{ deep }}" onclick="openApp(); return false;">
-          Descargar la app gratis</a>
-        <a class="open alt" href="/">Ver todas las playas →</a>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.8" stroke-linecap="round"
+            stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5"/>
+            <path d="M4 20h16"/></svg>Descargar la app gratis</a>
+        <a class="open alt" href="/"><svg viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.1"
+            stroke-linecap="round" stroke-linejoin="round"><path
+            d="M9 19.5 3.5 17.3V3.8L9 6l6-2.2 5.5 2.2v13.5L15 17.3 9 19.5z"/><path
+            d="M9 6v13.5"/><path d="M15 3.8v13.5"/><path
+            d="M12 13.6c1.4 0 2.6-1.1 2.6-2.5 0-2-2.6-4.1-2.6-4.1s-2.6 2.1-2.6 4.1c0 1.4 1.2 2.5 2.6 2.5z"
+            fill="currentColor"/></svg>Ver todas las playas</a>
         <img class="qrtag" src="/img/qr-github.png"
           alt="QR para descargar la app"
           title="Escanea para descargar la app">
