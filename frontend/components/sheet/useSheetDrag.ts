@@ -228,6 +228,10 @@ export function useSheetDrag({
     },
     showMore,
     onMore,
+    // Offset actual del cuerpo — el deep-link de episodios lo suma
+    // a la posición medida de la fila (y relativa al frame = contentY
+    // - scrollY) para aterrizar aunque el usuario haya scrolleado
+    getScrollY: () => scrollMetrics.current.y,
     requestClose,
     // "Ver en el mapa" y similares: cerrar con la misma animación y
     // ejecutar el callback al terminar

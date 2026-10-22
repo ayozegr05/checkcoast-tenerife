@@ -20,10 +20,10 @@ Los alias van normalizados igual que `_normalize` (mayúsculas, sin
 acentos) y se buscan con límites de palabra.
 """
 
-import re
-
 from app.models import Beach
+from app.names import arenal_base
 from app.names import normalize_beach_name as _normalize
+from app.names import zone_tag as _tag_of
 from app.news_matching import _MIN_NAME_LEN, _name_in_title, _norm_muni
 
 # aliases: inequívocos, valen en titular/extracted Y en cuerpo.
@@ -66,6 +66,31 @@ _ZONE_GROUPS: dict[tuple[str, str], dict[str, dict]] = {
             "weak_aliases": (),
         },
     },
+    # El Médano (Granadilla): tres puntos del mismo arenal con nombre
+    # propio en el censo — se indexan por sufijo porque Chica y
+    # Leocadio Machado comparten la etiqueta PM1
+    ("PLAYA MEDANO (EL)", "GRANADILLA DE ABONA"): {
+        "PM3": {
+            "name": "playa central",
+            "ref": "playa central",
+            "aliases": ("PLAYA CENTRAL",),
+            "weak_aliases": (),
+        },
+        "CHICA": {
+            "name": "Playa Chica",
+            "ref": "playa Chica",
+            # "playa chica" a secas es adjetivo en cuerpo ("una playa
+            # chica de la zona") — solo inequívoca en titular
+            "aliases": ("PLAYA CHICA DE EL MEDANO", "MEDANO CHICA"),
+            "weak_aliases": ("PLAYA CHICA",),
+        },
+        "LEOCADIO MACHADO": {
+            "name": "Leocadio Machado",
+            "ref": "playa de Leocadio Machado",
+            "aliases": ("LEOCADIO MACHADO",),
+            "weak_aliases": (),
+        },
+    },
 }
 
 # Playas hermanas del mismo litoral con nombre base distinto: forman
@@ -76,34 +101,25 @@ _ZONE_COMPLEXES: dict[str, list[frozenset[str]]] = {
     ],
 }
 
-_PM_SUFFIX = re.compile(r"\s+PM(\d+)\s*$")
-
-
-def _pm_label(beach: Beach) -> str | None:
-    m = _PM_SUFFIX.search(beach.name)
-    return f"PM{m.group(1)}" if m else None
-
-
 def _zone_entry(beach: Beach) -> dict | None:
-    """Entrada de zona del PM en su complejo; None si la playa no
-    está en un complejo mapeado."""
-    label = _pm_label(beach)
-    if label is None:
+    """Entrada de zona del punto en su complejo; None si la playa no
+    está en un complejo mapeado. La sub-clave es el token distintivo
+    (`zone_tag`): sufijo de nombre propio o etiqueta PM."""
+    tag = _tag_of(beach.name)
+    if tag is None:
         return None
     zones = _ZONE_GROUPS.get(
-        (
-            _normalize(_PM_SUFFIX.sub("", beach.name)),
-            _norm_muni(beach.municipality) or "",
-        )
+        (arenal_base(beach.name), _norm_muni(beach.municipality) or "")
     )
-    return zones.get(label) if zones else None
+    return zones.get(tag) if zones else None
 
 
 def _complex_key(beach: Beach) -> tuple[str, frozenset[str]]:
-    """(municipio, {bases hermanas}) del complejo del PM. Las calas
+    """(municipio, {bases hermanas}) del complejo del punto. Las calas
     hermanas con nombre base distinto se agrupan vía _ZONE_COMPLEXES
-    (Valleseco ↔ Valleseco-El Bloque)."""
-    base = _normalize(_PM_SUFFIX.sub("", beach.name))
+    (Valleseco ↔ Valleseco-El Bloque); las del mismo arenal ya
+    comparten raíz por `arenal_base` (las tres del Médano)."""
+    base = arenal_base(beach.name)
     muni = _norm_muni(beach.municipality) or ""
     for group in _ZONE_COMPLEXES.get(muni, ()):
         if base in group:
@@ -148,7 +164,7 @@ def narrow_hits_by_zone(
                 if (
                     b.id not in seen
                     and _norm_muni(b.municipality) == muni
-                    and _normalize(_PM_SUFFIX.sub("", b.name)) in bases
+                    and arenal_base(b.name) in bases
                     and _zone_entry(b)
                 ):
                     members.append(b)
@@ -223,13 +239,10 @@ def named_zones(titles: list, base: str, municipality: str | None) -> set[str]:
 
 def zone_display_name(beach: Beach) -> str | None:
     """Nombre común de la cala para la UI ("Punta Brava" en vez de
-    "zona 4"); None si el PM no pertenece a un complejo mapeado."""
-    label = _pm_label(beach)
-    if label is None:
+    "zona 4"); None si el punto no pertenece a un complejo mapeado."""
+    tag = _tag_of(beach.name)
+    if tag is None:
         return None
-    key = (
-        _normalize(_PM_SUFFIX.sub("", beach.name)),
-        _norm_muni(beach.municipality) or "",
-    )
-    zone = _ZONE_GROUPS.get(key, {}).get(label)
+    key = (arenal_base(beach.name), _norm_muni(beach.municipality) or "")
+    zone = _ZONE_GROUPS.get(key, {}).get(tag)
     return zone["name"] if zone else None

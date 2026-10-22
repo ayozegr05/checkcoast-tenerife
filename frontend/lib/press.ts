@@ -63,15 +63,25 @@ export const pressSummary = (
   if (isClosure && reopenedDays !== null && reopenedDays <= 7) {
     // "estuvo cerrada desde el 23/09/2026" — con closed_since
     // parcial es "desde jul-2024" / "desde 2024" (sin "el")
+    // Inicio narrado: el MÁS TEMPRANO documentado — `closed_since`
+    // es lo que la prensa afirmó ("cerrada desde el 23") y cuando
+    // el incidente oficial casado dice un opened_at anterior, ese
+    // registro documentado es más real que la cobertura (Médano:
+    // oficial 21/09, prensa afirmó 23/09). Fechas ISO comparan
+    // léxico con precisión parcial ("2024-07" < "2024-07-02")
+    const startCands = [s.closed_since, opts.episodeStart, s.since]
+      .filter(Boolean)
+      .sort();
+    const startEarliest = startCands[0];
     const closedFor =
-      s.closed_since && s.closed_since.length < 10
-        ? `desde ${fmtPartialDate(s.closed_since)}`
-        : s.closed_since || opts.episodeStart || s.since
-          ? `desde el ${fmtDate((s.closed_since || opts.episodeStart || s.since!).slice(0, 10))}`
+      startEarliest && startEarliest.length < 10
+        ? `desde ${fmtPartialDate(startEarliest)}`
+        : startEarliest
+          ? `desde el ${fmtDate(startEarliest.slice(0, 10))}`
           : null;
     // Cuánto estuvo cerrada: con inicio parcial es aproximado ("~").
     // +1 = conteo inclusivo (convención de episodios/temporada)
-    const startRaw = s.closed_since || opts.episodeStart || s.since;
+    const startRaw = startEarliest;
     const startIso = startRaw
       ? startRaw.length === 4
         ? `${startRaw}-01-01`
@@ -104,9 +114,14 @@ export const pressSummary = (
   const sinceIsPartial = !!s.closed_since && s.closed_since.length < 10;
   // Inicio del episodio como día ISO: con precisión parcial se asume
   // el día 1 y el conteo se marca con "~" (no inventamos día exacto).
-  // El opened_at oficial gana a la primera cobertura de prensa —
-  // Sanidad actúa antes de que salgan los titulares
-  const startRaw = s.closed_since || opts.episodeStart || s.since;
+  // Gana el inicio MÁS TEMPRANO documentado (oficial o afirmado por
+  // la prensa): el opened_at oficial suele preceder a la primera
+  // cobertura, y `closed_since` documenta cierres crónicos que el
+  // registro oficial puede iniciar tarde — el más antiguo es la
+  // afirmación conservadora
+  const startRaw = [s.closed_since, opts.episodeStart, s.since]
+    .filter((v): v is string => !!v)
+    .sort()[0];
   const startIso = startRaw
     ? startRaw.length === 4
       ? `${startRaw}-01-01`

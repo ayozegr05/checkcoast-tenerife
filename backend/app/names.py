@@ -30,3 +30,32 @@ def normalize_beach_name(name: str) -> str:
     """`normalize_text` + sin sufijo PM — las oficiales acaban en
     PM1, PM4... Agrupa los PMs de una misma playa física."""
     return PM_SUFFIX.sub("", normalize_text(name))
+
+
+# Calas del mismo arenal con nombre propio en el censo: MITECO
+# bautizó cada punto ("MEDANO-CHICA", "MEDANO-LEOCADIO MACHADO")
+# aunque comparten el mismo arenal — agrupan como zonas de la raíz.
+# Curado, NO una regla por guion: "VALLESECO- EL BLOQUE" es playa
+# aparte aunque comparta raíz con Valleseco
+ARENAL_BASES: dict[str, str] = {
+    "PLAYA MEDANO (EL)-CHICA": "PLAYA MEDANO (EL)",
+    "PLAYA MEDANO (EL)-LEOCADIO MACHADO": "PLAYA MEDANO (EL)",
+}
+
+
+def arenal_base(name: str) -> str:
+    """Base del complejo multi-punto: sin sufijo PM y con las calas
+    del mismo arenal fusionadas a su raíz (`ARENAL_BASES`)."""
+    core = normalize_beach_name(name)
+    return ARENAL_BASES.get(core, core)
+
+
+def zone_tag(name: str) -> str | None:
+    """Token que distingue al punto dentro de su complejo: el sufijo
+    de nombre propio si lo tiene ("CHICA"), si no la etiqueta PM
+    ("PM4"). Dos calas pueden compartir número de PM — Chica y
+    Leocadio Machado son ambas PM1 — el número solo no basta."""
+    core = normalize_beach_name(name)
+    base = ARENAL_BASES.get(core, core)
+    suffix = core[len(base) :].lstrip(" -") if core.startswith(base) else ""
+    return suffix or pm_label(name)

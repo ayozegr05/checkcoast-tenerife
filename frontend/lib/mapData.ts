@@ -23,6 +23,13 @@ import { colors } from './theme';
 export const STRUCTURAL_SECTION = 'Cierre estructural';
 export const FAUNA_SECTION = 'Fauna marina';
 
+// Zoom a partir del cual un pin multipunto NOMBRADO se expande en
+// sus dots de cala (Jardín → El Castillo/El Charcón/Punta Brava).
+// Solo grupos donde TODOS los miembros tienen nombre propio: los
+// complejos con puntos anónimos ("zona 2") no se expanden — un tap
+// sigue abriendo el selector (Teresitas, Valleseco parcial)
+export const ZONE_SPLIT_ZOOM = 14.5;
+
 // Re-exportados desde lib/structural (módulo hoja compartido con
 // beachGroups — evita el ciclo mapData↔beachGroups)
 export { isStructuralClosure, isFaunaClosure, STRUCTURAL_CAUSES, FAUNA_CAUSES };

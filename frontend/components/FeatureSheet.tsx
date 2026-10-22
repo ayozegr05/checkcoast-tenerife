@@ -15,11 +15,11 @@ import OutfallSheet from './sheet/OutfallSheet';
 import ZonePicker from './sheet/ZonePicker';
 import { useSheetDrag } from './sheet/useSheetDrag';
 import type { Selection } from './CoastMap';
-import type { GeoFeature } from '../lib/api';
+import type { EpisodeFocus, GeoFeature } from '../lib/api';
 import { beachBaseName, displayBeachName } from '../lib/format';
 import { beachStatusKey } from '../lib/beachStatus';
 import { PM_SUFFIX, pmTagOf } from '../lib/pm';
-import { zoneName } from '../lib/zones';
+import { arenalBase, zoneName } from '../lib/zones';
 import { colors, fonts } from '../lib/theme';
 
 // Ficha flotante sobre el mapa: el shell (asa arrastrable, cabecera,
@@ -35,6 +35,8 @@ export default function FeatureSheet({
   onViewOnMap,
   onSelectOutfall,
   onSelectBeach,
+  focusIncident,
+  onFocusConsumed,
   onZoneShown,
   onCoverageChange,
 }: {
@@ -52,6 +54,11 @@ export default function FeatureSheet({
   onSelectOutfall?: (feature: GeoFeature, origin: GeoFeature) => void;
   // Tap en "Playa más cercana" de la ficha de emisario → verla en el mapa
   onSelectBeach?: (feature: GeoFeature) => void;
+  // Episodio tocado desde Municipios/temporada: la ficha baja a
+  // Episodios con su año desplegado y la fila marcada
+  focusIncident?: EpisodeFocus | null;
+  // El foco se consume al aterrizar en la fila
+  onFocusConsumed?: () => void;
   // Zona concreta abierta en una playa multipunto (null = picker):
   // el mapa la usa para subir un poco el encuadre y que los dots
   // respiren por encima de la ficha
@@ -74,6 +81,11 @@ export default function FeatureSheet({
   // ficha de esa zona directamente, no el selector del complejo
   const initialPm = isBeach ? (selection.pm ?? null) : null;
   const [chosenPm, setChosenPm] = useState<GeoFeature | null>(initialPm);
+  // Atrás solo se consume para volver al selector si la zona se eligió
+  // DESDE él — si la ficha abrió la zona directa (deep-link desde
+  // Municipios/episodio) el atrás debe seguir al origen, no pasar por
+  // un selector que el usuario nunca vio
+  const pickedViaSelector = useRef(false);
   // Ref espejo: el PanResponder se crea una sola vez y capturaría el
   // chosenPm inicial
   const chosenPmRef = useRef<GeoFeature | null>(null);
@@ -88,13 +100,14 @@ export default function FeatureSheet({
   useEffect(() => onZoneShown?.(chosenPm), [chosenPm, onZoneShown]);
   const showPmPicker = isBeach && members.length > 1 && !chosenPm;
 
-  // Atrás hardware: con un PM elegido vuelve primero al selector de
-  // puntos de muestreo (este handler corre antes que el de App, que
-  // cerraría la ficha entera). Devolviendo false el gesto sigue su
-  // cadena normal: picker → cerrar ficha
+  // Atrás hardware: solo se consume cuando la zona se eligió desde
+  // el selector (cadena picker→zona→picker). Si la ficha abrió la
+  // zona directa (deep-link desde Municipios), atrás sigue la cadena
+  // de App — vuelve al origen, no a un selector que nunca se vio
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (chosenPm) {
+      if (chosenPm && pickedViaSelector.current) {
+        pickedViaSelector.current = false;
         setChosenPm(null);
         return true;
       }
@@ -123,6 +136,7 @@ export default function FeatureSheet({
     bodyProps,
     showMore,
     onMore,
+    getScrollY,
     requestClose,
     dismiss,
   } = useSheetDrag({
@@ -131,7 +145,8 @@ export default function FeatureSheet({
     // zonas (mismo comportamiento que el atrás hardware); desde el
     // selector sí se cierra la card
     interceptClose: () => {
-      if (chosenPmRef.current) {
+      if (chosenPmRef.current && pickedViaSelector.current) {
+        pickedViaSelector.current = false;
         setChosenPm(null);
         return true;
       }
@@ -148,11 +163,15 @@ export default function FeatureSheet({
 
   // Título: el picker muestra el nombre de la playa; el detalle el
   // del punto elegido (Teresitas -> "… · Punto 2" porque sus PMs se
-  // llaman igual; Troya ya se distingue por el romano)
+  // llaman igual; Troya ya se distingue por el romano). Los miembros
+  // son "misma zona" cuando comparten el arenal (arenalBase fusiona
+  // las calas con nombre propio del Médano; los romanos de Troya
+  // siguen siendo bases distintas)
   const stripPm = (n: string) => n.replace(PM_SUFFIX, '');
   const sameBase =
     members.length > 1 &&
-    new Set(members.map((m) => stripPm(m.properties.name))).size === 1;
+    new Set(members.map((m) => arenalBase(stripPm(m.properties.name)))).size ===
+      1;
   const pmSuffix =
     chosenPm && sameBase
       ? ` · ${
@@ -165,7 +184,9 @@ export default function FeatureSheet({
   // no identidad ("Playa Jardín · Punta Brava" ya dice qué playa es)
   const title = showPmPicker
     ? displayBeachName(beachBaseName(p.name))
-    : displayBeachName(stripPm(beachFeature.properties.name)) + pmSuffix;
+    : sameBase
+      ? displayBeachName(arenalBase(beachFeature.properties.name)) + pmSuffix
+      : displayBeachName(stripPm(beachFeature.properties.name));
 
   // Acento de la cabecera según estado (playa o vertido): tinta sutil
   // + línea superior del color de estado
@@ -219,7 +240,13 @@ export default function FeatureSheet({
       >
         {isBeach ? (
           showPmPicker ? (
-            <ZonePicker members={members} onPick={setChosenPm} />
+            <ZonePicker
+              members={members}
+              onPick={(pm) => {
+                pickedViaSelector.current = true;
+                setChosenPm(pm);
+              }}
+            />
           ) : (
             <View>
               <BeachDetail
@@ -231,6 +258,10 @@ export default function FeatureSheet({
                 }
                 outfalls={outfalls}
                 members={members}
+                focusIncident={focusIncident}
+                scrollRef={bodyRef}
+                getScrollY={getScrollY}
+                onFocusConsumed={onFocusConsumed}
                 onViewOnMap={handleViewOnMap}
                 onSelectOutfall={
                   onSelectOutfall

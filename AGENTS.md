@@ -222,6 +222,13 @@ maestro test e2e/flows/smoke-search.yaml                # smoke: buscar → fich
   `checkcoast-api` corre `alembic upgrade head` al arrancar y usa
   `DATABASE_URL` interno `db:5432`. `GEMINI_API_KEY` se pasa al compose
   vía `.env` en la raíz del repo (gitignored)
+- **El frontend en desarrollo consume SIEMPRE la API dockerizada del
+  8001** (`frontend/.env`: `EXPO_PUBLIC_API_URL=http://192.168.1.71:8001`).
+  No levantar uvicorn suelto en otros puertos para el móvil: un proceso
+  viejo quedó escuchando el 8004 con código antiguo y la app sirvió
+  datos obsoletos sin que nadie lo notara. Si hace falta uvicorn en
+  vivo para depurar, hacerlo en 8001 con la API de Docker parada, y
+  devolver `.env` a 8001 al terminar
 - Metro/Expo: **8082** (el 8081 lo usa otro proyecto — el dev client del
   móvil debe apuntar a `http://192.168.1.71:8082` o escanear el QR nuevo)
 - URL API por defecto backend:

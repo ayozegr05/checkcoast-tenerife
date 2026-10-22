@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 
 import IncidentHistory from '../../components/beach/IncidentHistory';
 import { incident, news } from '../../test/fixtures';
@@ -150,5 +151,39 @@ describe('<IncidentHistory />', () => {
     expect(
       screen.getByRole('button', { name: 'Ocultar titulares del episodio' }),
     ).toBeTruthy();
+  });
+
+  it('deep-link municipal: abre el año del episodio y resalta su fila', async () => {
+    // >10 episodios → el acordeón existe y los años antiguos llegan
+    // colapsados; el foco apunta a un episodio de 2014
+    const many = [
+      incident({ id: 3, opened_at: '2014-07-01', closed_at: '2014-07-02' }),
+      incident({ id: 4, opened_at: '2013-05-01', closed_at: '2013-05-02' }),
+      ...Array.from({ length: 10 }, (_, i) =>
+        incident({
+          id: 100 + i,
+          opened_at: `2020-0${(i % 9) + 1}-10`,
+          closed_at: `2020-0${(i % 9) + 1}-12`,
+        }),
+      ),
+    ];
+    await render(
+      <IncidentHistory
+        incidents={many}
+        openIncs={new Set()}
+        onToggleIncident={jest.fn()}
+        focus={{ beach_id: 1, id: 3, opened_at: '2014-07-01' }}
+        scrollRef={{ current: null }}
+      />,
+    );
+    // El año del episodio llega desplegado sin tocar el acordeón…
+    expect(screen.getByText('01/07/2014 → 02/07/2014 · 2 días')).toBeTruthy();
+    // …mientras el resto de años antiguos siguen colapsados
+    expect(screen.queryByText('01/05/2013 → 02/05/2013 · 2 días')).toBeNull();
+    expect(screen.queryByText('10/01/2020 → 12/01/2020 · 3 días')).toBeNull();
+    // La fila objetivo va marcada con el velo de su color de acento
+    const row = screen.getByTestId('incident-focused');
+    const style = StyleSheet.flatten(row.props.style);
+    expect(style.backgroundColor.startsWith(style.borderLeftColor)).toBe(true);
   });
 });

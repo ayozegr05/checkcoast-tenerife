@@ -8,7 +8,7 @@
 //   como "Los Abriguitos" se queda donde está)
 
 import { PM_SUFFIX, pmTagOf } from './pm';
-import { zoneName } from './zones';
+import { arenalAlias, zoneName } from './zones';
 
 const CONNECTORS = new Set(['de', 'del', 'y', 'e', 'en', 'a', 'o', 'u']);
 const ARTICLES = new Set(['el', 'la', 'los', 'las']);
@@ -158,14 +158,20 @@ export const displayBeachName = (name: string) => {
 };
 
 // Nombre base de agrupación: una playa extensa tiene varios puntos de
-// muestreo oficiales (PM1, PM2...) y variantes con romano (Troya I/II
-// son un único arenal). Lista y mapa agrupan por esta clave.
+// muestreo oficiales (PM1, PM2...), variantes con romano (Troya I/II
+// son un único arenal) y calas del mismo arenal con nombre propio
+// (las tres del Médano — alias curado en `zones.ts`). Lista y mapa
+// agrupan por esta clave.
 // "PLAYA TROYA I (AMÉRICAS I) PM3" -> "PLAYA TROYA (AMÉRICAS)"
-export const beachBaseName = (name: string) =>
-  name
+export const beachBaseName = (name: string) => {
+  const core = name
     .replace(PM_SUFFIX, '')
     .replace(/\s+(I|II|III|IV)\s*(?=\))/, '')
     .replace(/\s+(I|II|III|IV)(?=\s*\(|\s*$)/, '');
+  // El alias solo sustituye las calas curadas — sin alias se
+  // conserva el nombre original (acentos, case del censo)
+  return arenalAlias(core) ?? core;
+};
 
 // Clave de agrupación insensible a artículos/preposiciones y acentos:
 // "PLAYA DE LA HORNILLA" ≡ "PLAYA LA HORNILLA" (OSM duplica arenales

@@ -29,6 +29,7 @@ import MunicipalityStats from './components/MunicipalityStats';
 import OutfallList from './components/OutfallList';
 import {
   Alert,
+  EpisodeFocus,
   FeatureCollection,
   GeoFeature,
   MunicipalityIncident,
@@ -258,6 +259,7 @@ export default function App() {
     setReturnToOutfalls(false);
     setRestoreSel(null);
     setSheetHidden(false);
+    setFocusIncident(null);
     setSelection(beachSelection(f));
     setFocus([...f.geometry.coordinates]);
   };
@@ -363,9 +365,13 @@ export default function App() {
   // Ficha abierta desde un incidente de Municipios: al cerrarla se
   // vuelve a la línea temporal del municipio, no al mapa
   const [returnToMuni, setReturnToMuni] = useState(false);
-  const openBeachFromMuni = (id: number) => {
+  // Episodio concreto tocado en el timeline municipal (o temporada):
+  // la ficha baja a Episodios con su año desplegado y la fila marcada
+  const [focusIncident, setFocusIncident] = useState<EpisodeFocus | null>(null);
+  const openBeachFromMuni = (id: number, episode?: EpisodeFocus) => {
     setReturnToMuni(true);
     openBeachById(id);
+    if (episode) setFocusIncident(episode);
   };
   // Pin tocado desde dentro de una ficha (emisario cercano en la de
   // playa, playa más cercana en la de emisario): el mapa vuela al punto
@@ -404,12 +410,24 @@ export default function App() {
       restore,
     );
 
+  // Aterrizaje en mapa tras cerrar una ficha multipunto: el zoom de
+  // detalle de la zona abierta dejaba un pin aislado a 15.5 — el
+  // foco a un miembro del grupo dispara fitBeachBounds y encuadra
+  // el arenal entero
+  const reframeGroupIfMulti = () => {
+    if (selection?.type === 'beach' && (selection.members?.length ?? 0) > 1) {
+      setFocus([...selection.feature.geometry.coordinates]);
+    }
+  };
+
   // Cierre explícito (✕ o gesto de arrastrar): suelta en el mapa
   // libre — no retrocede por la cadena de origen ni reabre listas
   const closeSheet = () => {
     setRestoreSel(null);
     setReturnToMuni(false);
     setReturnToOutfalls(false);
+    setZoneShown(null);
+    reframeGroupIfMulti();
     setSelection(null);
     setSheetHidden(false);
   };
@@ -444,6 +462,8 @@ export default function App() {
       setFocus([...back.feature.geometry.coordinates, 15.5, back.type]);
       return;
     }
+    reframeGroupIfMulti();
+    setZoneShown(null);
     setSelection(null);
     setSheetHidden(false);
     if (returnToMuni) {
@@ -694,6 +714,15 @@ export default function App() {
             })
           }
           onSelectBeach={(f) => openBeachPin(f, selection)}
+          // El foco solo aplica a la playa del episodio tocado: si la
+          // selección cambió (pin del mapa, atrás, emisario) no se cuela
+          focusIncident={
+            selection?.type === 'beach' &&
+            focusIncident?.beach_id === selection.feature.id
+              ? focusIncident
+              : null
+          }
+          onFocusConsumed={() => setFocusIncident(null)}
           onZoneShown={setZoneShown}
           onCoverageChange={setSheetCoversControls}
           onViewOnMap={() => {

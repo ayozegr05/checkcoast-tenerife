@@ -163,7 +163,10 @@ describe('<MunicipalityStats />', () => {
     await fireEvent.press(
       screen.getByRole('button', { name: 'Ver ficha de Playa Las Vistas' }),
     );
-    expect(p.onSelectBeach).toHaveBeenCalledWith(1);
+    expect(p.onSelectBeach).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ beach_id: 1 }),
+    );
     await fireEvent.press(screen.getByRole('button', { name: 'Ver año 2024' }));
     expect(screen.getByText('Año 2024')).toBeTruthy();
   });

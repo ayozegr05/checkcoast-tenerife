@@ -115,6 +115,40 @@ _CAUSE_RULES = [
 # "vallado", "oleaje", "temporal", "avance del mar"... describen el
 # mecanismo o el desencadenante, no la razón → no computan como causa.
 
+# Cierres preventivos por estado del mar (oleaje, temporal marítimo,
+# fenómenos costeros): no son un problema de calidad del agua ni de
+# gestión de vertidos — la app conciencia sobre contaminación, no es
+# un parte meteo. Quedan fuera de episodios, resumen de prensa,
+# estado efectivo y pushes. Guarda: si el mismo texto cita además
+# contaminación ("vertido tras el temporal de lluvias") el ítem se
+# queda — ahí el mar agitado es desencadenante, no la causa
+_SEA_STATE_RE = re.compile(
+    r"oleaje|mar de fondo|mal estado del mar|mala mar|golpe de mar|"
+    r"temporal de mar|temporal maritimo|fenomenos costeros|"
+    r"avance del mar|marejada|ola gigante|rescate en el mar",
+)
+_CONTAM_GUARD_RE = re.compile(
+    r"contamin|vertido|fecal|coli|enterococo|bacteri|depurad|"
+    r"saneam|alga|hidrocarbur|gasoil|fuel|residual",
+)
+
+
+def _norm_text(text: str) -> str:
+    return "".join(
+        c
+        for c in unicodedata.normalize("NFD", text.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+
+
+def is_sea_state_cause(text: str | None) -> bool:
+    """True si la causa es SOLO estado del mar — sin vocabulario de
+    contaminación. 'fuerte oleaje' sí; 'vertido tras el temporal' no."""
+    if not text:
+        return False
+    t = _norm_text(text)
+    return bool(_SEA_STATE_RE.search(t)) and not _CONTAM_GUARD_RE.search(t)
+
 # Jerarquía entre categorías cuando un episodio tiene varias: gana la
 # más específica; la mayoría solo desempata dentro del mismo nivel y
 # el genérico ("Contaminación" por mala calidad del agua) va el último
@@ -162,11 +196,7 @@ def _short_cause(text: str | None) -> str | None:
     """Texto libre de causa → categoría corta o None si no aporta."""
     if not text:
         return None
-    t = "".join(
-        c
-        for c in unicodedata.normalize("NFD", text.lower())
-        if unicodedata.category(c) != "Mn"
-    )
+    t = _norm_text(text)
     for keys, label in _CAUSE_RULES:
         if any(k in t for k in keys):
             return label
@@ -312,8 +342,17 @@ def stale_official_ids(db: Session) -> set[int]:
 
     Sirve para el estado efectivo (mapa, alertas, ficha): el dato oficial
     crudo no se toca y sigue visible en el historial de la playa."""
+    # La reapertura/cierre por estado del mar (oleaje, temporal…) no
+    # computa: "reabre tras el temporal" no puede desbloquear una
+    # incidencia oficial de calidad del agua — mismo filtro que el
+    # resto del pipeline, con su guarda de contaminación
     rows = (
-        db.query(NewsItem.beach_id, NewsItem.published_at, NewsItem.source)
+        db.query(
+            NewsItem.beach_id,
+            NewsItem.published_at,
+            NewsItem.source,
+            NewsItem.cause,
+        )
         .filter(
             NewsItem.relevant.is_(True),
             NewsItem.beach_id.isnot(None),
@@ -322,10 +361,11 @@ def stale_official_ids(db: Session) -> set[int]:
         )
         .all()
     )
+    rows = [r for r in rows if not is_sea_state_cause(r.cause)]
     if not rows:
         return set()
     reopens: dict[int, datetime] = {}
-    for bid, pub, _src in rows:
+    for bid, pub, _src, _cause in rows:
         if bid is None or pub is None:
             continue
         if bid not in reopens or pub > reopens[bid]:
@@ -333,21 +373,21 @@ def stale_official_ids(db: Session) -> set[int]:
     ids = list(reopens)
     # Si hay un cierre de prensa posterior a la reapertura, la
     # reapertura ya no es el último evento: no suprime nada
-    last_closures: dict[int, datetime] = {
-        bid: mx
-        for bid, mx in (
-            db.query(NewsItem.beach_id, func.max(NewsItem.published_at))
-            .filter(
-                NewsItem.relevant.is_(True),
-                NewsItem.beach_id.in_(ids),
-                NewsItem.event_type == "closure",
-                NewsItem.published_at.isnot(None),
-            )
-            .group_by(NewsItem.beach_id)
-            .all()
+    last_closures: dict[int, datetime] = {}
+    for bid, pub, cause in (
+        db.query(NewsItem.beach_id, NewsItem.published_at, NewsItem.cause)
+        .filter(
+            NewsItem.relevant.is_(True),
+            NewsItem.beach_id.in_(ids),
+            NewsItem.event_type == "closure",
+            NewsItem.published_at.isnot(None),
         )
-        if bid is not None and mx is not None
-    }
+        .all()
+    ):
+        if bid is None or pub is None or is_sea_state_cause(cause):
+            continue
+        if bid not in last_closures or pub > last_closures[bid]:
+            last_closures[bid] = pub
     open_incs: dict[int, list] = {}
     for bid, opened in (
         db.query(BeachIncident.beach_id, BeachIncident.opened_at)
@@ -394,7 +434,7 @@ def stale_official_ids(db: Session) -> set[int]:
         if open_incs.get(bid):
             srcs = {
                 src
-                for rb, pub, src in rows
+                for rb, pub, src, _cause in rows
                 if rb == bid and src and pub and pub >= reopen - window
             }
             if len(srcs) < 2:
@@ -497,6 +537,10 @@ def effective_states(db: Session) -> dict[int, dict]:
         .order_by(NewsItem.published_at.desc().nulls_last())
         .all()
     )
+    # Cierres preventivos por estado del mar no votan estado: oleaje o
+    # temporal no son un problema de agua/gestión — la app no es un
+    # parte meteo (los datos siguen en BD; solo se excluyen aquí)
+    items = [it for it in items if not is_sea_state_cause(it.cause)]
     by_beach: dict[int, list[NewsItem]] = {}
     for it in items:
         if it.beach_id is None:  # ya filtrado en la query; mypy no lo ve

@@ -50,6 +50,14 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: 23,
   },
+  // Cifra de contexto bajo el subtítulo ("4 episodios · 2 playas")
+  subtitleCount: {
+    fontSize: 12.5,
+    fontFamily: fonts.bold,
+    color: 'rgba(255,255,255,0.75)',
+    paddingHorizontal: 16,
+    marginTop: 3,
+  },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -79,6 +87,9 @@ export const styles = StyleSheet.create({
     marginTop: 4,
   },
   listContent: {
+    // Aire entre la cabecera del municipio y la primera tarjeta —
+    // el resto del espaciado lo hace marginBottom de cada fila
+    paddingTop: 10,
     paddingBottom: Platform.OS === 'android' ? 34 : 8, // barra de gestos
   },
   row: {
@@ -308,6 +319,17 @@ export const styles = StyleSheet.create({
     width: 2,
     backgroundColor: colors.border,
   },
+  // Puente dot→tarjeta: el dot está centrado en el rail (20px) y la
+  // tarjeta empieza 6px más allá — el tick cruza ese hueco a la
+  // altura del centro del dot (marginTop 14 + radio 6 = 20)
+  tlTick: {
+    position: 'absolute',
+    top: 19,
+    right: -6,
+    width: 10,
+    height: 1.5,
+    borderRadius: 1,
+  },
   tlDotSkeleton: {
     width: 12,
     height: 12,
@@ -340,6 +362,15 @@ export const styles = StyleSheet.create({
     // ficha — el color se inyecta en línea
     borderLeftWidth: 3,
   },
+  // Dos columnas: contenido a la izquierda y el chevron › como
+  // columna hermana — centrado vertical sobre TODO el alto de la
+  // tarjeta vía alignSelf, no sobre la primera línea
+  tlWrap: {
+    flexDirection: 'row',
+  },
+  tlContent: {
+    flex: 1,
+  },
   // Cuerpo en dos columnas como la fila de Episodios de la ficha:
   // identidad/fechas/obs a la izquierda, badge de causa (o
   // etiqueta de estado) + causa a la derecha
@@ -358,6 +389,13 @@ export const styles = StyleSheet.create({
     flexShrink: 0,
     paddingLeft: 8,
     gap: 1,
+  },
+  // Badges de causa en fila — uno por parámetro en causas
+  // compuestas, mismo idioma que incidentBadges de la ficha
+  tlBadges: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 2,
   },
   tlBadge: {
     width: 27,
@@ -383,6 +421,12 @@ export const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  // Sufijo de cala dentro del nombre ("Playa del Médano · Leocadio
+  // Machado"): mismo tamaño, sin negrita — matiz dentro del título
+  tlZone: {
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+  },
   tlDates: {
     fontSize: 12,
     fontFamily: fonts.semibold,
@@ -404,8 +448,25 @@ export const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'right',
   },
-  // Línea de acciones de la fila: "Ver titulares ▾" a la izquierda,
-  // pill "Ficha ›" empujado a la derecha
+  // Indicador de que la fila navega — el chevron › de las listas
+  // nativas, centrado en el borde derecho (mismo idioma que
+  // pmChevron del selector de zonas). Decorativo: la tarjeta entera
+  // es el gesto
+  tlChevron: {
+    // Columna propia: centra sobre el alto completo de la tarjeta
+    // (contenido + línea de titulares + titulares desplegados)
+    alignSelf: 'center',
+    // Aire real respecto al badge y su subtítulo — el carril es la
+    // columna misma, no hace falta padding extra en la tarjeta
+    paddingLeft: 18,
+    paddingRight: 2,
+    fontSize: 32,
+    fontFamily: fonts.semibold,
+    lineHeight: 36,
+    // Sin el padding de fuente de Android el glyph no centra bien
+    includeFontPadding: false,
+  },
+  // Línea de acciones de la fila: "Ver titulares ▾" a la izquierda
   tlActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -415,19 +476,6 @@ export const styles = StyleSheet.create({
   // color de acento del episodio inyectado en línea
   tlNewsToggle: {
     fontSize: 12,
-    fontFamily: fonts.semibold,
-  },
-  // Pill outline con el acento del episodio: pista explícita de que
-  // la fila navega a la ficha — del tamaño de los demás chips
-  tlFichaPill: {
-    marginLeft: 'auto',
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  tlFichaPillText: {
-    fontSize: 11,
     fontFamily: fonts.semibold,
   },
   tlTitles: {

@@ -25,12 +25,13 @@ from datetime import date, datetime, timedelta
 from typing import cast
 
 from app.models import Beach
-from app.names import PM_SUFFIX
+from app.names import ARENAL_BASES, PM_SUFFIX, normalize_beach_name
 from app.news_zones import named_zones
 from app.queries import (
     _CAUSE_RANK,
     _STRUCTURAL_CAUSES,
     _short_cause,
+    is_sea_state_cause,
     is_ungraded_note,
 )
 
@@ -254,6 +255,10 @@ def synthesize_events(
             n
             for n in beach.news_items
             if n.relevant and n.published_at and n.event_type
+            # Cierres preventivos por estado del mar (oleaje,
+            # temporal) no generan episodios — no son problema de
+            # agua/gestión, solo meteo
+            and not is_sea_state_cause(n.cause)
         ),
         key=lambda n: cast(datetime, n.published_at),
     )
@@ -677,6 +682,10 @@ class Episode:
     # Etiqueta PM del punto de muestreo ("PM4") — para mapear la
     # zona nombrada por la prensa al beach_id concreto
     pm_label: str | None = None
+    # Token distintivo dentro del complejo: el sufijo de nombre
+    # propio ("CHICA") si existe, si no el PM — dos calas pueden
+    # compartir número de PM (Médano Chica/Leocadio, ambas PM1)
+    zone_tag: str | None = None
     # Titulares de prensa del tramo — `named_zones` detecta qué zona
     # de un complejo nombró la prensa en el episodio
     titles: frozenset = frozenset()
@@ -691,8 +700,14 @@ class Episode:
 
 
 def base_name(name: str) -> str:
-    """Nombre de playa sin el sufijo de punto de muestreo."""
-    return PM_SUFFIX.sub("", name)
+    """Base de agrupación del episodio: sin sufijo PM y con las
+    calas del mismo arenal fusionadas a su raíz curada
+    ("PLAYA MEDANO (EL)-CHICA" → "PLAYA MEDANO (EL)"). El alias
+    se resuelve por clave normalizada pero devuelve el texto real:
+    los LIKE de hermanos dependen del nombre tal cual está en la
+    base de datos (con acentos)."""
+    core = PM_SUFFIX.sub("", name)
+    return ARENAL_BASES.get(normalize_beach_name(core), core)
 
 
 def _near(a_end: date | None, b_start: date, today: date) -> bool:
@@ -776,7 +791,7 @@ def merged_episode(g: list[Episode]) -> Episode:
             g[0].municipality,
         )
         for e in g:
-            if e.pm_label in named and e.beach_id not in zone_beach_ids:
+            if e.zone_tag in named and e.beach_id not in zone_beach_ids:
                 zone_beach_ids.append(e.beach_id)
     return Episode(
         # El PM representativo es la primera zona nombrada por la

@@ -28,7 +28,9 @@ from app.models import (
     NewsItem,
     Outfall,
 )
-from app.names import PM_SUFFIX
+from app.names import ARENAL_BASES, PM_SUFFIX
+from app.names import arenal_base
+from app.names import normalize_beach_name
 from app.names import normalize_beach_name as _normalize
 from app.news_episodes import _news_cause, press_episode_summary
 from app.news_infra import (
@@ -629,17 +631,20 @@ _PRESS_GROUP_LABEL = {
 _PRESS_REOPEN_COLOR = "#0d9488"
 
 
-def _sibling_zone_ref(beach: Beach, pm: str) -> str:
-    """'cala Punta Brava' si el PM hermano es una cala mapeada; 'zona 4'
-    si no (siblingZoneRef de lib/zones.ts)."""
+def _sibling_zone_ref(beach: Beach, tag: str) -> str:
+    """'cala Punta Brava' si la zona hermana está mapeada ('playa
+    Chica' si la entrada trae `ref`); 'zona 4' si no
+    (siblingZoneRef de lib/zones.ts)."""
     zones = _ZONE_GROUPS.get(
         (
-            _normalize(PM_SUFFIX.sub("", beach.name)),
+            arenal_base(beach.name),
             _norm_muni(beach.municipality) or "",
         )
     )
-    zone = (zones or {}).get(pm)
-    return f"cala {zone['name']}" if zone else f"zona {pm.removeprefix('PM')}"
+    zone = (zones or {}).get(tag)
+    if zone:
+        return zone.get("ref") or f"cala {zone['name']}"
+    return f"zona {tag.removeprefix('PM')}"
 
 
 def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
@@ -1890,11 +1895,12 @@ def _outfall_risk(o: Outfall) -> dict:
 
 
 def _beach_base_name(name: str) -> str:
-    """Clave de agrupacion (port de beachBaseName): PMs y romanos de
-    un mismo arenal cuentan una vez en 'playas cercanas'."""
+    """Clave de agrupacion (port de beachBaseName): PMs, romanos y
+    calas del mismo arenal cuentan una vez en 'playas cercanas'."""
     s = PM_SUFFIX.sub("", name)
     s = re.sub(r"\s+(I|II|III|IV)\s*(?=\))", "", s)
-    return re.sub(r"\s+(I|II|III|IV)(?=\s*\(|\s*$)", "", s)
+    s = re.sub(r"\s+(I|II|III|IV)(?=\s*\(|\s*$)", "", s)
+    return ARENAL_BASES.get(normalize_beach_name(s), s)
 
 
 def outfall_row(db: Session, outfall_id: int):
@@ -2371,7 +2377,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
         m = _PM_TAG.search(beach.name)
         if m:
             key = (
-                _normalize(PM_SUFFIX.sub("", beach.name)),
+                arenal_base(beach.name),
                 _norm_muni(beach.municipality) or "",
             )
             pm_groups.setdefault(key, []).append(

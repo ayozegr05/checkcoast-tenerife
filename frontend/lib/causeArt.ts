@@ -13,6 +13,26 @@ const CAUSE_ART: Record<string, number> = {
 
 const ROCKFALL_ART = require('../assets/icons/rockfall-art.png');
 const CONTAM_ART = require('../assets/icons/contam-art.png');
+// Badge de la familia bacteriana (E. coli / enterococos /
+// contaminación fecal): indicadores de aguas residuales — un solo
+// arte para los tres, distinguirlos por parámetro era ruido a 27px
+const BACTERIA_ART = require('../assets/icons/bacteria-art.png');
+
+// Familia bacteriana: estos episodios se narran con DOS badges —
+// el emisario (la fuente: hubo vertido) + la bacteria (la evidencia:
+// el laboratorio la midió). El E. coli no viene del espíritu santo
+const BACTERIAL_LABELS = new Set([
+  'E. coli',
+  'Enterococos',
+  'Contaminación fecal',
+]);
+
+// Un parámetro bacteriano implica episodio de contaminación: la
+// cadena causal se cuenta emisario (fuente) → bacteria (evidencia)
+const withSource = (arts: number[], bacterial: boolean) => {
+  if (bacterial && !arts.includes(CONTAM_ART)) arts.unshift(CONTAM_ART);
+  return arts;
+};
 // Tubo + triángulo de aviso: episodio de laboratorio mudo — la
 // analítica dijo "prohibido" y nadie demostró cierre
 export const LAB_ART = require('../assets/icons/lab-art.png');
@@ -22,6 +42,9 @@ export function causeArt(
   structural: boolean,
 ): number {
   if (structural) return ROCKFALL_ART;
+  // En contextos de un solo badge (chip de estado, banner) el arte
+  // bacteriano informa más que el emisario genérico
+  if (cause && BACTERIAL_LABELS.has(cause)) return BACTERIA_ART;
   return CAUSE_ART[cause ?? ''] ?? CONTAM_ART;
 }
 
@@ -80,6 +103,9 @@ const CAUSE_ART_BY_LABEL: Record<string, number> = {
   Desprendimientos: ROCKFALL_ART,
   'Colapso del terreno': ROCKFALL_ART,
   Obras: ROCKFALL_ART,
+  'E. coli': BACTERIA_ART,
+  Enterococos: BACTERIA_ART,
+  'Contaminación fecal': BACTERIA_ART,
 };
 
 // Arte de UNA etiqueta de causa normalizada — la línea temporal
@@ -89,16 +115,40 @@ export function causeLabelArt(label: string | null | undefined): number {
   return CAUSE_ART_BY_LABEL[label ?? ''] ?? CONTAM_ART;
 }
 
+// Causa agregada del episodio → artes: cada etiqueta aporta su badge
+// (causa mixta → tantos como haya) y la familia bacteriana suma el
+// emisario como fuente. Lookup insensible a mayúsculas
+// ("enterococos"); sin etiqueta categorizada cae en contaminación
+export function causeLabelArts(label: string | null | undefined): number[] {
+  const arts: number[] = [];
+  let bacterial = false;
+  for (const l of (label ?? '').split(' y ')) {
+    const key = Object.keys(CAUSE_ART_BY_LABEL).find(
+      (k) => k.toLowerCase() === l.trim().toLowerCase(),
+    );
+    if (!key) continue;
+    const art = CAUSE_ART_BY_LABEL[key];
+    if (!arts.includes(art)) arts.push(art);
+    if (BACTERIAL_LABELS.has(key)) bacterial = true;
+  }
+  return withSource(arts, bacterial).length
+    ? withSource(arts, bacterial)
+    : [CONTAM_ART];
+}
+
 // Badges de una fila de cierre del historial: uno por causa
 // distinta del episodio (Valleseco: hidrocarburos + algas), en
 // contaminación si ninguna categoriza
 export function incidentBadgeArts(inc: BeachIncident): number[] {
+  const causes = incidentCauses(inc);
   const arts = [
     ...new Set(
-      incidentCauses(inc)
-        .map((c) => CAUSE_ART_BY_LABEL[c])
-        .filter((a): a is number => !!a),
+      causes.map((c) => CAUSE_ART_BY_LABEL[c]).filter((a): a is number => !!a),
     ),
   ];
-  return arts.length ? arts : [CONTAM_ART];
+  const out = withSource(
+    arts,
+    causes.some((c) => BACTERIAL_LABELS.has(c)),
+  );
+  return out.length ? out : [CONTAM_ART];
 }

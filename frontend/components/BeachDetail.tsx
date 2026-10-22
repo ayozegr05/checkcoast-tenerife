@@ -1,11 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import {
   BeachIncident,
   BeachMeasurement,
   BeachNearbyOutfall,
   BeachNewsResponse,
+  EpisodeFocus,
   GeoFeature,
   beachShareUrl,
   fetchBeachIncidents,
@@ -73,6 +82,10 @@ export default function BeachDetail({
   hasAlert,
   outfalls,
   members,
+  focusIncident,
+  scrollRef,
+  getScrollY,
+  onFocusConsumed,
   onViewOnMap,
   onSelectOutfall,
 }: {
@@ -83,6 +96,17 @@ export default function BeachDetail({
   // Zonas hermanas (puntos de muestreo del mismo arenal): se pintan
   // numeradas en la foto satélite y el encuadre las cubre todas
   members?: GeoFeature[];
+  // Episodio tocado desde Municipios/temporada: Episodios baja a la
+  // vista con su año abierto y la fila marcada
+  focusIncident?: EpisodeFocus | null;
+  // ScrollView que envuelve la ficha (FeatureSheet) — para el
+  // scroll-to de Episodios al venir de un deep-link de episodio
+  scrollRef?: React.RefObject<ScrollView | null>;
+  // Offset actual del ScrollView de la ficha — compensa la medida
+  // relativa al frame en el aterrizaje del deep-link de episodio
+  getScrollY?: () => number;
+  // El foco se consume al aterrizar en la fila
+  onFocusConsumed?: () => void;
   // Tap en la foto satélite → ver la playa en el mapa
   onViewOnMap?: () => void;
   // Tap en un emisario cercano → verlo en el mapa (pin seleccionado)
@@ -228,19 +252,31 @@ export default function BeachDetail({
     const limStr = lim.toISOString().slice(0, 10);
     // El episodio que empezó en `since` puede durar meses o años
     // (closed_since retrocede el inicio): la reapertura es el cierre
-    // de un incidente que empezó junto a `since` y terminó después
+    // de un incidente que empezó junto a `since` y terminó después.
     // Una fecha de fin estimada (última mención en prensa) NO es una
-    // reapertura: sin ella el banner inventaría "del X al X · 1 día"
-    const later = (incidents ?? [])
+    // reapertura: sin ella el banner inventaría "del X al X · 1 día".
+    // Tolerancia hacia atrás: la cobertura de reapertura llega tarde
+    // — el clúster puede empezar días después del cierre oficial
+    // (Médano: Sanidad reabrió 24/09, la prensa lo contó el 25 — sin
+    // la tolerancia el enlace fallaba y el banner inventaba su fecha)
+    const sinceMs = Date.parse(`${since}T00:00:00Z`);
+    const lo = new Date(sinceMs - 7 * 86_400_000).toISOString().slice(0, 10);
+    const hit = (incidents ?? [])
       .filter(
         (i) =>
           i.closed_at !== null &&
           !i.end_estimated &&
-          i.closed_at >= since &&
+          i.closed_at >= lo &&
           i.opened_at <= limStr,
       )
-      .sort((a, b) => (a.closed_at! < b.closed_at! ? -1 : 1));
-    const hit = later[later.length - 1];
+      // El candidato con el cierre MÁS CERCANO al clúster: con dos
+      // episodios oficiales pegados gana el del episodio que la
+      // prensa cubrió, no cualquier cierre compatible
+      .sort(
+        (a, b) =>
+          Math.abs(Date.parse(`${a.closed_at}T00:00:00Z`) - sinceMs) -
+          Math.abs(Date.parse(`${b.closed_at}T00:00:00Z`) - sinceMs),
+      )[0];
     if (!hit) return null;
     // El inicio REAL del episodio es el opened_at del incidente
     // oficial — la prensa suele cubrir días después de que Sanidad
@@ -324,9 +360,10 @@ export default function BeachDetail({
     news?.episode_items && news.episode_items.length > 0
       ? news.episode_items
       : (news?.items ?? []);
-  const reopenItems = epItems.filter((n) => n.event_type === 'reopening');
-  const bannerItems =
-    pressReopened && reopenItems.length > 0 ? reopenItems : epItems;
+  // episode_items ya es el episodio completo (cobertura de cierre +
+  // reapertura): filtrar solo reaperturas dejaría el desplegable sin
+  // los titulares que narran el "estuvo cerrada del X al Y"
+  const bannerItems = epItems;
   const bannerGroups = groupNewsItems(bannerItems);
 
   return (
@@ -434,6 +471,10 @@ export default function BeachDetail({
           openIncs={openIncs}
           onToggleIncident={toggleInc}
           beachName={p.name}
+          focus={focusIncident}
+          scrollRef={scrollRef}
+          getScrollY={getScrollY}
+          onFocusConsumed={onFocusConsumed}
         />
       )}
 

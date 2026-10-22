@@ -228,7 +228,9 @@ export default function QualityChart({
         {incidentRanges.length > 0 ? (
           <>
             {' · '}
-            <Text style={{ color: colors.status.closed }}>■</Text>
+            {/* Mismo rojo que la franja (velo al ~15%): el cuadrito
+                sólido repetía el de "no apta" */}
+            <Text style={{ color: `${colors.status.closed}26` }}>■</Text>
             {' franja = cierre/aviso'}
           </>
         ) : null}

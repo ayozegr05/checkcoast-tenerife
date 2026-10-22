@@ -43,6 +43,7 @@ import {
   searchMap,
   type SearchItem,
 } from '../lib/mapData';
+import { zoneName } from '../lib/zones';
 import {
   TENERIFE_BOUNDS,
   useMapCamera,
@@ -107,7 +108,9 @@ const SATELLITE_STYLE: StyleSpecification = {
   },
   layers: [
     { id: 'pnoa', type: 'raster', source: 'pnoa' },
-    { id: 'esri-labels', type: 'raster', source: 'esri-labels' },
+    // Topónimos de Esri solo a zoom panorámico (ciudades, costa):
+    // al acercar a nivel playa compiten con nuestras etiquetas
+    { id: 'esri-labels', type: 'raster', source: 'esri-labels', maxzoom: 14 },
   ],
 };
 
@@ -220,6 +223,25 @@ export default function CoastMap({
   const beachGroups = useMemo(
     () => buildBeachGroups(beaches.features),
     [beaches.features],
+  );
+
+  // Grupos que se expanden en dots de cala a zoom de costa: todos
+  // sus puntos tienen nombre propio (Punta Brava, Playa Chica…).
+  // Los complejos con puntos anónimos ("zona 2" — Teresitas,
+  // Valleseco parcial) no se expanden: sin nombre que buscar, el
+  // pin único + selector sigue siendo la forma correcta
+  const expandableKeys = useMemo(
+    () =>
+      new Set(
+        Object.entries(beachGroups)
+          .filter(
+            ([, g]) =>
+              g.members.length > 1 &&
+              g.members.every((m) => zoneName(m.properties.name) != null),
+          )
+          .map(([k]) => k),
+      ),
+    [beachGroups],
   );
 
   // Cámara: refs de vista, restauración al cerrar la ficha, paddings
@@ -370,6 +392,9 @@ export default function CoastMap({
           ...g.rep.properties,
           groupKey: key,
           members: g.members.length,
+          // Grupo con calas nombradas: su pin vive en capas con
+          // maxzoom y a zoom de costa cede el sitio a los dots
+          expandable: expandableKeys.has(key),
           // Nombre corto para la etiqueta del pin (zoom cercano)
           label: displayBeachName(beachBaseName(g.rep.properties.name)),
           // Marca de seleccionada: su etiqueta va en capa propia.
@@ -380,7 +405,7 @@ export default function CoastMap({
       })),
     }),
 
-    [beachGroups, selectedBeachId],
+    [beachGroups, selectedBeachId, expandableKeys],
   );
 
   // Conteo de alertas vivas: por playa (grupo), no por punto de muestreo
@@ -441,6 +466,83 @@ export default function CoastMap({
     }),
     [groupedBeaches, beachSel],
   );
+
+  // Split por zoom del pin multipunto nombrado: el pin agregado vive
+  // en una fuente aparte (capas con maxzoom=ZONE_SPLIT_ZOOM) y los
+  // dots de cala en otra (minzoom). Los grupos sin nombre propio en
+  // TODOS sus puntos quedan en pinBeaches — pin único siempre
+  const pinBeaches = useMemo<FeatureCollection>(
+    () => ({
+      type: 'FeatureCollection',
+      features: visibleBeaches.features.filter(
+        (f) => (f.properties as { expandable?: boolean }).expandable !== true,
+      ),
+    }),
+    [visibleBeaches],
+  );
+  const expandableBeaches = useMemo<FeatureCollection>(
+    () => ({
+      type: 'FeatureCollection',
+      features: visibleBeaches.features.filter(
+        (f) => (f.properties as { expandable?: boolean }).expandable === true,
+      ),
+    }),
+    [visibleBeaches],
+  );
+  // Dots de cala: un feature por miembro del grupo expandable, con
+  // su color de estado y el nombre de la cala como etiqueta. Con la
+  // ficha multipunto abierta los pmPoints ya dibujan esos mismos
+  // puntos — se excluyen para no duplicar dot + etiqueta
+  const zoneDots = useMemo<FeatureCollection>(() => {
+    const pmIds = new Set((pmPoints?.features ?? []).map((f) => f.id));
+    const features = expandableBeaches.features.flatMap((f) => {
+      const g =
+        beachGroups[(f.properties as { groupKey?: string }).groupKey ?? ''];
+      return (g?.members ?? [])
+        .filter((m) => !pmIds.has(m.id) && beachSel.has(beachCategory(m)))
+        .map((m) => ({
+          ...m,
+          properties: {
+            ...m.properties,
+            groupKey: (f.properties as { groupKey?: string }).groupKey,
+            pointLabel: zoneName(m.properties.name),
+          },
+        }));
+    });
+    return { type: 'FeatureCollection', features };
+  }, [expandableBeaches, beachGroups, beachSel, pmPoints]);
+  // Pulso a nivel de zona para los grupos expandibles: con el pin
+  // agregado apagado (zoom alto) el anillo no puede quedar flotando
+  // en el centroide — late sobre cada cala cerrada/en aviso
+  const zonePulses = useMemo(() => {
+    const alert: GeoFeature[] = [];
+    const structural: GeoFeature[] = [];
+    for (const f of expandableBeaches.features) {
+      const g =
+        beachGroups[(f.properties as { groupKey?: string }).groupKey ?? ''];
+      for (const m of g?.members ?? []) {
+        if (
+          (m.properties.status !== 'closed' &&
+            m.properties.status !== 'warning') ||
+          !beachSel.has(beachCategory(m))
+        )
+          continue;
+        const feat = {
+          ...m,
+          properties: { ...m.properties, zoneDot: true },
+        };
+        if (isStructuralClosure(feat)) structural.push(feat);
+        else alert.push(feat);
+      }
+    }
+    return {
+      alert: { type: 'FeatureCollection', features: alert } as const,
+      structural: {
+        type: 'FeatureCollection',
+        features: structural,
+      } as const,
+    };
+  }, [expandableBeaches, beachGroups, beachSel]);
 
   const visibleOutfalls = useMemo<FeatureCollection>(
     () => ({
@@ -733,6 +835,37 @@ export default function CoastMap({
     }
   };
 
+  // Tap en un dot de cala (grupo expandido a zoom alto): abre la
+  // ficha de ESA zona directamente — el dot es la zona, no el grupo
+  const handleZoneDot = (e: NativeSyntheticEvent<PressEventWithFeatures>) => {
+    const candidates = (e.nativeEvent.features ??
+      []) as unknown as GeoFeature[];
+    if (!candidates.length) return;
+    closeOverlays();
+    const [tapLon, tapLat] = e.nativeEvent.lngLat;
+    const feature = candidates.reduce((best, f) => {
+      const [lon, lat] = f.geometry.coordinates;
+      const [bLon, bLat] = best.geometry.coordinates;
+      return (lon - tapLon) ** 2 + (lat - tapLat) ** 2 <
+        (bLon - tapLon) ** 2 + (bLat - tapLat) ** 2
+        ? f
+        : best;
+    });
+    const groupKey = (feature.properties as { groupKey?: string }).groupKey;
+    const g = groupKey ? beachGroups[groupKey] : undefined;
+    // El feature del source puede venir cuantizado: se resuelve el
+    // miembro original por id para que la ficha abra la zona exacta
+    const orig = g?.members.find((m) => m.id === feature.id) ?? feature;
+    saveView();
+    onSelect({
+      type: 'beach',
+      feature: orig,
+      hasAlert: orig.properties.alert === true,
+      members: pmMembersOf(g?.members),
+      pm: orig,
+    });
+  };
+
   return (
     <View style={styles.container}>
       <Map
@@ -752,7 +885,11 @@ export default function CoastMap({
             extraído a components/map/MapLayers — es JSX declarativo,
             la lógica queda aquí */}
         <MapLayers
-          visibleBeaches={visibleBeaches}
+          visibleBeaches={pinBeaches}
+          expandableBeaches={expandableBeaches}
+          zoneDots={zoneDots}
+          zoneAlertPulse={zonePulses.alert}
+          zoneStructuralPulse={zonePulses.structural}
           visibleOutfalls={visibleOutfalls}
           showBeaches={beachSel.size > 0}
           showOutfalls={outfallSel.size > 0}
@@ -761,6 +898,7 @@ export default function CoastMap({
           pulse={pulse}
           pmPoints={pmPoints}
           onPressFeature={handlePress}
+          onPressZoneDot={handleZoneDot}
         />
       </Map>
 

@@ -196,18 +196,14 @@ export function useMapCamera({
         duration: 400,
       });
     } else {
-      // Solo restaura si la zona cerrada sigue perteneciendo al grupo
-      // visible (vuelta al selector). Si la selección saltó a otra
-      // playa, zoneFocus llega obsoleto y el encuadre nuevo manda —
-      // sin este filtro el mapa volaba de vuelta al grupo anterior
+      // Vuelta al selector: encuadra el grupo entero. Restaurar la
+      // vista previa fallaba cuando la ficha abrió la zona directa
+      // (deep-link desde Municipios): preZoneView era la vista del
+      // mapa ANTES de volar — ajena al grupo. fitBounds es el
+      // encuadre correcto venga de donde venga
       const sameGroup = pmPoints!.features.some((f) => f.id === prev!.id);
-      if (sameGroup && preZoneView.current) {
-        cameraRef.current?.flyTo({
-          center: preZoneView.current.center,
-          zoom: preZoneView.current.zoom,
-          padding: pad,
-          duration: 400,
-        });
+      if (sameGroup) {
+        fitBeachBounds(pmPoints!.features, 400);
       }
       preZoneView.current = null;
     }

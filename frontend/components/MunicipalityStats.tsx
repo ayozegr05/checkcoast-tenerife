@@ -12,6 +12,7 @@ import {
 
 import {
   BeachStats,
+  EpisodeFocus,
   GeoFeature,
   MunicipalityIncident,
   fetchBeachStats,
@@ -69,8 +70,10 @@ export default function MunicipalityStats({
   // paréntesis del banner: "7 mar agitado" → abre filtrado)
   initialCause?: string | null;
   onSelect: (municipality: string | null) => void;
-  // Tocar un incidente de la línea temporal abre la ficha de su playa
-  onSelectBeach?: (beachId: number) => void;
+  // Tocar un incidente de la línea temporal abre la ficha de su
+  // playa; el episodio acompaña para que la ficha baje directo a
+  // Episodios con su fila marcada
+  onSelectBeach?: (beachId: number, episode?: EpisodeFocus) => void;
   onClose: () => void;
 }) {
   const [stats, setStats] = useState<Map<number, BeachStats>>(new Map());
@@ -464,7 +467,13 @@ export default function MunicipalityStats({
                 renderItem={({ item: ep }) => (
                   <EpisodeRow
                     ep={ep}
-                    onPress={() => onSelectBeach?.(ep.beach_id)}
+                    onPress={() =>
+                      onSelectBeach?.(ep.beach_id, {
+                        beach_id: ep.beach_id,
+                        id: ep.id,
+                        opened_at: ep.opened_at,
+                      })
+                    }
                   />
                 )}
                 ListEmptyComponent={

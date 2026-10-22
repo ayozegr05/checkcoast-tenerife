@@ -1,7 +1,14 @@
-import React, { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
-import type { BeachIncident } from '../../lib/api';
+import type { BeachIncident, EpisodeFocus } from '../../lib/api';
 import { fmtDate, formatDays } from '../../lib/format';
 import {
   episodesInYears,
@@ -30,6 +37,18 @@ type IncidentHistoryProps = {
   // Nombre de la playa de esta ficha — resuelve el nombre común de
   // la cala hermana ("la cala Punta Brava") en complejos mapeados
   beachName?: string;
+  // Episodio tocado desde el timeline municipal/temporada: su año
+  // llega desplegado, la fila se resalta y la ficha baja hasta ella
+  focus?: EpisodeFocus | null;
+  // ScrollView de la ficha (FeatureSheet) — para el aterrizaje a la
+  // altura de la fila objetivo
+  scrollRef?: React.RefObject<ScrollView | null>;
+  // Offset actual de ese ScrollView: la y medida es relativa al
+  // frame visible (= contentY - scrollY) y hay que compensarla
+  getScrollY?: () => number;
+  // El foco se consume al aterrizar: si luego se abre la misma playa
+  // desde el mapa, la ficha no vuelve a bajar al episodio viejo
+  onFocusConsumed?: () => void;
 };
 
 // Historial de incidencias oficiales + episodios reconstruidos:
@@ -40,6 +59,10 @@ export default function IncidentHistory({
   openIncs,
   onToggleIncident,
   beachName = '',
+  focus = null,
+  scrollRef,
+  getScrollY,
+  onFocusConsumed,
 }: IncidentHistoryProps) {
   // Acordeón por año: el actual y el anterior abiertos, el resto
   // colapsados — en 15 años de historial la lista no se hace eterna.
@@ -48,8 +71,146 @@ export default function IncidentHistory({
   const [yearOpen, setYearOpen] = useState<Record<string, boolean>>({});
   const collapsible = incidents.length > 10;
   const yearDefault = (y: string) => Number(y) >= new Date().getFullYear() - 1;
+
+  // Deep-link desde Municipios/temporada. La fila municipal puede ser
+  // una fusión de varios PMs/actas: primero match por id (solo los
+  // positivos — ids reales de beach_incidents, compartidos entre
+  // endpoints; los sintéticos -1,-2… son locales de cada respuesta),
+  // luego por fecha de apertura, luego por la ventana que lo cubre
+  // (el episodio municipal abrió con el tramo de otro PM) y como
+  // último recurso la fila más próxima en el tiempo
+  const target = useMemo(() => {
+    if (!focus) return null;
+    if (focus.id > 0) {
+      const byId = incidents.find((i) => i.id === focus.id);
+      if (byId) return byId;
+    }
+    if (!focus.opened_at) return null;
+    const d = Date.parse(focus.opened_at);
+    const byDate = incidents.find((i) => i.opened_at === focus.opened_at);
+    if (byDate) return byDate;
+    const covering = incidents.find(
+      (i) =>
+        Date.parse(i.opened_at) <= d &&
+        d <= (i.closed_at ? Date.parse(i.closed_at) : Infinity),
+    );
+    if (covering) return covering;
+    let best: BeachIncident | null = null;
+    let bestDist = Infinity;
+    for (const i of incidents) {
+      const dist = Math.abs(Date.parse(i.opened_at) - d);
+      if (dist < bestDist) {
+        best = i;
+        bestDist = dist;
+      }
+    }
+    return best;
+  }, [focus, incidents]);
+  const targetYear = target ? target.opened_at.slice(0, 4) : null;
+
+  // El año del episodio tocado llega desplegado aunque sea antiguo
+  // (por defecto se colapsa todo lo anterior al año pasado); el
+  // usuario puede volver a cerrarlo con el toggle — solo es el
+  // default del deep-link, no un bloqueo
   const isYearOpen = (y: string) =>
-    !collapsible || (yearOpen[y] ?? yearDefault(y));
+    !collapsible || (yearOpen[y] ?? (targetYear === y ? true : yearDefault(y)));
+
+  // Aterrizaje: la fila objetivo se mide contra el contenido del
+  // ScrollView y se baja a su altura; si el episodio fusionado no
+  // casa con ninguna fila, al menos bajamos a la sección
+  const targetRowRef = useRef<View>(null);
+  const sectionRef = useRef<View>(null);
+  const scrolled = useRef(false);
+  const [flash, setFlash] = useState(false);
+
+  const scrollToNode = (node: View | null) => {
+    const sv = scrollRef?.current;
+    if (!sv || !node) return;
+    // Dos medidas posibles según el ancestro que resuelva:
+    // · contra el inner view (contenido) → y ya es contentY
+    // · contra el frame del ScrollView  → yRel = contentY - scrollY
+    //   y hay que sumar el offset en vivo (por si el usuario
+    //   scrolleó entre reintentos). Margen de ~150px sobre la fila:
+    // no aterriza pegada al borde — deja ver la cabecera "Episodios"
+    // y un par de filas de contexto encima
+    const MARGIN = 210;
+    const doneAbs = (y: number) =>
+      sv.scrollTo({ y: Math.max(0, y - MARGIN), animated: true });
+    const doneRel = (yRel: number) =>
+      sv.scrollTo({
+        y: Math.max(0, yRel + (getScrollY?.() ?? 0) - MARGIN),
+        animated: true,
+      });
+    const anySv = sv as unknown as {
+      // En Fabric, measureLayout exige el REF del componente nativo
+      // (un handle numérico de findNodeHandle lo rechaza): el
+      // ScrollView los expone como getInnerViewRef /
+      // getNativeScrollRef
+      getInnerViewRef?: () => any;
+      getInnerViewNode?: () => number | null;
+      getNativeScrollRef?: () => any;
+      getScrollableNode?: () => number | null;
+      measureInWindow?: (cb: (x: number, y: number) => void) => void;
+    };
+    // Último recurso: posiciones en ventana (fila − marco del
+    // ScrollView = y relativa al frame)
+    const windowFallback = () => {
+      if (!anySv.measureInWindow || !node.measureInWindow) return;
+      node.measureInWindow((_x, ry) =>
+        anySv.measureInWindow!((_sx, sy) => doneRel(ry - sy)),
+      );
+    };
+    // Preferimos el inner view (y absoluta, sin offset); el frame
+    // nativo queda de respaldo, y los handles numéricos solo sirven
+    // en la arquitectura vieja — mejor que nada
+    const innerRef = anySv.getInnerViewRef?.() ?? anySv.getInnerViewNode?.();
+    const frameRef =
+      anySv.getNativeScrollRef?.() ?? anySv.getScrollableNode?.();
+    if (innerRef && node.measureLayout) {
+      node.measureLayout(innerRef, (_x, y) => doneAbs(y), windowFallback);
+    } else if (frameRef && node.measureLayout) {
+      node.measureLayout(frameRef, (_x, y) => doneRel(y), windowFallback);
+    } else {
+      windowFallback();
+    }
+  };
+
+  // Fila en la que ya aterrizamos: al consumir el foco (App limpia
+  // el estado) la marca sobrevive — si dependiera solo de `target`
+  // el velo se apagaría de golpe al limpiarse el foco
+  const [landedId, setLandedId] = useState<number | null>(null);
+
+  const onTargetLayout = (inc: BeachIncident) => {
+    if (scrolled.current) return;
+    scrolled.current = true;
+    setLandedId(inc.id);
+    onFocusConsumed?.();
+    setFlash(true);
+    setTimeout(() => setFlash(false), 2400);
+    // Aterrizaje en la fila exacta con re-medición escalonada: las
+    // secciones de arriba (foto, banner de prensa, calidad,
+    // emisarios) cargan async y empujan el contenido — un único
+    // scroll quedaba corto. Cada intento mide la posición ACTUAL de
+    // la fila; cuando todo está quieto los re-scrolls no mueven nada
+    for (const ms of [80, 400, 900]) {
+      setTimeout(() => scrollToNode(targetRowRef.current), ms);
+    }
+  };
+
+  // Episodio municipal fusionado sin fila que case (id ni fecha):
+  // bajar a la sección de Episodios como aterrizaje razonable
+  useEffect(() => {
+    if (!focus || target) return;
+    const t = setTimeout(() => {
+      if (!scrolled.current) {
+        scrolled.current = true;
+        onFocusConsumed?.();
+        scrollToNode(sectionRef.current);
+      }
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus, target]);
 
   const renderInc = (inc: BeachIncident) => {
     const closure = isClosure(inc);
@@ -110,8 +271,21 @@ export default function IncidentHistory({
           (n) => n.event_type === 'closure' || n.event_type === 'reopening',
         )
       : (inc.press_items ?? []);
+    const focused = target === inc || inc.id === landedId;
     return (
-      <View key={inc.id} style={[styles.incident, { borderLeftColor: accent }]}>
+      <View
+        key={inc.id}
+        ref={focused ? targetRowRef : undefined}
+        onLayout={focused ? () => onTargetLayout(inc) : undefined}
+        testID={focused ? 'incident-focused' : undefined}
+        style={[
+          styles.incident,
+          { borderLeftColor: accent },
+          // Deep-link municipal: la fila tocada llega marcada — flash
+          // de acento al aterrizar que se asienta en un velo suave
+          focused && { backgroundColor: flash ? `${accent}26` : `${accent}10` },
+        ]}
+      >
         {/* Cuerpo: fechas + notas + titulares a la izquierda; el
             badge/etiqueta y la causa centrados verticalmente contra
             toda la fila, como las filas de alertas de la portada */}
@@ -259,7 +433,7 @@ export default function IncidentHistory({
   const years = [...new Set(incidents.map((i) => i.opened_at.slice(0, 4)))];
 
   return (
-    <View style={styles.history}>
+    <View ref={sectionRef} style={styles.history}>
       <View style={styles.secHead}>
         <Image
           source={require('../../assets/icons/icon-episodes.png')}

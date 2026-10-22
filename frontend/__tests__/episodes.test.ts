@@ -5,6 +5,7 @@ import {
   closuresThisYear,
   episodeYears,
   latestEpisodeYear,
+  recentlyResolved,
   seasonEpisodes,
   yearEpisodes,
 } from '../lib/episodes';
@@ -136,5 +137,44 @@ describe('latestEpisodeYear — dónde abre el ranking', () => {
 
   it('sin episodios devuelve null', () => {
     expect(latestEpisodeYear([])).toBeNull();
+  });
+});
+
+describe('recentlyResolved — orden por reapertura', () => {
+  it('la reapertura más reciente va primero, no la apertura', () => {
+    const viejo = ep({
+      beach_name: 'VIEJO',
+      opened_at: '2026-08-01',
+      closed_at: '2026-10-01',
+    });
+    const nuevo = ep({
+      beach_name: 'NUEVO',
+      opened_at: '2026-10-10',
+      closed_at: '2026-10-15',
+    });
+    // Llegan ordenados por apertura desc (como el endpoint): el
+    // episodio nuevo va primero pero su reapertura es también la
+    // más reciente — el sort por closed_at lo mantiene arriba
+    expect(
+      recentlyResolved([viejo, nuevo], 60, new Date('2026-10-20')).map(
+        (e) => e.beach_name,
+      ),
+    ).toEqual(['NUEVO', 'VIEJO']);
+    // Y el caso real del bug: episodio viejo llega primero por
+    // opened_at pero su reapertura es más antigua → baja
+    expect(
+      recentlyResolved([nuevo, viejo], 60, new Date('2026-10-20')).map(
+        (e) => e.beach_name,
+      ),
+    ).toEqual(['NUEVO', 'VIEJO']);
+  });
+
+  it('un fin estimado (última mención) no cuenta como reapertura', () => {
+    const est = ep({
+      opened_at: '2026-10-10',
+      closed_at: '2026-10-15',
+      end_estimated: true,
+    });
+    expect(recentlyResolved([est], 30, new Date('2026-10-20'))).toHaveLength(0);
   });
 });

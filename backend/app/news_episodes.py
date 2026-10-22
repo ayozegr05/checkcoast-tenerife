@@ -24,6 +24,7 @@ from app.queries import (
     _press_cause,
     _short_cause,
     clean_cause_text,
+    is_sea_state_cause,
     is_ungraded_note,
 )
 
@@ -108,6 +109,10 @@ def press_episode_summary(
     `evs`: episodios sintetizados de la playa (`synthesize_events`).
     `incidents`: incidencias oficiales de la playa (`beach.incidents`).
     """
+    # Cierres preventivos por estado del mar (oleaje, temporal
+    # marítimo) no narran este resumen — fuera del foco de la app,
+    # mismo corte que en synthesize_events/effective_states
+    rows = [r for r in rows if not is_sea_state_cause(r.cause)]
     dominant = _event_mode(rows)
     # Una reapertura real termina el episodio de cobertura: la
     # cadena no se encadena a través de ella aunque el hueco sea
@@ -152,40 +157,49 @@ def press_episode_summary(
             continue
         outlets_by_day.setdefault(pub.date(), set()).add(r.source or "")
 
-    def _is_new_episode_closure(r: NewsItem) -> bool:
+    def _is_new_episode_closure(
+        r: NewsItem, reopen: datetime | None = None
+    ) -> bool:
+        reopen = last_reopen if reopen is None else reopen
         pub = r.published_at
-        if pub is None or last_reopen is None or pub <= last_reopen:
+        if pub is None or reopen is None or pub <= reopen:
             return True
         cs = _closed_since_date(r.closed_since)
         if cs is not None:
-            return cs > last_reopen.date()
+            # cs anterior a la reapertura → pieza retrospectiva del
+            # episodio resuelto. cs POSTERIOR → episodio nuevo. cs del
+            # MISMO día es ambiguo (Jardín: reabrió por la mañana y
+            # cerró por la tarde — el 4º cierre era episodio nuevo) →
+            # decide la corroboración de medios como si no hubiera cs
+            if cs > reopen.date():
+                return True
+            if cs == reopen.date() and len(
+                outlets_by_day.get(pub.date(), set())
+            ) >= 2:
+                return True
+            return False
         # Pasada la ventana retrospectiva, un cierre de 1 solo medio
         # es un suceso nuevo legítimo (Punta Larga). Dentro de ella,
         # sin closed_since que lo sitúe después, hace falta ola de
         # medios — body_verified solo dice que leyó el cuerpo, no que
         # el suceso sea nuevo
         return (
-            pub - last_reopen > RETRO_WINDOW
+            pub - reopen > RETRO_WINDOW
             or len(outlets_by_day.get(pub.date(), set())) >= 2
         )
 
     dominant_rows = [
         r for r in rows if r.event_type == dominant and r.published_at
     ]
-    dates = sorted(d for r in dominant_rows if (d := r.published_at))
+    dominant_items = sorted(dominant_rows, key=lambda r: r.published_at)
     if dominant == "closure" and last_reopen is not None:
         post_reopen = [
-            d
-            for r in dominant_rows
-            if (d := r.published_at) is not None
-            and d > last_reopen
-            and _is_new_episode_closure(r)
+            r
+            for r in dominant_items
+            if r.published_at > last_reopen and _is_new_episode_closure(r)
         ]
         if post_reopen:
-            # dominant_rows viene del orden DESC de `rows`: sin
-            # re-ordenar, `since` anclaría al titular más NUEVO del
-            # episodio en vez del primero (Jardín oct-2026)
-            dates = sorted(post_reopen)
+            dominant_items = post_reopen
     # Un episodio estructural ABIERTO no se parte por hueco de
     # cobertura: nadie repite la misma noticia mientras dura la obra
     # (Gaviotas: cierre jun-2026 y titular de sep es el mismo episodio
@@ -215,21 +229,34 @@ def press_episode_summary(
         for e in evs
         if e.via == "press" and e.closed_at is None and _is_structural(e)
     ]
+    # Una reapertura intercalada solo corta la cadena si lo que la
+    # sigue es un episodio NUEVO de verdad — misma regla que la cadena
+    # de titulares: una pieza retrospectiva del episodio resuelto no
+    # reabre el "desde" (Médano: los cierres de estenerife del 25-sep
+    # salieron ENTRE reaperturas del mismo día; cortar ahí dejaba
+    # since=25-sep aunque el episodio arrancaba el 23)
     since = None
     prev = None
-    for d in dates:
+    for item in dominant_items:
+        d = item.published_at
         inside_open_struct = prev is not None and any(
             lo <= prev.date() <= hi and lo <= d.date() <= hi
             for lo, hi in open_struct_spans
         )
         boundary = prev is not None and (
             (d - prev > PRESS_CLUSTER_GAP and not inside_open_struct)
-            or any(prev < r < d for r in reopen_dates)
+            or any(
+                prev < rd < d
+                and (
+                    item.event_type != "closure"
+                    or _is_new_episode_closure(item, rd)
+                )
+                for rd in reopen_dates
+            )
         )
         if since is None or boundary:
             since = d
         prev = d
-    coverage_since = since
     # El inicio del episodio es la evidencia MÁS ANTIGUA disponible:
     # si una incidencia oficial cubre la ventana, su opened_at manda
     # sobre la primera cobertura de prensa (El Socorro: Náyade dice
@@ -263,86 +290,49 @@ def press_episode_summary(
                 )
                 if opened < since:
                     since = opened
-    # closed_since: el propio texto puede afirmar un inicio real muy
-    # anterior a la cobertura (Benijo: "cerrada desde julio de 2024"
-    # aunque el titular sea de 2026). Si el episodio sigue abierto la
-    # cadena de clústeres es una sola → miramos todos los cierres; si
-    # ya se resolvió, solo el último clúster (el episodio del banner)
-    closed_since = None
-    still_open = dominant == "closure" and any(
-        e.via == "press" and e.closed_at is None for e in evs
-    )
-    if dominant == "closure":
-        if still_open:
-            # Solo los cierres del episodio vivo: posteriores a la
-            # última reapertura Y dentro de su cadena de cobertura —
-            # Punta Larga: la socavación de 2026 no hereda el "desde
-            # 2021" del vertido viejo; Jardín: el cierre de sep-2026 no
-            # arrastra el "2024-07" del episodio ya reabierto
-            pool = [
-                r
-                for r in rows
-                if r.event_type == "closure"
-                and r.published_at
-                and (last_reopen is None or r.published_at > last_reopen)
+    # Titulares del ÚLTIMO episodio de cobertura. Se camina hacia
+    # atrás por la cadena de sucesos adversos (cierre/aviso/
+    # contaminación): un hueco >PRESS_CLUSTER_GAP la rompe, y una
+    # reapertura entre dos sucesos solo la rompe si el siguiente es
+    # un episodio NUEVO de verdad — una pieza retrospectiva publicada
+    # entre reaperturas sigue siendo cobertura del episodio resuelto
+    # (Médano: las 2 piezas de cierre del 25-sep salieron a las 11:03
+    # ENTRE reaperturas del 07:00 y 14:17; cortar ahí dejaba solo 6
+    # titulares y escondía los 14 del 23-sep que narran el mismo
+    # episodio). El banner despliega todo este episodio, no el saco
+    # de 30 ni el último clúster.
+    ep_chain_start = None
+    prev_adv = None
+    for r in sorted(
+        (it for it in rows if it.published_at),
+        key=lambda it: it.published_at,
+    ):
+        if r.event_type not in ("closure", "warning", "pollution"):
+            continue
+        d = r.published_at
+        if prev_adv is not None:
+            cut = d - prev_adv > PRESS_CLUSTER_GAP or any(
+                prev_adv < rd < d
                 and (
-                    coverage_since is None or r.published_at >= coverage_since
+                    r.event_type != "closure"
+                    or _is_new_episode_closure(r, rd)
                 )
-            ]
-        else:
-            pool = [
-                r
-                for r in rows
-                if r.event_type == "closure"
-                and since is not None
-                and r.published_at
-                and r.published_at >= since
-            ]
-        # Solo gana el closed_since corroborado por >=2 medios: un
-        # solo titular mal extraído no retrotrae el inicio (Gaviotas:
-        # "desde jun-2024" de 1 medio vs jun-2026 de 6)
-        closed_since = _corroborated_closed_since(pool)
-        # Un "cerrada desde" anterior a la incidencia oficial que
-        # cubre el episodio es imposible: el registro de Náyade
-        # habría mostrado la playa cerrada. Es extracción errónea
-        # (El Médano/El Socorro sep-2026: Gemini afirmó "2023-09-20"
-        # — la playa SÍ cerró en 2023, pero este episodio era el
-        # cierre temporal del 23-sep)
-        if official_start is not None:
-            cs_d = _closed_since_date(closed_since)
-            if cs_d is not None and cs_d < official_start:
-                closed_since = _corroborated_closed_since(
-                    r
-                    for r in pool
-                    if (_d := _closed_since_date(r.closed_since)) is not None
-                    and _d >= official_start
-                )
-    # Titulares del ÚLTIMO episodio de cobertura: clúster encadenado
-    # por fecha (hueco >PRESS_CLUSTER_GAP rompe), con cualquier tipo
-    # de evento — la reapertura forma parte del episodio que cierra.
-    # El banner de la ficha despliega solo estos, no el saco de 30.
-    # Si hay un evento nuevo DESPUÉS de la última reapertura, el
-    # episodio actual empieza ahí — el clúster anterior ya se resolvió
-    # La frontera del último episodio es la última reapertura ANTES
-    # del último cierre/aviso: Puertito cerró 5-jun tras reabrir el
-    # 9-may → su episodio actual son los titulares de junio; las
-    # reaperturas del 6-jun que lo resolvieron también forman parte
-    ep_pool = rows
-    last_adverse = max(
-        (
-            r.published_at
-            for r in rows
-            if r.published_at
-            and (
-                r.event_type in ("warning", "pollution")
-                or (r.event_type == "closure" and _is_new_episode_closure(r))
+                for rd in reopen_dates
             )
-        ),
-        default=None,
-    )
-    if last_adverse is not None:
+            if cut:
+                ep_chain_start = d
+        elif ep_chain_start is None:
+            ep_chain_start = d
+        prev_adv = d
+    # La frontera del episodio es la última reapertura ANTES de que
+    # arranque su cadena de sucesos: Puertito cerró 5-jun tras
+    # reabrir el 9-may → su episodio actual son los titulares de
+    # junio; las reaperturas del 6-jun que lo resolvieron también
+    # forman parte
+    ep_pool = rows
+    if ep_chain_start is not None:
         ep_boundary = max(
-            (r for r in reopen_dates if r < last_adverse), default=None
+            (r for r in reopen_dates if r < ep_chain_start), default=None
         )
         if ep_boundary is not None:
             ep_pool = [
@@ -372,9 +362,42 @@ def press_episode_summary(
         and ep_start is not None
         and r.published_at >= ep_start
     ]
+    # closed_since: el propio texto puede afirmar un inicio real muy
+    # anterior a la cobertura (Benijo: "cerrada desde julio de 2024"
+    # aunque el titular sea de 2026). El saco de afirmaciones son los
+    # cierres del episodio que se narra (episode_items) — ni toda la
+    # historia (arrastraría episodios viejos: el "desde 2021" de Punta
+    # Larga) ni un recorte por fecha de cobertura (con el since viejo
+    # el Médano solo metía las 2 piezas de estenerife del 25-sep →
+    # 1 solo medio → el "desde el 23" real se perdía sin corroborar)
+    closed_since = None
+    still_open = dominant == "closure" and any(
+        e.via == "press" and e.closed_at is None for e in evs
+    )
+    if dominant == "closure":
+        pool = [r for r in episode_items if r.event_type == "closure"]
+        # Solo gana el closed_since corroborado por >=2 medios: un
+        # solo titular mal extraído no retrotrae el inicio (Gaviotas:
+        # "desde jun-2024" de 1 medio vs jun-2026 de 6)
+        closed_since = _corroborated_closed_since(pool)
+        # Un "cerrada desde" anterior a la incidencia oficial que
+        # cubre el episodio es imposible: el registro de Náyade
+        # habría mostrado la playa cerrada. Es extracción errónea
+        # (El Médano/El Socorro sep-2026: Gemini afirmó "2023-09-20"
+        # — la playa SÍ cerró en 2023, pero este episodio era el
+        # cierre temporal del 23-sep)
+        if official_start is not None:
+            cs_d = _closed_since_date(closed_since)
+            if cs_d is not None and cs_d < official_start:
+                closed_since = _corroborated_closed_since(
+                    r
+                    for r in pool
+                    if (_d := _closed_since_date(r.closed_since)) is not None
+                    and _d >= official_start
+                )
     return PressSummary(
         dominant=dominant,
-        cause=_news_cause(rows),
+        cause=_news_cause(episode_items or rows),
         since=since,
         closed_since=closed_since,
         episode_items=episode_items,

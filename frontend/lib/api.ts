@@ -124,6 +124,17 @@ export type MunicipalityIncident = {
   press_items?: BeachNews[];
 };
 
+// Objetivo de deep-link dentro de la ficha de playa: el episodio
+// concreto que el usuario tocó (timeline municipal, temporada) —
+// la ficha baja a Episodios con su año desplegado y la fila marcada
+export type EpisodeFocus = {
+  // PM donde vive el episodio — el foco solo aplica si la ficha
+  // abierta es esta playa (un foco viejo nunca se cuela en otra)
+  beach_id: number;
+  id: number;
+  opened_at: string | null;
+};
+
 export type BeachStats = {
   beach_id: number;
   closures: number;

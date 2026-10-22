@@ -55,7 +55,7 @@ from app.news_sources import (
     source_excluded,
 )
 from app.news_zones import narrow_hits_by_zone
-from app.queries import _short_cause
+from app.queries import _short_cause, is_sea_state_cause
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
@@ -379,7 +379,9 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
             # actualizada no es una noticia de última hora
             if item.source == GUIA_SOURCE:
                 continue
-            if _press_push_candidate(
+            # Estado del mar (oleaje/temporal) no despierta push:
+            # la app avisa de agua/vertidos, no es un parte meteo
+            if not is_sea_state_cause(item.cause) and _press_push_candidate(
                 db, b, item.event_type, item.published_at, exclude_id=item.id
             ):
                 item.push_pending = True
@@ -731,6 +733,9 @@ def run(
                     not backfill
                     and beach
                     and ext.event_type is not None
+                    # Oleaje/temporal de mar no despierta push — la
+                    # app avisa de agua y vertidos, no de meteo
+                    and not is_sea_state_cause(ext.cause)
                     and _press_push_candidate(
                         db, beach, ext.event_type, art.published_at
                     )
@@ -777,7 +782,13 @@ def run(
                 if it.id in queued:
                     continue
                 b = it.beach
-                if b is None or it.event_type is None:
+                # Mar agitado/temporal tampoco por el camino de
+                # reintento: marcado para no volver a encolarse
+                if (
+                    b is None
+                    or it.event_type is None
+                    or is_sea_state_cause(it.cause)
+                ):
                     it.pushed_at = datetime.now(UTC)  # nunca saldrá
                     continue
                 key = _push_key(b, it.event_type)

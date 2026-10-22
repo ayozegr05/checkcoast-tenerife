@@ -16,17 +16,47 @@ describe('zonas con nombre propio (Playa Jardín)', () => {
   });
 
   it('devuelve null fuera de complejos mapeados', () => {
-    expect(zoneName('PLAYA MEDANO (EL) PM3')).toBeNull();
+    expect(zoneName('PLAYA MEDANO (EL) PM3', 'PM9')).toBeNull();
     expect(zoneName('PLAYA JARDIN PM1', 'PM9')).toBeNull();
+    expect(zoneName('PLAYA RISCO (EL) PM1')).toBeNull();
   });
 
   it('siblingZoneRef cae a "zona N" sin mapa', () => {
     expect(siblingZoneRef('PLAYA JARDIN PM1', 'PM4')).toBe('cala Punta Brava');
-    expect(siblingZoneRef('PLAYA MEDANO (EL) PM3', 'PM4')).toBe('zona 4');
+    expect(siblingZoneRef('PLAYA RISCO (EL) PM1', 'PM4')).toBe('zona 4');
   });
 
   it('pointLongLabel usa el nombre de la cala', () => {
     expect(pointLongLabel('PLAYA JARDIN PM4')).toBe('Punta Brava');
-    expect(pointLongLabel('PLAYA MEDANO (EL) PM3')).toBe('Zona 3');
+    expect(pointLongLabel('PLAYA MEDANO (EL) PM3')).toBe('Playa central');
+  });
+});
+
+describe('arenal del Médano (calas con nombre propio)', () => {
+  it('las tres zonas resuelven nombre propio aunque dos sean PM1', () => {
+    expect(zoneName('PLAYA MEDANO (EL) PM3')).toBe('Playa central');
+    expect(zoneName('PLAYA MEDANO (EL)-CHICA PM1')).toBe('Playa Chica');
+    expect(zoneName('PLAYA MEDANO (EL)-LEOCADIO MACHADO PM1')).toBe(
+      'Leocadio Machado',
+    );
+  });
+
+  it('la zona hermana se identifica por sufijo, no por número de PM', () => {
+    expect(zoneName('PLAYA MEDANO (EL) PM3', 'CHICA')).toBe('Playa Chica');
+    expect(zoneName('PLAYA MEDANO (EL) PM3', 'LEOCADIO MACHADO')).toBe(
+      'Leocadio Machado',
+    );
+  });
+
+  it('siblingZoneRef usa la forma narrativa de la cala', () => {
+    expect(siblingZoneRef('PLAYA MEDANO (EL) PM3', 'CHICA')).toBe(
+      'playa Chica',
+    );
+    expect(
+      siblingZoneRef('PLAYA MEDANO (EL)-CHICA PM1', 'LEOCADIO MACHADO'),
+    ).toBe('playa de Leocadio Machado');
+    expect(siblingZoneRef('PLAYA MEDANO (EL)-CHICA PM1', 'PM3')).toBe(
+      'playa central',
+    );
   });
 });

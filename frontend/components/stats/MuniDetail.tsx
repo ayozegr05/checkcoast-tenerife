@@ -9,16 +9,18 @@ import {
 } from 'react-native';
 
 import {
+  EpisodeFocus,
   GeoFeature,
   MunicipalityIncident,
   fetchMunicipalityIncidents,
 } from '../../lib/api';
-import { causeLabelArt, STRUCT_CAUSES } from '../../lib/causeArt';
+import { causeLabelArts, STRUCT_CAUSES } from '../../lib/causeArt';
 import { causeFamily } from '../../lib/episodes';
 import { displayBeachName, formatDays } from '../../lib/format';
 import { MuniStats, durationDays, fmtDate } from '../../lib/muniStats';
 import { groupNewsItems } from '../../lib/news';
 import { colors } from '../../lib/theme';
+import { zoneName } from '../../lib/zones';
 import Skeleton from '../Skeleton';
 import NewsGroupList from '../beach/NewsGroupList';
 import { styles } from './statsStyles';
@@ -29,6 +31,7 @@ function TimelineRow({
   inc,
   isLast,
   live,
+  zone,
   onSelectBeach,
 }: {
   inc: MunicipalityIncident;
@@ -37,7 +40,10 @@ function TimelineRow({
   // dice "prohibido" se clasifica como aviso, pero si la playa está
   // cerrada ahora mismo el badge debe decir "Cierre activo"
   live: string | undefined;
-  onSelectBeach?: (beachId: number) => void;
+  // Cala concreta del complejo ("Leocadio Machado") — en complejos
+  // multi-punto la fila dice la zona real, no solo el arenal
+  zone: string | null;
+  onSelectBeach?: (beachId: number, episode?: EpisodeFocus) => void;
 }) {
   // Solo un incidente sin fecha de cierre está "activo":
   // el badge sólido se reserva a ese caso — los
@@ -97,6 +103,10 @@ function TimelineRow({
           ]}
         />
         {!isLast && <View style={styles.tlLine} />}
+        {/* Tick horizontal dot→tarjeta a la altura del dot: el rail
+            lee "línea temporal conectada" (tipo git-log) en vez de
+            puntos flotando junto a las tarjetas */}
+        <View style={[styles.tlTick, { backgroundColor: accent }]} />
       </View>
       <Pressable
         style={({ pressed }) => [
@@ -109,102 +119,128 @@ function TimelineRow({
           },
           pressed && styles.pressFx,
         ]}
-        // La tarjeta sigue pulsando a la ficha, pero el botón
-        // accesible es solo el pill "Ficha ›" — anunciar las dos con
-        // la misma etiqueta duplicaba el control en TalkBack
-        onPress={() => onSelectBeach?.(inc.beach_id)}
+        // La tarjeta entera navega a la ficha; el chevron › del borde
+        // derecho es la pista de "fila navegable" (gesto clásico de
+        // lista), no un segundo botón
+        onPress={() =>
+          onSelectBeach?.(inc.beach_id, {
+            beach_id: inc.beach_id,
+            id: inc.id,
+            opened_at: inc.opened_at,
+          })
+        }
+        accessibilityRole="button"
+        accessibilityLabel={`Ver ficha de ${displayBeachName(inc.beach_name)}`}
       >
-        {/* Mismo layout que una fila de Episodios de la ficha:
-            identidad y fechas a la izquierda; a la derecha el badge
-            circular de la causa (en cierres) o la etiqueta de estado
-            (avisos / notas pendientes), con la causa debajo. wrap:
-            los titulares bajan a ancho completo */}
-        <View style={styles.tlRow}>
-          <View style={styles.tlMain}>
-            <Text style={styles.tlBeach} numberOfLines={2}>
-              {displayBeachName(inc.beach_name)}
-            </Text>
-            <Text style={styles.tlDates}>
-              {inc.end_estimated
-                ? // Fin estimado (última mención en prensa): no se
-                  // muestra, pero la fecha pelada parece dato roto
-                  // — el "según prensa" la contextualiza
-                  `${inc.opened_at ? fmtDate(inc.opened_at) : '—'} · según prensa`
-                : `${inc.opened_at ? fmtDate(inc.opened_at) : '—'} → ${
-                    inc.closed_at ? fmtDate(inc.closed_at) : 'activo'
-                  }${inc.opened_at ? ` · ${formatDays(durationDays(inc))}` : ''}`}
-            </Text>
-            {inc.observations ? (
-              <Text style={styles.tlObs}>{inc.observations}</Text>
-            ) : null}
-          </View>
-          <View style={styles.tlSide}>
-            {kind === 'closure' && !unclassified ? (
-              <Image
-                testID="incident-badge"
-                source={causeLabelArt(inc.cause)}
-                style={styles.tlBadge}
-              />
-            ) : (
-              <Text style={[styles.tlState, { color: accent }]}>
-                {unclassified ? 'Pendiente' : 'Aviso'}
-              </Text>
+        {/* Dos columnas: contenido a la izquierda y el chevron de
+            navegación como columna hermana autocentrada — centra
+            sobre TODO el alto de la tarjeta (contenido + enlace de
+            titulares + titulares desplegados), no solo sobre la
+            primera línea */}
+        <View style={styles.tlWrap}>
+          <View style={styles.tlContent}>
+            {/* Mismo layout que una fila de Episodios de la ficha:
+                identidad y fechas a la izquierda; a la derecha el
+                badge circular de la causa (en cierres) o la etiqueta
+                de estado (avisos / notas pendientes), con la causa
+                debajo */}
+            <View style={styles.tlRow}>
+              <View style={styles.tlMain}>
+                <Text style={styles.tlBeach} numberOfLines={2}>
+                  {displayBeachName(inc.beach_name)}
+                  {zone ? <Text style={styles.tlZone}> · {zone}</Text> : null}
+                </Text>
+                <Text style={styles.tlDates}>
+                  {inc.end_estimated
+                    ? // Fin estimado (última mención en prensa): no se
+                      // muestra, pero la fecha pelada parece dato roto
+                      // — el "según prensa" la contextualiza
+                      `${inc.opened_at ? fmtDate(inc.opened_at) : '—'} · según prensa`
+                    : `${inc.opened_at ? fmtDate(inc.opened_at) : '—'} → ${
+                        inc.closed_at ? fmtDate(inc.closed_at) : 'activo'
+                      }${inc.opened_at ? ` · ${formatDays(durationDays(inc))}` : ''}`}
+                </Text>
+                {inc.observations ? (
+                  <Text style={styles.tlObs}>{inc.observations}</Text>
+                ) : null}
+              </View>
+              <View style={styles.tlSide}>
+                {kind === 'closure' && !unclassified ? (
+                  // Un badge por parámetro — "E. coli y enterococos"
+                  // apila los dos (como incidentBadgeArts en la ficha)
+                  <View style={styles.tlBadges}>
+                    {causeLabelArts(inc.cause).map((art) => (
+                      <Image
+                        key={art}
+                        testID="incident-badge"
+                        source={art}
+                        style={styles.tlBadge}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={[styles.tlState, { color: accent }]}>
+                    {unclassified ? 'Pendiente' : 'Aviso'}
+                  </Text>
+                )}
+                {inc.cause && !unclassified ? (
+                  // Causa compuesta ("E. coli y enterococos") → dos
+                  // líneas tras la conjunción; queda más aireada
+                  // que una línea larga junto al badge
+                  <Text style={styles.tlCause}>
+                    {inc.cause.replace(/ y /g, ' y\n')}
+                  </Text>
+                ) : null}
+                {active && !unclassified ? (
+                  <Text style={[styles.tlActive, { color: accent }]}>
+                    activo
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+            {/* Línea de acciones: ▾ despliega la evidencia aquí mismo */}
+            {pressItems.length > 0 && (
+              <View style={styles.tlActions}>
+                <Pressable
+                  onPress={() => setTitlesOpen((o) => !o)}
+                  hitSlop={8}
+                  style={({ pressed }) => pressed && styles.pressFx}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    titlesOpen
+                      ? 'Ocultar titulares del episodio'
+                      : `Ver ${pressItems.length} titulares del episodio`
+                  }
+                >
+                  <Text style={[styles.tlNewsToggle, { color: accent }]}>
+                    {titlesOpen
+                      ? 'Ocultar titulares ▴'
+                      : `Ver titulares (${pressItems.length}) ▾`}
+                  </Text>
+                </Pressable>
+              </View>
             )}
-            {inc.cause && !unclassified ? (
-              <Text style={styles.tlCause}>{inc.cause}</Text>
-            ) : null}
-            {active && !unclassified ? (
-              <Text style={[styles.tlActive, { color: accent }]}>activo</Text>
-            ) : null}
+            {pressItems.length > 0 && titlesOpen && (
+              <View style={styles.tlTitles}>
+                <NewsGroupList
+                  groups={groupNewsItems(pressItems)}
+                  accentOverride={accent}
+                />
+              </View>
+            )}
           </View>
-        </View>
-        {/* Línea de acciones: ▾ despliega la evidencia aquí mismo;
-            el pill "Ficha ›" es la pista explícita de que la fila
-            navega — sin él el comportamiento quedaba oculto */}
-        <View style={styles.tlActions}>
-          {pressItems.length > 0 && (
-            <Pressable
-              onPress={() => setTitlesOpen((o) => !o)}
-              hitSlop={8}
-              style={({ pressed }) => pressed && styles.pressFx}
-              accessibilityRole="button"
-              accessibilityLabel={
-                titlesOpen
-                  ? 'Ocultar titulares del episodio'
-                  : `Ver ${pressItems.length} titulares del episodio`
-              }
-            >
-              <Text style={[styles.tlNewsToggle, { color: accent }]}>
-                {titlesOpen
-                  ? 'Ocultar titulares ▴'
-                  : `Ver titulares (${pressItems.length}) ▾`}
-              </Text>
-            </Pressable>
-          )}
-          <Pressable
-            onPress={() => onSelectBeach?.(inc.beach_id)}
-            hitSlop={8}
-            style={({ pressed }) => [
-              styles.tlFichaPill,
-              { borderColor: accent },
-              pressed && styles.pressFx,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={`Ver ficha de ${displayBeachName(inc.beach_name)}`}
+          {/* Indicador de navegación — el chevron › de las listas
+              nativas. Columna hermana con alignSelf:'center': centra
+              sobre TODO el alto de la tarjeta (contenido + acciones +
+              titulares). Decorativo, la fila entera navega; toma el
+              acento del episodio (rojo en cierres) */}
+          <Text
+            style={[styles.tlChevron, { color: accent }]}
+            accessible={false}
           >
-            <Text style={[styles.tlFichaPillText, { color: accent }]}>
-              Ficha ›
-            </Text>
-          </Pressable>
+            ›
+          </Text>
         </View>
-        {pressItems.length > 0 && titlesOpen && (
-          <View style={styles.tlTitles}>
-            <NewsGroupList
-              groups={groupNewsItems(pressItems)}
-              accentOverride={accent}
-            />
-          </View>
-        )}
       </Pressable>
     </View>
   );
@@ -228,7 +264,7 @@ export default function MuniDetail({
   selYear: number;
   yearCause: string;
   onSelect: (municipality: string | null) => void;
-  onSelectBeach?: (beachId: number) => void;
+  onSelectBeach?: (beachId: number, episode?: EpisodeFocus) => void;
   onBack: () => void;
 }) {
   // "Sin municipio" no tiene incidentes oficiales (puede tener alertas
@@ -312,6 +348,31 @@ export default function MuniDetail({
     [beaches],
   );
 
+  const beachNameById = useMemo(
+    () => new Map(beaches.map((f) => [f.id, f.properties.name ?? ''])),
+    [beaches],
+  );
+
+  // Cala concreta del episodio dentro del complejo: las zonas que la
+  // prensa nombró (zone_beach_ids) o el propio punto si el episodio
+  // es de una sola playa. "Playa del Médano · Leocadio Machado" —
+  // sin complejo zoneName devuelve null y la fila va a secas
+  const zoneLabelOf = (inc: MunicipalityIncident) => {
+    const ids = inc.zone_beach_ids?.length
+      ? inc.zone_beach_ids
+      : [inc.beach_id];
+    const zones = [
+      ...new Set(
+        ids
+          .map((id) => beachNameById.get(id))
+          .filter((n): n is string => !!n)
+          .map((n) => zoneName(n))
+          .filter((z): z is string => !!z),
+      ),
+    ];
+    return zones.length ? zones.join(' + ') : null;
+  };
+
   return (
     <>
       <ImageBackground
@@ -349,6 +410,15 @@ export default function MuniDetail({
           Línea temporal de incidentes
           {isYearMode ? ` · ${selYear}` : ''} · más reciente primero
         </Text>
+        {/* Resumen del detalle: cuántos episodios y en cuántas
+            playas distintas — contexto rápido antes de scrollear */}
+        {detailRows.length > 0 && (
+          <Text style={styles.subtitleCount}>
+            {detailRows.length} episodio{detailRows.length === 1 ? '' : 's'} ·{' '}
+            {new Set(detailRows.map((i) => i.beach_name)).size} playa
+            {new Set(detailRows.map((i) => i.beach_name)).size === 1 ? '' : 's'}
+          </Text>
+        )}
       </ImageBackground>
 
       <FlatList
@@ -361,6 +431,7 @@ export default function MuniDetail({
             inc={inc}
             isLast={index === detailRows.length - 1}
             live={liveStatus.get(inc.beach_id)}
+            zone={zoneLabelOf(inc)}
             onSelectBeach={onSelectBeach}
           />
         )}

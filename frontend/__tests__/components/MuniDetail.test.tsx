@@ -104,7 +104,10 @@ describe('<MuniDetail />', () => {
     await fireEvent.press(
       await screen.findByRole('button', { name: 'Ver ficha de Playa Jardín' }),
     );
-    expect(p.onSelectBeach).toHaveBeenCalledWith(10);
+    expect(p.onSelectBeach).toHaveBeenCalledWith(
+      10,
+      expect.objectContaining({ beach_id: 10 }),
+    );
     await fireEvent.press(
       screen.getByRole('button', { name: 'Ver playas del municipio' }),
     );

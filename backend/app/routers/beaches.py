@@ -30,7 +30,7 @@ from app.models import (
     NewsItem,
     Outfall,
 )
-from app.names import pm_label
+from app.names import pm_label, zone_tag
 from app.news_episodes import press_episode_summary
 from app.queries import (
     _CAUSE_RANK,
@@ -41,6 +41,7 @@ from app.queries import (
     beaches_with_latest_status,
     clean_cause_text,
     effective_states,
+    is_sea_state_cause,
     is_ungraded_note,
 )
 from app.schemas import (
@@ -149,7 +150,7 @@ def _sibling_pm_attribution(
                 .first()
             )
             if open_inc or _latest_closed(db, sib.id):
-                return _pm_label(sib.name)
+                return zone_tag(sib.name)
             continue
         hit = (
             db.query(BeachIncident)
@@ -164,7 +165,7 @@ def _sibling_pm_attribution(
             .first()
         )
         if hit:
-            return _pm_label(sib.name)
+            return zone_tag(sib.name)
     return None
 
 
@@ -693,6 +694,7 @@ def _collect_episodes(
                     obs=obs,
                     press_count=len(press_items),
                     pm_label=_pm_label(beach.name),
+                    zone_tag=zone_tag(beach.name),
                     # Náyade no dice la causa: la toma la prensa de la
                     # ventana; si nadie la cubrió, un cierre de Sanidad
                     # es Contaminación por definición (solo mide agua)
@@ -727,6 +729,7 @@ def _collect_episodes(
                     obs=_synth_observations(ev),
                     press_confirmed=ev.press_confirmed,
                     pm_label=_pm_label(beach.name),
+                    zone_tag=zone_tag(beach.name),
                     press_count=(ev.press_count if ev.via == "press" else 0),
                     end_estimated=ev.end_estimated,
                     # prensa: voto de sus causas crudas; measurement:
@@ -1092,6 +1095,10 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
         .limit(30)
         .all()
     )
+    # "Estado del mar" (oleaje, temporal) no es contexto de esta app:
+    # fuera del endpoint entero — ni cuenta medios ni aparece en
+    # titulares
+    rows = [r for r in rows if not is_sea_state_cause(r.cause)]
     summary = press_episode_summary(
         rows, synthesize_events(beach), beach.incidents, date.today()
     )
@@ -1116,13 +1123,18 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
             # narra el banner es el inicio de SU episodio, no el viejo
             # de este punto (PM1 de Jardín diría "la cala Punta Brava
             # sigue cerrada desde junio" con sus items de verano)
-            sib = (
-                db.query(Beach)
-                .filter(
-                    Beach.municipality == beach.municipality,
-                    Beach.name == f"{base_name(beach.name)} {attributed_pm}",
-                )
-                .first()
+            sib = next(
+                (
+                    b
+                    for b in db.query(Beach)
+                    .filter(
+                        Beach.municipality == beach.municipality,
+                        Beach.name.like(base_name(beach.name) + "%"),
+                    )
+                    .all()
+                    if zone_tag(b.name) == attributed_pm
+                ),
+                None,
             )
             if sib is not None:
                 live_ev = next(
@@ -1166,7 +1178,16 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
             event_type=summary.dominant,
             cause=summary.cause,
             items_count=len(rows),
-            outlets_count=len({r.source for r in rows if r.source}),
+            # Medios del clúster que el banner narra (episode_items),
+            # no de toda la historia de la playa — "N medios" debe
+            # cuadrar con los titulares que el desplegable enseña
+            outlets_count=len(
+                {
+                    r.source
+                    for r in (summary.episode_items or rows)
+                    if r.source
+                }
+            ),
             since=summary.since,
             closed_since=summary.closed_since,
             attributed_pm=attributed_pm,
