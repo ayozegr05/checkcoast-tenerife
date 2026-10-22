@@ -50,6 +50,7 @@
     .card { max-width:520px;
             box-shadow:0 18px 60px rgba(7,43,62,.30); }
     .side { display:block; width:300px; padding-top:6px; }
+    .qrtag { display:block; }
     .sbrand { display:flex; align-items:center; gap:12px;
             font-weight:700; font-size:22px; color:#fff;
             letter-spacing:.2px; text-shadow:0 1px 4px rgba(0,0,0,.4); }
@@ -234,16 +235,11 @@
   .src { margin-top:14px; font-size:11px; color:#7a919c; }
   .src a { color:#075276; text-decoration:none; }
   .src a:hover { text-decoration:underline; }
-  .homelink { display:block; margin-top:10px; text-align:center;
-          font-size:12px; color:#075276; font-weight:600;
-          text-decoration:none; }
-  .homelink:hover { text-decoration:underline; }
   .chiprow { position:relative; display:flex; align-items:center;
           justify-content:center; margin-bottom:4px; }
   .chiprow .shr { position:absolute; right:0; }
-  .actrow { display:flex; align-items:center;
-          justify-content:space-between; margin-top:10px; }
-  .actrow .homelink { margin-top:0; }
+  .actrow { display:flex; align-items:center; gap:8px;
+          margin-top:16px; }
   .shr { display:flex; align-items:center; gap:5px;
           border:1px solid rgba(26,127,150,.45); background:#fff;
           color:#1a7f96; font-family:inherit; font-size:11px;
@@ -252,13 +248,16 @@
   .shr img { width:12px; height:12px; }
   .shr:hover { background:#eef6fa; }
   .shr:active { opacity:.6; }
-  .open { display:block; margin-top:16px; text-align:center;
+  .open { flex:1; display:block; text-align:center;
           background:#075276; color:#fff; font-weight:700;
-          padding:11px; border-radius:10px; text-decoration:none; }
+          padding:11px 8px; border-radius:10px; text-decoration:none;
+          font-size:13px; }
   .open:hover { background:#0a628c; }
-  .noapp { display:none; margin-top:8px; font-size:12px;
-          color:#7a919c; }
-  .noapplink { color:#075276; font-weight:700; }
+  .open.alt { background:#fff; color:#075276;
+          border:1px solid rgba(7,82,118,.35); font-weight:600; }
+  .open.alt:hover { background:#eef6fa; }
+  .qrtag { display:none; width:54px; height:54px; flex:none;
+          border-radius:8px; border:1px solid #dfe9ee; }
 </style>
 </head>
 <body>
@@ -453,12 +452,14 @@
       <p class="src">Fuente: <a href="{{ source_url }}">Censo Vertidos
         Tierra-Mar 2025 ↗</a></p>
       {%- endif %}
-      <a class="open" href="{{ deep }}" onclick="openApp(); return false;">
-        Abrir en la app</a>
-      <p id="noapp" class="noapp">Si no se abrió, aún no tienes la app
-        instalada — <a class="noapplink" href="/">ver el estado de
-        todas las playas →</a></p>
-      <a class="homelink" href="/">← Ver todas las playas</a>
+      <div class="actrow">
+        <a class="open" href="{{ deep }}" onclick="openApp(); return false;">
+          Descargar la app gratis</a>
+        <a class="open alt" href="/">Ver todas las playas</a>
+        <img class="qrtag" src="/img/qr-github.png"
+          alt="QR para descargar la app"
+          title="Escanea para descargar la app">
+      </div>
     </div>
   </div>
   <aside class="side">
@@ -505,14 +506,14 @@
 function openApp() {
   var u = navigator.userAgent;
   if (/Android/i.test(u)) {
+    // si la app no está instalada, Chrome abre el fallback: la sección
+    // "Llévala en el bolsillo" de la portada
     window.location = 'intent://outfall/{{ outfall_id }}#Intent;scheme=checkcoast;'
-      + 'package=com.checkcoast.tenerife;end';
+      + 'package=com.checkcoast.tenerife;S.browser_fallback_url='
+      + encodeURIComponent(location.origin + '/#get-app') + ';end';
   } else {
     window.location = 'checkcoast://outfall/{{ outfall_id }}';
   }
-  setTimeout(function () {
-    document.getElementById('noapp').style.display = 'block';
-  }, 1400);
 }
 var urls = {{ urls | tojson }};
 var z = {{ start }};
