@@ -410,16 +410,6 @@ export default function App() {
       restore,
     );
 
-  // Aterrizaje en mapa tras cerrar una ficha multipunto: el zoom de
-  // detalle de la zona abierta dejaba un pin aislado a 15.5 — el
-  // foco a un miembro del grupo dispara fitBeachBounds y encuadra
-  // el arenal entero
-  const reframeGroupIfMulti = () => {
-    if (selection?.type === 'beach' && (selection.members?.length ?? 0) > 1) {
-      setFocus([...selection.feature.geometry.coordinates]);
-    }
-  };
-
   // Cierre explícito (✕ o gesto de arrastrar): suelta en el mapa
   // libre — no retrocede por la cadena de origen ni reabre listas
   const closeSheet = () => {
@@ -427,7 +417,6 @@ export default function App() {
     setReturnToMuni(false);
     setReturnToOutfalls(false);
     setZoneShown(null);
-    reframeGroupIfMulti();
     setSelection(null);
     setSheetHidden(false);
   };
@@ -462,7 +451,6 @@ export default function App() {
       setFocus([...back.feature.geometry.coordinates, 15.5, back.type]);
       return;
     }
-    reframeGroupIfMulti();
     setZoneShown(null);
     setSelection(null);
     setSheetHidden(false);
@@ -530,6 +518,9 @@ export default function App() {
         beaches={beachesFC}
         focus={focus}
         selectionActive={!!selection}
+        selectionMembers={
+          selection?.type === 'beach' ? selection.members : undefined
+        }
         selectedBeachId={
           selection?.type === 'beach' ? selection.feature.id : null
         }

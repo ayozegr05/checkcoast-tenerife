@@ -27,6 +27,9 @@ type ViewState = { center: [number, number]; zoom: number };
 type UseMapCameraArgs = {
   // hay card abierta -> al cerrar restaura la vista guardada
   selectionActive: boolean;
+  // Miembros del grupo de la ficha abierta (solo playas multi-PM):
+  // al cerrar, el aterrizaje es el arenal entero, no la vista previa
+  selectionMembers?: GeoFeature[];
   // foco externo (lista, deep-link, alerta): vuela a ese punto
   focus?: MapFocus;
   // Zona concreta abierta en la ficha multipunto (null = selector):
@@ -45,6 +48,7 @@ type UseMapCameraArgs = {
 // cameraRef para vuelos puntuales y los helpers de intención
 export function useMapCamera({
   selectionActive,
+  selectionMembers,
   focus,
   zoneFocus = null,
   pmPoints,
@@ -90,6 +94,7 @@ export function useMapCamera({
   // la vista previa: se quedó donde él decidió
   const userPanned = useRef(false);
   const prevSelection = useRef(selectionActive);
+  const prevMembers = useRef(selectionMembers);
 
   // Navegación deliberada (alerta, búsqueda, lista, deep-link): no hay
   // vista que restaurar al cerrar la card — el mapa se queda donde el
@@ -135,24 +140,27 @@ export function useMapCamera({
 
   // Card cerrada -> vuelve a la vista previa al toque del pin, SOLO si
   // el usuario no movió el mapa a mano mientras la ficha estaba
-  // abierta (si lo movió, esa posición es la que quiere)
+  // abierta (si lo movió, esa posición es la que quiere). Excepción:
+  // en un grupo multi-PM el aterrizaje es el arenal entero — el zoom
+  // de detalle de la zona abierta dejaba un pin aislado a 15.5
   useEffect(() => {
-    if (
-      prevSelection.current &&
-      !selectionActive &&
-      savedView.current &&
-      !userPanned.current
-    ) {
-      cameraRef.current?.flyTo({
-        center: savedView.current.center,
-        zoom: savedView.current.zoom,
-        padding: { top: 0, right: 0, bottom: 0, left: 0 },
-        duration: 800,
-      });
+    if (prevSelection.current && !selectionActive && !userPanned.current) {
+      if ((prevMembers.current?.length ?? 0) > 1) {
+        fitBeachBounds(prevMembers.current!, 800);
+      } else if (savedView.current) {
+        cameraRef.current?.flyTo({
+          center: savedView.current.center,
+          zoom: savedView.current.zoom,
+          padding: { top: 0, right: 0, bottom: 0, left: 0 },
+          duration: 800,
+        });
+      }
     }
     if (!selectionActive) savedView.current = null;
     prevSelection.current = selectionActive;
-  }, [selectionActive]);
+    prevMembers.current = selectionMembers;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectionActive, selectionMembers]);
 
   const pmShown = !!(pmPoints && pmPoints.features.length > 0);
   // Ficha de una zona abierta: vuela al PM concreto con zoom de

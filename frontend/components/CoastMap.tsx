@@ -137,6 +137,9 @@ type CoastMapProps = {
   // se aplica el padding de la card que se abre (beach | outfall)
   focus?: MapFocus;
   selectionActive: boolean; // hay card abierta -> al cerrar restaura vista
+  // Miembros del grupo de la ficha abierta (playas multi-PM): al
+  // cerrar, la cámara encuadra el arenal entero en vez de restaurar
+  selectionMembers?: GeoFeature[];
   // id del PM representante de la playa seleccionada: su etiqueta de
   // nombre se pinta en una capa propia que gana siempre los solapes
   selectedBeachId?: number | null;
@@ -175,6 +178,7 @@ export default function CoastMap({
   beaches,
   focus,
   selectionActive,
+  selectionMembers,
   selectedBeachId,
   selectedOutfallId,
   pmPoints,
@@ -257,6 +261,7 @@ export default function CoastMap({
     northUp,
   } = useMapCamera({
     selectionActive,
+    selectionMembers,
     focus,
     zoneFocus,
     pmPoints,
