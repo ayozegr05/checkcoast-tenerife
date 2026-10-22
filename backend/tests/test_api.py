@@ -244,7 +244,27 @@ def test_outfall_news(seed_data):
         event_type="closure",
         cause="contaminación fecal",
     )
-    db.add_all([named, zone, noise])
+    # Una reapertura no narra infra: "reabre tras el vertido" habla de
+    # la playa (y el vertido puede ser de otro lugar — caso real del
+    # aliviadero de Playa San Juan mostrando un vertido de Jardín).
+    # Solo cuenta si el titular nombra la instalación
+    reopen_noise = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-infra-reopen",
+        title="Reabre la playa tras el vertido",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="reopening",
+    )
+    reopen_infra = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-infra-reopen2",
+        title="Reabre la playa, pero el emisario sigue roto",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="reopening",
+    )
+    db.add_all([named, zone, noise, reopen_noise, reopen_infra])
     db.commit()
     try:
         r = client.get(f"/outfalls/{o.id}/news")
@@ -255,6 +275,8 @@ def test_outfall_news(seed_data):
         assert named.title in named_titles
         assert zone.title in zone_titles
         assert noise.title not in named_titles + zone_titles
+        assert reopen_noise.title not in named_titles + zone_titles
+        assert reopen_infra.title in zone_titles
         item = next(n for n in body["named"] if n["title"] == named.title)
         assert item["beach_name"] == "PLAYA TEST CI (LA) PM1"
         assert item["event_type"] == "infra"
@@ -276,7 +298,7 @@ def test_outfall_news(seed_data):
         assert body["episodes"]["total"] == 0
         assert body["episodes"]["beaches"] == []
     finally:
-        for it in (named, zone, noise):
+        for it in (named, zone, noise, reopen_noise, reopen_infra):
             db.delete(it)
         db.delete(o)
         db.commit()

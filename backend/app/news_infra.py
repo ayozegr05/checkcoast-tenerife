@@ -198,6 +198,25 @@ INFRA_TITLE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# "En la zona" es contexto de infraestructura: una reapertura u otro
+# ítem sin evento de vertido propio solo cuenta si el titular nombra
+# la INSTALACIÓN. "Reabre la playa… y cierran Jardín por vertidos"
+# narra la playa y el vertido puede ser de otro lugar (caso real:
+# el aliviadero de Playa San Juan mostraba un vertido de Puerto de
+# la Cruz); "reabre, pero el emisario sigue roto" sí es noticia de
+# infra — la instalación es la protagonista
+_FACILITY_TITLE_RE = re.compile(_FACILITY_RE, re.IGNORECASE)
+_EVENT_FREE_TYPES = {"reopening", "other", ""}
+
+
+def _zone_title_ok(n: NewsItem) -> bool:
+    """Titular apto para 'en la zona' de la ficha del emisario."""
+    if not INFRA_TITLE_RE.search(n.title or ""):
+        return False
+    if (n.event_type or "") in _EVENT_FREE_TYPES:
+        return _FACILITY_TITLE_RE.search(n.title or "") is not None
+    return True
+
 # Topónimos demasiado genéricos para atribuir un punto concreto
 _GENERIC_TOPONYMS = {
     "puerto",
@@ -539,11 +558,11 @@ def gather_infra_news(
         if n.infra_checked_at is not None:
             # Cuerpo ya escaneado sin punto concreto: solo zona si el
             # titular habla de la instalación/suceso
-            if INFRA_TITLE_RE.search(n.title):
+            if _zone_title_ok(n):
                 zone.append(pair)
             continue
         # Sin revisión infra persistida: clasificación por titular
-        if not INFRA_TITLE_RE.search(n.title):
+        if not _zone_title_ok(n):
             continue
         text = norm_txt(n.title)
         if any(p.search(text) for p in own_res):
