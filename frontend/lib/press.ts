@@ -2,9 +2,40 @@
 // y cabecera de la card "En la prensa"). Sin llamadas LLM: usa el
 // agregado que ya calcula el backend en /beaches/{id}/news.
 
-import type { BeachNewsSummary } from './api';
+import type { BeachNews, BeachNewsSummary } from './api';
 import { fmtDate, fmtPartialDate, formatDays } from './format';
 import { siblingZoneRef } from './zones';
+
+// ¿La oleada de cierres publicada el día del ancla documenta un
+// episodio NUEVO corroborado? El ancla es a la vez el closed_at de
+// un acta (día de reapertura) y el inicio del episodio de prensa —
+// Jardín 07/10: Sanidad reabrió por la mañana y la recerraron por la
+// tarde, y el 4º cierre llegó con 5 medios el mismo día. Sin ola
+// (≥2 medios ese día) ni un closed_since posterior, una pieza suelta
+// en día de reapertura es cobertura vieja del episodio anterior y
+// sigue casada al acta. Espejo de anchor_is_new_closure_wave del
+// backend (los ítems no traen closed_since individual: se usa el del
+// resumen, que ya viene corroborado)
+export const anchorIsNewClosureWave = (
+  items: BeachNews[] | null | undefined,
+  summary: BeachNewsSummary | null | undefined,
+  anchor: string, // YYYY-MM-DD
+): boolean => {
+  const outlets = new Set(
+    (items ?? [])
+      .filter(
+        (n) =>
+          n.event_type === 'closure' && n.published_at?.slice(0, 10) === anchor,
+      )
+      .map((n) => n.source)
+      .filter(Boolean),
+  );
+  // closed_since es ISO parcial (YYYY[-MM[-DD]]): la comparación
+  // léxica contra el ancla YYYY-MM-DD ya da la semántica del backend
+  // ("2026-11" > "2026-10-07"; "2026-10" no prueba nada posterior)
+  const cs = summary?.closed_since;
+  return outlets.size >= 2 || (!!cs && cs > anchor);
+};
 
 // Línea-resumen: motivo primero, fecha del primer titular, atribución
 // abajo — "Cerrada por riesgo de desprendimientos · desde el 03/06".

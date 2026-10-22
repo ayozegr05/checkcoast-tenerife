@@ -81,6 +81,36 @@ def _news_cause(items: list[NewsItem]) -> str | None:
     return cat
 
 
+def anchor_is_new_closure_wave(rows: list, anchor: date) -> bool:
+    """¿La oleada de cierres publicada el día `anchor` documenta un
+    episodio NUEVO corroborado?
+
+    `anchor` es a la vez el `closed_at` de un acta oficial (día de
+    reapertura) y el inicio del episodio de prensa. Misma regla de
+    corroboración que `_is_new_episode_closure`: un `closed_since`
+    posterior al día del ancla lo prueba solo; sin él hace falta ola
+    de medios (>=2) — una pieza suelta publicada el día de la
+    reapertura relata el episodio anterior, no uno nuevo. Las piezas
+    con `closed_since` ANTERIOR al ancla son retrospectivas
+    probadas y no corroboran (Jardín 07/10: Sanidad reabrió por la
+    mañana y la recerraron por la tarde — el 4º cierre llegó con 5
+    medios el mismo día)."""
+    outlets: set[str] = set()
+    for r in rows:
+        if (
+            r.event_type != "closure"
+            or r.published_at is None
+            or r.published_at.date() != anchor
+        ):
+            continue
+        cs = _closed_since_date(r.closed_since)
+        if cs is not None and cs > anchor:
+            return True
+        if (cs is None or cs == anchor) and r.source:
+            outlets.add(r.source)
+    return len(outlets) >= 2
+
+
 @dataclass
 class PressSummary:
     """Análisis de la cobertura de prensa de una playa. `since` y

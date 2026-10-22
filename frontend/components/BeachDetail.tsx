@@ -30,7 +30,7 @@ import {
 } from '../lib/format';
 import { isClosure, isMuteLab, isUnclassified } from '../lib/incidents';
 import { groupNewsItems } from '../lib/news';
-import { pressSummary } from '../lib/press';
+import { anchorIsNewClosureWave, pressSummary } from '../lib/press';
 import {
   CHART_H,
   buildChartSeries,
@@ -261,13 +261,24 @@ export default function BeachDetail({
     // la tolerancia el enlace fallaba y el banner inventaba su fecha)
     const sinceMs = Date.parse(`${since}T00:00:00Z`);
     const lo = new Date(sinceMs - 7 * 86_400_000).toISOString().slice(0, 10);
+    // Día-frontera: un candidato que cierra JUSTO el día del ancla es
+    // el episodio ANTERIOR cuando la prensa documenta un cierre nuevo
+    // corroborado ese mismo día (Jardín: acta 28/09→07/10 y 4º cierre
+    // de prensa 07→09/10 — sin el corte el banner narraba el episodio
+    // viejo). Sin corroboración el acta sigue siendo la del ancla
+    const skipBoundary = anchorIsNewClosureWave(
+      news.items,
+      news.summary,
+      since,
+    );
     const hit = (incidents ?? [])
       .filter(
         (i) =>
           i.closed_at !== null &&
           !i.end_estimated &&
           i.closed_at >= lo &&
-          i.opened_at <= limStr,
+          i.opened_at <= limStr &&
+          !(skipBoundary && i.closed_at === since),
       )
       // El candidato con el cierre MÁS CERCANO al clúster: con dos
       // episodios oficiales pegados gana el del episodio que la

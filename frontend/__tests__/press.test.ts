@@ -4,8 +4,8 @@
 
 import { describe, expect, it } from '@jest/globals';
 
-import type { BeachNewsSummary } from '../lib/api';
-import { pressSummary } from '../lib/press';
+import type { BeachNews, BeachNewsSummary } from '../lib/api';
+import { anchorIsNewClosureWave, pressSummary } from '../lib/press';
 
 const summary = (s: Partial<BeachNewsSummary>): BeachNewsSummary => ({
   event_type: 'closure',
@@ -172,6 +172,61 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     expect(r.sub).toBe(
       'según prensa · 9 medios · estuvo cerrada desde jul-2024 ' +
         '· ~2 años y 3 meses',
+    );
+  });
+});
+
+describe('anchorIsNewClosureWave — día-frontera', () => {
+  const item = (
+    day: string,
+    source: string,
+    event_type = 'closure',
+  ): BeachNews => ({
+    id: 1,
+    beach_id: 1,
+    title: 't',
+    url: 'u',
+    source,
+    published_at: `${day}T12:00:00Z`,
+    event_type,
+    cause: null,
+  });
+
+  it('ola corroborada el día del ancla → episodio nuevo', () => {
+    // Jardín 07/10: 5 medios contaron el 4º cierre la tarde del día
+    // que Sanidad reabría
+    const items = ['eldia', 'diario', 'canarias7', 'ep', 'atv'].map((s) =>
+      item('2026-10-07', s),
+    );
+    expect(anchorIsNewClosureWave(items, summary({}), '2026-10-07')).toBe(true);
+  });
+
+  it('pieza suelta en día de reapertura → cobertura vieja', () => {
+    const items = [item('2026-09-30', 'eldia'), item('2026-10-07', 'eldia')];
+    expect(anchorIsNewClosureWave(items, summary({}), '2026-10-07')).toBe(
+      false,
+    );
+  });
+
+  it('closed_since posterior al ancla prueba el episodio nuevo', () => {
+    const items = [item('2026-10-07', 'eldia')];
+    expect(
+      anchorIsNewClosureWave(
+        items,
+        summary({ closed_since: '2026-10-08' }),
+        '2026-10-07',
+      ),
+    ).toBe(true);
+  });
+
+  it('reaperturas y otros días no corroboran', () => {
+    const items = [
+      item('2026-10-07', 'eldia'),
+      item('2026-10-07', 'diario', 'reopening'),
+      item('2026-10-08', 'canarias7'),
+    ];
+    expect(anchorIsNewClosureWave(items, summary({}), '2026-10-07')).toBe(
+      false,
     );
   });
 });

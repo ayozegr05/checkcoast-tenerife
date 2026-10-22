@@ -9,7 +9,10 @@ from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
 from app.events import SynthEvent
-from app.news_episodes import press_episode_summary
+from app.news_episodes import (
+    anchor_is_new_closure_wave,
+    press_episode_summary,
+)
 
 TODAY = date(2026, 10, 18)
 
@@ -242,3 +245,54 @@ def test_open_structural_episode_survives_coverage_gap():
     ]
     s = press_episode_summary(rows, evs, incidents=[], today=TODAY)
     assert s.since == datetime(2026, 6, 3, tzinfo=UTC)
+
+
+def test_anchor_new_wave_corroborated_by_outlets():
+    # Jardín 07/10: Sanidad reabría ese día y 5 medios contaron el
+    # 4º cierre la misma tarde → episodio nuevo, no cobertura vieja
+    anchor = date(2026, 10, 7)
+    rows = [
+        news(anchor, "closure", s)
+        for s in ("eldia", "diario", "canarias7", "europapress", "atv")
+    ]
+    assert anchor_is_new_closure_wave(rows, anchor)
+
+
+def test_anchor_lone_piece_is_stale_coverage():
+    # 1 solo medio publicando cierre el día de la reapertura = pieza
+    # tardía del episodio anterior → el acta sigue siendo la del ancla
+    anchor = date(2026, 10, 7)
+    rows = [
+        news(date(2026, 9, 30), "closure", "eldia"),
+        news(anchor, "closure", "eldia"),
+    ]
+    assert not anchor_is_new_closure_wave(rows, anchor)
+
+
+def test_anchor_single_piece_with_later_closed_since():
+    # Una pieza única que afirma "cerrada desde el 08/10" (después del
+    # día de reapertura 07/10) documenta un cierre nuevo sin ola
+    anchor = date(2026, 10, 7)
+    rows = [news(anchor, "closure", "eldia", closed_since="2026-10-08")]
+    assert anchor_is_new_closure_wave(rows, anchor)
+
+
+def test_anchor_retrospective_closed_since_does_not_corroborate():
+    # Pieza que afirma "cerrada desde el 28/09" el día de reapertura
+    # = retrospectiva del episodio viejo: no suma medio corroborante
+    anchor = date(2026, 10, 7)
+    rows = [
+        news(anchor, "closure", "eldia", closed_since="2026-09-28"),
+        news(anchor, "closure", "diario"),
+    ]
+    assert not anchor_is_new_closure_wave(rows, anchor)
+
+
+def test_anchor_wave_ignores_other_days():
+    # Ola de medios otro día no corrobora el ancla
+    anchor = date(2026, 10, 7)
+    rows = [
+        news(date(2026, 10, 8), "closure", "eldia"),
+        news(date(2026, 10, 8), "closure", "diario"),
+    ]
+    assert not anchor_is_new_closure_wave(rows, anchor)

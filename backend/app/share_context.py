@@ -38,7 +38,11 @@ from app.names import (
     arenal_base,
     normalize_beach_name,
 )
-from app.news_episodes import _news_cause, press_episode_summary
+from app.news_episodes import (
+    _news_cause,
+    anchor_is_new_closure_wave,
+    press_episode_summary,
+)
 from app.news_infra import (
     gather_infra_news,
     infra_cause_of,
@@ -1383,7 +1387,50 @@ def beach_context(
             ),
             None,
         )
-        closed_after = reopening_grp[-1].closed_at if reopening_grp else None
+        # Día-frontera: el acta que cierra JUSTO el día del ancla de
+        # prensa pertenece al episodio ANTERIOR cuando esa oleada
+        # documenta un cierre NUEVO corroborado — Sanidad reabrió por
+        # la mañana y el mismo día volvieron a prohibir el baño
+        # (Jardín: acta 28/09→07/10 y la prensa cuenta el 4º cierre
+        # 07→09/10 con 6 medios). Sin el corte, el banner narra el
+        # episodio viejo aunque el actual esté listado debajo. Sin
+        # corroboración el acta sigue siendo la del ancla: una pieza
+        # suelta en día de reapertura es cobertura del mismo episodio
+        boundary_drop = False
+        if (
+            reopening_grp
+            and since
+            and reopening_grp[-1].closed_at == since
+            and anchor_is_new_closure_wave(list(news_items), since)
+        ):
+            boundary_drop = True
+            reopening_grp = next(
+                (
+                    g
+                    for g in fused
+                    if g[-1].closed_at and g[-1].closed_at > since
+                ),
+                None,
+            )
+        press_reopen = None
+        if boundary_drop and reopening_grp is None and dom == "closure":
+            # El episodio del ancla solo existe en prensa: su cierre
+            # también lo documentan los medios — sin él el banner
+            # perdería el "reabrió el X" de un episodio ya resuelto
+            press_ep = next(
+                (
+                    ev
+                    for ev in synthesize_events(beach)
+                    if ev.via == "press"
+                    and ev.opened_at == since
+                    and ev.closed_at is not None
+                ),
+                None,
+            )
+            press_reopen = press_ep.closed_at if press_ep else None
+        closed_after = (
+            reopening_grp[-1].closed_at if reopening_grp else press_reopen
+        )
         if (
             reopening_grp
             and reopening_grp[0].opened_at
@@ -1394,8 +1441,14 @@ def beach_context(
         if since:
             line += f" · desde el {since.strftime('%d/%m/%Y')}"
         if closed_after:
+            # La atribución importa: "Sanidad la reabrió" solo cuando
+            # el fin lo documenta un acta; en episodios solo-prensa la
+            # reapertura la contaron los medios (la etiqueta del banner
+            # ya dice "según prensa")
             line += (
                 f" · Sanidad la reabrió el {closed_after.strftime('%d/%m/%Y')}"
+                if reopening_grp
+                else f" · reabrió el {closed_after.strftime('%d/%m/%Y')}"
             )
         press = {
             "cls": press_cls,
