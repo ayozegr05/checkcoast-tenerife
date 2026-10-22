@@ -716,6 +716,58 @@ def test_effective_status_suppresses_stale_official(seed_data):
         db.close()
 
 
+def test_sea_state_reopening_does_not_suppress_official(seed_data):
+    """Un "reabre tras el temporal" no es evidencia de reapertura por
+    calidad del agua: el cierre preventivo por oleaje quedó fuera del
+    pipeline, así que no puede desbloquear un oficial 'closed'
+    rezagado — la playa sigue cerrada."""
+    from datetime import date, datetime, timedelta
+
+    from app.db import SessionLocal
+    from app.models import (
+        BeachMeasurement,
+        BeachState,
+        BeachStatus,
+        NewsItem,
+    )
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    now = datetime.now(UTC)
+    status = BeachStatus(
+        beach_id=beach_id,
+        status=BeachState.closed,
+        reported_at=now,
+    )
+    meas = BeachMeasurement(
+        beach_id=beach_id,
+        sampled_at=date.today() - timedelta(days=4),
+        evaluation="Zona No Apta para el baño",
+    )
+    reopen = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-reopen-sea",
+        title="Reabre la playa tras el temporal",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="reopening",
+        cause="mal estado del mar",
+        published_at=now - timedelta(days=2),
+    )
+    db.add_all([status, meas, reopen])
+    db.commit()
+    try:
+        # El estado del mar no suprime el oficial: sigue 'closed'
+        body = client.get(f"/beaches/{beach_id}/status").json()
+        assert body["status"] == "closed"
+    finally:
+        db.delete(status)
+        db.delete(meas)
+        db.delete(reopen)
+        db.commit()
+        db.close()
+
+
 def test_effective_status_keeps_new_official_closure(seed_data):
     """Si la evidencia oficial (medición) es POSTERIOR a la reapertura
     de prensa, es un evento nuevo: el estado efectivo sigue 'closed'

@@ -13,6 +13,7 @@ from app.queries import (
     _majority_cause,
     _press_cause,
     _short_cause,
+    is_sea_state_cause,
 )
 
 
@@ -75,6 +76,24 @@ def test_sea_state_is_not_a_cause():
     assert _short_cause("cierre temporal por vertido") == "Contaminación"
     # y la jerarquía: la causa nombrada gana a la genérica
     assert _short_cause("mala calidad del agua") == "Contaminación"
+
+
+def test_sea_state_items_filtered_with_contamination_guard():
+    """Los cierres preventivos por estado del mar quedan fuera del
+    pipeline (episodios, resumen, estado efectivo, pushes) — la app
+    conciencia sobre contaminación, no es un parte meteo. Pero la
+    guarda conserva el ítem si el texto nombra contaminación: un
+    temporal como desencadenante de un vertido sí es nuestro tema."""
+    assert is_sea_state_cause("fuerte oleaje") is True
+    assert is_sea_state_cause("mal estado del mar") is True
+    assert is_sea_state_cause("temporal de mar") is True
+    assert is_sea_state_cause("rescate en el mar") is True
+    # la guarda de contaminación salva el ítem
+    assert is_sea_state_cause("vertido causado por el temporal de mar") is False
+    assert is_sea_state_cause("marejada que removió un vertido") is False
+    assert is_sea_state_cause("contaminación por E. coli") is False
+    assert is_sea_state_cause(None) is False
+    assert is_sea_state_cause("") is False
 
 
 def test_specific_cause_beats_generic_majority():
