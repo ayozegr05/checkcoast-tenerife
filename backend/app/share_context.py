@@ -1360,7 +1360,12 @@ def beach_context(
                 ),
                 default=None,
             )
-        outlets = len({it.source for it in news_items if it.source})
+        # Los medios se cuentan sobre los ítems que el banner narra
+        # (episode_items del episodio vigente), no sobre toda la
+        # historia de prensa de la playa — la app usa outlets_count
+        # del resumen con el mismo alcance (Jardín: 9 medios del 4º
+        # cierre, no 11 de toda la historia)
+        outlets = len({it.source for it in banner_items if it.source})
         ev_word = {
             "closure": "Cerrada",
             "warning": "Aviso en",
@@ -1467,7 +1472,10 @@ def beach_context(
                         else ""
                     ),
                 }
-                for n in banner_items[:3]
+                # Todos los titulares del episodio — el <details> va
+                # plegado, así que no ocupa sitio; la app enseña
+                # episode_items completo
+                for n in banner_items
             ],
         }
 
