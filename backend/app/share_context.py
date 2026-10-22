@@ -407,10 +407,14 @@ def _dots(
 # Arte del circulito de causa — espejo de lib/causeArt.ts del
 # frontend: estructural → rockfall; el resto por etiqueta canónica
 _FAUNA_CAUSES = {"Medusas"}
+_BACTERIAL_CAUSES = {"E. coli", "Enterococos", "Contaminación fecal"}
 _CAUSE_ART = {
     "Algas": "algas-art",
     "Medusas": "medusas-art",
     "Hidrocarburos": "gasoil-art",
+    "E. coli": "bacteria-art",
+    "Enterococos": "bacteria-art",
+    "Contaminación fecal": "bacteria-art",
 }
 
 
@@ -607,8 +611,8 @@ _PRESS_GROUP_ORDER = ["closure", "warning", "pollution", "reopening", "other"]
 _STRUCT_CAUSES = {"Desprendimientos", "Colapso del terreno", "Obras"}
 
 # Causa del episodio → arte del badge (mismo mapa que causeArt.ts);
-# lo que Sanidad mide (bacterias) y lo no categorizado cae en
-# "contam" — Náyade solo vigila E. coli/enterococos
+# lo no categorizado cae en "contam" — Náyade solo vigila
+# E. coli/enterococos
 _CAUSE_ART = {
     "Algas": "algas-art",
     "Medusas": "medusas-art",
@@ -616,6 +620,9 @@ _CAUSE_ART = {
     "Desprendimientos": "rockfall-art",
     "Colapso del terreno": "rockfall-art",
     "Obras": "rockfall-art",
+    "E. coli": "bacteria-art",
+    "Enterococos": "bacteria-art",
+    "Contaminación fecal": "bacteria-art",
 }
 _PRESS_GROUP_LABEL = {
     "closure": "Cierre",
@@ -802,6 +809,14 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
                 art = _CAUSE_ART.get(c, "contam-art")
                 if art not in badges:
                     badges.append(art)
+            # Familia bacteriana: la cadena causal se cuenta emisario
+            # (fuente: hubo vertido) → bacteria (evidencia: el lab la
+            # midió) — doble badge como en la app
+            if (
+                set(causes) & _BACTERIAL_CAUSES
+                and "contam-art" not in badges
+            ):
+                badges.insert(0, "contam-art")
             if not badges:
                 badges = ["contam-art"]
         ndays = max(((i.closed_at or today) - i.opened_at).days, 0) + 1

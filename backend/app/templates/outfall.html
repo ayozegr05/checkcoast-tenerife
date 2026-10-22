@@ -249,13 +249,17 @@
   .shr:hover { background:#eef6fa; }
   .shr:active { opacity:.6; }
   .open { flex:1; display:block; text-align:center;
-          background:#075276; color:#fff; font-weight:700;
-          padding:11px 8px; border-radius:10px; text-decoration:none;
-          font-size:13px; }
-  .open:hover { background:#0a628c; }
+          background:linear-gradient(90deg,#075276,#17b8ce); color:#fff;
+          font-weight:700; padding:12px 10px; border-radius:12px;
+          text-decoration:none; font-size:13px; letter-spacing:.15px;
+          box-shadow:0 3px 10px rgba(7,82,118,.28);
+          transition:filter .15s, transform .05s; }
+  .open:hover { filter:brightness(1.08); }
+  .open:active { transform:translateY(1px); }
   .open.alt { background:#fff; color:#075276;
-          border:1px solid rgba(7,82,118,.35); font-weight:600; }
-  .open.alt:hover { background:#eef6fa; }
+          border:1.5px solid rgba(7,82,118,.55); font-weight:600;
+          box-shadow:0 1px 4px rgba(7,82,118,.12); }
+  .open.alt:hover { background:#eef6fa; filter:none; }
   .qrtag { display:none; width:54px; height:54px; flex:none;
           border-radius:8px; border:1px solid #dfe9ee; }
 </style>
@@ -455,7 +459,7 @@
       <div class="actrow">
         <a class="open" href="{{ deep }}" onclick="openApp(); return false;">
           Descargar la app gratis</a>
-        <a class="open alt" href="/">Ver todas las playas</a>
+        <a class="open alt" href="/">Ver todas las playas →</a>
         <img class="qrtag" src="/img/qr-github.png"
           alt="QR para descargar la app"
           title="Escanea para descargar la app">
@@ -512,7 +516,9 @@ function openApp() {
       + 'package=com.checkcoast.tenerife;S.browser_fallback_url='
       + encodeURIComponent(location.origin + '/#get-app') + ';end';
   } else {
-    window.location = 'checkcoast://outfall/{{ outfall_id }}';
+    // escritorio/iOS: no hay app que abrir — a la sección de descarga
+    // (QR para pasarla al móvil)
+    window.location = '/#get-app';
   }
 }
 var urls = {{ urls | tojson }};

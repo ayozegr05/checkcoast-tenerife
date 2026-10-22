@@ -296,10 +296,16 @@
           margin-top:16px; }
   .open { flex:1; display:block; text-align:center;
           background:linear-gradient(90deg,#075276,#17b8ce); color:#fff;
-          text-decoration:none; font-weight:700; border-radius:10px;
-          padding:11px 8px; font-size:13px; }
+          text-decoration:none; font-weight:700; border-radius:12px;
+          padding:12px 10px; font-size:13px; letter-spacing:.15px;
+          box-shadow:0 3px 10px rgba(7,82,118,.28);
+          transition:filter .15s, transform .05s; }
+  .open:hover { filter:brightness(1.08); }
+  .open:active { transform:translateY(1px); }
   .open.alt { background:#fff; color:#075276;
-          border:1px solid rgba(7,82,118,.35); font-weight:600; }
+          border:1.5px solid rgba(7,82,118,.55); font-weight:600;
+          box-shadow:0 1px 4px rgba(7,82,118,.12); }
+  .open.alt:hover { background:#eef6fa; filter:none; }
   .qrtag { display:none; width:54px; height:54px; flex:none;
           border-radius:8px; border:1px solid #dfe9ee; }
   .src { margin-top:14px; font-size:11px; color:#7a919c; }
@@ -505,8 +511,8 @@
           <b style="color:#c62828">■</b> no apta ·
           <b style="color:#0b6e99">┄</b> límite normativo
           ({{ p.good }} UFC/100 mL) ·
-          <b style="color:#c62828">■</b> franja = cierre ·
-          <b style="color:#f9a825">■</b> franja = aviso</span>
+          <b style="color:rgba(198,40,40,.35)">■</b> franja = cierre ·
+          <b style="color:rgba(249,168,37,.45)">■</b> franja = aviso</span>
         {%- endfor %}
       </div>
       {%- if quality and quality.note %}
@@ -517,7 +523,7 @@
       <div class="actrow">
         <a class="open" href="{{ deep }}" onclick="openApp(); return false;">
           Descargar la app gratis</a>
-        <a class="open alt" href="/">Ver todas las playas</a>
+        <a class="open alt" href="/">Ver todas las playas →</a>
         <img class="qrtag" src="/img/qr-github.png"
           alt="QR para descargar la app"
           title="Escanea para descargar la app">
@@ -575,7 +581,9 @@ function openApp() {
       + 'package=com.checkcoast.tenerife;S.browser_fallback_url='
       + encodeURIComponent(location.origin + '/#get-app') + ';end';
   } else {
-    window.location = 'checkcoast://beach/{{ beach_id }}';
+    // escritorio/iOS: no hay app que abrir — a la sección de descarga
+    // (QR para pasarla al móvil)
+    window.location = '/#get-app';
   }
 }
 document.getElementById('shrbtn').onclick = async function () {
