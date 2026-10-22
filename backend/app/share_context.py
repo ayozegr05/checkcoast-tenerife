@@ -19,7 +19,11 @@ from sqlalchemy import cast, func, literal
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.events import _closed_since_date, synthesize_events
+from app.events import (
+    _closed_since_date,
+    fuse_official_episodes,
+    synthesize_events,
+)
 from app.models import (
     Beach,
     BeachIncident,
@@ -1361,25 +1365,31 @@ def beach_context(
         }.get(dom or "", "Mencionada")
         if dom == "closure" and state not in ("closed", "structural"):
             ev_word = "Estuvo cerrada" if state == "open" else "Cerrada"
-        # reapertura oficial probada: incidente cerrado tras el titular.
-        # Se resuelve ANTES de componer la línea porque el acta puede
-        # documentar un inicio anterior al ancla de prensa (Punta
-        # Brava: prensa anclaba al 07/10, Náyade abrió el 05/10)
-        reopening_inc = next(
+        # reapertura oficial probada: incidencia cerrada tras el
+        # titular. Se resuelve ANTES de componer la línea porque el
+        # acta puede documentar un inicio anterior al ancla de prensa
+        # — y se busca en los EPISODIOS FUSIONADOS (misma vista que
+        # /beaches/{id}/incidents y la app): con dos actas del mismo
+        # episodio el inicio es la primera, no el tramo casado (Punta
+        # Brava: actas 28/09→30/09 + 05/10→07/10 = episodio
+        # 28/09→07/10; con la acta suelta el banner decía "desde el
+        # 05/10" mientras la lista de episodios mostraba 28/09)
+        fused = fuse_official_episodes(list(incidents), list(news_items))
+        reopening_grp = next(
             (
-                i
-                for i in incidents
-                if i.closed_at and since and i.closed_at >= since
+                g
+                for g in fused
+                if g[-1].closed_at and since and g[-1].closed_at >= since
             ),
             None,
         )
-        closed_after = reopening_inc.closed_at if reopening_inc else None
+        closed_after = reopening_grp[-1].closed_at if reopening_grp else None
         if (
-            reopening_inc
-            and reopening_inc.opened_at
-            and (since is None or reopening_inc.opened_at < since)
+            reopening_grp
+            and reopening_grp[0].opened_at
+            and (since is None or reopening_grp[0].opened_at < since)
         ):
-            since = reopening_inc.opened_at
+            since = reopening_grp[0].opened_at
         line = ev_word + (f" por {cause}" if cause else "")
         if since:
             line += f" · desde el {since.strftime('%d/%m/%Y')}"
