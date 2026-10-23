@@ -191,7 +191,10 @@
           border-left:4px solid #e65100; }
   .chartscroll { overflow-x:auto; margin-top:8px; background:#f4f9fb;
           border-radius:8px; scrollbar-width:thin;
-          scrollbar-color:#8fa3ad transparent; }
+          scrollbar-color:#8fa3ad transparent;
+          /* aire entre la fila de años y la barra de scroll
+             horizontal — sin él el thumb le tapa los números */
+          padding-bottom:10px; }
   .chartscroll::-webkit-scrollbar { height:6px; }
   .chartscroll::-webkit-scrollbar-track { background:transparent; }
   .chartscroll::-webkit-scrollbar-thumb { border-radius:3px;
@@ -321,6 +324,12 @@
   .chiprow { position:relative; display:flex; align-items:center;
           justify-content:center; margin-bottom:4px; }
   .chiprow .shr { position:absolute; right:0; }
+  /* Móvil: chips largos ("Cierre estructural") + Compartir absoluto
+     se montan — el botón pasa al flujo y envuelve a otra línea */
+  @media (max-width:520px) {
+    .chiprow { flex-wrap:wrap; gap:6px; }
+    .chiprow .shr { position:static; }
+  }
   .shr { display:flex; align-items:center; gap:5px;
           border:1px solid rgba(26,127,150,.45); background:#fff;
           color:#1a7f96; font-family:inherit; font-size:11px;
@@ -522,9 +531,9 @@
           {{- p.n }} muestreos · barras:
           <b style="color:#0d9488">■</b> apta ·
           <b style="color:#f9a825">■</b> al límite ·
-          <b style="color:#c62828">■</b> no apta ·
+          <b style="color:#c62828">■</b> no apta<br>
           <b style="color:#0b6e99">┄</b> límite normativo
-          ({{ p.good }} UFC/100 mL) ·
+          ({{ p.good }} UFC/100 mL)<br>
           <b style="color:rgba(198,40,40,.18)">■</b> franja = cierre ·
           <b style="color:rgba(249,168,37,.18)">■</b> franja = aviso</span>
         {%- endfor %}
