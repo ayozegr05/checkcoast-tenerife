@@ -2390,7 +2390,9 @@ def _demo_alerts(all_beaches: list, now: datetime) -> list[tuple]:
     # arenal multipunto su dot queda escondido dentro del pin padre
     # hasta hacer zoom — en la vista isla no se veria
     singles = [
-        r for r in all_beaches if r[2] is not None and not _PM_TAG.search(r[0].name)
+        r
+        for r in all_beaches
+        if r[2] is not None and not _PM_TAG.search(r[0].name)
     ]
     spread = sorted(singles, key=lambda r: r[2])
     picks = [
