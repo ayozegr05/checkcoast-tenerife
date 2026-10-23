@@ -139,6 +139,14 @@
      se ve completo y solo cuestan ~2 líneas de scroll */
   @media (max-width:520px) {
     .mleg { position:static; margin:6px 8px 0; }
+    /* >1 sección de alertas: título a su línea centrado y chips
+       en la suya — solo en estrecho, en PC caben en una línea */
+    .sec-a.multi { justify-content:center; }
+    .sec-a.multi .sec-t { flex:1 1 100%; text-align:center; }
+    /* Cabecera centrada: etiqueta, contador y buscador */
+    .stat { justify-content:center; text-align:center; }
+    .stat .sl, .stat .stxt { flex:1 1 100%; min-width:0; }
+    .sbx input { width:min(280px,78vw); }
   }
   .mleg .lrow { display:flex; align-items:center; gap:9px; }
   .mleg .lrow + .lrow { margin-top:5px; }
@@ -155,10 +163,6 @@
   .sec { display:flex; align-items:center; gap:9px;
           flex-wrap:wrap; row-gap:6px; }
   .sec-t { flex:1 1 180px; min-width:0; }
-  /* >1 sección de alertas: el título a su línea centrado y los
-     chips en la suya — no se disputan el ancho */
-  .sec-a.multi { justify-content:center; }
-  .sec-a.multi .sec-t { flex:1 1 100%; text-align:center; }
   .sec.sec-a, .sec.sec-r { border-radius:10px; padding:7px 12px; }
   .sec.sec-a { background:#fdeceb; border:1px solid #f0c4bd;
           color:#7e1d18; }
@@ -804,7 +808,10 @@ if (window.maplibregl && lmapEl && imap) {
       layout: nameLayout, paint: namePaint });
     window.LMAP = lmap;
     lmap.fitBounds([[b[0], b[1]], [b[2], b[3]]], {
-      padding: { top: 20, right: 20, bottom: 90, left: 20 },
+      // bottom:90 reservaba sitio a la leyenda cuando iba dentro;
+      // en móvil ya va debajo del mapa y el hueco quedaba vacío
+      padding: { top: 20, right: 20,
+        bottom: window.innerWidth <= 520 ? 20 : 90, left: 20 },
       duration: 0
     });
     var parentEls = [], memberEls = [];
@@ -931,9 +938,8 @@ if (window.maplibregl && lmapEl && imap) {
       var q = norm(bq.value).trim();
       bres.innerHTML = '';
       if (q.length < 2) { hideRes(); return; }
-      // Ambos tipos: hasta 5 playas primero y los emisarios
-      // completando los 8 huecos — "Adeje" antes llenaba todo de
-      // emisarios (y al revés quedaba raro también)
+      // Todas las coincidencias (la caja ya scrolla con
+      // max-height): playas primero, emisarios debajo
       var hits = bidx.filter(function (d) {
         return norm(d.name).indexOf(q) >= 0 ||
                norm(d.muni).indexOf(q) >= 0;
@@ -942,8 +948,7 @@ if (window.maplibregl && lmapEl && imap) {
       hits.forEach(function (d) {
         (d.outfall ? oh : bh).push(d);
       });
-      hits = bh.slice(0, 5).concat(
-        oh.slice(0, 8 - Math.min(5, bh.length)));
+      hits = bh.concat(oh);
       if (!hits.length) { hideRes(); return; }
       hits.forEach(function (d) {
         var b = document.createElement('button');
