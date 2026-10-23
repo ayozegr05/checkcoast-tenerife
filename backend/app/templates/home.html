@@ -74,10 +74,13 @@
   .card { background:#fff; border-radius:16px; overflow:hidden;
           box-shadow:0 18px 60px rgba(7,43,62,.30); }
   .imap { position:relative; }
+  /* Solo la foto+pines: la leyenda vive FUERA de esta caja para
+     poder bajarla en móvil sin mover los % de los pines */
+  .imapcore { position:relative; }
   .imap .isl { display:block; width:100%; height:auto; }
   .istatic { display:contents; }
   #lmap { display:none; }
-  .imap.lmap-on { aspect-ratio:47/33; }
+  .imap.lmap-on .imapcore { aspect-ratio:47/33; }
   .imap.lmap-on .istatic { display:none; }
   .imap.lmap-on #lmap { display:block; position:absolute;
           inset:0; }
@@ -132,8 +135,17 @@
           background:rgba(255,255,255,.93); border-radius:10px;
           padding:7px 10px; font-size:11px; color:#33566b;
           box-shadow:0 2px 8px rgba(0,0,0,.15); }
+  /* Móvil: la leyenda baja bajo el mapa — el tapiz de pines ya
+     se ve completo y solo cuestan ~2 líneas de scroll */
+  @media (max-width:520px) {
+    .mleg { position:static; margin:6px 8px 0; }
+  }
   .mleg .lrow { display:flex; align-items:center; gap:9px; }
   .mleg .lrow + .lrow { margin-top:5px; }
+  /* "Sin monitorizar" bajo el dot de Apta — el chip de emisario
+     solitario quedaba colgado del borde */
+  .mleg .lrow .lchip[data-k="unmon"] { flex-basis:calc(100% - 25px);
+          margin-left:25px; }
   .mleg .lico { width:16px; height:16px; }
   .mleg .lsw { display:flex; align-items:center; font-weight:600; }
   .mleg .lsw i { width:9px; height:9px; border-radius:50%;
@@ -143,6 +155,10 @@
   .sec { display:flex; align-items:center; gap:9px;
           flex-wrap:wrap; row-gap:6px; }
   .sec-t { flex:1 1 180px; min-width:0; }
+  /* >1 sección de alertas: el título a su línea centrado y los
+     chips en la suya — no se disputan el ancho */
+  .sec-a.multi { justify-content:center; }
+  .sec-a.multi .sec-t { flex:1 1 100%; text-align:center; }
   .sec.sec-a, .sec.sec-r { border-radius:10px; padding:7px 12px; }
   .sec.sec-a { background:#fdeceb; border:1px solid #f0c4bd;
           color:#7e1d18; }
@@ -394,6 +410,7 @@
       <div id="bres" class="bres hidden"></div></div></div>
   <div class="card">
     <div class="imap hide-unmon hide-olegal hide-oproc">
+      <div class="imapcore">
       <div class="istatic">
       <img class="isl" src="{{ island_url }}" alt="Tenerife">
       {%- for d in map_dots %}
@@ -423,6 +440,7 @@
       {%- endfor %}
       </div>
       <div id="lmap"></div>
+      </div>
       <div class="mleg">
         <div class="lrow"><img class="lico" src="/icons/icon-faucet.png"
           alt=""><button class="lsw lchip" data-k="oillegal"
@@ -455,8 +473,8 @@
     </div>
     <div class="ibody">
       {%- if alerts %}
-      <div class="sec sec-a"><span class="sec-t">Alertas activas
-        en&nbsp;la&nbsp;isla</span>
+      <div class="sec sec-a{% if alert_groups|length > 1 %} multi{% endif %}"><span
+        class="sec-t">Alertas activas en&nbsp;la&nbsp;isla</span>
         {%- for g in alert_groups %}
         <span class="secn {{ g.pcls }}">{{ g.pill }} ·
           {{ g.rows|length }}</span>
@@ -913,15 +931,19 @@ if (window.maplibregl && lmapEl && imap) {
       var q = norm(bq.value).trim();
       bres.innerHTML = '';
       if (q.length < 2) { hideRes(); return; }
-      // Playas primero: los emisarios van antes en el array y un
-      // municipio con muchos (Adeje, 30+) llenaba los 8 huecos sin
-      // dejar ver ni una playa
+      // Ambos tipos: hasta 5 playas primero y los emisarios
+      // completando los 8 huecos — "Adeje" antes llenaba todo de
+      // emisarios (y al revés quedaba raro también)
       var hits = bidx.filter(function (d) {
         return norm(d.name).indexOf(q) >= 0 ||
                norm(d.muni).indexOf(q) >= 0;
-      }).sort(function (a, b) {
-        return (a.outfall ? 1 : 0) - (b.outfall ? 1 : 0);
-      }).slice(0, 8);
+      });
+      var bh = [], oh = [];
+      hits.forEach(function (d) {
+        (d.outfall ? oh : bh).push(d);
+      });
+      hits = bh.slice(0, 5).concat(
+        oh.slice(0, 8 - Math.min(5, bh.length)));
       if (!hits.length) { hideRes(); return; }
       hits.forEach(function (d) {
         var b = document.createElement('button');

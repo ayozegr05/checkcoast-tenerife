@@ -510,7 +510,7 @@ def _alert_cards(
                 ),
                 "name": _display_name(beach.name) + _zone_suffix(db, beach),
                 "thumb": (
-                    _shot_url(*coords[beach.id], 0.0028, 0.0019)
+                    _shot_url(*coords[beach.id], 0.0012, 0.0008)
                     if beach.id in coords
                     else None
                 ),
@@ -2434,6 +2434,16 @@ def home_context(db: Session, demo: bool = False) -> dict:
         )
         .all()
     )
+    if demo:
+        # ?demo=1: las alertas fabricadas van DENTRO de la matriz —
+        # solo sustituir island_alerts las dibujaba en las filas pero
+        # el mapa seguia sin ellas (ni pin ni halo)
+        now = datetime.now(UTC)
+        for b, e in _demo_alerts(all_beaches, now):
+            effs[b.id] = e
+        status_counts = _live_status_counts(effs)
+        island_alerts = _alert_entries(db, effs)
+
     clon, clat, dlon, dlat = _ISLAND
     map_dots = []
     # Emisarios no autorizados (mismo filtro por defecto que la app):
@@ -2623,8 +2633,6 @@ def home_context(db: Session, demo: bool = False) -> dict:
 
     # Alertas vivas (misma lista que el panel lateral de /b/)
     now = datetime.now(UTC)
-    if demo:
-        island_alerts = _demo_alerts(all_beaches, now)
     alerts = _alert_cards(island_alerts, now, db)
     # Agrupadas por sección — mismo patrón que el banner de la app
     alert_groups = [
