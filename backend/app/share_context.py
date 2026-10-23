@@ -1571,6 +1571,11 @@ def beach_context(
     # calculada — antes eran dos barridos extra de effective_states
     status_counts = _live_status_counts(effs)
     total_beaches = db.query(func.count(Beach.id)).scalar()
+    n_monitored = (
+        db.query(func.count(Beach.id))
+        .filter(Beach.monitored.is_(True))
+        .scalar()
+    )
     salerts = _alert_cards(_alert_entries(db, effs)[:4], datetime.now(UTC), db)
 
     return {
@@ -1612,6 +1617,7 @@ def beach_context(
         "n_closed": status_counts.get("closed", 0),
         "n_warning": status_counts.get("warning", 0),
         "total_beaches": total_beaches,
+        "n_monitored": n_monitored,
         "salerts": salerts,
     }
 
@@ -2246,6 +2252,11 @@ def outfall_context(
 
     status_counts = _live_status_counts(effs)
     total_beaches = db.query(func.count(Beach.id)).scalar()
+    n_monitored = (
+        db.query(func.count(Beach.id))
+        .filter(Beach.monitored.is_(True))
+        .scalar()
+    )
     salerts = _alert_cards(_alert_entries(db, effs)[:4], datetime.now(UTC), db)
 
     # Prensa de infra del punto — misma regla que /outfalls/{id}/news:
@@ -2367,6 +2378,7 @@ def outfall_context(
         "n_closed": status_counts.get("closed", 0),
         "n_warning": status_counts.get("warning", 0),
         "total_beaches": total_beaches,
+        "n_monitored": n_monitored,
         "salerts": salerts,
     }
 
@@ -2419,6 +2431,11 @@ def home_context(db: Session, demo: bool = False) -> dict:
     effs = effective_states(db)
     status_counts = _live_status_counts(effs)
     total_beaches = db.query(func.count(Beach.id)).scalar()
+    n_monitored = (
+        db.query(func.count(Beach.id))
+        .filter(Beach.monitored.is_(True))
+        .scalar()
+    )
     island_alerts = _alert_entries(db, effs)
 
     # Puntos del mapa isla: estado efectivo (igual que la app — una
@@ -2773,6 +2790,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
         "n_closed": status_counts.get("closed", 0),
         "n_warning": status_counts.get("warning", 0),
         "total_beaches": total_beaches,
+        "n_monitored": n_monitored,
         "map_dots": map_dots,
         "alerts": alerts,
         "alert_groups": alert_groups,

@@ -75,8 +75,9 @@
     .salerts { margin-top:12px; background:rgba(255,255,255,.88);
             border:1px solid rgba(255,255,255,.25); border-radius:12px;
             padding:12px 14px; }
-    .salerts .sl { font-size:11px; color:#6d8b9a; font-weight:600;
-            text-transform:uppercase; letter-spacing:.4px; }
+    .salerts .sl { font-size:11px; color:#d50000; font-weight:800;
+            text-transform:uppercase; letter-spacing:.4px;
+            text-align:center; }
     .sal { display:flex; align-items:center; gap:9px; margin-top:9px;
             text-decoration:none; border-radius:10px;
             padding:8px 11px; }
@@ -533,10 +534,10 @@
           {{- p.n }} muestreos · barras:
           <b style="color:#0d9488">■</b> apta ·
           <b style="color:#f9a825">■</b> al límite ·
-          <b style="color:#c62828">■</b> no apta<br>
+          <b style="color:#d50000">■</b> no apta<br>
           <b style="color:#0b6e99">┄</b> límite normativo
           ({{ p.good }} UFC/100 mL)<br>
-          <b style="color:rgba(198,40,40,.18)">■</b> franja = cierre ·
+          <b style="color:rgba(213,0,0,.18)">■</b> franja = cierre ·
           <b style="color:rgba(249,168,37,.18)">■</b> franja = aviso</span>
         {%- endfor %}
       </div>
@@ -575,7 +576,7 @@
     <div class="sstat"><div class="sl">Ahora mismo en Tenerife</div>
       <b>{{ n_closed }}</b> cerradas ·
       <b>{{ n_warning }}</b> con aviso ·
-      <b>{{ total_beaches }}</b> playas mapeadas</div>
+      <b>{{ n_monitored }}</b> playas monitorizadas</div>
     {%- if salerts %}
     <div class="salerts"><div class="sl">Alertas activas
       en la isla</div>

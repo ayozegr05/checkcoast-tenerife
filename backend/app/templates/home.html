@@ -132,8 +132,8 @@
           border:2px solid rgba(140,50,42,.7);
           background:rgba(140,50,42,.42); }
   @keyframes mpulse {
-    0% { box-shadow:0 0 0 0 var(--pc, rgba(198,40,40,.55)); }
-    100% { box-shadow:0 0 0 13px rgba(198,40,40,0); } }
+    0% { box-shadow:0 0 0 0 var(--pc, rgba(213,0,0,.55)); }
+    100% { box-shadow:0 0 0 13px rgba(213,0,0,0); } }
   .mleg { position:absolute; left:8px; bottom:8px; z-index:3;
           background:rgba(255,255,255,.93); border-radius:10px;
           padding:7px 10px; font-size:11px; color:#33566b;
@@ -168,10 +168,7 @@
   .sec-t { flex:1 1 180px; min-width:0; }
   .sec.sec-a, .sec.sec-r { border-radius:10px; padding:7px 12px; }
   .sec.sec-a { background:#fdeceb; border:1px solid #f0c4bd;
-          color:#d50000; }
-  /* El titulo de las alertas siempre centrado — es el aviso
-     importante de la portada */
-  .sec-a .sec-t { text-align:center; }
+          color:#7e1d18; }
   .sec.sec-r { background:#e6f4ee; border:1px solid #9ed2b8;
           color:#0a5c42; }
   .secn { font-size:10.5px; font-weight:700; padding:1px 9px;
@@ -233,7 +230,7 @@
   .smore-btn .less { display:none; }
   .salart { flex:none; width:28px; height:28px; border-radius:50%;
           object-fit:cover; background:#fff;
-          border:1.5px solid var(--ac, #c62828);
+          border:1.5px solid var(--ac, #d50000);
           padding:2px; box-sizing:border-box; }
   .ibody { padding:16px 20px 20px;
           background:
@@ -414,7 +411,7 @@
   <div class="stat"><div class="sl">Ahora mismo en Tenerife</div>
     <span class="stxt"><b class="sc">{{ n_closed }}</b> cerradas ·
     <b class="sw">{{ n_warning }}</b> con aviso ·
-    <b>{{ total_beaches }}</b> playas mapeadas</span>
+    <b>{{ n_monitored }}</b> playas monitorizadas</span>
     <div class="sbx"><input id="bq" type="search" autocomplete="off"
       placeholder="Buscar playa o emisario…" aria-label="Buscar playa">
       <div id="bres" class="bres hidden"></div></div></div>
@@ -454,7 +451,7 @@
       <div class="mleg">
         <div class="lrow"><img class="lico" src="/icons/icon-faucet.png"
           alt=""><button class="lsw lchip" data-k="oillegal"
-          type="button"><i style="background:#c62828"></i>
+          type="button"><i style="background:#d50000"></i>
           No autorizado</button><button class="lsw lchip off"
           data-k="olegal" type="button"><i
           style="background:#2e9e6b"></i>
@@ -817,7 +814,7 @@ if (window.maplibregl && lmapEl && imap) {
       // bottom:90 reservaba sitio a la leyenda cuando iba dentro;
       // en móvil ya va debajo del mapa y el hueco quedaba vacío
       padding: { top: 20, right: 20,
-        bottom: window.innerWidth <= 520 ? 6 : 90, left: 20 },
+        bottom: window.innerWidth <= 520 ? 0 : 90, left: 20 },
       duration: 0
     });
     var parentEls = [], memberEls = [];
@@ -926,7 +923,7 @@ if (window.maplibregl && lmapEl && imap) {
     var KC = { closed: '#d50000', fauna: '#4f6ab8',
       structural: '#8c322a',
       warning: '#e65100', open: '#0d9488', unmon: '#8fa3ad',
-      oillegal: '#c62828', olegal: '#2e9e6b', oproc: '#f9a825' };
+      oillegal: '#d50000', olegal: '#2e9e6b', oproc: '#f9a825' };
     var bidx = window.MAP_DOTS || [];
     var norm = function (s) {
       return (s || '').toLowerCase()
