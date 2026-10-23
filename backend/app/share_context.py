@@ -452,6 +452,21 @@ def _alert_cards(
     """Filas de alerta viva enlazables a su /b/{id} — la misma regla
     que /alerts, compartida por el panel lateral de /b/ y la portada.
     `entries` = salida de _alert_entries (Beach, fila de la matriz)."""
+    # Una sola query de coords para todas las filas — la miniatura
+    # satelite del lateral de la ficha (misma URL que las cards de
+    # la home) no puede salir sin lon/lat
+    ids = [b.id for b, _ in entries]
+    coords = {}
+    if ids:
+        coords = {
+            bid: (lon, lat)
+            for bid, lon, lat in db.query(
+                Beach.id,
+                func.ST_X(Beach.geom).label("lon"),
+                func.ST_Y(Beach.geom).label("lat"),
+            ).filter(Beach.id.in_(ids))
+            if lon is not None
+        }
     cards = []
     for beach, e in entries:
         dstate = _display_state(e)
@@ -494,6 +509,11 @@ def _alert_cards(
                     else _STATUS.get(dstate, _STATUS["unknown"])[1]
                 ),
                 "name": _display_name(beach.name) + _zone_suffix(db, beach),
+                "thumb": (
+                    _shot_url(*coords[beach.id], 0.006, 0.0033)
+                    if beach.id in coords
+                    else None
+                ),
                 # Arte de causa como en el banner de la app
                 "art": art,
                 "cause": e["cause"],

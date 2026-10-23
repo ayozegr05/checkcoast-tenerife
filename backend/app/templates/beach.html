@@ -80,6 +80,8 @@
     .sal { display:flex; align-items:center; gap:9px; margin-top:9px;
             text-decoration:none; border-radius:10px;
             padding:8px 11px; }
+    .sal .salthumb { flex:none; width:44px; height:30px;
+            border-radius:6px; object-fit:cover; }
     .sal.sal-c { background:#fdeceb; border:1px solid #f0c4bd; }
     .sal.sal-s { background:#f2e6e4; border:1px solid #d8aba4; }
     .sal.sal-w { background:#fdf1da; border:1px solid #eec27e; }
@@ -579,6 +581,8 @@
       en la isla</div>
       {%- for a in salerts %}
       <a class="sal sal-{{ a.cls }}" href="/b/{{ a.beach_id }}">
+        {%- if a.thumb %}<img class="salthumb" src="{{ a.thumb }}"
+          alt="" loading="lazy">{%- endif %}
         <i style="background:{{ a.color }}"></i><div>
         <b>{{ a.name }}</b>
         <span>{{ a.meta }}</span>
