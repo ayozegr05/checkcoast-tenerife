@@ -675,3 +675,27 @@ OJO: el tag cubre el árbol COMMITEADO. Los cambios locales sin
 commitear de esa fecha (renombrado a "Episodios", iconos de
 episodios/timeline, retoques de ficha) NO están en el tag — commitear
 o stashear antes de resetear si se quiere conservarlos.
+
+
+## Workflow de iteración visual (landing/fichas web)
+
+- **Preview local en vez de deploy por retoque**: parar
+  `docker stop checkcoast-api` y arrancar
+  `backend/.venv/Scripts/uvicorn app.main:app --host 0.0.0.0 --port 8001`
+  (misma BD de Docker). Los templates Jinja recargan solos — cada
+  F5 muestra el cambio al instante. En el móvil:
+  `http://192.168.1.71:8001/?demo=1` (obligatorio `--host 0.0.0.0`,
+  con 127.0.0.1 el móvil no entra). Al terminar: matar uvicorn y
+  `docker start checkcoast-api` — la app dev espera la API docker.
+- **`?demo=1`**: fabrica alertas sintéticas en memoria (varias causas
+  + pines repartidos) sin tocar la BD — útil para iterar colores,
+  leyendas y capas. Solo en la URL, nada de ingesta fake.
+- **Capturas móviles fiables**: el `--screenshot` headless de Chrome
+  tiene un layout mínimo de ~500 CSS px aunque pidas 390 — recorta
+  por la derecha y miente. Para emular 390px de verdad: lanzar
+  `chrome --headless=new --remote-debugging-port=9223` y pilotarlo
+  por CDP con `Emulation.setDeviceMetricsOverride` (script de
+  referencia: `/tmp/mobshot.js` — Node ≥22 con WebSocket nativo,
+  `node /tmp/mobshot.js <url> <png>`).
+- **Despliegues por tandas**: iterar todo en local y confirmar con el
+  usuario antes de commit+push; no desplegar cada micro-retoque CSS.
