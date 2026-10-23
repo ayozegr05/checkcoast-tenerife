@@ -2383,8 +2383,16 @@ def _demo_alerts(all_beaches: list, now: datetime) -> list[tuple]:
         ("Desprendimientos", "closed"),
         (None, "warning"),
     ]
+    # Repartidas por la isla: con las 6 primeras de la BD todas
+    # caian en Costa Adeje y en el mapa se apilaban en un solo
+    # punto — solo se veia el pin de arriba (Ajabo)
+    spread = sorted(all_beaches, key=lambda r: r[2] or 0)
+    picks = [
+        spread[int(i * (len(spread) - 1) / (len(causes) - 1) + 0.5)]
+        for i in range(len(causes))
+    ]
     out = []
-    for (b, _st, _lon, _lat), (cause, status) in zip(all_beaches, causes):
+    for (b, _st, _lon, _lat), (cause, status) in zip(picks, causes):
         out.append(
             (
                 b,
