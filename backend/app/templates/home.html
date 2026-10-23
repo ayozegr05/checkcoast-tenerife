@@ -514,13 +514,25 @@
         recientemente</span>
         <span class="secn nr">{{ n_reopened }}</span></div>
       <div class="abox">
-        {%- for r in reopened %}
+        {%- for r in reopened[:4] %}
         <a class="sal sal-r" href="/b/{{ r.beach_id }}{{ '?demo=1' if demo }}"
           style="animation-delay:{{ loop.index * 45 }}ms">
           <i style="background:#0d9488"></i><div>
           <b>{{ r.name }}</b>
           <span>{{ r.when }}</span></div></a>
         {%- endfor %}
+        {%- if reopened|length > 4 %}
+        <input type="checkbox" id="rmore" class="amorechk">
+        {%- for r in reopened[4:] %}
+        <a class="sal sal-r xmore" href="/b/{{ r.beach_id }}{{ '?demo=1' if demo }}">
+          <i style="background:#0d9488"></i><div>
+          <b>{{ r.name }}</b>
+          <span>{{ r.when }}</span></div></a>
+        {%- endfor %}
+        <label class="smore-btn" for="rmore"><span
+          class="more">…y {{ reopened|length - 4 }} más</span><span
+          class="less">Ver menos</span></label>
+        {%- endif %}
       </div>
       {%- endif %}
       {%- if cards %}
@@ -901,9 +913,14 @@ if (window.maplibregl && lmapEl && imap) {
       var q = norm(bq.value).trim();
       bres.innerHTML = '';
       if (q.length < 2) { hideRes(); return; }
+      // Playas primero: los emisarios van antes en el array y un
+      // municipio con muchos (Adeje, 30+) llenaba los 8 huecos sin
+      // dejar ver ni una playa
       var hits = bidx.filter(function (d) {
         return norm(d.name).indexOf(q) >= 0 ||
                norm(d.muni).indexOf(q) >= 0;
+      }).sort(function (a, b) {
+        return (a.outfall ? 1 : 0) - (b.outfall ? 1 : 0);
       }).slice(0, 8);
       if (!hits.length) { hideRes(); return; }
       hits.forEach(function (d) {

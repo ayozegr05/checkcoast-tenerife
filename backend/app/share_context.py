@@ -510,7 +510,7 @@ def _alert_cards(
                 ),
                 "name": _display_name(beach.name) + _zone_suffix(db, beach),
                 "thumb": (
-                    _shot_url(*coords[beach.id], 0.006, 0.0033)
+                    _shot_url(*coords[beach.id], 0.0028, 0.0019)
                     if beach.id in coords
                     else None
                 ),
@@ -2589,6 +2589,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 "structural": worst[5] == "structural",
                 "k": wk,
                 "name": _display_name(PM_SUFFIX.sub("", base_beach.name)),
+                "muni": base_beach.municipality or "",
                 "lon": clon2,
                 "lat": clat2,
                 "complex": zones,
