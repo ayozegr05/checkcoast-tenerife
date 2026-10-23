@@ -140,14 +140,17 @@
           margin-right:4px; border:1px solid #fff;
           box-shadow:0 0 0 .5px rgba(0,0,0,.15); }
   .mleg .lsw i + i { margin-left:-2px; }
-  .sec { display:flex; align-items:center; gap:9px; }
+  .sec { display:flex; align-items:center; gap:9px;
+          flex-wrap:wrap; row-gap:6px; }
+  .sec-t { flex:1 1 180px; min-width:0; }
   .sec.sec-a, .sec.sec-r { border-radius:10px; padding:7px 12px; }
   .sec.sec-a { background:#fdeceb; border:1px solid #f0c4bd;
           color:#7e1d18; }
   .sec.sec-r { background:#e6f4ee; border:1px solid #9ed2b8;
           color:#0a5c42; }
   .secn { font-size:10.5px; font-weight:700; padding:1px 9px;
-          border-radius:999px; color:#fff; }
+          border-radius:999px; color:#fff;
+          flex:none; white-space:nowrap; }
   .secn.na { background:#c62828; }
   .secn.st { background:#8c322a; }
   .secn.nr { background:#0d9488; }
@@ -159,6 +162,7 @@
           z-index:5; }
   .imap.hide-open .k-open, .imap.hide-warning .k-warning,
   .imap.hide-closed .k-closed, .imap.hide-structural .k-structural,
+  .imap.hide-fauna .k-fauna,
   .imap.hide-unmon .k-unmon, .imap.hide-oillegal .k-oillegal,
   .imap.hide-olegal .k-olegal, .imap.hide-oproc .k-oproc {
           display:none; }
@@ -437,10 +441,13 @@
           Aviso</button><span class="lsw lgrp"><button class="ld"
           data-k="closed" type="button" title="cierre por
           contaminación"><i style="background:#c62828"></i>
+          </button><button class="ld" data-k="fauna"
+          type="button" title="cierre por fauna marina
+          (medusas)"><i style="background:#4f6ab8"></i>
           </button><button class="ld" data-k="structural"
           type="button" title="cierre estructural"><i
           style="background:#8c322a"></i></button><button
-          class="ldlab" type="button" data-k="closed structural"
+          class="ldlab" type="button" data-k="closed fauna structural"
           title="activar/desactivar todas">Cerrada</button></span><button
           class="lsw lchip off" data-k="unmon" type="button"><i
           style="background:#8fa3ad"></i>Sin monitorizar</button></div>
@@ -448,7 +455,8 @@
     </div>
     <div class="ibody">
       {%- if alerts %}
-      <div class="sec sec-a">Alertas activas en la isla
+      <div class="sec sec-a"><span class="sec-t">Alertas activas
+        en&nbsp;la&nbsp;isla</span>
         {%- for g in alert_groups %}
         <span class="secn {{ g.pcls }}">{{ g.pill }} ·
           {{ g.rows|length }}</span>
@@ -502,7 +510,8 @@
       </div>
       {%- endif %}
       {%- if reopened %}
-      <div class="sec sec-r">Reabiertas recientemente
+      <div class="sec sec-r"><span class="sec-t">Reabiertas
+        recientemente</span>
         <span class="secn nr">{{ n_reopened }}</span></div>
       <div class="abox">
         {%- for r in reopened %}
@@ -866,11 +875,13 @@ if (window.maplibregl && lmapEl && imap) {
     // «· Punta Brava», así «brava» resuelve al punto concreto) —
     // la fila muestra el estado con su color y el click vuela
     // al pin; la ficha queda a un clic sobre el pin
-    var KL = { closed: 'Cerrada', structural: 'Cierre estructural',
+    var KL = { closed: 'Cerrada', fauna: 'Cerrada · fauna',
+      structural: 'Cierre estructural',
       warning: 'Aviso', open: 'Apta', unmon: 'Sin datos',
       oillegal: 'No autorizado', olegal: 'Autorizado',
       oproc: 'En trámite' };
-    var KC = { closed: '#c62828', structural: '#8c322a',
+    var KC = { closed: '#c62828', fauna: '#4f6ab8',
+      structural: '#8c322a',
       warning: '#e65100', open: '#0d9488', unmon: '#8fa3ad',
       oillegal: '#c62828', olegal: '#2e9e6b', oproc: '#f9a825' };
     var bidx = window.MAP_DOTS || [];

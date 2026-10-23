@@ -170,6 +170,24 @@ def _display_state(e: dict | None) -> str:
     return s.value if hasattr(s, "value") else s
 
 
+# Añil de fauna marina — colors.status.fauna de la app; el cierre por
+# medusas no es contaminación y no va en rojo
+_FAUNA_COLOR = "#4f6ab8"
+
+
+def _dot_visual(dstate: str, e: dict | None) -> tuple[str, str, str]:
+    """(clave de capa, pin, color) de un punto de playa en el mapa —
+    un cierre por fauna (medusas) lleva capa 'fauna' + pin-medusas +
+    añil, igual que el mapa de la app."""
+    if dstate == "closed" and e and e.get("cause") in _FAUNA_CAUSES:
+        return "fauna", "pin-medusas", _FAUNA_COLOR
+    return (
+        "unmon" if dstate == "unknown" else dstate,
+        _PIN.get(dstate, _PIN["unknown"]),
+        _STATUS.get(dstate, _STATUS["unknown"])[1],
+    )
+
+
 def _alert_entries(db: Session, effs: dict) -> list[tuple]:
     """(Beach, entry) de las playas con alerta viva de la matriz —
     mismo conjunto que /alerts sin recomputarla ni hacer un get+ST_X/Y
@@ -2469,14 +2487,15 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 (beach, lon, lat, x, y, dstate, eff, int(m.group(1)))
             )
             continue
+        dk, dpin, dcol = _dot_visual(dstate, eff)
         beach_dots.append(
             {
                 "x": f"{x:.1f}",
                 "y": f"{y:.1f}",
                 # Los mismos PNG de pin que la app — la landing
                 # parece app, no un mapa de dots ajenos
-                "pin": _PIN.get(dstate, _PIN["unknown"]),
-                "col": _STATUS.get(dstate, _STATUS["unknown"])[1],
+                "pin": dpin,
+                "col": dcol,
                 # Las playas con alerta viva llevan halo pulsante
                 # (mismo gesto que los pines de la app) — entre
                 # los ~140 puntos, lo que el visitante necesita
@@ -2486,8 +2505,9 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 # no late); contaminación → pulso de urgencia
                 "structural": dstate == "structural",
                 "bid": beach.id,
-                "k": "unmon" if dstate == "unknown" else dstate,
+                "k": dk,
                 "name": _display_name(beach.name),
+                "muni": beach.municipality or "",
                 "lon": lon,
                 "lat": lat,
             }
@@ -2495,17 +2515,19 @@ def home_context(db: Session, demo: bool = False) -> dict:
     for _key, members in pm_groups.items():
         if len(members) == 1:
             beach, lon, lat, x, y, dstate, eff, _n = members[0]
+            dk, dpin, dcol = _dot_visual(dstate, eff)
             beach_dots.append(
                 {
                     "x": f"{x:.1f}",
                     "y": f"{y:.1f}",
-                    "pin": _PIN.get(dstate, _PIN["unknown"]),
-                    "col": _STATUS.get(dstate, _STATUS["unknown"])[1],
+                    "pin": dpin,
+                    "col": dcol,
                     "alert": eff["alerted"] if eff else False,
                     "structural": dstate == "structural",
                     "bid": beach.id,
-                    "k": "unmon" if dstate == "unknown" else dstate,
+                    "k": dk,
                     "name": _display_name(beach.name),
+                    "muni": beach.municipality or "",
                     "lon": lon,
                     "lat": lat,
                 }
@@ -2519,27 +2541,33 @@ def home_context(db: Session, demo: bool = False) -> dict:
         clat2 = sum(t[2] for t in members) / len(members)
         base_beach = members[0][0]
         zones = []
-        for beach, _lon, _lat, _x, _y, dstate, _eff, pmn in members:
+        for beach, _lon, _lat, _x, _y, dstate, zeff, pmn in members:
             ze = _zone_entry(beach)
+            zk, _zpin, zcol = _dot_visual(dstate, zeff)
             zones.append(
                 {
                     "bid": beach.id,
                     "zone": (
                         ze["name"] if ze and ze.get("name") else f"Zona {pmn}"
                     ),
-                    "label": _STATUS.get(dstate, _STATUS["unknown"])[0],
-                    "color": _STATUS.get(dstate, _STATUS["unknown"])[1],
+                    "label": (
+                        "Cerrada · fauna"
+                        if zk == "fauna"
+                        else _STATUS.get(dstate, _STATUS["unknown"])[0]
+                    ),
+                    "color": zcol,
                 }
             )
+        wk, wpin, wcol = _dot_visual(worst[5], worst[6])
         beach_dots.append(
             {
                 "x": f"{cx:.1f}",
                 "y": f"{cy:.1f}",
-                "pin": _PIN.get(worst[5], _PIN["unknown"]),
-                "col": _STATUS.get(worst[5], _STATUS["unknown"])[1],
+                "pin": wpin,
+                "col": wcol,
                 "alert": any(t[6] and t[6]["alerted"] for t in members),
                 "structural": worst[5] == "structural",
-                "k": "unmon" if worst[5] == "unknown" else worst[5],
+                "k": wk,
                 "name": _display_name(PM_SUFFIX.sub("", base_beach.name)),
                 "lon": clon2,
                 "lat": clat2,
@@ -2551,18 +2579,20 @@ def home_context(db: Session, demo: bool = False) -> dict:
         # acercar, cada zona muestra su estado y enlaza a su ficha —
         # el gesto del ZonePicker de la app trasladado al mapa web
         for beach, lon, lat, x, y, dstate, eff, _pmn in members:
+            dk, dpin, dcol = _dot_visual(dstate, eff)
             beach_dots.append(
                 {
                     "x": f"{x:.1f}",
                     "y": f"{y:.1f}",
-                    "pin": _PIN.get(dstate, _PIN["unknown"]),
-                    "col": _STATUS.get(dstate, _STATUS["unknown"])[1],
+                    "pin": dpin,
+                    "col": dcol,
                     "alert": eff["alerted"] if eff else False,
                     "structural": dstate == "structural",
                     "bid": beach.id,
-                    "k": "unmon" if dstate == "unknown" else dstate,
+                    "k": dk,
                     "name": _display_name(beach.name)
                     + _zone_suffix(db, beach),
+                    "muni": beach.municipality or "",
                     "lon": lon,
                     "lat": lat,
                     "cxmember": True,
@@ -2607,14 +2637,17 @@ def home_context(db: Session, demo: bool = False) -> dict:
     ):
         if n.beach_id is None:
             continue
-        dname = _display_name(b.name)
+        # La fila enlaza a la ficha del PM concreto — en un complejo
+        # multipunto el nombre sin zona mentía ("Playa Jardín" que abre
+        # Punta Brava): mismo sufijo que la cabecera de la app
+        dname = _display_name(b.name) + _zone_suffix(db, b)
         if dname in seen:
             continue
         seen.add(dname)
         reopened.append(
             {
                 "beach_id": n.beach_id,
-                "name": _display_name(b.name),
+                "name": dname,
                 "when": _alert_when("reabierta", n.published_at, now),
             }
         )
@@ -2696,7 +2729,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 "thumb": _shot_url(lon, lat, 0.006, 0.0033),
                 "label": lbl,
                 "color": col,
-                "name": _display_name(b.name),
+                "name": _display_name(b.name) + _zone_suffix(db, b),
                 "muni": b.municipality or "",
                 "via_press": bool(eff and eff["via"] == "press"),
             }
