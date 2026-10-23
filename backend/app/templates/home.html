@@ -277,11 +277,11 @@
           box-shadow:0 4px 12px rgba(7,43,62,.16); }
   .sal:active { transform:translateY(0) scale(.985);
           box-shadow:0 1px 4px rgba(7,43,62,.12); }
-  .sal.sal-c { border:1px solid #e2988f; }
-  .sal.sal-s { border:1px solid #c79088; }
-  .sal.sal-w { border:1px solid #eebf78; }
-  .sal.sal-f { border:1px solid #9db1de; }
-  .sal.sal-r { border:1px solid #8ecbae; }
+  .sal.sal-c { background:#fdeceb; border:1px solid #e2988f; }
+  .sal.sal-s { background:#f2e6e4; border:1px solid #c79088; }
+  .sal.sal-w { background:#fdf1da; border:1px solid #eebf78; }
+  .sal.sal-f { background:#edf1fb; border:1px solid #9db1de; }
+  .sal.sal-r { background:#e6f4ee; border:1px solid #8ecbae; }
   .sal.sal-c:hover { background:#fbe9e7; border-color:#d50000; }
   .sal.sal-s:hover { background:#f6e8e6; border-color:#8c322a; }
   .sal.sal-w:hover { background:#fdf1da; border-color:#e65100; }
@@ -820,9 +820,10 @@ if (window.maplibregl && lmapEl && imap) {
     lmap.fitBounds([[b[0], b[1]], [b[2], b[3]]], {
       // bottom:90 reservaba sitio a la leyenda cuando iba dentro;
       // en móvil ya va debajo del mapa y el hueco quedaba vacío
-      padding: { top: window.innerWidth <= 520 ? 40 : 20,
-        right: 20,
-        bottom: window.innerWidth <= 520 ? 0 : 90, left: 20 },
+      padding: { top: window.innerWidth <= 520 ? 24 : 20,
+        right: window.innerWidth <= 520 ? 8 : 20,
+        bottom: window.innerWidth <= 520 ? 0 : 90,
+        left: window.innerWidth <= 520 ? 8 : 20 },
       duration: 0
     });
     var parentEls = [], memberEls = [];
