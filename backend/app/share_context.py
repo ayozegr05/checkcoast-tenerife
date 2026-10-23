@@ -98,7 +98,7 @@ _SHOT_LEVELS = [
 # Mismos textos que la ficha de la app — "structural" es la variante
 # granate del cierre (desprendimientos/obras), no un estado propio
 _STATUS = {
-    "closed": ("Cierre activo", "#c62828"),
+    "closed": ("Cierre activo", "#d50000"),
     "structural": ("Cierre estructural", "#8c322a"),
     "warning": ("Aviso activo", "#e65100"),
     "open": ("Apta", "#0d9488"),
@@ -510,7 +510,7 @@ def _alert_cards(
                 ),
                 "name": _display_name(beach.name) + _zone_suffix(db, beach),
                 "thumb": (
-                    _shot_url(*coords[beach.id], 0.0012, 0.0008)
+                    _shot_url(*coords[beach.id], 0.0008, 0.00055)
                     if beach.id in coords
                     else None
                 ),

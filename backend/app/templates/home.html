@@ -58,6 +58,9 @@
           font:inherit; font-size:12px; color:#0d3a52;
           text-align:left; cursor:pointer; }
   .brow:hover { background:#f2f8fb; }
+  .bsec { font-size:10px; font-weight:700; color:#8fa3ad;
+          text-transform:uppercase; letter-spacing:.4px;
+          padding:7px 11px 2px; }
   .brow .bdot { width:8px; height:8px; border-radius:50%;
           flex:none; }
   .brow .bname { flex:1; font-weight:600; }
@@ -139,10 +142,14 @@
      se ve completo y solo cuestan ~2 líneas de scroll */
   @media (max-width:520px) {
     .mleg { position:static; margin:6px 8px 0; }
-    /* >1 sección de alertas: título a su línea centrado y chips
-       en la suya — solo en estrecho, en PC caben en una línea */
+    /* "Sin monitorizar" bajo el dot de Apta — solo en móvil; en
+       PC la leyenda va estirada como antes */
+    .mleg .lrow .lchip[data-k="unmon"] { flex-basis:calc(100% - 25px);
+          margin-left:25px; }
+    /* >1 sección de alertas: chips en su línea — solo en
+       estrecho, en PC caben junto al título */
     .sec-a.multi { justify-content:center; }
-    .sec-a.multi .sec-t { flex:1 1 100%; text-align:center; }
+    .sec-a.multi .sec-t { flex:1 1 100%; }
     /* Cabecera centrada: etiqueta, contador y buscador */
     .stat { justify-content:center; text-align:center; }
     .stat .sl, .stat .stxt { flex:1 1 100%; min-width:0; }
@@ -150,10 +157,6 @@
   }
   .mleg .lrow { display:flex; align-items:center; gap:9px; }
   .mleg .lrow + .lrow { margin-top:5px; }
-  /* "Sin monitorizar" bajo el dot de Apta — el chip de emisario
-     solitario quedaba colgado del borde */
-  .mleg .lrow .lchip[data-k="unmon"] { flex-basis:calc(100% - 25px);
-          margin-left:25px; }
   .mleg .lico { width:16px; height:16px; }
   .mleg .lsw { display:flex; align-items:center; font-weight:600; }
   .mleg .lsw i { width:9px; height:9px; border-radius:50%;
@@ -165,13 +168,16 @@
   .sec-t { flex:1 1 180px; min-width:0; }
   .sec.sec-a, .sec.sec-r { border-radius:10px; padding:7px 12px; }
   .sec.sec-a { background:#fdeceb; border:1px solid #f0c4bd;
-          color:#7e1d18; }
+          color:#d50000; }
+  /* El titulo de las alertas siempre centrado — es el aviso
+     importante de la portada */
+  .sec-a .sec-t { text-align:center; }
   .sec.sec-r { background:#e6f4ee; border:1px solid #9ed2b8;
           color:#0a5c42; }
   .secn { font-size:10.5px; font-weight:700; padding:1px 9px;
           border-radius:999px; color:#fff;
           flex:none; white-space:nowrap; }
-  .secn.na { background:#c62828; }
+  .secn.na { background:#d50000; }
   .secn.st { background:#8c322a; }
   .secn.nr { background:#0d9488; }
   .secn.fa { background:#4f6ab8; }
@@ -203,7 +209,7 @@
           transition:background .15s, opacity .2s; }
   .lgrp:hover { background:rgba(13,58,82,.09); }
   .lrow { flex-wrap:wrap; row-gap:4px; }
-  .stat b.sc { color:#c62828; }
+  .stat b.sc { color:#d50000; }
   .stat b.sw { color:#e65100; }
   /* Secciones del banner de alertas — mismos grupos y tonos que
      la app (contaminación / fauna / estructural / avisos) */
@@ -211,7 +217,7 @@
   .asec { grid-column:1/-1; text-align:center; font-size:11px;
           font-weight:800; letter-spacing:.7px; text-transform:uppercase;
           margin:12px 0 7px; padding:7px 0; border-radius:9px; }
-  .asec-contam { color:#c62828; background:rgba(198,40,40,.10); }
+  .asec-contam { color:#d50000; background:rgba(213,0,0,.10); }
   .asec-fauna { color:#4f6ab8; background:rgba(79,106,184,.10); }
   .asec-struct { color:#8c322a; background:rgba(140,50,42,.10); }
   .asec-warn { color:#e65100; background:rgba(230,81,0,.10); }
@@ -273,7 +279,7 @@
   .sal.sal-w { border:1px solid #eebf78; }
   .sal.sal-f { border:1px solid #9db1de; }
   .sal.sal-r { border:1px solid #8ecbae; }
-  .sal.sal-c:hover { background:#fbe9e7; border-color:#c62828; }
+  .sal.sal-c:hover { background:#fbe9e7; border-color:#d50000; }
   .sal.sal-s:hover { background:#f6e8e6; border-color:#8c322a; }
   .sal.sal-w:hover { background:#fdf1da; border-color:#e65100; }
   .sal.sal-f:hover { background:#edf1fb; border-color:#4f6ab8; }
@@ -462,7 +468,7 @@
           type="button"><i style="background:#e65100"></i>
           Aviso</button><span class="lsw lgrp"><button class="ld"
           data-k="closed" type="button" title="cierre por
-          contaminación"><i style="background:#c62828"></i>
+          contaminación"><i style="background:#d50000"></i>
           </button><button class="ld" data-k="fauna"
           type="button" title="cierre por fauna marina
           (medusas)"><i style="background:#4f6ab8"></i>
@@ -811,7 +817,7 @@ if (window.maplibregl && lmapEl && imap) {
       // bottom:90 reservaba sitio a la leyenda cuando iba dentro;
       // en móvil ya va debajo del mapa y el hueco quedaba vacío
       padding: { top: 20, right: 20,
-        bottom: window.innerWidth <= 520 ? 20 : 90, left: 20 },
+        bottom: window.innerWidth <= 520 ? 6 : 90, left: 20 },
       duration: 0
     });
     var parentEls = [], memberEls = [];
@@ -917,7 +923,7 @@ if (window.maplibregl && lmapEl && imap) {
       warning: 'Aviso', open: 'Apta', unmon: 'Sin datos',
       oillegal: 'No autorizado', olegal: 'Autorizado',
       oproc: 'En trámite' };
-    var KC = { closed: '#c62828', fauna: '#4f6ab8',
+    var KC = { closed: '#d50000', fauna: '#4f6ab8',
       structural: '#8c322a',
       warning: '#e65100', open: '#0d9488', unmon: '#8fa3ad',
       oillegal: '#c62828', olegal: '#2e9e6b', oproc: '#f9a825' };
@@ -950,7 +956,17 @@ if (window.maplibregl && lmapEl && imap) {
       });
       hits = bh.concat(oh);
       if (!hits.length) { hideRes(); return; }
+      var lastOutfall = null;
       hits.forEach(function (d) {
+        // Cabeceras de grupo: "Playas" / "Emisarios" — una lista
+        // larga sin secciones se leia como batiburrillo
+        if (lastOutfall !== !!d.outfall) {
+          lastOutfall = !!d.outfall;
+          var hd = document.createElement('div');
+          hd.className = 'bsec';
+          hd.textContent = d.outfall ? 'Emisarios' : 'Playas';
+          bres.appendChild(hd);
+        }
         var b = document.createElement('button');
         b.className = 'brow';
         b.type = 'button';
