@@ -139,23 +139,48 @@
           background:rgba(140,50,42,.42); }
   @keyframes mpulse {
     0% { box-shadow:0 0 0 0 var(--pc, rgba(213,0,0,.55)); }
-    100% { box-shadow:0 0 0 13px rgba(213,0,0,0); } }
+    100% { box-shadow:0 0 0 var(--pr, 13px) rgba(213,0,0,0); } }
+  /* PC: con la isla entera a la vista el pulso de 13px se
+     diluye — el anillo viaja más lejos y algo más rápido */
+  @media (min-width:521px) {
+    .mhalo { width:12px; height:12px; --pr:19px;
+        animation:mpulse 1.4s ease-out infinite,
+          haloin .6s backwards; }
+  }
   .mleg { position:absolute; left:8px; bottom:8px; z-index:3;
           background:rgba(255,255,255,.93); border-radius:10px;
           padding:7px 10px; font-size:11px; color:#33566b;
           box-shadow:0 2px 8px rgba(0,0,0,.15); }
+  .mhint { display:none; }
   /* Móvil: la leyenda baja bajo el mapa — el tapiz de pines ya
      se ve completo y solo cuestan ~2 líneas de scroll */
   @media (max-width:520px) {
     .mleg { position:static; margin:6px 8px 0; }
-    /* "Sin monitorizar" bajo el dot de Apta — solo en móvil; en
-       PC la leyenda va estirada como antes */
-    .mleg .lrow .lchip[data-k="unmon"] { flex-basis:calc(100% - 25px);
-          margin-left:25px; }
-    /* >1 sección de alertas: chips en su línea — solo en
-       estrecho, en PC caben junto al título */
-    .sec-a.multi { justify-content:center; }
-    .sec-a.multi .sec-t { flex:1 1 100%; }
+    .mhint { display:block; margin-top:6px; font-size:10.5px;
+          color:#6d8b9a; text-align:center; }
+    /* Grid móvil: cada dot de cerrada en su fila a la derecha —
+       desprendimientos queda a la misma altura que Sin monitorizar */
+    .mleg .lrow.lrow-b { display:grid;
+          grid-template-columns:auto auto auto max-content;
+          justify-content:start;
+          column-gap:9px; row-gap:5px; align-items:center; }
+    .mleg .lsw.lgrp { grid-column:4; grid-row:1 / 4;
+          display:flex; flex-direction:column;
+          align-items:flex-start; gap:3px; }
+    .mleg .lgrp .ld { display:flex; align-items:center;
+          margin-left:0; }
+    .mleg .lgrp .ld .ldt { display:inline; margin-left:5px;
+          font-size:11px; font-weight:600; white-space:nowrap; }
+    .mleg .lgrp .ld.off .ldt { opacity:.32;
+          filter:grayscale(.5); }
+    .mleg .lgrp .ldlab { display:none; }
+    .mleg .lrow .lchip[data-k="unmon"] { grid-row:3;
+          grid-column:2 / 4; align-self:end; }
+    /* Autorizado queda bajo la columna de cerradas — En trámite
+       le sigue y ambos caben dentro de la tarjeta */
+    .mleg .lchip[data-k="olegal"] { margin-left:13px; }
+    .sec-a { justify-content:center; flex-wrap:wrap; }
+    .sec-a .sec-t { flex:1 1 100%; text-align:center; }
     /* Cabecera centrada: etiqueta, contador y buscador */
     .stat { justify-content:center; text-align:center; }
     .stat .sl, .stat .stxt { flex:1 1 100%; min-width:0; }
@@ -199,9 +224,10 @@
           font:inherit; padding:2px 5px; border-radius:6px;
           transition:opacity .2s, background .15s; }
   .lchip:hover { background:rgba(13,58,82,.09); }
+  .ldt { display:none; }
   .lchip.off { opacity:.32; filter:grayscale(.5); }
   .ld { border:0; background:none; padding:0; cursor:pointer;
-          display:flex; }
+          font:inherit; display:flex; }
   .ld i { margin:0; display:block; }
   .ld + .ld { margin-left:-3px; }
   .ld.off i { opacity:.25; filter:grayscale(.5); }
@@ -429,7 +455,8 @@
       {%- if d.alert %}
       <i class="mhalo{% if d.structural %} fx{% endif %} k-{{ d.k }}"
         style="left:clamp(16px,{{ d.x }}%,calc(100% - 16px));
-        top:max({{ d.y }}%,50px);--pc:{{ d.col }}"></i>
+        top:max({{ d.y }}%,50px);--pc:{{ d.col }};
+        animation-delay:-{{ (loop.index * 311) % 1700 }}ms"></i>
       {%- endif %}
       {%- if d.outfall %}
       <a class="k-{{ d.k }}" href="/o/{{ d.oid }}" title="{{ d.name }}
@@ -463,24 +490,29 @@
           Autorizado</button><button class="lsw lchip off"
           data-k="oproc" type="button"><i
           style="background:#f9a825"></i>En trámite</button></div>
-        <div class="lrow"><img class="lico" src="/icons/beach.png"
+        <div class="lrow lrow-b"><img class="lico" src="/icons/beach.png"
           alt=""><button class="lsw lchip" data-k="open"
           type="button"><i style="background:#0d9488"></i>
           Apta</button><button class="lsw lchip" data-k="warning"
           type="button"><i style="background:#e65100"></i>
           Aviso</button><span class="lsw lgrp"><button class="ld"
           data-k="closed" type="button" title="cierre por
-          contaminación"><i style="background:#d50000"></i>
+          contaminación"><i style="background:#d50000"></i><span
+          class="ldt">Cerrada · contaminación</span>
           </button><button class="ld" data-k="fauna"
           type="button" title="cierre por fauna marina
-          (medusas)"><i style="background:#4f6ab8"></i>
+          (medusas)"><i style="background:#4f6ab8"></i><span
+          class="ldt">Cerrada · fauna marina</span>
           </button><button class="ld" data-k="structural"
           type="button" title="cierre estructural"><i
-          style="background:#8c322a"></i></button><button
+          style="background:#8c322a"></i><span
+          class="ldt">Cerrada · desprendimientos</span></button><button
           class="ldlab" type="button" data-k="closed fauna structural"
           title="activar/desactivar todas">Cerrada</button></span><button
           class="lsw lchip off" data-k="unmon" type="button"><i
           style="background:#8fa3ad"></i>Sin monitorizar</button></div>
+        <div class="mhint">Solo alertas por defecto · activa las capas en
+          la leyenda</div>
       </div>
     </div>
     <div class="ibody">
@@ -681,6 +713,18 @@ document.querySelectorAll('.stat b').forEach(function (el) {
 // la leyenda filtra tipos de pin al tocarla; un data-k multi-clave
 // («Cerrada») actúa de master: si algo está visible, todo se apaga
 var imap = document.querySelector('.imap');
+// Móvil: el mapa de portada abre solo con las alertas — 61 pines
+// aptos + emisarios ilegales ahogaban la vista isla en pantalla
+// pequeña. La leyenda los reactiva igual que en PC
+if (window.innerWidth <= 520) {
+  ['oillegal', 'open'].forEach(function (k) {
+    imap.classList.add('hide-' + k);
+    document
+      .querySelectorAll('.ld[data-k="' + k + '"],.lchip[data-k="' +
+        k + '"]')
+      .forEach(function (d) { d.classList.add('off'); });
+  });
+}
 document.querySelectorAll('.lchip,.ld,.ldlab').forEach(function (b) {
   b.onclick = function () {
     var ks = b.dataset.k.split(' ');
@@ -697,6 +741,8 @@ document.querySelectorAll('.lchip,.ld,.ldlab').forEach(function (b) {
         .forEach(function (d) { d.classList.toggle('off', off); });
     });
     b.classList.toggle('off', off);
+    var mh = document.querySelector('.mhint');
+    if (mh && !off) mh.remove();
     if (window.LMAP && window.LMAP.getLayer('beach-names')) {
       var hidden = ['open', 'warning', 'closed', 'structural',
         'unmon', 'oillegal', 'olegal', 'oproc'].filter(function (k) {
@@ -757,9 +803,11 @@ if (window.maplibregl && lmapEl && imap) {
     keyboard: false,
     attributionControl: false
   });
-  lmap.addControl(
-    new maplibregl.NavigationControl({ showCompass: false }),
-    'top-right');
+  if (window.innerWidth > 520) {
+    lmap.addControl(
+      new maplibregl.NavigationControl({ showCompass: false }),
+      'top-right');
+  }
   // ⌖ "la playa que tengo delante": geolocaliza y centra a zoom
   // costa — el gesto central del producto, también en la web pública
   lmap.addControl(
@@ -835,6 +883,7 @@ if (window.maplibregl && lmapEl && imap) {
         var h = document.createElement('i');
         h.className = 'mhalo' + (d.structural ? ' fx' : '');
         h.style.setProperty('--pc', d.col);
+        h.style.animationDelay = '-' + ((i * 311) % 1400) + 'ms';
         hw.appendChild(h);
         new maplibregl.Marker({ element: hw, anchor: 'top-left' })
           .setLngLat([d.lon, d.lat]).addTo(lmap);

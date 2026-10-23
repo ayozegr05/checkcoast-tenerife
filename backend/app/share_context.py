@@ -1169,7 +1169,7 @@ def beach_context(
     deep = f"checkcoast://beach/{beach.id}"
 
     # Un nivel de dots por encuadre de zoom; se empieza en el más lejano
-    start = len(shot_levels) - 1
+    start = len(shot_levels) - 2
     dots_levels = [_dots(outfalls, lon, lat, *d) for d in shot_levels]
     zone_levels = [
         [
