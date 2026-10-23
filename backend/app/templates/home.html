@@ -48,7 +48,8 @@
   .sbx input:focus { border-color:#17b8ce; }
   .sbx input::placeholder { color:#a8c0cc; }
   .bres { position:absolute; top:calc(100% + 5px); right:0;
-          min-width:230px; max-height:280px; overflow-y:auto;
+          width:min(340px, 92vw); max-height:280px;
+          overflow-y:auto;
           overflow-x:hidden;
           background:#fff; border:1px solid #dbe8ee;
           border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,.15);
@@ -819,7 +820,7 @@ if (window.maplibregl && lmapEl && imap) {
     lmap.fitBounds([[b[0], b[1]], [b[2], b[3]]], {
       // bottom:90 reservaba sitio a la leyenda cuando iba dentro;
       // en móvil ya va debajo del mapa y el hueco quedaba vacío
-      padding: { top: window.innerWidth <= 520 ? 70 : 20,
+      padding: { top: window.innerWidth <= 520 ? 40 : 20,
         right: 20,
         bottom: window.innerWidth <= 520 ? 0 : 90, left: 20 },
       duration: 0
