@@ -2386,7 +2386,13 @@ def _demo_alerts(all_beaches: list, now: datetime) -> list[tuple]:
     # Repartidas por la isla: con las 6 primeras de la BD todas
     # caian en Costa Adeje y en el mapa se apilaban en un solo
     # punto — solo se veia el pin de arriba (Ajabo)
-    spread = sorted(all_beaches, key=lambda r: r[2] or 0)
+    # Solo playas de punto unico: si la alerta cae en un PM de
+    # arenal multipunto su dot queda escondido dentro del pin padre
+    # hasta hacer zoom — en la vista isla no se veria
+    singles = [
+        r for r in all_beaches if r[2] is not None and not _PM_TAG.search(r[0].name)
+    ]
+    spread = sorted(singles, key=lambda r: r[2])
     picks = [
         spread[int(i * (len(spread) - 1) / (len(causes) - 1) + 0.5)]
         for i in range(len(causes))
