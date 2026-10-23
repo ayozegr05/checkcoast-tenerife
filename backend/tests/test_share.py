@@ -356,6 +356,33 @@ def test_home_page():
     assert "<title>CheckCoast Tenerife" in r.text
 
 
+def test_home_legend_closure_causes():
+    # Las 3 causas de cierre llevan etiqueta propia (.ldt — el CSS
+    # las muestra solo en móvil) + el hint de capas por defecto
+    html = client.get("/").text
+    assert 'class="lrow lrow-b"' in html
+    for cause in ("contaminación", "fauna marina", "desprendimientos"):
+        assert f"Cerrada · {cause}" in html
+    assert "Solo alertas por defecto" in html
+
+
+def test_beach_sheet_satellite_starts_mid(seed_data):
+    # La ficha abre en el nivel medio de zoom — ni el más lejano
+    # ni el más pegado; los otros dos niveles van ocultos
+    html = client.get(f"/b/{seed_data['beach_id']}").text
+    assert "var z = 1;" in html
+    assert 'id="dots-1" class=""' in html
+    assert 'id="dots-0" class="hidden"' in html
+    assert 'id="dots-2" class="hidden"' in html
+
+
+def test_outfall_sheet_satellite_starts_far(seed_data):
+    # El emisario sigue abriendo en el nivel más lejano — el cambio
+    # de nivel inicial fue solo para playas
+    html = client.get(f"/o/{seed_data['outfall_id']}").text
+    assert "var z = 2;" in html
+
+
 def test_privacy_page():
     r = client.get("/privacy")
     assert r.status_code == 200
