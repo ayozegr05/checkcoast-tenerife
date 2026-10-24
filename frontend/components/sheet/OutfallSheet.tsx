@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   Image,
   Linking,
   Pressable,
@@ -8,7 +9,7 @@ import {
   View,
 } from 'react-native';
 
-import SatelliteShot from '../SatelliteShot';
+import SatelliteShot, { thumbUrl } from '../SatelliteShot';
 import type { GeoFeature } from '../../lib/api';
 import {
   OutfallNearbyBeach,
@@ -25,7 +26,7 @@ import {
   fmtDate,
   fmtDistance,
 } from '../../lib/format';
-import { outfallRisk, RISK_LABEL, RISK_COLORS } from '../../lib/outfallRisk';
+import { outfallRisk, RISK_COLORS } from '../../lib/outfallRisk';
 import { beachStatusKey } from '../../lib/beachStatus';
 import {
   OUTFALL_STATUS_LABELS,
@@ -37,7 +38,9 @@ import {
   protectedAreaName,
   protectedAreaNote,
   natureParts,
-  operationText,
+  smartTitle,
+  operationShort,
+  operationDetail,
   nearbyUniqueBeaches,
   OUTFALL_NEWS_TITLE,
   OUTFALL_NEWS_NOTE,
@@ -60,8 +63,9 @@ type OutfallSheetProps = {
 };
 
 // Fuente dentro de una familia: hecho como lead en negrita
-// ("fisura del emisario · 28/05/25"), titular y meta debajo. Sin
-// hecho (o si repetiría el titular) la fila es solo «titular»+meta
+// ("fisura del emisario · 28/05/25"), titular y meta debajo — fila
+// plana con filete lateral, no mini-card. Sin hecho (o si repetiría
+// el titular) la fila es solo «titular»+meta
 const NewsSrc = ({ item }: { item: OutfallNewsItem }) => {
   const date = item.published_at ? fmtDate(item.published_at.slice(0, 10)) : '';
   const meta = outfallNewsMeta(item, !item.fact);
@@ -135,6 +139,67 @@ const NewsYears = ({ groups }: { groups: OutfallNewsGroup[] }) => (
   </>
 );
 
+// Pin de ubicación desnudo (gota con agujero) dibujado con Views —
+// el asset más cercano llevaba sombrilla y quedaba frito a 22 px
+const LocPin = ({ color }: { color: string }) => (
+  <View style={styles.locPinWrap}>
+    <View style={[styles.locPinDrop, { borderColor: color }]}>
+      <View style={[styles.locPinHole, { backgroundColor: color }]} />
+    </View>
+  </View>
+);
+
+// Dot con pulso real para el riesgo: el halo crece y se desvanece
+// en bucle — el "pin pulsado" del mapa trasladado al triaje
+// Ritmo del pulso por nivel: riesgo bajo late relajado, el alto
+// va a latido rápido — micro-storytelling sin ruido
+const PULSE_MS: Record<string, number> = {
+  bajo: 2600,
+  medio: 1500,
+  alto: 900,
+};
+
+const PulseDot = ({ color, level }: { color: string; level: string }) => {
+  const pulse = useRef(new Animated.Value(0)).current;
+  const duration = PULSE_MS[level] ?? 1500;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.timing(pulse, {
+        toValue: 1,
+        duration,
+        useNativeDriver: true,
+      }),
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulse, duration]);
+  return (
+    <View style={styles.triagePulse}>
+      <Animated.View
+        style={[
+          styles.triagePulseHalo,
+          {
+            backgroundColor: color,
+            transform: [
+              {
+                scale: pulse.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.4, 1],
+                }),
+              },
+            ],
+            opacity: pulse.interpolate({
+              inputRange: [0, 0.6, 1],
+              outputRange: [0.55, 0.25, 0],
+            }),
+          },
+        ]}
+      />
+      <View style={[styles.triagePulseCore, { backgroundColor: color }]} />
+    </View>
+  );
+};
+
 // Cuerpo de la ficha de EMISARIO: vista satélite, legalidad,
 // funcionamiento, espacio protegido, qué se vierte, dónde y cómo,
 // playas cercanas y enlace al censo oficial
@@ -147,23 +212,57 @@ export default function OutfallSheet({
 }: OutfallSheetProps) {
   const p = feature.properties;
   const statusKey = p.status ?? 'unknown';
-  const operationLine = operationText(p.is_active, p.continuity);
+  const legColor = colors.outfall[statusKey] ?? colors.status.unknown;
+  const functioning = operationShort(p.is_active, p.continuity);
+  // La frase de funcionamiento solo va a la caja cuando añade algo
+  // que la celda del triaje no dice (desbordes, parada, solo régimen)
+  const opDetail = operationDetail(p.is_active, p.continuity);
   const risk = outfallRisk(p);
   const parts = p.nature
     ? natureParts(p.nature, p.origin, p.outfall_depth, p.zone_desc)
     : [];
-  // El dato hero como tiles (orilla/profundidad) sustituye a la
-  // frase cuando el vertido es sumergido; a ras de mar la frase
-  // cuenta un matiz que la tile no cubre — misma regla que /o/{id}
+  // Tiles = la frase de vertido repartida en tres líneas: el verbo
+  // arriba, la cifra en medio, la medida abajo — "vierte a / 498 m
+  // / de la orilla · y a / 24 m / de profundidad · mide / 649 m /
+  // de longitud". Sin lead suelto: el contexto va en cada tile
   const kpi = kpiSegs(p.kind, p.shore_m, p.outfall_depth);
+  const tiles: { lead: string; v: string; l: string }[] = (
+    kpi?.tiles ?? []
+  ).map((t) => ({
+    lead: 'vierte a',
+    v: t.v,
+    l: t.l,
+  }));
+  // Longitud como tercer tile con su propio verbo: es dato de la
+  // tubería, no del punto de vertido
+  if (p.length_m != null)
+    tiles.push({
+      lead: 'mide',
+      v:
+        p.length_m >= 1000
+          ? `${(p.length_m / 1000).toFixed(1)} km`
+          : `${Math.round(p.length_m)} m`,
+      l: 'de longitud',
+    });
+  // Con tiles la frase de conducción se reduce al tipo ("Emisario
+  // submarino" en su fila); sin ningún número la frase conserva
+  // el matiz que los tiles no pueden contar
+  const conduit = tiles.length
+    ? null
+    : conduitSegs(p.kind, p.shore_m, p.length_m, p.outfall_depth);
+  const conduitRow = conduit
+    ? conduit
+        .map((s) => s.t)
+        .join('')
+        .replace(/\.$/, '')
+    : p.kind
+      ? p.kind[0].toUpperCase() + p.kind.slice(1)
+      : null;
 
-  // Ubicación en una línea: punto concreto · núcleo urbano, sin
-  // repetir el municipio ni valores duplicados ("Barranco de Troya
-  // · Playa de Las Américas" y luego Municipio: Adeje)
-  // Lugar en una sola línea: la descripción del censo es la frase
-  // principal y solo se le añade ubicación/núcleo/municipio si no
-  // los nombra ya — evita "paseo marítimo de Playa San Juan" dos
-  // veces seguidas
+  // La descripción del censo queda como lead narrativo en gris —
+  // es prosa (no un dato atómico) y disfrazarla de fila solo la
+  // hacía más larga. Las filas son datos escaneables: ubicación,
+  // conducción, responsable — etiqueta extrabold, sin iconos
   const zoneLine = p.zone_desc ? zoneText(p.zone_desc) : null;
   const whereExtra = [p.location, p.settlement, p.municipality]
     .filter((v): v is string => !!v)
@@ -171,13 +270,79 @@ export default function OutfallSheet({
       (v) => !zoneLine || !zoneLine.toLowerCase().includes(v.toLowerCase()),
     )
     .filter((v, i, a) => a.indexOf(v) === i);
-  const placeText = zoneLine
-    ? whereExtra.length
-      ? `${zoneLine.slice(0, -1)}, ${whereExtra.join(', ')}.`
-      : zoneLine
-    : whereExtra.length
-      ? `Está en ${whereExtra.join(', ')}.`
-      : null;
+  const whereRows: {
+    label: string;
+    value: string;
+    icon: React.ReactNode;
+    color?: string;
+  }[] = [
+    ...(whereExtra.length
+      ? [
+          {
+            label: 'Ubicación',
+            value: whereExtra.join(', '),
+            icon: <LocPin color={colors.primaryDark} />,
+          },
+        ]
+      : []),
+    ...(conduitRow
+      ? [
+          {
+            label: 'Conducción',
+            value: conduitRow,
+            icon: (
+              <Image
+                source={require('../../assets/icons/icon-waves2.png')}
+                style={[styles.whereRowImg, { tintColor: colors.primaryDark }]}
+              />
+            ),
+          },
+        ]
+      : []),
+    // Estado físico pegado a su fila madre: Conducción y su
+    // condición describen el mismo objeto y se leen en bloque —
+    // si es "malo" el ⚠️ avisa sin necesidad de otra alerta
+    ...(p.condition
+      ? [
+          {
+            label: 'Estado de la conducción',
+            value: p.condition.toLowerCase(),
+            // Icono dibujado, no emoji: el triángulo/check se
+            // posiciona al pixel con la línea base del texto
+            icon: (
+              <Image
+                source={
+                  p.condition === 'Bueno'
+                    ? require('../../assets/icons/icon-ok.png')
+                    : require('../../assets/icons/icon-warn.png')
+                }
+                style={styles.whereRowImg}
+              />
+            ),
+            color: CONDITION_COLORS[p.condition] ?? colors.text,
+          },
+        ]
+      : []),
+    // El responsable se mueve aquí desde "Qué se vierte": con la
+    // gramática de filas es un dato administrativo más de la
+    // instalación — qué+quién cede el sitio a instalación+quién
+    ...(p.entity || p.manager
+      ? [
+          {
+            label: 'Responsable',
+            value: smartTitle(p.entity ?? p.manager ?? ''),
+            // El townhall ya se dibujo en navy: sin tintColor se
+            // conservan las columnas (tintarlo lo aplana a bloque)
+            icon: (
+              <Image
+                source={require('../../assets/icons/icon-townhall.png')}
+                style={styles.whereRowImgBig}
+              />
+            ),
+          },
+        ]
+      : []),
+  ];
 
   // Playas en un radio de 1.5 km del vertido (proximidad geométrica,
   // no implica vínculo oficial con ningún cierre)
@@ -252,77 +417,144 @@ export default function OutfallSheet({
         }
         onPress={onViewOnMap}
         startLevel={1}
+        biasTo={
+          p.start_lon != null && p.start_lat != null
+            ? [p.start_lon, p.start_lat]
+            : undefined
+        }
+        bias={0.25}
       />
-      {/* Chip único de legalidad + frase fluida de funcionamiento:
-          "Activo + habitual" como lectura continua, no como etiquetas
-          apiladas */}
-      <View style={styles.chipsRow}>
-        <View
-          style={[
-            styles.chip,
-            {
-              backgroundColor:
-                colors.outfall[statusKey] ?? colors.status.unknown,
-            },
-          ]}
-        >
-          <Text style={styles.chipText}>
-            {OUTFALL_STATUS_LABELS[statusKey] ?? 'En trámite / sin datos'}
+      {/* Triaje de una mirada: las tres preguntas del bañista
+          (¿es legal? ¿vierte? ¿me importa?) en tres celdas. La
+          prosa queda para la caja de debajo, que explica el riesgo */}
+      {/* La fila entera es el veredicto: borde + fondo suave del
+          color de legalidad (verde/ámbar/rojo del mapa) */}
+      <View
+        style={[
+          styles.triageRow,
+          {
+            borderColor: `${legColor}66`,
+            backgroundColor: `${legColor}0d`,
+          },
+        ]}
+      >
+        <View style={styles.triageCell}>
+          {/* No autorizado → el sello "ILEGAL" ES el valor (decir
+              además "No autorizado" duplicaba). Los demás estados
+              van con badge ✓/? + texto */}
+          <Text style={styles.triageLabel}>Estado legal</Text>
+          {statusKey === 'illegal' ? (
+            <>
+              {/* Signo de prohibido dibujado: grifo oscuro dentro
+                  del anillo rojo con barra diagonal — "vertido sin
+                  permiso" en una sola pieza */}
+              <View style={styles.triageProhibit}>
+                <Image
+                  source={require('../../assets/icons/icon-faucet.png')}
+                  style={[
+                    styles.triageProhibitTap,
+                    { tintColor: colors.primaryDark },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.triageProhibitRing,
+                    { borderColor: colors.outfall.illegal },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.triageProhibitSlash,
+                    { backgroundColor: colors.outfall.illegal },
+                  ]}
+                />
+              </View>
+              <View style={styles.triageStamp}>
+                <Text style={styles.triageStampText}>ILEGAL</Text>
+              </View>
+            </>
+          ) : (
+            <>
+              {statusKey === 'legal' ? (
+                <View
+                  style={[styles.triageBadge, { backgroundColor: legColor }]}
+                >
+                  <Text style={styles.triageBadgeGlyph}>✓</Text>
+                </View>
+              ) : (
+                /* En trámite → icono propio (reloj de arena +
+                   expediente): la máscara circular recorta las
+                   esquinas grises del PNG */
+                <View style={styles.triageIconClip}>
+                  <Image
+                    source={require('../../assets/icons/icon-tramite.png')}
+                    style={styles.triageIconClipImg}
+                    resizeMode="cover"
+                  />
+                </View>
+              )}
+              <Text style={[styles.triageValue, { color: legColor }]}>
+                {OUTFALL_STATUS_LABELS[statusKey] ?? 'Sin datos'}
+              </Text>
+            </>
+          )}
+        </View>
+        <View style={styles.triageDivider} />
+        {/* La celda del medio lleva los textos más largos
+            ("FUNCIONAMIENTO", "Vierte a diario"): flex mayor para
+            que los divisores no la ahoguen */}
+        <View style={[styles.triageCell, { flex: 1.35 }]}>
+          <Text style={styles.triageLabel}>Funcionamiento</Text>
+          {/* Olas: el mismo glifo que la fila Conducción — el agua
+              cayendo al mar, no el grifo (ese ya es "qué se vierte") */}
+          <Image
+            source={require('../../assets/icons/icon-waves2.png')}
+            style={[styles.triageIcon, { tintColor: colors.primaryDark }]}
+          />
+          <Text
+            style={[
+              styles.triageValue,
+              functioning === 'Sin datos' && { color: colors.textFaint },
+            ]}
+          >
+            {functioning}
+          </Text>
+        </View>
+        <View style={styles.triageDivider} />
+        <View style={styles.triageCell}>
+          <Text style={styles.triageLabel}>Riesgo</Text>
+          <PulseDot color={RISK_COLORS[risk.level]} level={risk.level} />
+          <Text
+            style={[styles.triageValue, { color: RISK_COLORS[risk.level] }]}
+          >
+            {risk.level[0].toUpperCase() + risk.level.slice(1)}
           </Text>
         </View>
       </View>
-      {/* Funcionamiento + riesgo en una sola caja: qué hace hoy y
-          cuánto debería importar — el tinte lo marca el nivel de
-          riesgo, que es la conclusión */}
-      {operationLine || risk ? (
-        <View
-          style={[
-            styles.opBox,
-            {
-              borderLeftColor: RISK_COLORS[risk!.level],
-              backgroundColor: `${RISK_COLORS[risk!.level]}14`,
-            },
-          ]}
-        >
-          {operationLine ? (
-            <Text style={styles.opText}>{operationLine}</Text>
-          ) : null}
-          {risk ? (
-            <Text
-              style={[styles.opText, operationLine ? { marginTop: 4 } : null]}
-            >
-              <Text
-                style={{
-                  color: RISK_COLORS[risk.level],
-                  fontFamily: fonts.extrabold,
-                }}
-              >
-                {RISK_LABEL[risk.level]}
-              </Text>
-              {risk.reasons.length ? ` — ${risk.reasons.join(', ')}` : ''}.
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
+      {/* Matiz operativo: la única pieza que la ficha no dice en
+          ningún otro sitio (paradas, desbordes, régimen sin estado).
+          Frase suelta sin caja — apoya al triaje, no compite */}
+      {opDetail ? <Text style={styles.opLine}>{opDetail}</Text> : null}
 
       {/* ZEC justo tras el funcionamiento: que vierta en zona
           protegida es contexto de máxima prioridad */}
       {p.protected_area ? (
         <View style={styles.protectedBox}>
           <Text style={styles.protectedTitle}>
-            Emisario en espacio protegido
+            🛡 Emisario en espacio protegido
           </Text>
           <Text style={styles.protectedName}>
-            Este emisario está dentro de la{' '}
-            {protectedAreaName(p.protected_area)}, una Zona Especial de
-            Conservación de la red Natura 2000
-            {protectedAreaNote(p.protected_area)}.
+            Está dentro de la {protectedAreaName(p.protected_area)}, una{' '}
+            <Text style={styles.protectedStrong}>
+              Zona Especial de Conservación
+            </Text>{' '}
+            de la red Natura 2000{protectedAreaNote(p.protected_area)}.
           </Text>
         </View>
       ) : null}
       {/* El vertido: la respuesta protagonista — qué cae al mar y de
           dónde viene. Es la pregunta que abre la ficha */}
-      {p.nature || p.entity || p.manager ? (
+      {p.nature ? (
         <View style={styles.heroBox}>
           <View style={styles.heroText}>
             {p.nature ? (
@@ -330,7 +562,7 @@ export default function OutfallSheet({
                 <View style={styles.secHead}>
                   <Image
                     source={require('../../assets/icons/icon-faucet.png')}
-                    style={[styles.secIcon, { tintColor: colors.accent }]}
+                    style={[styles.secIcon, { tintColor: colors.primaryDark }]}
                   />
                   <Text style={styles.secCardTitle}>Qué se vierte</Text>
                 </View>
@@ -350,9 +582,26 @@ export default function OutfallSheet({
                         {parts[0].desc ? ` (${parts[0].desc})` : ''}
                       </Text>
                     </Text>
-                    <Text style={styles.heroNote}>
-                      {parts[0].note[0].toUpperCase() + parts[0].note.slice(1)}
-                    </Text>
+                    {parts[0].note ? (
+                      <Text style={styles.heroNote}>
+                        {parts[0].note[0].toUpperCase() +
+                          parts[0].note.slice(1)}
+                      </Text>
+                    ) : null}
+                    {parts[0].verdict ? (
+                      <Text
+                        style={[
+                          styles.heroVerdict,
+                          {
+                            color: parts[0].verdictBad
+                              ? colors.status.closed
+                              : colors.status.open,
+                          },
+                        ]}
+                      >
+                        {parts[0].verdict}
+                      </Text>
+                    ) : null}
                   </>
                 ) : (
                   // Varias sustancias → naturaleza + desglose por
@@ -390,11 +639,25 @@ export default function OutfallSheet({
                               {dup ? desc : ` ${desc}`}
                             </Text>
                           ) : null}
-                          {dup && !desc
-                            ? pt.note[0].toUpperCase() + pt.note.slice(1)
-                            : pt.colon
-                              ? ` ${pt.note}`
-                              : ` — ${pt.note}`}
+                          {pt.note
+                            ? dup && !desc
+                              ? pt.note[0].toUpperCase() + pt.note.slice(1)
+                              : pt.colon
+                                ? ` ${pt.note}`
+                                : ` — ${pt.note}`
+                            : null}
+                          {pt.verdict ? (
+                            <Text
+                              style={{
+                                fontFamily: fonts.extrabold,
+                                color: pt.verdictBad
+                                  ? colors.status.closed
+                                  : colors.status.open,
+                              }}
+                            >
+                              {` ${pt.verdict}`}
+                            </Text>
+                          ) : null}
                         </Text>
                       );
                     })}
@@ -402,82 +665,48 @@ export default function OutfallSheet({
                 )}
               </>
             ) : null}
-            {/* Solo el responsable: la distinción titular/gestor
-                (Entidad vs GestSan) no le dice nada al bañista y
-                partía la línea en dos etiquetas distintas según el
-                emisario */}
-            {p.entity || p.manager ? (
-              <Text style={styles.heroResp}>
-                Responsable:{' '}
-                <Text style={styles.heroRespStrong}>
-                  {p.entity ?? p.manager}
-                </Text>
-              </Text>
-            ) : null}
           </View>
         </View>
       ) : null}
-      {/* Dónde + conducción en una sola card: son pocos datos y
-          juntos narran "está aquí, sale así". El responsable vive en
-          el hero; la profundidad va visible */}
-      {p.location ||
-      p.settlement ||
-      p.municipality ||
-      p.zone_desc ||
-      p.kind ||
-      p.length_m != null ||
-      p.outfall_depth != null ||
-      p.condition ? (
+      {/* Dónde + conducción como ficha técnica: lead narrativo del
+          censo, filas etiqueta+dato para lo administrativo y tiles
+          solo para los números — el estado cierra como fila, no
+          como tile rojo que competía con el dot de riesgo */}
+      {zoneLine || whereRows.length || tiles.length || p.condition ? (
         <View style={styles.secCard}>
           <View style={styles.secHead}>
             <Image
-              source={require('../../assets/icons/icon-map.png')}
-              style={[styles.secIcon, { tintColor: colors.accent }]}
+              source={require('../../assets/icons/icon-map-sil.png')}
+              style={[styles.secIcon, { tintColor: colors.primaryDark }]}
             />
             <Text style={styles.secCardTitle}>Dónde y cómo</Text>
           </View>
-          {placeText ? <Text style={styles.zoneDesc}>{placeText}</Text> : null}
-          {kpi ? (
-            <View style={styles.kpiWrap}>
-              <Text style={styles.kpiLead}>{kpi.lead}</Text>
-              <View style={styles.kpiTiles}>
-                {kpi.tiles.map((t) => (
-                  <View key={t.l} style={styles.kpiTile}>
-                    <Text style={styles.kpiValue}>{t.v}</Text>
-                    <Text style={styles.kpiLabel}>{t.l}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ) : conduitSegs(p.kind, p.shore_m, p.length_m, p.outfall_depth) ? (
-            <Text style={styles.row}>
-              {conduitSegs(p.kind, p.shore_m, p.length_m, p.outfall_depth)!.map(
-                (s, i) =>
-                  s.b ? (
-                    <Text key={i} style={styles.rowStrong}>
-                      {s.t}
-                    </Text>
-                  ) : (
-                    s.t
-                  ),
-              )}
-            </Text>
-          ) : null}
-          {p.condition ? (
-            <Text style={styles.row}>
-              Su estado es{' '}
-              <Text
-                style={[
-                  styles.rowStrong,
-                  {
-                    color: CONDITION_COLORS[p.condition] ?? colors.text,
-                  },
-                ]}
-              >
-                {p.condition.toLowerCase()}
+          {zoneLine ? <Text style={styles.whereLead}>{zoneLine}</Text> : null}
+          {whereRows.map((r) => (
+            <View key={r.label} style={styles.whereRow}>
+              <View style={styles.whereRowIcon}>{r.icon}</View>
+              <Text style={styles.whereRowText}>
+                <Text style={styles.whereRowLabel}>{r.label}: </Text>
+                {r.color ? (
+                  <Text style={{ fontFamily: fonts.extrabold, color: r.color }}>
+                    {r.value}
+                  </Text>
+                ) : (
+                  r.value
+                )}
               </Text>
-              .
-            </Text>
+            </View>
+          ))}
+          {tiles.length ? (
+            <View style={styles.kpiTiles}>
+              {tiles.map((t) => (
+                <View key={t.l} style={styles.kpiTile}>
+                  <Text style={styles.kpiLabel}>{t.lead}</Text>
+                  <Text style={styles.kpiValue}>{t.v}</Text>
+                  <Text style={styles.kpiLabel}>{t.l}</Text>
+                </View>
+              ))}
+            </View>
           ) : null}
         </View>
       ) : null}
@@ -486,64 +715,90 @@ export default function OutfallSheet({
       {nearby.length > 0 ? (
         <View style={styles.secCard}>
           <View style={styles.secHead}>
-            <Image
-              source={require('../../assets/icons/icon-wave.png')}
-              style={[styles.secIcon, { tintColor: colors.accent }]}
-            />
+            {/* Pin de ubicación desnudo en el color del título —
+                el mismo vocabulario que la web /o/{id} */}
+            <LocPin color={colors.primaryDark} />
             <Text style={styles.secCardTitle}>Playas cercanas</Text>
           </View>
-          {nearby.map((n) => {
-            const beachTarget = (beaches ?? []).find(
-              (b) => b.id === n.beach_id,
-            );
-            // La barra codifica exposición a ESTE emisario por
-            // distancia (todas las filas son del mismo punto, el
-            // color legal no variaría): rojo pegado, naranja al
-            // alcance de la pluma, amarillo ya diluido
-            const distColor =
-              n.distance_m < 500
-                ? colors.outfall.illegal // #c62828 rojo
-                : n.distance_m < 1000
-                  ? colors.status.warning // #e65100 naranja
-                  : colors.outfall.unknown; // #f9a825 amarillo
-            return (
-              <Pressable
-                key={n.beach_id}
-                style={({ pressed }) => [
-                  styles.nearestBox,
-                  { borderLeftColor: distColor },
-                  pressed && styles.pressFx,
-                ]}
-                onPress={
-                  beachTarget && onSelectBeach
-                    ? () => onSelectBeach(beachTarget)
-                    : undefined
-                }
-                disabled={!beachTarget || !onSelectBeach}
-                accessibilityRole="button"
-                accessibilityLabel={`${displayBeachName(beachBaseName(n.beach_name))}, ver en el mapa`}
-              >
-                <View style={styles.nearestBody}>
-                  <Text style={styles.nearestName} numberOfLines={1}>
-                    {displayBeachName(beachBaseName(n.beach_name))}
-                  </Text>
-                  {n.municipality ? (
-                    <Text style={styles.nearestMeta}>{n.municipality}</Text>
+          <View style={styles.nearestList}>
+            {nearby.map((n, i) => {
+              const beachTarget = (beaches ?? []).find(
+                (b) => b.id === n.beach_id,
+              );
+              return (
+                <Pressable
+                  key={n.beach_id}
+                  style={({ pressed }) => [
+                    styles.nearestBox,
+                    i < nearby.length - 1 && styles.nearestBoxSep,
+                    pressed && styles.pressFx,
+                  ]}
+                  onPress={
+                    beachTarget && onSelectBeach
+                      ? () => onSelectBeach(beachTarget)
+                      : undefined
+                  }
+                  disabled={!beachTarget || !onSelectBeach}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${displayBeachName(beachBaseName(n.beach_name))}, ver en el mapa`}
+                >
+                  {/* Foto satélite de la playa: reconocer el arenal de
+                    un vistazo vende mejor que el nombre — solo cuando
+                    el punto está cargado (da las coords del bbox) */}
+                  {beachTarget ? (
+                    <Image
+                      source={{
+                        uri: thumbUrl(
+                          beachTarget.geometry.coordinates as [number, number],
+                        ),
+                      }}
+                      style={styles.nearestThumb}
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                    />
                   ) : null}
-                </View>
-                {/* Distancia como badge: columna escaneable, mismo
-                    formato que "Emisarios cercanos" */}
-                <Text style={[styles.nearestDist, { color: distColor }]}>
-                  {fmtDistance(n.distance_m)}
-                </Text>
-                {beachTarget && onSelectBeach && (
-                  <Text style={[styles.nearestChevron, { color: distColor }]}>
-                    ›
-                  </Text>
-                )}
-              </Pressable>
-            );
-          })}
+                  <View style={styles.nearestBody}>
+                    <Text style={styles.nearestName} numberOfLines={1}>
+                      {displayBeachName(beachBaseName(n.beach_name))}
+                    </Text>
+                    {n.municipality ? (
+                      <Text style={styles.nearestMeta} numberOfLines={1}>
+                        {n.municipality}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {/* Distancia en píldora de contorno, tinta neutra.
+                    Solo <500 m se enciende (relleno rojo suave +
+                    número rojo): en campo cercano la dilución aún
+                    no ha hecho su trabajo — "pegada" es un umbral
+                    honesto, no un semáforo de precisión inventada */}
+                  <View
+                    style={[
+                      styles.nearestPill,
+                      n.distance_m < 500 && {
+                        borderColor: 'transparent',
+                        backgroundColor: `${colors.outfall.illegal}1f`,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.nearestPillText,
+                        n.distance_m < 500 && {
+                          color: colors.outfall.illegal,
+                        },
+                      ]}
+                    >
+                      {fmtDistance(n.distance_m)}
+                    </Text>
+                  </View>
+                  {beachTarget && onSelectBeach && (
+                    <Text style={styles.nearestChevron}>›</Text>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       ) : null}
 
@@ -555,7 +810,7 @@ export default function OutfallSheet({
           <View style={styles.secHead}>
             <Image
               source={require('../../assets/icons/icon-news.png')}
-              style={[styles.secIcon, { tintColor: colors.accent }]}
+              style={[styles.secIcon, { tintColor: colors.primaryDark }]}
             />
             <Text style={styles.secCardTitle}>{OUTFALL_NEWS_TITLE}</Text>
           </View>
@@ -613,79 +868,226 @@ const styles = StyleSheet.create({
   pressFx: {
     opacity: 0.6,
   },
-  // Los chips del emisario van en fila (legalidad + activo + régimen):
-  // el chip solo pierde el centrado cuando hay hermanos
-  chipsRow: {
+  // Strip de triaje: tres celdas (legalidad, funcionamiento,
+  // riesgo) separadas por filetes — el resumen antes de la prosa
+  triageRow: {
+    marginTop: 8,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingVertical: 8,
   },
-  chip: {
+  triageCell: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  // Slot de icono unificado a 26 px en las tres celdas — si no,
+  // el valor de debajo arranca a distinta altura por celda
+  triageIcon: {
+    width: 26,
+    height: 26,
+    resizeMode: 'contain',
+    marginTop: 5,
+  },
+  // Badge de estado legal: círculo del color del censo con glifo
+  // blanco (✓ autorizado, ? en trámite). El "no autorizado" no usa
+  // badge: el sello estampado YA dice el estado
+  triageBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 5,
+  },
+  triageBadgeGlyph: {
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    color: '#fff',
+    lineHeight: 16,
+  },
+  // Icono del "en trámite": el PNG circular se muestra ~117%
+  // dentro de una máscara de 26 px — el borde rojo del icono
+  // queda en el filo y las esquinas grises se recortan solas
+  triageIconClip: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    overflow: 'hidden',
+    marginTop: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  triageIconClipImg: {
+    width: '117%',
+    height: '117%',
+  },
+  // Signo de prohibido para el "no autorizado": anillo + barra
+  // diagonal rojos sobre el grifo — dibujado, sin asset nuevo
+  triageProhibit: {
+    width: 24,
+    height: 24,
+    marginTop: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  triageProhibitTap: {
+    width: 14,
+    height: 14,
+    resizeMode: 'contain',
+  },
+  triageProhibitRing: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2.5,
+  },
+  triageProhibitSlash: {
+    position: 'absolute',
+    width: 25,
+    height: 2.5,
+    borderRadius: 2,
+    transform: [{ rotate: '-45deg' }],
+  },
+  // Sello "ILEGAL" como valor protagonista: caja con borde, look
+  // de estampado administrativo. Su texto arranca ~3.5px dentro
+  // de la caja (borde + padding): los valores de las otras celdas
+  // bajan a su línea (ver triageValue), no al revés
+  triageStamp: {
+    borderWidth: 1.5,
+    borderColor: colors.outfall.illegal,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 8,
+  },
+  triageStampText: {
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    color: colors.outfall.illegal,
+    letterSpacing: 0.8,
+  },
+  // "Pin pulsado" para el riesgo: halo animado + núcleo sólido
+  triagePulse: {
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 5,
+  },
+  triagePulseHalo: {
+    position: 'absolute',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+  },
+  triagePulseCore: {
+    width: 12,
+    height: 12,
     borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  },
+  triageLabel: {
+    fontSize: 9,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  // marginTop amplio: alinea el texto con el interior del sello
+  // ILEGAL (3 de margen + ~3.5 de borde/padding) — el aire bajo
+  // el icono es el mismo en las tres celdas
+  triageValue: {
+    fontSize: 15,
+    fontFamily: fonts.bold,
+    color: colors.text,
+    marginTop: 7,
+    textAlign: 'center',
+  },
+  triageDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginVertical: 2,
+  },
+  // Matiz operativo bajo el triaje: frase apagada sin caja — el dato
+  // ("no opera ahora mismo") apoya, no necesita contenedor
+  opLine: {
+    fontSize: 12.5,
+    fontFamily: fonts.regular,
+    color: colors.text,
+    lineHeight: 17,
     marginTop: 8,
     marginBottom: 4,
   },
-  chipText: {
-    color: colors.onColor,
-    fontSize: 12,
-    fontFamily: fonts.bold,
-  },
-  // Caja de funcionamiento (activo/régimen): barra + fondo tintado
-  // del color de escenario, como las cajas de prensa o la ZEC
-  opBox: {
-    marginTop: 6,
-    marginBottom: 8,
-    borderLeftWidth: 3,
-    borderRadius: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  opText: {
-    fontSize: 12,
-    fontFamily: fonts.semibold,
-    color: colors.text,
-    lineHeight: 17,
-  },
-  row: {
-    fontSize: 13,
+  // "Dónde y cómo": la descripción del censo como lead narrativo
+  // en gris (contexto, no dato), y debajo filas etiqueta+dato —
+  // ficha técnica sobria, sin iconos de pegatina
+  whereLead: {
+    fontSize: 13.5,
     fontFamily: fonts.regular,
-    color: colors.text,
+    color: colors.textMuted,
+    lineHeight: 19,
     marginTop: 4,
   },
-  rowStrong: {
-    fontFamily: fonts.semibold,
+  whereRow: {
+    flexDirection: 'row',
+    marginTop: 6,
+    gap: 7,
   },
-  // KPI del dato hero: "vierte a:" en su línea y las tiles de
-  // orilla/profundidad en fila debajo — inline estrangulaba el
-  // texto cuando el tipo de conducción era largo
-  kpiWrap: {
-    marginTop: 8,
+  // Columna fija de icono (22 px, la caja del LocPin): todos los
+  // textos arrancan en el mismo punto aunque una fila no tenga
+  // icono todavía (conducción pendiente de su tubería)
+  whereRowIcon: {
+    width: 22,
+    alignItems: 'center',
+    marginTop: -1,
   },
-  kpiLead: {
-    fontSize: 13,
+  whereRowImg: {
+    width: 16,
+    height: 16,
+    marginTop: 2,
+  },
+  whereRowImgBig: {
+    width: 18,
+    height: 18,
+    marginTop: 1,
+  },
+  whereRowText: {
+    flex: 1,
+    fontSize: 13.5,
     fontFamily: fonts.regular,
     color: colors.text,
+    lineHeight: 19,
   },
+  whereRowLabel: {
+    fontFamily: fonts.extrabold,
+  },
+  // Tiles numéricos del punto de vertido (orilla/profundidad/
+  // longitud) — solo cifras; los adjetivos son filas
   kpiTiles: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 6,
+    marginTop: 8,
   },
   kpiTile: {
+    flex: 1,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
     paddingVertical: 6,
     paddingHorizontal: 10,
+    alignItems: 'center',
   },
   kpiValue: {
-    fontSize: 17,
+    fontSize: 16,
     fontFamily: fonts.bold,
     color: colors.primaryDark,
+    textAlign: 'center',
   },
   kpiLabel: {
     fontSize: 10,
@@ -694,12 +1096,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.3,
     marginTop: 1,
-  },
-  zoneDesc: {
-    fontSize: 13,
-    fontFamily: fonts.regular,
-    color: colors.text,
-    marginTop: 4,
+    textAlign: 'center',
   },
   // Respuesta protagonista del emisario: "qué se vierte" con icono —
   // no una fila más, es la pregunta que abre la ficha. Card plana:
@@ -745,20 +1142,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   heroNote: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontFamily: fonts.regular,
     color: colors.textMuted,
-    lineHeight: 18,
+    lineHeight: 19,
     marginTop: 4,
   },
-  heroResp: {
-    fontSize: 13,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
+  // El veredicto del vertido en línea propia — la conclusión del
+  // hero ("el agua sale sin depurar") en extrabold coloreada
+  heroVerdict: {
+    fontSize: 13.5,
+    fontFamily: fonts.extrabold,
+    lineHeight: 19,
     marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 4,
   },
   heroRespStrong: {
     fontFamily: fonts.semibold,
@@ -789,10 +1185,33 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
   },
+  // Gota de ubicación: cuadrado con tres esquinas redondas girado
+  // 45° — la esquina viva cae abajo y dibuja la punta del pin
+  locPinWrap: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locPinDrop: {
+    width: 13,
+    height: 13,
+    borderWidth: 2.2,
+    borderRadius: 7,
+    borderBottomRightRadius: 1.5,
+    transform: [{ rotate: '45deg' }],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locPinHole: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
   // Título de card único: "Qué se vierte", "Dónde y cómo" y
   // "Playas cercanas" comparten tamaño, peso y color
   secCardTitle: {
-    fontSize: 15,
+    fontSize: 15.5,
     fontFamily: fonts.extrabold,
     color: colors.primaryDark,
   },
@@ -809,32 +1228,60 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   protectedTitle: {
-    fontSize: 11,
+    fontSize: 12.5,
     fontFamily: fonts.bold,
     color: colors.status.warning,
     textTransform: 'uppercase',
+    textAlign: 'center',
   },
   protectedName: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fonts.semibold,
     color: colors.text,
-    marginTop: 1,
+    marginTop: 2,
+    lineHeight: 19,
+  },
+  protectedStrong: {
+    fontFamily: fonts.extrabold,
+  },
+  // Respiro entre el título de la card y la primera fila — los
+  // rows pegados al header se leían como una sola pieza
+  nearestList: {
+    marginTop: 12,
   },
   nearestBox: {
     marginBottom: 6,
-    borderLeftWidth: 3,
-    paddingLeft: 10,
+    paddingLeft: 4,
     paddingVertical: 4,
     backgroundColor: colors.background,
     borderRadius: 4,
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // Separador entre filas (nunca bajo la última): 1px con gris
+  // un punto más fuerte que border — el hairline se diluía en
+  // pantallas de alta densidad
+  nearestBoxSep: {
+    borderBottomWidth: 1,
+    borderBottomColor: `${colors.textFaint}66`,
+    paddingBottom: 8,
+    marginBottom: 8,
+  },
+  // Miniatura Esri del arenal: cuadrada, tamaño de fila de lista —
+  // vende la playa mejor que el nombre y ya la pide la web /o/{id}
+  nearestThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    marginRight: 10,
+    backgroundColor: colors.border,
+  },
   nearestChevron: {
     fontSize: 16,
     fontFamily: fonts.semibold,
-    color: colors.textFaint,
+    color: colors.primaryDark,
     paddingRight: 8,
+    marginLeft: 6,
   },
   nearestBody: {
     flex: 1,
@@ -846,15 +1293,21 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 1,
   },
-  // Distancia como badge en columna — mismo patrón que
-  // outfallDist en BeachDetail ("Emisarios cercanos")
-  nearestDist: {
-    fontSize: 13,
-    fontFamily: fonts.bold,
+  // Distancia en píldora de contorno: borde fino del color de
+  // título, número en tinta — el semáforo vive en el filete
+  nearestPill: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primaryDark,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginRight: 4,
     alignSelf: 'center',
-    marginRight: 6,
-    minWidth: 46,
-    textAlign: 'right',
+  },
+  nearestPillText: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    color: colors.text,
   },
   // Prensa del emisario: subtítulo de grupo ("De este emisario"/"En la
   // zona") y fila de titular enlazable — el titular es el enlace
@@ -897,16 +1350,15 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     overflow: 'hidden',
   },
+  // Fila de prensa plana: filete lateral fino en vez de mini-card —
+  // el contenido (hecho + titular) ya tiene jerarquía propia
   newsSrc: {
-    marginTop: 3,
-    marginLeft: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    backgroundColor: '#f4f9fb',
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-    borderTopRightRadius: 6,
-    borderBottomRightRadius: 6,
+    marginTop: 5,
+    marginLeft: 10,
+    paddingLeft: 8,
+    paddingVertical: 1,
+    borderLeftWidth: 2,
+    borderLeftColor: `${colors.primary}55`,
   },
   newsLead: {
     fontSize: 12,

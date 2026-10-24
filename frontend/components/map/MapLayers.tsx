@@ -110,144 +110,150 @@ const pinIconClosed = {
 // los dots de cala
 function beachPinLayers(prefix: string, pmShown: boolean, maxzoom?: number) {
   const mz = maxzoom != null ? { maxzoom } : {};
-  return (
-    <>
-      <Layer
-        id={`${prefix}-pins`}
-        type="symbol"
-        {...mz}
-        filter={[
-          'all',
-          ['!=', ['get', 'sel'], true],
-          ['!=', ['get', 'status'], 'closed'],
-        ]}
-        layout={{
-          ...pinIconOpen(),
-          'icon-size': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            9,
-            0.17,
-            13,
-            0.29,
-            16,
-            0.34,
-          ],
-          'icon-anchor': 'bottom',
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-        }}
-      />
-      {/* Pines de cierre en capa propia: el asset es 96x146 (pin
-          + badge flotante de causa), asi que el icon-size se
-          compensa x146/96 para que el pin renderice al mismo
-          tamano que los demas */}
-      <Layer
-        id={`${prefix}-pins-closed`}
-        type="symbol"
-        {...mz}
-        filter={[
-          'all',
-          ['!=', ['get', 'sel'], true],
-          ['==', ['get', 'status'], 'closed'],
-        ]}
-        layout={{
-          ...pinIconClosed,
-          'icon-size': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            9,
-            0.17 * (146 / 96),
-            13,
-            0.29 * (146 / 96),
-            16,
-            0.34 * (146 / 96),
-          ],
-          'icon-anchor': 'bottom',
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-        }}
-      />
-      {/* Pin de la playa seleccionada: capa propia a tamaño
-          fijo grande — mismo tratamiento que el vertido
-          seleccionado. Con los dots PM visibles (grupo abierto)
-          se vuelve invisible: el centroide les pisaba posición.
-          Opacidad, no desmontaje: quitar el Layer con la source
-          montada rompe el índice nativo de capas */}
-      <Layer
-        id={`${prefix}-pin-selected`}
-        type="symbol"
-        {...mz}
-        filter={[
-          'all',
-          ['==', ['get', 'sel'], true],
-          ['!=', ['get', 'status'], 'closed'],
-        ]}
-        layout={{
-          ...pinIconOpen(),
-          'icon-size': 0.45,
-          'icon-anchor': 'bottom',
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-        }}
-        paint={{ 'icon-opacity': pmShown ? 0 : 1 }}
-      />
-      <Layer
-        id={`${prefix}-pin-selected-closed`}
-        type="symbol"
-        {...mz}
-        filter={[
-          'all',
-          ['==', ['get', 'sel'], true],
-          ['==', ['get', 'status'], 'closed'],
-        ]}
-        layout={{
-          ...pinIconClosed,
-          // Menos que el normal: el pin con badge es alto y con
-          // la ficha abierta quedaba comido entre banner y sheet
-          'icon-size': 0.3 * (146 / 96),
-          'icon-anchor': 'bottom',
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-        }}
-        paint={{ 'icon-opacity': pmShown ? 0 : 1 }}
-      />
-      {/* Nombre de la playa bajo el pin: visible ya a zoom 12 —
-          siempre por debajo del zoom al que vuela la card (15.5).
-          symbol-sort-key da prioridad a la seleccionada: gana
-          las colisiones y el motor descarta las vecinas que le
-          pisen — así no se solapan al cambiar de playa */}
-      <Layer
-        id={`${prefix}-labels`}
-        type="symbol"
-        {...mz}
-        minzoom={12}
-        layout={{
-          'text-field': ['get', 'label'],
-          'text-size': ['case', ['==', ['get', 'sel'], true], 13, 11],
-          'text-font': ['Noto Sans Bold'],
-          'text-offset': [0, 1.0],
-          'text-anchor': 'top',
-          'text-allow-overlap': false,
-          'text-ignore-placement': false,
-          'symbol-sort-key': ['case', ['==', ['get', 'sel'], true], 0, 1],
-        }}
-        paint={{
-          'text-color': colors.text,
-          'text-halo-color': colors.surface,
-          'text-halo-width': ['case', ['==', ['get', 'sel'], true], 2.2, 1.8],
-          // Con los dots PM pintados, el nombre del grupo en el
-          // centroide choca con las etiquetas "PMn" y repite lo
-          // que ya dice la cabecera de la card → se apaga
-          'text-opacity': pmShown
-            ? ['case', ['==', ['get', 'sel'], true], 0, 1]
-            : 1,
-        }}
-      />
-    </>
-  );
+  // Array, no fragmento: GeoJSONSource clona cada hijo directo para
+  // inyectarle `source` y un <React.Fragment> no acepta props —
+  // React 19 lo registra como error en dev
+  return [
+    <Layer
+      key="pins"
+      id={`${prefix}-pins`}
+      type="symbol"
+      {...mz}
+      filter={[
+        'all',
+        ['!=', ['get', 'sel'], true],
+        ['!=', ['get', 'status'], 'closed'],
+      ]}
+      layout={{
+        ...pinIconOpen(),
+        'icon-size': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          9,
+          0.17,
+          13,
+          0.29,
+          16,
+          0.34,
+        ],
+        'icon-anchor': 'bottom',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+      }}
+    />,
+    // Pines de cierre en capa propia: el asset es 96x146 (pin
+    // + badge flotante de causa), asi que el icon-size se
+    // compensa x146/96 para que el pin renderice al mismo
+    // tamano que los demas
+    <Layer
+      key="pins-closed"
+      id={`${prefix}-pins-closed`}
+      type="symbol"
+      {...mz}
+      filter={[
+        'all',
+        ['!=', ['get', 'sel'], true],
+        ['==', ['get', 'status'], 'closed'],
+      ]}
+      layout={{
+        ...pinIconClosed,
+        'icon-size': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          9,
+          0.17 * (146 / 96),
+          13,
+          0.29 * (146 / 96),
+          16,
+          0.34 * (146 / 96),
+        ],
+        'icon-anchor': 'bottom',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+      }}
+    />,
+    // Pin de la playa seleccionada: capa propia a tamaño
+    // fijo grande — mismo tratamiento que el vertido
+    // seleccionado. Con los dots PM visibles (grupo abierto)
+    // se vuelve invisible: el centroide les pisaba posición.
+    // Opacidad, no desmontaje: quitar el Layer con la source
+    // montada rompe el índice nativo de capas
+    <Layer
+      key="pin-selected"
+      id={`${prefix}-pin-selected`}
+      type="symbol"
+      {...mz}
+      filter={[
+        'all',
+        ['==', ['get', 'sel'], true],
+        ['!=', ['get', 'status'], 'closed'],
+      ]}
+      layout={{
+        ...pinIconOpen(),
+        'icon-size': 0.45,
+        'icon-anchor': 'bottom',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+      }}
+      paint={{ 'icon-opacity': pmShown ? 0 : 1 }}
+    />,
+    <Layer
+      key="pin-selected-closed"
+      id={`${prefix}-pin-selected-closed`}
+      type="symbol"
+      {...mz}
+      filter={[
+        'all',
+        ['==', ['get', 'sel'], true],
+        ['==', ['get', 'status'], 'closed'],
+      ]}
+      layout={{
+        ...pinIconClosed,
+        // Menos que el normal: el pin con badge es alto y con
+        // la ficha abierta quedaba comido entre banner y sheet
+        'icon-size': 0.3 * (146 / 96),
+        'icon-anchor': 'bottom',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+      }}
+      paint={{ 'icon-opacity': pmShown ? 0 : 1 }}
+    />,
+    // Nombre de la playa bajo el pin: visible ya a zoom 12 —
+    // siempre por debajo del zoom al que vuela la card (15.5).
+    // symbol-sort-key da prioridad a la seleccionada: gana
+    // las colisiones y el motor descarta las vecinas que le
+    // pisen — así no se solapan al cambiar de playa
+    <Layer
+      key="labels"
+      id={`${prefix}-labels`}
+      type="symbol"
+      {...mz}
+      minzoom={12}
+      layout={{
+        'text-field': ['get', 'label'],
+        'text-size': ['case', ['==', ['get', 'sel'], true], 13, 11],
+        'text-font': ['Noto Sans Bold'],
+        'text-offset': [0, 1.0],
+        'text-anchor': 'top',
+        'text-allow-overlap': false,
+        'text-ignore-placement': false,
+        'symbol-sort-key': ['case', ['==', ['get', 'sel'], true], 0, 1],
+      }}
+      paint={{
+        'text-color': colors.text,
+        'text-halo-color': colors.surface,
+        'text-halo-width': ['case', ['==', ['get', 'sel'], true], 2.2, 1.8],
+        // Con los dots PM pintados, el nombre del grupo en el
+        // centroide choca con las etiquetas "PMn" y repite lo
+        // que ya dice la cabecera de la card → se apaga
+        'text-opacity': pmShown
+          ? ['case', ['==', ['get', 'sel'], true], 0, 1]
+          : 1,
+      }}
+    />,
+  ];
 }
 
 // Catálogo de capas del mapa: imágenes de pin + todas las sources/

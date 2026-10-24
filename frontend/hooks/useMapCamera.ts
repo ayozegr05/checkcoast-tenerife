@@ -81,6 +81,16 @@ export function useMapCamera({
     top: 120,
     bottom: Math.min(Math.round(winH * 0.5) + 140, winH - 180),
   };
+  // El nombre del vertido se dibuja BAJO el pin (~16px por línea):
+  // nombres de 3 líneas ("Nuevo Emisario submarino de Las Galletas")
+  // piden reserva extra o la card se come la última línea
+  const outfallPadFor = (name?: string | null) => ({
+    top: outfallPad.top,
+    bottom: Math.min(
+      outfallPad.bottom + ((name?.length ?? 0) >= 33 ? 27 : 0),
+      winH - 180,
+    ),
+  });
 
   // Vista actual + vista guardada antes de volar a un pin (para
   // restaurar al cerrar la card)
@@ -296,6 +306,7 @@ export function useMapCamera({
     cameraRef,
     cardPad,
     outfallPad,
+    outfallPadFor,
     saveView,
     discardSavedView,
     fitBeachBounds,

@@ -289,10 +289,11 @@ export default function BeachDetail({
           Math.abs(Date.parse(`${b.closed_at}T00:00:00Z`) - sinceMs),
       )[0];
     if (!hit) return null;
-    // El inicio REAL del episodio es el opened_at del incidente
-    // oficial — la prensa suele cubrir días después de que Sanidad
-    // actuara (Jardín: cerró el 05/10, titulares desde el 07/10 →
-    // el banner decía "del 07 al 07" inventando 1 día)
+    // El inicio REAL del episodio es el opened_at del incidente —
+    // ya resuelto por el backend: el acta o adelantado por evidencia
+    // de prensa filtrada (start_via_press). La procedencia vive en
+    // la fila del episodio ("inicio según prensa · acta 24/08"), no
+    // en el banner — decirlo en los dos sitios era ruido doble
     return { start: hit.opened_at, end: hit.closed_at! };
   }, [incidents, news, pressStillClosed]);
 

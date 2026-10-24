@@ -120,6 +120,60 @@ estado expandido.
 Rigor cívico: `open` = *sin incidencia oficial activa*, no una garantía.
 Las playas OSM van en gris como "sin monitorizar", no como "abiertas".
 
+## Ficha de emisario
+
+### Legalidad pinta el marco; el riesgo vive dentro de una celda
+
+La fila de triaje (legalidad · funcionamiento · riesgo) tiñe borde y
+fondo del color del **estado legal** — verde autorizado, ámbar en
+trámite, rojo ilegal — aunque el riesgo pueda ser alto. Por qué:
+
+- **Son fuentes distintas con distinta autoridad.** La legalidad es un
+  dato del Censo de Vertidos Tierra-Mar 2025 (Gobierno de Canarias);
+  el riesgo es un **índice propio** ponderado sobre datos del censo
+  (`lib/outfallRisk.ts`). La jerarquía visual respeta la jerarquía de
+  la evidencia: el dato verificado pinta el marco; la estimación vive
+  dentro de una celda, con sus razones a la vista — distribuidas,
+  no concentradas: cada ponderación la cuenta la sección que ya
+  enseña ese dato (el tratamiento en "Qué se vierte", la orilla en
+  los KPIs, la ZEC en su banner). La banda de razones bajo el triaje
+  repetía la propia ficha y se eliminó; solo sobrevive como frase
+  suelta el matiz operativo que no vive en ninguna otra parte.
+- El choque de colores es informativo: "en trámite + riesgo alto" es
+  literalmente *"la administración aún no ha decidido si este vertido
+  potente es legal"* — la UI muestra las dos caras sin resolverlas.
+
+**Matriz de ponderación del índice** (score → ≥5 alto, ≥3 medio, resto bajo):
+
+| Factor | Peso | Condición |
+|---|---|---|
+| Sustancia | 2 / 1 / 0.5 | residual sin depurar o solo pretratada = 2 (la industria pura también); depurada = 1; salmuera/pluvial = 1; piscina/refrigeración = 0.5 |
+| Régimen | 2 / 1 / 0.5 | diario (activo+habitual) = 2 si la sustancia importa, 0.5 si no; activo sin régimen = 1 |
+| Sin autorización | 1 | `status=illegal` |
+| Zona protegida | 1 | solo si sustancia ≥1 (el cloro o el calor no dañan una ZEC) |
+| Vierte en la orilla | 1 | somero (profundidad <8 m o a ras) o <50 m de costa, solo si sustancia ≥1 — sin columna de agua que diluya |
+| Estado físico | 1 / 0.5 | conducción "mala" / "precaria" |
+
+Lo que **no** entra: la distancia a playas cercanas (la proximidad
+geométrica se muestra como dato aparte — convertirla en puntuación
+sería acusar sin evidencia sanitaria).
+
+### "ILEGAL" + "Ahora no vierte" no es contradicción
+
+Son dos preguntas distintas de la realidad: *¿tiene permiso?*
+(histórico, del censo) vs *¿está vertiendo hoy?* (`is_active`, actual).
+El sello rojo junto a "Ahora no vierte" (Las Galletas) puede leerse
+como "cerrado por ilegal" — la línea de matiz operativo lo desactiva: *"No
+opera ahora mismo, aunque está pensado para verter a diario."* La
+tensión es fiel al dato, no un descuido.
+
+### El censo numera descargas ("Palmetum-1"); el ordinal sobra en pantalla
+
+`/outfalls` sirve el nombre sin el sufijo `-\d+` — no hay hermanos
+"-2" en Tenerife que lo hagan informativo, y limpia título de ficha,
+etiqueta del pin y buscador en un solo punto. La BD conserva el nombre
+crudo del censo.
+
 ## Infra y calidad
 
 ### Docker Compose con auto-migración

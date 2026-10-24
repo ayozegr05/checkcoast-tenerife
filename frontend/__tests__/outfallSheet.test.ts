@@ -8,6 +8,8 @@ import {
   kpiSegs,
   natureParts,
   nearbyUniqueBeaches,
+  operationDetail,
+  operationShort,
   operationText,
   originLabel,
   outfallEpisodeBeachLine,
@@ -16,6 +18,7 @@ import {
   outfallNewsMeta,
   protectedAreaName,
   protectedAreaNote,
+  smartTitle,
   zoneText,
 } from '../lib/outfallSheet';
 
@@ -46,7 +49,7 @@ describe('protectedAreaName', () => {
       protectedAreaName(
         'ZEC Franja marina Teno - Rasca. nº ZEC 103_TF. Ref. ES7020017',
       ),
-    ).toBe('ZEC Franja marina Teno - Rasca');
+    ).toBe('Franja marina Teno–Rasca');
   });
 });
 
@@ -59,6 +62,27 @@ describe('protectedAreaNote', () => {
       'sebada',
     );
     expect(protectedAreaNote('Otra zona')).toBe('');
+  });
+});
+
+describe('smartTitle', () => {
+  it('normaliza responsables en mayúsculas de censo', () => {
+    expect(smartTitle('CLUB NAUTICO DE BAJAMAR')).toBe(
+      'Club Nautico de Bajamar',
+    );
+    expect(smartTitle('AYUNTAMIENTO DE GUÍA DE ISORA')).toBe(
+      'Ayuntamiento de Guía de Isora',
+    );
+  });
+
+  it('conserva siglas y romanos', () => {
+    expect(smartTitle('EDARI DEL POLÍGONO III')).toBe('EDARI del Polígono III');
+    expect(smartTitle('CEPSA')).toBe('CEPSA');
+  });
+
+  it('no toca lo que ya viene bien escrito', () => {
+    expect(smartTitle('Ayuntamiento de Arona')).toBe('Ayuntamiento de Arona');
+    expect(smartTitle('Endesa Generación')).toBe('Endesa Generación');
   });
 });
 
@@ -115,8 +139,14 @@ describe('kpiSegs', () => {
     });
   });
 
-  it('a ras de mar → null (la frase conserva el matiz)', () => {
-    expect(kpiSegs('emisario submarino', 100, 0)).toBeNull();
+  it('a ras de mar → tile "0 m / a ras de mar", no null', () => {
+    expect(kpiSegs('emisario submarino', 100, 0)).toEqual({
+      lead: 'Emisario submarino vierte a:',
+      tiles: [
+        { v: '100 m', l: 'de la orilla' },
+        { v: '0 m', l: 'a ras de mar' },
+      ],
+    });
   });
 
   it('desemboca elevado → tile de altura "sobre el mar"', () => {
@@ -154,12 +184,46 @@ describe('operationText', () => {
   });
 });
 
+describe('operationShort (celda del triaje)', () => {
+  it('comprime el funcionamiento a su titular', () => {
+    expect(operationShort(true, 'Habitual')).toBe('Vierte a diario');
+    expect(operationShort(true, 'De excedencia-emergencia')).toBe(
+      'Solo al desbordarse',
+    );
+    expect(operationShort(true, null)).toBe('En funcionamiento');
+    expect(operationShort(false, 'Habitual')).toBe('Ahora no vierte');
+    expect(operationShort(null, 'Habitual')).toBe('Vertido habitual');
+    expect(operationShort(null, 'De excedencia-emergencia')).toBe(
+      'Solo al desbordarse',
+    );
+    expect(operationShort(undefined, undefined)).toBe('Sin datos');
+  });
+});
+
+describe('operationDetail (detalle bajo el triaje)', () => {
+  it('se omite cuando la celda ya lo dice', () => {
+    expect(operationDetail(true, 'Habitual')).toBeNull();
+    expect(operationDetail(true, null)).toBeNull();
+  });
+
+  it('se muestra cuando añade algo: desbordes, parada o solo régimen', () => {
+    expect(operationDetail(true, 'De excedencia-emergencia')).toContain(
+      'desborda',
+    );
+    expect(operationDetail(false, 'Habitual')).toContain('No opera ahora');
+    expect(operationDetail(null, 'Habitual')).toBe(
+      'Pensado para vertido habitual.',
+    );
+  });
+});
+
 describe('natureParts', () => {
   it('residual urbana con EDAR → Depuradora sin paréntesis', () => {
     const parts = natureParts('Residual urbana', 'EDAR X', null, null);
     expect(parts).toHaveLength(1);
     expect(parts[0].label).toBe('Depuradora');
-    expect(parts[0].note).toContain('tratamiento');
+    expect(parts[0].verdict).toContain('depurada');
+    expect(parts[0].verdictBad).toBe(false);
   });
 
   it('pretratamiento detectado en la descripción → no es depuradora', () => {
@@ -170,7 +234,8 @@ describe('natureParts', () => {
       'procede de la estación de pretratamiento de Punta Blanca',
     );
     expect(parts[0].label).toBe('Estación de pretratamiento');
-    expect(parts[0].note).toContain('sin depurar');
+    expect(parts[0].verdict).toContain('sin depurar');
+    expect(parts[0].verdictBad).toBe(true);
   });
 
   it('salmuera somera añade el aviso de la capa salada', () => {

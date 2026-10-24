@@ -287,6 +287,24 @@ def draw_map_icon():
     img.save("assets/icons/icon-map.png")
 
 
+def draw_map_sil_icon():
+    """El mismo mapa plegado pero monocromo navy con los pliegues
+    en hueco — para sitios que lo tinen con tintColor (cabecera de
+    'Donde y como'), donde el original a color se aplana a bloque."""
+    s = 96
+    img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    for p in (
+        [(16, 24), (42, 14), (42, 72), (16, 82)],
+        [(42, 14), (68, 24), (68, 82), (42, 72)],
+        [(68, 24), (92, 14), (92, 72), (68, 82)],
+    ):
+        d.polygon(p, fill=NAVY)
+    d.line([(42, 14), (42, 72)], fill=(0, 0, 0, 0), width=5)
+    d.line([(68, 24), (68, 82)], fill=(0, 0, 0, 0), width=5)
+    img.save("assets/icons/icon-map-sil.png")
+
+
 def draw_satellite_icon():
     s = 96
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
@@ -451,9 +469,87 @@ def draw_calendar_icon():
     img.save("../backend/app/static/icons/icon-calendar.png")
 
 
+def draw_pipe_icon():
+    """Tuberia con codo vertiendo sobre olas — glifo navy para la
+    fila Conduccion de "Donde y como". La app lo tine con
+    tintColor, asi que el trazo es silueta navy plana."""
+    img = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    # brida vertical (anillo) en la boca del tubo
+    d.rounded_rectangle([10, 8, 26, 44], radius=4, fill=NAVY)
+    d.rectangle([15, 14, 21, 38], fill=(0, 0, 0, 0))
+    # brazo horizontal hasta el codo
+    d.rectangle([22, 14, 60, 26], fill=NAVY)
+    # codo: cuarto de arco que baja a la derecha
+    d.arc([38, 22, 82, 66], start=270, end=360, fill=NAVY, width=12)
+    # boca inclinada tras el codo
+    d.line([(80, 42), (88, 50)], fill=NAVY, width=12)
+    # chorro: squiggle fino bajo la boca
+    d.line(
+        [(86, 54), (90, 58), (86, 62), (88, 66)],
+        fill=NAVY,
+        width=4,
+        joint="curve",
+    )
+    # dos olas bajo el vertido
+    for wy in (74, 86):
+        d.line(
+            [
+                (x, wy + 4 * math.sin((x - 28) / 18 * 2 * math.pi))
+                for x in range(28, 86, 2)
+            ],
+            fill=NAVY,
+            width=4,
+            joint="curve",
+        )
+    img.save("assets/icons/icon-pipe.png")
+
+
+def draw_waves_icon():
+    """Tres olas navy — glifo de la fila Conduccion en "Donde y
+    como". (icon-pipe.png existe tambien como alternativa.)"""
+    img = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    for wy in (28, 48, 68):
+        pts = [
+            (x, wy + 8 * math.sin((x - 18) / 36 * 2 * math.pi))
+            for x in range(18, 79, 2)
+        ]
+        d.line(pts, fill=NAVY, width=7, joint="curve")
+        for px, py in (pts[0], pts[-1]):
+            d.ellipse([px - 3.5, py - 3.5, px + 3.5, py + 3.5], fill=NAVY)
+    img.save("assets/icons/icon-waves.png")
+
+
+def draw_warn_icon():
+    """Triangulo de aviso ambar+ navy con ! — fila 'Estado de la
+    conduccion' cuando es precario/malo. Dibujado, no emoji: se
+    alinea al pixel con la linea base del texto."""
+    img = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    amber = (245, 158, 11)
+    d.polygon([(48, 8), (94, 86), (2, 86)], fill=NAVY)
+    d.polygon([(48, 20), (84, 78), (12, 78)], fill=amber)
+    d.rounded_rectangle([44, 40, 52, 58], radius=4, fill=NAVY)
+    d.ellipse([44, 62, 52, 70], fill=NAVY)
+    img.save("assets/icons/icon-warn.png")
+
+
+def draw_ok_icon():
+    """Check verde mar para el estado 'bueno' — mismo lenguaje que
+    el triangulo de aviso, color positivo del sistema (#0d9488)."""
+    img = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.ellipse([10, 10, 86, 86], fill=(13, 148, 136))
+    d.line([(30, 50), (43, 63), (68, 32)], fill=WHITE, width=9,
+           joint="curve")
+    img.save("assets/icons/icon-ok.png")
+
+
 draw_alert_icon()
 draw_timeline_icon()
 draw_episodes_icon()
 draw_calendar_icon()
+draw_pipe_icon()
 
 print("assets generados")

@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from app.events import (
     Episode,
     cluster_episodes,
+    documented_start_candidates,
     fuse_official_episodes,
     merged_episode,
     synthesize_events,
@@ -705,3 +706,110 @@ def test_long_gap_never_fuses():
     b = inc(date(2026, 9, 30), date(2026, 10, 2))
     items = [news(date(2026, 9, 10), "closure", closed_since="2026-09-03")]
     assert len(fuse_official_episodes([a, b], items)) == 2
+
+
+def test_documented_start_witness_pub():
+    """Un medio que publicó el cierre antes del acta es testigo: la
+    playa ya estaba cerrada ese día (Los Cristianos: cierre real el
+    viernes 21, acta de Sanidad el lunes 24)."""
+    items = [news(date(2026, 8, 21), "closure")]
+    assert documented_start_candidates(items, date(2026, 8, 24)) == [
+        date(2026, 8, 21)
+    ]
+
+
+def test_documented_start_contemporaneous_claim():
+    """'cerrada desde el 10' afirmado el 13 es el suceso vigente:
+    el closed_since vale aunque sea de 1 solo medio (y la pub es
+    testigo por sí misma)."""
+    items = [
+        news(date(2026, 8, 13), "closure", closed_since="2026-08-10")
+    ]
+    assert documented_start_candidates(items, date(2026, 8, 14)) == [
+        date(2026, 8, 10),
+        date(2026, 8, 13),
+    ]
+
+
+def test_documented_start_retro_single_source_ignored():
+    """Pieza retrospectiva de 1 medio: ni su afirmación ni su fecha
+    cuentan — la orden de cierre de junio que el ayuntamiento nunca
+    ejecutó (Jardín) no documenta un cierre para el acta de agosto."""
+    items = [
+        news(date(2026, 7, 28), "closure", closed_since="2026-06-22")
+    ]
+    assert documented_start_candidates(items, date(2026, 8, 11)) == []
+
+
+def test_documented_start_retro_corroborated():
+    """La misma afirmación retro sí vale si la documentan >=2
+    medios distintos (y dos medios cubriendo el cierre en esas
+    fechas son testigos plurales de sus días de pub)."""
+    items = [
+        news(
+            date(2026, 7, 28),
+            "closure",
+            source="eldia",
+            closed_since="2026-06-22",
+        ),
+        news(
+            date(2026, 7, 29),
+            "closure",
+            source="diario",
+            closed_since="2026-06-22",
+        ),
+    ]
+    assert documented_start_candidates(items, date(2026, 8, 11)) == [
+        date(2026, 6, 22),
+        date(2026, 7, 28),
+        date(2026, 7, 29),
+    ]
+
+
+def test_documented_start_ignores_non_closure():
+    """Avisos y otras piezas no prueban un cierre previo."""
+    items = [news(date(2026, 8, 20), "warning")]
+    assert documented_start_candidates(items, date(2026, 8, 24)) == []
+
+
+def test_documented_start_witness_lag_bound():
+    """El testigo cubre lag administrativo (~2 semanas), no meses:
+    una pub muy anterior sin afirmación propia no mueve el acta."""
+    items = [news(date(2026, 8, 1), "closure")]
+    assert documented_start_candidates(items, date(2026, 9, 20)) == []
+
+
+def test_documented_start_lone_far_witness_rejected():
+    """Un solo medio >1 semana antes del acta no basta: puede no ser
+    de esta playa. Jardín: Canarias en Pleno citó "Agua de Jardín"
+    cerrada el 28/07 y la playa seguía abierta — el acta del 11/08
+    no se mueve."""
+    items = [news(date(2026, 7, 28), "closure", source="cepleno")]
+    assert documented_start_candidates(items, date(2026, 8, 11)) == []
+
+
+def test_documented_start_plural_far_witnesses():
+    """A la misma distancia sí vale con >=2 medios distintos
+    cubriendo el cierre: la cobertura plural sí documenta el lag."""
+    items = [
+        news(date(2026, 7, 28), "closure", source="a"),
+        news(date(2026, 7, 30), "closure", source="b"),
+    ]
+    assert documented_start_candidates(items, date(2026, 8, 11)) == [
+        date(2026, 7, 28),
+        date(2026, 7, 30),
+    ]
+
+
+def test_documented_start_sorted_candidates():
+    """Devuelve candidatos ordenados: el llamador elige el más
+    temprano que respete la frontera del episodio anterior."""
+    items = [
+        news(date(2026, 9, 1), "closure", closed_since="2026-08-30"),
+        news(date(2026, 9, 3), "closure"),
+    ]
+    assert documented_start_candidates(items, date(2026, 9, 5)) == [
+        date(2026, 8, 30),
+        date(2026, 9, 1),
+        date(2026, 9, 3),
+    ]

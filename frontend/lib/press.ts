@@ -62,11 +62,12 @@ export const pressSummary = (
     // Nombre de la playa de esta ficha — resuelve el nombre común
     // de la cala hermana cuando el complejo está mapeado
     beachName?: string;
-    // Inicio del incidente oficial del episodio: cuando Sanidad
-    // documenta el cierre, su opened_at es más real que la primera
-    // cobertura de prensa (`since` puede llegar días tarde). Solo
-    // gana a `since`; `closed_since` (inicio afirmado por el texto)
-    // sigue mandando
+    // Inicio del episodio ya resuelto por el backend (acta oficial o
+    // adelantado por evidencia de prensa filtrada: testigo o
+    // afirmación corroborada). Cuando existe ES la fecha que narra el
+    // banner — coger el mínimo crudo de `closed_since`/`since`
+    // volvería a mezclar afirmaciones sin filtrar (Jardín: la orden
+    // de cierre de junio nunca ejecutada colaría un inicio falso)
     episodeStart?: string | null;
   },
 ) => {
@@ -94,15 +95,14 @@ export const pressSummary = (
   if (isClosure && reopenedDays !== null && reopenedDays <= 7) {
     // "estuvo cerrada desde el 23/09/2026" — con closed_since
     // parcial es "desde jul-2024" / "desde 2024" (sin "el")
-    // Inicio narrado: el MÁS TEMPRANO documentado — `closed_since`
-    // es lo que la prensa afirmó ("cerrada desde el 23") y cuando
-    // el incidente oficial casado dice un opened_at anterior, ese
-    // registro documentado es más real que la cobertura (Médano:
-    // oficial 21/09, prensa afirmó 23/09). Fechas ISO comparan
-    // léxico con precisión parcial ("2024-07" < "2024-07-02")
-    const startCands = [s.closed_since, opts.episodeStart, s.since]
-      .filter(Boolean)
-      .sort();
+    // Inicio narrado: el resuelto por el backend si hay episodio
+    // casado (acta o adelantado por evidencia filtrada); sin él, el
+    // más temprano documentado del episodio de prensa puro —
+    // `closed_since` (lo afirmado por el texto) o `since` (primera
+    // cobertura). Fechas ISO comparan léxico con precisión parcial
+    const startCands = opts.episodeStart
+      ? [opts.episodeStart]
+      : [s.closed_since, s.since].filter(Boolean).sort();
     const startEarliest = startCands[0];
     const closedFor =
       startEarliest && startEarliest.length < 10
@@ -134,25 +134,26 @@ export const pressSummary = (
     };
   }
   const shownNoun = isClosure && !opts.stillClosed ? 'Estuvo cerrada' : noun;
-  // closed_since: inicio real afirmado por el texto ("cerrada desde
-  // julio de 2024"), ISO parcial — gana a `since` (fecha de cobertura)
-  // y se muestra con su precisión real: "desde jul-2024", "desde 2024"
-  const sinceText = s.closed_since
-    ? fmtPartialDate(s.closed_since)
-    : s.since
-      ? fmtDate(s.since.slice(0, 10))
-      : null;
-  const sinceIsPartial = !!s.closed_since && s.closed_since.length < 10;
+  // Fecha de inicio mostrada: con episodio casado es la resuelta por
+  // el backend; sin él, closed_since (lo afirmado por el texto, con
+  // su precisión real "desde jul-2024") o la primera cobertura
+  const sinceText = opts.episodeStart
+    ? fmtDate(opts.episodeStart.slice(0, 10))
+    : s.closed_since
+      ? fmtPartialDate(s.closed_since)
+      : s.since
+        ? fmtDate(s.since.slice(0, 10))
+        : null;
+  const sinceIsPartial =
+    !opts.episodeStart && !!s.closed_since && s.closed_since.length < 10;
   // Inicio del episodio como día ISO: con precisión parcial se asume
   // el día 1 y el conteo se marca con "~" (no inventamos día exacto).
-  // Gana el inicio MÁS TEMPRANO documentado (oficial o afirmado por
-  // la prensa): el opened_at oficial suele preceder a la primera
-  // cobertura, y `closed_since` documenta cierres crónicos que el
-  // registro oficial puede iniciar tarde — el más antiguo es la
-  // afirmación conservadora
-  const startRaw = [s.closed_since, opts.episodeStart, s.since]
-    .filter((v): v is string => !!v)
-    .sort()[0];
+  // Con episodio casado manda la fecha resuelta por el backend (acta
+  // o adelantada por evidencia filtrada); sin él, el inicio más
+  // temprano documentado del clúster de prensa
+  const startRaw = opts.episodeStart
+    ? opts.episodeStart
+    : [s.closed_since, s.since].filter((v): v is string => !!v).sort()[0];
   const startIso = startRaw
     ? startRaw.length === 4
       ? `${startRaw}-01-01`

@@ -60,11 +60,11 @@ describe('<OutfallSheet />', () => {
     await render(<OutfallSheet feature={emisario} />);
 
     expect(nearbyMock).toHaveBeenCalledWith(9);
-    expect(screen.getByText('No autorizado')).toBeTruthy();
+    expect(screen.getByText('ILEGAL')).toBeTruthy();
     expect(screen.getByText('Qué se vierte')).toBeTruthy();
     // una sola sustancia → lead comunicativo, no título gigante
     expect(screen.getByText(/: vierte /)).toBeTruthy();
-    expect(screen.getByText('Está en Santa Cruz de Tenerife.')).toBeTruthy();
+    expect(screen.getByText(/Santa Cruz de Tenerife/)).toBeTruthy();
 
     await fireEvent.press(
       screen.getByRole('link', { name: 'Abrir el censo oficial de vertidos' }),
@@ -127,7 +127,7 @@ describe('<OutfallSheet />', () => {
       />,
     );
 
-    expect(screen.getByText('Emisario en espacio protegido')).toBeTruthy();
+    expect(screen.getByText(/Emisario en espacio protegido/)).toBeTruthy();
     expect(screen.getByText(/Teno-Rasca/)).toBeTruthy();
   });
 

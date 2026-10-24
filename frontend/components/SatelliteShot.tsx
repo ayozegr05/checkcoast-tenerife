@@ -62,6 +62,21 @@ const shotUrl = (lon: number, lat: number, scale: number) => {
   );
 };
 
+// Miniatura cuadrada para filas de lista (Playas cercanas del
+// emisario): mismo servicio Esri, bbox cuadrado en grados para no
+// deformar. scale 0.2 ≈ 146 m de encuadre a 160 px ≈ 0.9 m/px —
+// el máximo zoom antes de que la imagen de Esri se pixelice
+export const thumbUrl = (coords: [number, number], px = 160) => {
+  const [lon, lat] = coords;
+  const d = BASE_DLAT * 0.2;
+  return (
+    'https://server.arcgisonline.com/ArcGIS/rest/services/' +
+    `World_Imagery/MapServer/export?bbox=${lon - d},${lat - d},` +
+    `${lon + d},${lat + d}&bboxSR=4326&imageSR=4326&size=${px},${px}` +
+    '&format=png&f=image'
+  );
+};
+
 // Minimapa estático compartido por las fichas de playa y de emisario:
 // foto Esri + marcadores proyectados + zoom ±. Si se pasa onPress, un
 // botón de mapa bajo los de zoom lleva al punto en el mapa real
@@ -78,6 +93,8 @@ export default function SatelliteShot({
   hideCenter = false,
   centerLabel,
   detailCenter,
+  biasTo,
+  bias,
 }: {
   center: [number, number];
   centerColor: string;
@@ -106,6 +123,13 @@ export default function SatelliteShot({
   // arenal largo cae en el mar y el zoom detalle enseñaba agua
   // (Jardín: sus zonas están separadas ~800 m)
   detailCenter?: [number, number];
+  // Sesgo de encuadre hacia un punto (p.ej. el arranque en tierra
+  // de un emisario): la foto se desplaza una fracción `bias` (0-1)
+  // para que entre la costa, y el dot central se proyecta a su
+  // posición real en vez de quedar fijado al centro. El sesgo se
+  // desvanece al hacer zoom — a nivel detalle interesa el punto
+  biasTo?: [number, number];
+  bias?: number;
 }) {
   const [lon, lat] = center;
   // Nivel de arranque que cubre todos los marcadores con margen
@@ -135,8 +159,17 @@ export default function SatelliteShot({
   // Al acercar más allá del encuadre de grupo la foto se centra en el
   // punto de la ficha (detailCenter), no en el centroide — ese punto
   // es lo que el usuario quiere ver de cerca
-  const viewCenter = detailCenter && level < fitIdx ? detailCenter : center;
-  const [vlon, vlat] = viewCenter;
+  // El sesgo pierde fuerza a niveles más profundos (factor =
+  // escala actual / escala de arranque): al acercar, el dot vuelve
+  // al centro y la foto deja de desplazarse
+  const biasK = bias && biasTo ? bias * (scales[level] / scales[fitIdx]) : 0;
+  const viewCenter =
+    detailCenter && level < fitIdx
+      ? detailCenter
+      : biasK && biasTo
+        ? [lon + (biasTo[0] - lon) * biasK, lat + (biasTo[1] - lat) * biasK]
+        : center;
+  const [vlon, vlat] = viewCenter as [number, number];
   // Uri ya cargada: el skeleton solo tapa la foto si la actual aún no
   // llegó (los demás niveles se prefetchan → zoom instantáneo)
   const [loadedUri, setLoadedUri] = useState<string | null>(null);
@@ -156,6 +189,12 @@ export default function SatelliteShot({
 
   const dLon = BASE_DLON * scales[level];
   const dLat = BASE_DLAT * scales[level];
+
+  // Posición proyectada del punto real de la ficha (%): con sesgo
+  // el encuadre se desplaza pero el dot queda donde vive — al
+  // acercar (sesgo → 0) vuelve al 50%
+  const cxPct = ((lon - (vlon - dLon)) / (2 * dLon)) * 100;
+  const cyPct = ((vlat + dLat - lat) / (2 * dLat)) * 100;
 
   // Marcadores dentro del encuadre actual: lon/lat → % del contenedor.
   // Ordenados por cercanía al centro, con tope para no saturar zonas
@@ -187,8 +226,10 @@ export default function SatelliteShot({
     if (!line || !size.w || !size.h) return null;
     const fx = ((line.from[0] - (vlon - dLon)) / (2 * dLon)) * size.w;
     const fy = ((vlat + dLat - line.from[1]) / (2 * dLat)) * size.h;
-    const cx = size.w / 2;
-    const cy = size.h / 2;
+    // La línea llega al dot proyectado, no al centro del
+    // contenedor — con sesgo no son el mismo punto
+    const cx = (cxPct / 100) * size.w;
+    const cy = (cyPct / 100) * size.h;
     return {
       len: Math.hypot(cx - fx, cy - fy),
       ang: Math.atan2(cy - fy, cx - fx),
@@ -197,7 +238,7 @@ export default function SatelliteShot({
       fx,
       fy,
     };
-  }, [line, size, vlon, vlat, dLon, dLat]);
+  }, [line, size, vlon, vlat, dLon, dLat, cxPct, cyPct]);
 
   const loading = loadedUri !== uri;
 
@@ -294,11 +335,14 @@ export default function SatelliteShot({
           </View>
         ),
       )}
+      {/* El dot va a su posición real proyectada — con encuadre
+          sesgado (biasTo) no coincide con el centro del contenedor */}
       <View
         pointerEvents="none"
         style={[
           styles.centerDot,
           { backgroundColor: centerColor },
+          { left: `${cxPct}%`, top: `${cyPct}%` },
           hideCenter && { opacity: 0 },
         ]}
       >
@@ -533,14 +577,17 @@ const styles = StyleSheet.create({
     height: 14,
     tintColor: colors.onColor,
   },
+  // Atribución Esri: obligatoria pero visualmente discreta —
+  // texto blanco semitransparente con sombra, esquina inferior
+  // izquierda, sin pisar los marcadores ni el mar
   credit: {
     position: 'absolute',
-    bottom: 4,
-    right: 8,
+    bottom: 5,
+    left: 7,
     fontSize: 9,
     fontFamily: fonts.semibold,
-    color: colors.onColor,
-    textShadowColor: 'rgba(0,0,0,0.7)',
+    color: 'rgba(255,255,255,0.65)',
+    textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowRadius: 2,
   },
 });

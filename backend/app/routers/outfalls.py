@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from geoalchemy2 import Geography, Geometry
 from sqlalchemy import cast, func, literal
@@ -77,7 +79,10 @@ def list_outfalls(
             id=row.id,
             geometry=PointGeometry(coordinates=[row.lon, row.lat]),
             properties={
-                "name": row.name,
+                # El censo numera descargas de una misma instalación
+                # ("Palmetum-1") — sin hermanos "-2" en Tenerife el
+                # ordinal sobra en pantalla (ficha, etiqueta, buscador)
+                "name": re.sub(r"-\d+$", "", row.name).strip(),
                 "municipality": row.municipality,
                 "kind": row.kind,
                 "status": row.status.value,

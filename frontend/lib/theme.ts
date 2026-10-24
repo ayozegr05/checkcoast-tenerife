@@ -44,9 +44,11 @@ export const colors = {
     unknown: '#f9a825',
   } as Record<string, string>,
 
-  // Banda de riesgo por proximidad a emisario (outfallRisk.ts)
+  // Banda de riesgo por proximidad a emisario (outfallRisk.ts).
+  // El alto comparte el rojo del censo ilegal (#d50000): en el
+  // triaje conviven y dos rojos distintos leían como error
   risk: {
-    alto: '#d84315',
+    alto: '#d50000',
     medio: '#f9a825',
     bajo: '#0d9488',
   },

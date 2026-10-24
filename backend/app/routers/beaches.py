@@ -14,9 +14,9 @@ from app.events import (
     Episode,
     SynthEvent,
     _closed_since_date,
-    _corroborated_closed_since,
     base_name,
     cluster_episodes,
+    documented_start_candidates,
     fuse_official_episodes,
     merged_episode,
     synthesize_events,
@@ -858,13 +858,11 @@ def beach_incidents(
         ):
             # Nota "Sin calificar" con prensa que documenta el suceso:
             # es el registro oficial del episodio — se narra como lo
-            # que es (un cierre según prensa) y empieza donde la
-            # prensa corrobora que empezó, no cuando Náyade anotó la
-            # muestra (Gaviotas: municipio cerró el 03/06, acta 08/06)
+            # que es (un cierre según prensa); el inicio lo resuelve el
+            # pase de evidencia documentada del final (testigo o
+            # afirmación corroborada — Gaviotas: municipio cerró el
+            # 03/06, Náyade anotó la muestra el 08/06)
             obs = "Cierre según prensa"
-            cs = _closed_since_date(_corroborated_closed_since(press_rows))
-            if cs is not None and cs < opened:
-                opened = cs
         if len(grp) > 1:
             # Un episodio, varias actas: la nota lo cuenta sin
             # inflar el contador de episodios
@@ -962,13 +960,11 @@ def beach_incidents(
                 # cuenta lo que pasó, no el detalle administrativo
                 if is_ungraded_note(inc2.observations):
                     o.observations = "Cierre según prensa"
-                # El inicio mostrado es el más antiguo evidenciado:
-                # si la prensa sitúa el episodio antes que el acta
-                # (Gaviotas: cerrada desde jul-2025, Náyade anotó la
-                # muestra en jun-2026), la fila cuenta el suceso
-                # real, no solo el trámite — y cuadra con el banner
-                if ev.opened_at < o.opened_at:
-                    o.opened_at = ev.opened_at
+                # El inicio NO se retrocede aquí con el opened_at del
+                # episodio de prensa: lo decide el pase de evidencia
+                # documentada del final, que filtra las afirmaciones
+                # (testigo/corroborada/frontera con el episodio
+                # anterior) en vez del mínimo a secas
                 if (
                     ev.closed_at is not None
                     and o.closed_at is not None
@@ -1036,6 +1032,48 @@ def beach_incidents(
             )
         )
         synth_id -= 1
+
+    # Inicio de episodio documentado por prensa: el acta de Sanidad a
+    # veces registra tarde (Los Cristianos: cierre real el viernes 21,
+    # acta el lunes 24). El inicio puede adelantarse solo con
+    # evidencia fiable — un medio testigo (publicó el cierre ≤14 d
+    # antes del acta) o un closed_since contemporáneo/corroborado —
+    # y nunca cruzando el fin del episodio anterior ni el día de una
+    # reapertura documentada: ese cierre es OTRO episodio (Jardín:
+    # los actas de sep/oct no heredan el "desde agosto" — reabrió el
+    # 14-ago; y la orden de cierre de junio que el ayuntamiento no
+    # ejecutó tampoco mueve el acta de agosto)
+    ends_pool = (
+        [(row, row.closed_at) for row in out]
+        + [(None, i.closed_at) for i in beach.incidents]
+        + [(None, ev.closed_at) for ev in synth_evs]
+    )
+    news_by_id = {n.id: n for n in beach.news_items}
+    for _inc3, o in official_rows:
+        if not o.press_items:
+            continue
+        items = [
+            news_by_id[p.id] for p in o.press_items if p.id in news_by_id
+        ]
+        prev_end = max(
+            (
+                e
+                for owner, e in ends_pool
+                if e is not None and owner is not o and e <= o.opened_at
+            ),
+            default=None,
+        )
+        for cand in documented_start_candidates(items, o.opened_at):
+            if prev_end is not None and (
+                cand < prev_end
+                or (cand == prev_end and cand in reopen_days)
+            ):
+                continue
+            o.official_opened_at = o.opened_at
+            o.opened_at = cand
+            o.start_via_press = True
+            break
+
     out.sort(key=lambda r: r.opened_at, reverse=True)
     return out
 

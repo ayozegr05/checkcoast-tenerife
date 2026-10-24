@@ -78,6 +78,13 @@ export type BeachIncident = {
   // El episodio de prensa corresponde a un punto de muestreo hermano
   // del arenal (ej. "PM4") — este punto no cerró oficialmente
   attributed_pm?: string | null;
+  // El acta de Sanidad registró tarde y el inicio mostrado lo
+  // documenta la prensa (testigo o afirmación corroborada) — la UI
+  // lo atribuye ("inicio según prensa")
+  start_via_press?: boolean;
+  // opened_at original del acta cuando start_via_press adelantó el
+  // inicio — procedencia completa a la vista
+  official_opened_at?: string | null;
 };
 
 export type BeachMeasurement = {

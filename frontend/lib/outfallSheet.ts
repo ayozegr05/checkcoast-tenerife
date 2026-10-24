@@ -60,15 +60,17 @@ export const protectedAreaName = (s: string) =>
   s
     .split(/\.\s*(?:n[ºú]|Ref\.?|ES\d)/i)[0]
     .trim()
+    .replace(/^ZEC\s+/i, '')
+    .replace(/\s+-\s+/g, '–')
     .replace(/\.$/, '');
 
 // Por qué importa cada espacio protegido: nota ecológica breve para
 // la caja ZEC (solo hay dos ZEC en el censo de Tenerife)
 export const protectedAreaNote = (s: string) =>
   /Teno\s*-\s*Rasca/i.test(s)
-    ? ' — hogar de calderones tropicales y delfines mulares, con cachalotes y tortugas de paso'
+    ? ', hogar de calderones tropicales y delfines mulares, con cachalotes y tortugas de paso'
     : /Sebadales/i.test(s)
-      ? ' — protege praderas de sebada, fanerógamas marinas que sirven de criadero de peces'
+      ? ', que protege praderas de sebada, fanerógamas marinas que sirven de criadero de peces'
       : '';
 
 // EstadoFunc (¿opera hoy?) + ContinVert (régimen de DISEÑO) en una
@@ -118,21 +120,20 @@ export const conduitSegs = (
 
 // KPI del dato hero (misma regla que la landing /o/{id}): orilla y
 // profundidad como tiles escaneables junto al "vierte a:", en vez
-// de enterradas en la frase. Con vertido a ras de mar la tile no
-// cubre el matiz → null y la ficha conserva conduitSegs
+// de enterradas en la frase. El vertido a ras de mar también lleva
+// tile — "0 m / a ras de mar" lo dice sin fingir un número
 export const kpiSegs = (
   kind: string | null | undefined,
   shore: number | null | undefined,
   depth: number | null | undefined,
 ): { lead: string; tiles: { v: string; l: string }[] } | null => {
-  // depth === 0 ("a ras de mar") se queda en frase: una tile de 0 m
-  // sería ruido, no información. Con altura (depth > 0) el tubo
-  // desemboca sobre la lámina — el número honesto va en tile
-  if (depth === 0) return null;
   const tiles: { v: string; l: string }[] = [];
   if (shore != null)
     tiles.push({ v: `${Math.round(shore)} m`, l: 'de la orilla' });
-  if (depth != null)
+  // depth === 0 ("a ras de mar") también lleva tile: "0 m / a ras
+  // de mar" mantiene la gramática numérica sin fingir profundidad
+  if (depth === 0) tiles.push({ v: '0 m', l: 'a ras de mar' });
+  else if (depth != null)
     tiles.push({
       v: `${Math.abs(depth)} m`,
       l: depth < 0 ? 'de profundidad' : 'sobre el mar',
@@ -177,6 +178,43 @@ export const zoneText = (zd: string) => {
   return `El punto de vertido está en ${body}.`;
 };
 
+// El censo trae responsables en mayúsculas ("CLUB NAUTICO DE
+// BAJAMAR") — solo reescribe si TODO viene en mayúsculas; los
+// conectores van en minúscula y las siglas conocidas se conservan
+// (CEPSA, EDAR, ETAR, PM1, romanos…)
+export const smartTitle = (s: string): string => {
+  if (!/[A-ZÁÉÍÓÚÑ]/.test(s) || /[a-záéíóúñ]/.test(s)) return s;
+  const SMALL = new Set([
+    'de',
+    'del',
+    'la',
+    'el',
+    'los',
+    'las',
+    'y',
+    'en',
+    'a',
+    'al',
+    'con',
+    'por',
+    'para',
+  ]);
+  const ACRONYM =
+    /^(CEPSA|E[DTBA]A[RMS]I?|PM\d*|[IVXLCDM]+|S\.?A\.?|S\.?L\.?)$/i;
+  return s
+    .toLowerCase()
+    .split(' ')
+    .map((w, i) =>
+      ACRONYM.test(w)
+        ? w.toUpperCase()
+        : i > 0 && SMALL.has(w)
+          ? w
+          : w[0].toUpperCase() + w.slice(1),
+    )
+    .join(' ')
+    .replace(/-([a-záéíóúñ])/g, (_, c) => `-${c.toUpperCase()}`);
+};
+
 // Qué significa cada sustancia para el ciudadano: la naturaleza
 // puede combinar ("Agua residual y salmuera") y el origen dice de
 // qué instalación sale cada parte → una línea por apartado
@@ -189,7 +227,9 @@ export const natureParts = (
 ): {
   label: string;
   desc: string | null;
-  note: string;
+  note: string | null;
+  verdict: string | null;
+  verdictBad: boolean;
   colon: boolean;
 }[] => {
   const n = nature.toLowerCase();
@@ -205,9 +245,22 @@ export const natureParts = (
     // El "qué lleva" en una frase corta — va en negrita tras la
     // etiqueta ("Piscinas: con cloro y sal — impacto leve…")
     desc: string | null;
-    note: string;
+    note: string | null;
+    // El veredicto del vertido ("el agua sale sin depurar") va en
+    // línea propia coloreada — es la conclusión, no una nota gris
+    verdict: string | null;
+    verdictBad: boolean;
   }[] = [];
   const industrialOnly = n.includes('industrial') && !n.includes('urbana');
+  // El veredicto de tratamiento va en la nota (casa natural del dato):
+  // EDAR/ETAR/depuradora → sale depurada; red/bombeo/aliviadero → en
+  // bruto. Misma regla que el índice de riesgo; sin origen claro la
+  // nota se queda genérica, no se inventa el veredicto
+  const treated =
+    !pretreated &&
+    /e[dt]a[rs]|depuradora|tratamiento/.test(o) &&
+    !/ebar|bombeo|aliviadero|saneamiento|red/.test(o);
+  const raw = !pretreated && /ebar|bombeo|aliviadero|saneamiento|red/.test(o);
   if (n.includes('residual'))
     parts.push({
       src: pretreated
@@ -226,8 +279,20 @@ export const natureParts = (
       note: industrialOnly
         ? 'restos de la actividad de la planta — el impacto depende de la industria y su tratamiento.'
         : pretreated
-          ? 'solo filtra lo grueso (sólidos, arenas y grasas) — el agua sale sin depurar.'
-          : 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
+          ? 'solo filtra lo grueso (sólidos, arenas y grasas).'
+          : treated || raw
+            ? null
+            : 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
+      verdict: industrialOnly
+        ? null
+        : pretreated
+          ? 'El agua sale sin depurar.'
+          : treated
+            ? 'Sale depurada: impacto leve sobre el agua.'
+            : raw
+              ? 'Vierte en bruto: puede llevar contaminación fecal.'
+              : null,
+      verdictBad: pretreated || raw,
     });
   if (n.includes('salmuera')) {
     // La profundidad solo se convierte en aviso cuando es contundente:
@@ -247,6 +312,8 @@ export const natureParts = (
             : ` Y aquí vierte a solo ${Math.abs(depth!)} m de profundidad, así que esa capa salada llega al fondo casi sin diluirse.`
           : '') +
         ' El bañista apenas lo nota.',
+      verdict: null,
+      verdictBad: false,
     });
   }
   if (n.includes('piscina'))
@@ -255,6 +322,8 @@ export const natureParts = (
       name: 'agua de piscinas',
       desc: 'con cloro y sal',
       note: 'impacto leve y puntual.',
+      verdict: null,
+      verdictBad: false,
     });
   if (n.includes('refrigeración'))
     parts.push({
@@ -263,6 +332,8 @@ export const natureParts = (
       // Agua de mar usada para enfriar la planta: vuelve más caliente
       desc: 'sale más caliente que el mar',
       note: 'impacto leve y puntual.',
+      verdict: null,
+      verdictBad: false,
     });
   if (n.includes('pluvial'))
     parts.push({
@@ -270,6 +341,8 @@ export const natureParts = (
       name: 'agua de lluvia',
       desc: 'arrastra aceites, metales y suciedad de las calles',
       note: 'no es fecal, pero tras la sequía sale cargada.',
+      verdict: null,
+      verdictBad: false,
     });
   // Con varias sustancias la etiqueta nombra cada una entre
   // paréntesis ("Depuradora (aguas fecales…): el riesgo…"); con
@@ -279,6 +352,8 @@ export const natureParts = (
     label: multi && p.src ? `${p.src} (${p.name})` : (p.src ?? p.name),
     desc: p.desc,
     note: p.note,
+    verdict: p.verdict,
+    verdictBad: p.verdictBad,
     colon: multi || !!p.desc,
   }));
 };
@@ -292,7 +367,7 @@ export const operationText = (
   // abre cuando el sistema se desborda: lluvia fuerte, avería o
   // mantenimiento — no "emergencia" en sentido de catástrofe
   const overflow =
-    'cuando el sistema se desborda (lluvia fuerte, avería o más caudal del que la depuradora puede tratar)';
+    'cuando el sistema se desborda: lluvia fuerte, avería o más caudal del que la depuradora puede tratar';
   if (active === true)
     return continuity == null
       ? 'En funcionamiento actualmente.'
@@ -311,6 +386,39 @@ export const operationText = (
       ? 'Pensado para vertido habitual.'
       : `Pensado para abrir solo ${overflow}.`;
 };
+
+// La celda "Funcionamiento" del strip de triaje: operationText
+// comprimido a su titular (el matiz completo va en operationDetail)
+export const operationShort = (
+  active: boolean | null | undefined,
+  continuity: string | null | undefined,
+): string => {
+  const habitual = continuity === 'Habitual';
+  if (active === true)
+    return continuity == null
+      ? 'En funcionamiento'
+      : habitual
+        ? 'Vierte a diario'
+        : 'Solo al desbordarse';
+  if (active === false) return 'Ahora no vierte';
+  return continuity == null
+    ? 'Sin datos'
+    : habitual
+      ? 'Vertido habitual'
+      : 'Solo al desbordarse';
+};
+
+// Detalle bajo el triaje: la frase completa solo cuando añade algo
+// que la celda no dice — "Vierte a diario"/"En funcionamiento" ya
+// la cuentan; los desbordes, las paradas y el régimen sin estado
+// sí aportan (explican qué es un aliviadero o que ahora está parado)
+export const operationDetail = (
+  active: boolean | null | undefined,
+  continuity: string | null | undefined,
+): string | null =>
+  active === true && (continuity == null || continuity === 'Habitual')
+    ? null
+    : operationText(active, continuity);
 
 // Una fila por playa, no por PM: "Porís de Abona PM1/PM2" son la
 // misma playa — dedup por nombre base conservando la más cercana

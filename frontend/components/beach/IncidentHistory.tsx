@@ -327,6 +327,14 @@ export default function IncidentHistory({
                     </Text>
                   ))
               : null}
+            {/* El acta llegó tarde y la evidencia de prensa documenta
+                el inicio real — pie de la frase que matiza, no
+                cabecera ("sanidad prohíbe · inicio según prensa") */}
+            {inc.start_via_press ? (
+              <Text style={styles.incidentObs}>
+                {`Inicio según prensa${inc.official_opened_at ? ` · acta ${fmtDate(inc.official_opened_at)}` : ''}`}
+              </Text>
+            ) : null}
             {/* Evidencia del episodio: titulares que lo
               sustentan (prensa) o lo corroboraron (oficial) */}
             {pressItems.length > 0 && (

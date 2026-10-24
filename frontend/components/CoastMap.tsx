@@ -254,6 +254,7 @@ export default function CoastMap({
     cameraRef,
     cardPad,
     outfallPad,
+    outfallPadFor,
     saveView,
     discardSavedView,
     fitBeachBounds,
@@ -693,7 +694,10 @@ export default function CoastMap({
         cameraRef.current?.flyTo({
           center: [lon, lat],
           zoom: item.kind === 'beach' ? 15.5 : 13.5,
-          padding: item.kind === 'outfall' ? outfallPad : cardPad,
+          padding:
+            item.kind === 'outfall'
+              ? outfallPadFor(item.feature.properties.name)
+              : cardPad,
           duration: 1200,
         });
       }
@@ -807,7 +811,10 @@ export default function CoastMap({
         // Playa: zoom 15.5 — el de la ficha abierta desde un emisario,
         // que enseña el entorno de la playa de cerca
         zoom: type === 'beach' ? 15.5 : 15,
-        padding: type === 'outfall' ? outfallPad : cardPad,
+        padding:
+          type === 'outfall'
+            ? outfallPadFor(feature.properties?.name)
+            : cardPad,
         duration: 900,
       });
     }

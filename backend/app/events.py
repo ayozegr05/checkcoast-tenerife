@@ -162,6 +162,75 @@ def _corroborated_closed_since(items) -> str | None:
     return _min_closed_since(claims)
 
 
+# Una noticia de cierre es TESTIGO de su día: si se publicó antes del
+# registro oficial, la playa ya estaba cerrada esa fecha (lag
+# administrativo — Los Cristianos cerró un viernes por la tarde y la
+# acta de Sanidad cayó el lunes). Pero un solo medio no documenta
+# semanas de lag: la ventana de testigo es corta
+WITNESS_LAG = timedelta(days=14)
+# Un closed_since es "contemporáneo" cuando el inicio que afirma cae
+# dentro de la semana previa a publicarse: el artículo relata el
+# suceso vigente. Más atrás es una pieza retrospectiva — solo la
+# documenta la corroboración (>=2 medios afirman el mismo valor):
+# la orden de cierre de Jardín del 22/06/2026 nunca llegó a
+# ejecutarse y contarla un mes después como "cerrada desde junio"
+# fabricaría un episodio que no existió
+CS_CONTEMPORARY = timedelta(days=7)
+
+
+def documented_start_candidates(items, opened: date) -> list[date]:
+    """Inicios anteriores a `opened` con evidencia de prensa fiable,
+    ordenados de menor a mayor.
+
+    Cada ítem 'closure' aporta:
+    - su closed_since, si es contemporáneo a la pub o está afirmado
+      por >=2 medios distintos;
+    - su fecha de publicación, como testigo del cierre ese día:
+      a <=CS_CONTEMPORARY del registro basta un solo medio (lag
+      administrativo típico — Los Cristianos cerró un viernes por la
+      tarde y la acta cayó el lunes); más atrás y hasta WITNESS_LAG
+      hacen falta >=2 medios, porque un titular aislado a semanas del
+      acta puede no ser de ESTA playa (Canarias en Pleno 28/07/2026
+      citaba "Agua de Jardín" y Jardín seguía abierta).
+
+    Un ítem cuyo closed_since es retrospectivo SIN corroboración no
+    aporta nada — ni su afirmación ni su fecha: el "sigue cerrada"
+    de una pieza histórica de un solo medio no es un testigo.
+    """
+    claims: dict[str, set[str]] = {}
+    for n in items:
+        cs = getattr(n, "closed_since", None)
+        if cs:
+            claims.setdefault(cs, set()).add(getattr(n, "source", "") or "")
+    corroborated = {v for v, srcs in claims.items() if len(srcs) >= 2}
+    out: set[date] = set()
+    witnesses: list[tuple[date, str]] = []
+    for n in items:
+        if getattr(n, "event_type", None) != "closure":
+            continue
+        pub = getattr(n, "published_at", None)
+        if not pub:
+            continue
+        pub_d = pub.date()
+        cs_raw = getattr(n, "closed_since", None)
+        cs_d = _closed_since_date(cs_raw)
+        if (
+            cs_d is not None
+            and cs_d < pub_d - CS_CONTEMPORARY
+            and cs_raw not in corroborated
+        ):
+            continue
+        if cs_d is not None and cs_d < opened:
+            out.add(cs_d)
+        if pub_d < opened and opened - pub_d <= WITNESS_LAG:
+            witnesses.append((pub_d, getattr(n, "source", "") or ""))
+    plural = len({s for _, s in witnesses}) >= 2
+    for pub_d, _ in witnesses:
+        if opened - pub_d <= CS_CONTEMPORARY or plural:
+            out.add(pub_d)
+    return sorted(out)
+
+
 def _is_structural(ev: "SynthEvent") -> bool:
     """El episodio es por causa estructural (desprendimientos, obras):
     no se resuelve solo — sin reapertura explícita sigue vigente aunque

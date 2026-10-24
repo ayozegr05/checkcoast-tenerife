@@ -70,6 +70,14 @@ class BeachIncidentOut(BaseModel):
     # del arenal) en realidad corresponde al PM hermano con incidente
     # oficial solapado — la UI lo rotula "en el punto N"
     attributed_pm: str | None = None
+    # El acta de Sanidad registró el cierre tarde y la prensa documenta
+    # un inicio anterior (testigo o afirmación corroborada): el
+    # opened_at mostrado viene de esa evidencia, no del registro — la
+    # UI lo atribuye ("inicio según prensa")
+    start_via_press: bool = False
+    # opened_at original del acta cuando start_via_press adelantó el
+    # inicio — procedencia completa a la vista
+    official_opened_at: date | None = None
 
 
 class MunicipalityIncidentOut(BaseModel):
