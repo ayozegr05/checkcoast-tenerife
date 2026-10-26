@@ -131,7 +131,7 @@ describe('<OutfallSheet />', () => {
     expect(screen.getByText(/Teno-Rasca/)).toBeTruthy();
   });
 
-  it('prensa de infra: año→familia, hecho delante, titular anexo, disclaimer al pie', async () => {
+  it('prensa de infra: chips de familia, hecho delante, titular anexo, disclaimer al pie', async () => {
     jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
     nearbyMock.mockResolvedValue([]);
     const namedItem = {
@@ -201,19 +201,22 @@ describe('<OutfallSheet />', () => {
 
     expect(newsMock).toHaveBeenCalledWith(9);
     expect(await screen.findByText('En la prensa')).toBeTruthy();
-    // cabecera-estadística con recuento
-    expect(screen.getByText(/De este emisario · 1 noticias/)).toBeTruthy();
-    expect(screen.getByText('En la zona')).toBeTruthy();
-    // año → familia (con contador) → fuente con lead de hecho; el
-    // titular va dentro de la caja (el año aparece también como
-    // bloque de la zona)
-    expect(screen.getAllByText('2026').length).toBeGreaterThan(0);
-    expect(screen.getByText('Roturas y averías')).toBeTruthy();
-    expect(screen.getByText(/rotura del emisario/)).toBeTruthy();
+    // rótulo + síntesis: volumen y playa (mono-playa)
+    expect(screen.getByText('De este emisario')).toBeTruthy();
     expect(
-      screen.getByText('«Rotura del emisario de Punta Brava»'),
-    ).toBeTruthy();
-    expect(screen.getByText(/El Día · Playa Jardín/)).toBeTruthy();
+      screen.getAllByText('1 noticia desde 2026 · Playa Jardín').length,
+    ).toBe(2); // mismo texto en «De este emisario» y «En la zona»
+    expect(screen.getByText('En la zona')).toBeTruthy();
+    // chips-filtro de familia (con "Todas"): un único juego de
+    // filtros gobierna los dos ámbitos y cuenta toda la sección
+    expect(screen.getAllByText('Todas (2)').length).toBe(1);
+    expect(screen.getByText('Roturas (1)')).toBeTruthy();
+    expect(screen.getByText('Vertidos (1)')).toBeTruthy();
+    // Fila estilo lista: la meta (fecha·fuente) abre la fila — la
+    // playa ya la dice la síntesis del grupo — y el hecho es el
+    // texto principal; el titular vive en el accessibilityLabel
+    expect(screen.getByText(/rotura del emisario/)).toBeTruthy();
+    expect(screen.getByText('9 oct · El Día')).toBeTruthy();
     // el disclaimer sigue ahí, al pie de la card
     expect(screen.getByText(/no implica causalidad/)).toBeTruthy();
 
@@ -225,21 +228,23 @@ describe('<OutfallSheet />', () => {
     expect(open).toHaveBeenCalledWith('https://x.test/rotura');
   });
 
-  it('familias con más de 2 fuentes: "Ver N más" despliega el resto', async () => {
+  it('lista plana con más de 4 fuentes: "Ver N más" despliega el resto', async () => {
     jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
     nearbyMock.mockResolvedValue([]);
-    const mk = (id: number, title: string) => ({
+    // fechas >30 días entre sí: no encadenan en cobertura
+    // relacionada y siguen siendo filas sueltas (prueba "Ver N más")
+    const mk = (id: number, title: string, when: string) => ({
       id,
       beach_id: 3,
       title,
       url: `https://x.test/${id}`,
       source: 'El Día',
-      published_at: '2026-10-09T12:00:00Z',
+      published_at: `${when}T12:00:00Z`,
       event_type: 'infra',
       cause: 'vertido',
       beach_name: 'PLAYA JARDIN PM4',
       infra_cause: 'vertido de aguas residuales',
-      fact: 'vertido de aguas residuales',
+      fact: null,
     });
     newsMock.mockResolvedValue({
       named: [],
@@ -249,12 +254,13 @@ describe('<OutfallSheet />', () => {
           families: [
             {
               family: 'Vertidos',
-              count: 4,
+              count: 5,
               items: [
-                mk(1, 'Uno'),
-                mk(2, 'Dos'),
-                mk(3, 'Tres'),
-                mk(4, 'Cuatro'),
+                mk(1, 'Uno', '2026-10-09'),
+                mk(2, 'Dos', '2026-08-01'),
+                mk(3, 'Tres', '2026-06-01'),
+                mk(4, 'Cuatro', '2026-04-01'),
+                mk(5, 'Cinco', '2026-02-01'),
               ],
             },
           ],
@@ -268,15 +274,123 @@ describe('<OutfallSheet />', () => {
 
     await render(<OutfallSheet feature={emisario} />);
 
-    // el lead de cada fuente es el hecho; 2 fuentes a la vista, el
-    // resto tras "Ver 2 más"
-    expect(await screen.findByText('«Uno»')).toBeTruthy();
+    // 4 filas a la vista en la lista plana, la quinta tras
+    // "Ver 1 más"
+    expect(await screen.findByText(/Uno/)).toBeTruthy();
+    expect(screen.queryByText(/Cinco/)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Ver 1 más' }));
+    expect(screen.getByText(/Cinco/)).toBeTruthy();
+  });
+
+  it('cobertura relacionada se pliega en grupo y despliega titulares', async () => {
+    jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
+    nearbyMock.mockResolvedValue([]);
+    // misma playa + misma familia + ≤30 días entre piezas → un solo
+    // grupo de cobertura aunque los hechos difieran en redacción
+    const mk = (id: number, title: string, fact: string | null, when: string) => ({
+      id,
+      beach_id: 3,
+      title,
+      url: `https://x.test/${id}`,
+      source: 'El Día',
+      published_at: `${when}T12:00:00Z`,
+      event_type: 'infra',
+      cause: 'vertido',
+      beach_name: 'PLAYA JARDIN PM4',
+      infra_cause: null,
+      fact,
+    });
+    newsMock.mockResolvedValue({
+      named: [],
+      named_groups: [
+        {
+          year: 2026,
+          families: [
+            {
+              family: 'Vertidos',
+              count: 3,
+              items: [
+                mk(1, 'Uno', 'vertido de aguas residuales', '2026-10-07'),
+                mk(2, 'Dos', 'contaminación por vertidos', '2026-10-01'),
+                mk(3, 'Tres', 'vertido de aguas residuales', '2026-09-30'),
+              ],
+            },
+          ],
+        },
+      ],
+      zone: [],
+      zone_groups: [],
+      summary: null,
+      episodes: null,
+    });
+
+    await render(<OutfallSheet feature={emisario} />);
+
+    // los titulares no se ven hasta expandir; la cabecera ES el
+    // contador: "3 publicaciones de vertidos" + meta de intervalo
     expect(
-      screen.getAllByText(/vertido de aguas residuales/).length,
-    ).toBeGreaterThan(0);
-    expect(screen.queryByText(/«Tres»/)).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Ver 2 más' }));
-    expect(screen.getByText(/«Cuatro»/)).toBeTruthy();
+      await screen.findByText('3 publicaciones de vertidos'),
+    ).toBeTruthy();
+    expect(screen.queryByText('Uno')).toBeNull();
+
+    await fireEvent.press(
+      screen.getByRole('button', { name: /3 noticias relacionadas/ }),
+    );
+    expect(screen.getByText('Uno')).toBeTruthy();
+    expect(screen.getByText('Tres')).toBeTruthy();
+  });
+
+  it('chips de familia: filtran la lista plana y "Todas" la restaura', async () => {
+    jest.spyOn(Image, 'prefetch').mockResolvedValue(true);
+    nearbyMock.mockResolvedValue([]);
+    const mk = (id: number, title: string) => ({
+      id,
+      beach_id: 3,
+      title,
+      url: `https://x.test/${id}`,
+      source: 'El Día',
+      published_at: '2026-10-09T12:00:00Z',
+      event_type: 'infra',
+      cause: null,
+      beach_name: null,
+      infra_cause: null,
+      fact: null,
+    });
+    newsMock.mockResolvedValue({
+      named: [],
+      named_groups: [
+        {
+          year: 2026,
+          families: [
+            {
+              family: 'Roturas',
+              count: 2,
+              items: [mk(1, 'Uno'), mk(2, 'Dos')],
+            },
+            { family: 'Vertidos', count: 1, items: [mk(3, 'Tres')] },
+          ],
+        },
+      ],
+      zone: [],
+      zone_groups: [],
+      summary: null,
+      episodes: null,
+    });
+
+    await render(<OutfallSheet feature={emisario} />);
+
+    expect(await screen.findByText(/Uno/)).toBeTruthy();
+    // Filtrar por Vertidos deja solo su ítem; "Todas" restaura
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Vertidos, 1 noticias' }),
+    );
+    expect(screen.queryByText(/Uno/)).toBeNull();
+    expect(screen.getByText(/Tres/)).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Todas, 3 noticias' }),
+    );
+    expect(screen.getByText(/Uno/)).toBeTruthy();
+    expect(screen.getByText(/Tres/)).toBeTruthy();
   });
 
   it('sin noticias de infra la sección no se renderiza', async () => {

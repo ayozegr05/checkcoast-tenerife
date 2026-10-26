@@ -27,7 +27,12 @@ import type {
   GeoFeature,
   MunicipalityIncident,
 } from '../lib/api';
-import { beachBaseName, displayBeachName, pointLongLabel } from '../lib/format';
+import {
+  beachBaseName,
+  displayBeachName,
+  pointLongLabel,
+  shortOutfallName,
+} from '../lib/format';
 import { groupKeyOf } from '../lib/beachGroups';
 import { storage } from '../lib/storage';
 
@@ -146,6 +151,10 @@ type CoastMapProps = {
   // id del vertido seleccionado: su pin se dibuja más grande (los
   // emisarios no llevan etiqueta de nombre)
   selectedOutfallId?: number | null;
+  // Borde superior real de la ficha de emisario (medido por
+  // FeatureSheet): la cámara corrige el encuadre del pin para que
+  // la etiqueta no quede jamás bajo la ficha
+  outfallSheetTop?: number | null;
   // Puntos de muestreo de la playa seleccionada (capa temporal de
   // dots coloreados por estado mientras la card está abierta)
   pmPoints?: FeatureCollection;
@@ -181,6 +190,7 @@ export default function CoastMap({
   selectionMembers,
   selectedBeachId,
   selectedOutfallId,
+  outfallSheetTop = null,
   pmPoints,
   zoneFocus = null,
   onSelect,
@@ -267,6 +277,9 @@ export default function CoastMap({
     zoneFocus,
     pmPoints,
     beachGroups,
+    outfallSheetTop,
+    selectedOutfall:
+      outfalls.features.find((f) => f.id === selectedOutfallId) ?? null,
   });
 
   // Botón ⌖: el gesto central del producto — "¿puedo bañarme en la
@@ -433,6 +446,9 @@ export default function CoastMap({
         properties: {
           ...f.properties,
           sel: f.id === selectedOutfallId,
+          // Etiqueta bajo el pin sin la comarca ("Valle de La
+          // Orotava" → "La Orotava"): evita rótulos de 4 líneas
+          label: shortOutfallName(f.properties.name ?? ''),
         },
       })),
     }),

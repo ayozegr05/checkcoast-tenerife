@@ -3,9 +3,16 @@ import type {
   OutfallEpisodes,
   OutfallInfraSummary,
   OutfallNearbyBeach,
+  OutfallNewsGroup,
   OutfallNewsItem,
 } from './api';
-import { beachBaseName, displayBeachName, fmtDate } from './format';
+import {
+  beachBaseName,
+  displayBeachName,
+  fmtDate,
+  fmtDateShort,
+  newsSourceLabel,
+} from './format';
 import { colors } from './theme';
 
 // Texto y formato de la ficha de emisario: toda la lógica de "cómo
@@ -136,7 +143,9 @@ export const kpiSegs = (
   else if (depth != null)
     tiles.push({
       v: `${Math.abs(depth)} m`,
-      l: depth < 0 ? 'de profundidad' : 'sobre el mar',
+      // "bajo el mar" y no "de profundidad": misma gramática, 11
+      // caracteres ≈ "de la orilla" — cabe en el tile sin wrap
+      l: depth < 0 ? 'bajo el mar' : 'sobre el mar',
     });
   if (!tiles.length) return null;
   const label = kind ? kind[0].toUpperCase() + kind.slice(1) : 'La conducción';
@@ -436,22 +445,277 @@ export const OUTFALL_NEWS_TITLE = 'En la prensa';
 // Etiqueta obligatoria: es contexto de prensa, y la proximidad o la
 // coincidencia temporal nunca implican causalidad
 export const OUTFALL_NEWS_NOTE =
-  'Según prensa — coincidencia geográfica, no implica causalidad';
+  'Según prensa — la proximidad no implica causalidad';
 export const OUTFALL_NEWS_NAMED = 'De este emisario';
 export const OUTFALL_NEWS_ZONE = 'En la zona';
 
-// Línea meta bajo el hecho/titular: medio · fecha · playa a la que
+// Línea meta bajo el hecho/titular: fecha · medio · playa a la que
 // va casada la noticia (es noticia DE la playa, no del punto). Con
 // `withDate:false` la fecha se omite — la fila con lead de hecho ya
-// la lleva junto al hecho y no se escribe dos veces
-export const outfallNewsMeta = (n: OutfallNewsItem, withDate = true): string =>
+// la lleva junto al hecho y no se escribe dos veces; con
+// `withBeach:false` la playa se omite porque el grupo ya la nombra
+// una vez en su cabecera (mono-playa → repetirla es ruido)
+// "07 oct" — día + mes sin año: en las hijas de una pila el año ya
+// lo dicen el ancla del riel y la cabecera del grupo; el día es la
+// cadencia ("tercera vez" → "cuarta vez" en una semana)
+export const newsDayMon = (iso: string | null | undefined): string | null => {
+  const m = iso?.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]}`;
+};
+
+export const outfallNewsMeta = (
+  n: OutfallNewsItem,
+  withDate = true,
+  withBeach = true,
+  dayOnly = false,
+): string =>
   [
-    n.source,
-    withDate && n.published_at ? fmtDate(n.published_at.slice(0, 10)) : null,
-    n.beach_name ? displayBeachName(beachBaseName(n.beach_name)) : null,
+    withDate && n.published_at
+      ? dayOnly
+        ? newsDayMon(n.published_at)
+        : fmtDateShort(n.published_at.slice(0, 10))
+      : null,
+    newsSourceLabel(n.source),
+    withBeach && n.beach_name
+      ? displayBeachName(beachBaseName(n.beach_name))
+      : null,
   ]
     .filter(Boolean)
     .join(' · ');
+
+// Lead corto para Denuncias e investigaciones: la acción
+// administrativa (la noticia real de esa familia) se lee del
+// titular por palabra clave y se antepone al hecho físico —
+// "investigación por vertido de cloruro férrico". Si el titular
+// no tiene keyword clara devuelve null y la fila usa el titular
+const DENUNCIA_ACTIONS: [RegExp, string][] = [
+  [/expediente|sanci[oó]n/i, 'expediente sancionador'],
+  [/multa/i, 'multa'],
+  [/fiscal[ií]a|denunci/i, 'denuncia'],
+  [/investig/i, 'investigación'],
+];
+export const denunciaLead = (n: {
+  title?: string | null;
+  fact?: string | null;
+}): string | null => {
+  const t = n.title ?? '';
+  for (const [rx, label] of DENUNCIA_ACTIONS)
+    if (rx.test(t)) return n.fact ? `${label} por ${n.fact}` : null;
+  return null;
+};
+
+// Ítem plano con su familia anotada: los chips-filtro de la ficha
+// necesitan saber a qué familia pertenece cada fila de la lista
+export type FlatNewsItem = OutfallNewsItem & { family: string };
+
+// Lista plana del grupo: todos los ítems de todas las familias y
+// años, recientes primero — la vista "hemeroteca" que sustituye al
+// anidado año → familia → ítem
+export const flattenNewsGroups = (groups: OutfallNewsGroup[]): FlatNewsItem[] =>
+  groups
+    .flatMap((g) => g.families)
+    .flatMap((f) => f.items.map((n) => ({ ...n, family: f.family })))
+    .sort((a, b) => (b.published_at ?? '').localeCompare(a.published_at ?? ''));
+
+// Chips de familia: agregado por nombre a través de los años —
+// "rotura del emisario ×5" resume de un vistazo qué pasó ahí sin
+// repetir la etiqueta por cada año. De mayor a menor para que los
+// primeros chips sean las familias con más recorrido
+export const newsFamilyChips = (groups: OutfallNewsGroup[]) => {
+  const acc = new Map<string, number>();
+  for (const g of groups)
+    for (const f of g.families)
+      acc.set(f.family, (acc.get(f.family) ?? 0) + f.count);
+  return [...acc.entries()]
+    .map(([family, count]) => ({ family, count }))
+    .sort((a, b) => b.count - a.count);
+};
+
+// Etiqueta corta del chip: el nombre de familia completo ocupa
+// media fila ("Denuncias e investigaciones (2)") y desordena el
+// wrap. El chip lleva la forma corta; el nombre completo queda en
+// el accessibilityLabel
+const NEWS_FAMILY_SHORT: Record<string, string> = {
+  'Denuncias e investigaciones': 'Denuncias',
+  'Roturas y averías': 'Roturas',
+  'Roturas y reparaciones': 'Roturas',
+  'Otros sucesos': 'Otros',
+};
+export const newsChipLabel = (family: string): string =>
+  NEWS_FAMILY_SHORT[family] ?? family;
+
+// --- Cobertura relacionada (nivel medio, en cliente) ---
+// Dos noticias hablan "de lo mismo" cuando comparten playa y hecho
+// (el `fact` extraído del cuerpo; si no hay hecho, el titular) y se
+// encadenan sin huecos >30 días. Sin hecho/titular común no se
+// agrupa nada — no se inventan episodios. El nivel fuerte (cruce
+// con incidentes oficiales de `beach_incidents`) llega por backend.
+
+const DAY_MS = 86_400_000;
+const REL_WINDOW_MS = 30 * DAY_MS;
+
+const normKey = (s: string): string =>
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+// Dos piezas hablan "de lo mismo" cuando comparten playa y familia
+// y se encadenan sin huecos >30 días. El `fact` literal no es clave:
+// "vertido de aguas residuales" y "contaminación por vertidos de
+// aguas residuales" son la misma cobertura con palabras distintas.
+// Sin playa casada la clave es null y la segunda pasada decide si
+// engancharla a una pila inequívoca de su familia
+const coverageKey = (n: FlatNewsItem): string | null =>
+  n.beach_name
+    ? `${normKey(beachBaseName(n.beach_name))}|${normKey(n.family)}`
+    : null;
+
+export type NewsCluster = { items: FlatNewsItem[] };
+
+export const clusterNewsCoverage = (items: FlatNewsItem[]): NewsCluster[] => {
+  const out: NewsCluster[] = [];
+  const byKey = new Map<string, FlatNewsItem[]>();
+  const loose: FlatNewsItem[] = [];
+  for (const n of items) {
+    const k = coverageKey(n);
+    if (!k) {
+      loose.push(n);
+      continue;
+    }
+    const arr = byKey.get(k);
+    if (arr) arr.push(n);
+    else byKey.set(k, [n]);
+  }
+  // Dentro de cada clave, cadena por pares consecutivos: un hueco
+  // >30 días corta el grupo — cada tramo es una "ola" de cobertura
+  for (const same of byKey.values()) {
+    same.sort((a, b) =>
+      (b.published_at ?? '').localeCompare(a.published_at ?? ''),
+    );
+    let cur: FlatNewsItem[] = [same[0]];
+    for (let i = 1; i < same.length; i++) {
+      const newer = Date.parse(same[i - 1].published_at ?? '');
+      const older = Date.parse(same[i].published_at ?? '');
+      if (Number.isFinite(newer - older) && newer - older <= REL_WINDOW_MS)
+        cur.push(same[i]);
+      else {
+        out.push({ items: cur });
+        cur = [same[i]];
+      }
+    }
+    out.push({ items: cur });
+  }
+  // Segunda pasada para las piezas sin playa casada: se enganchan a
+  // la pila de su familia SOLO si hay una única candidata anclada
+  // (con playa) dentro de la ventana — sin ancla o con varias
+  // posibles no se adivina, quedan sueltas
+  const day = (n: FlatNewsItem) => Date.parse(n.published_at ?? '');
+  for (const n of loose) {
+    const d = day(n);
+    const cands = Number.isFinite(d)
+      ? out.filter(
+          (c) =>
+            normKey(c.items[0].family) === normKey(n.family) &&
+            c.items.some((m) => m.beach_name) &&
+            c.items.some((m) => {
+              const md = day(m);
+              return (
+                Number.isFinite(md) && Math.abs(d - md) <= REL_WINDOW_MS
+              );
+            }),
+        )
+      : [];
+    if (cands.length === 1) {
+      cands[0].items.push(n);
+      cands[0].items.sort((a, b) =>
+        (b.published_at ?? '').localeCompare(a.published_at ?? ''),
+      );
+    } else {
+      out.push({ items: [n] });
+    }
+  }
+  out.sort((a, b) =>
+    (b.items[0].published_at ?? '').localeCompare(
+      a.items[0].published_at ?? '',
+    ),
+  );
+  return out;
+};
+
+const MONTHS = [
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
+];
+
+// Intervalo del grupo: "oct 2026", "sep–oct 2026", "nov 2025 – feb 2026"
+export const clusterSpan = (items: FlatNewsItem[]): string => {
+  const dates = items
+    .map((n) => n.published_at?.slice(0, 7))
+    .filter((d): d is string => !!d)
+    .sort();
+  if (!dates.length) return '';
+  const [y1, m1] = dates[0].split('-').map(Number);
+  const [y2, m2] = dates[dates.length - 1].split('-').map(Number);
+  if (y1 === y2 && m1 === m2) return `${MONTHS[m1 - 1]} ${y1}`;
+  if (y1 === y2) return `${MONTHS[m1 - 1]}–${MONTHS[m2 - 1]} ${y1}`;
+  return `${MONTHS[m1 - 1]} ${y1} – ${MONTHS[m2 - 1]} ${y2}`;
+};
+
+// Titular del grupo de cobertura: si todas las piezas comparten
+// hecho extraído, el hecho lo dice mejor ("vertido de aguas
+// residuales"); si difieren, la familia resume ("Vertidos")
+export const clusterHeadline = (items: FlatNewsItem[]): string => {
+  const facts = new Set(items.map((n) => normKey(n.fact ?? n.title ?? '')));
+  if (facts.size === 1) return items[0].fact ?? items[0].title;
+  return items[0].family;
+};
+
+// Si todo el grupo habla de la misma playa, el meta la repite en
+// cada fila — se sube a la cabecera del grupo y se quita del meta
+export const singleNewsBeach = (items: FlatNewsItem[]): string | null => {
+  const set = new Set(
+    items.map((n) => (n.beach_name ? beachBaseName(n.beach_name) : null)),
+  );
+  const only = [...set][0];
+  return set.size === 1 && only ? displayBeachName(only) : null;
+};
+
+// Síntesis del grupo: "16 noticias desde 2024 · Playa Jardín" —
+// volumen + antigüedad en una línea. Sin recuento de "episodios":
+// los clusters del cliente son cobertura relacionada, no episodios
+// oficiales — llamarlos así mentía (el cruce con beach_incidents
+// es el nivel fuerte, pendiente en backend)
+export const newsCoverageSynthesis = (
+  items: FlatNewsItem[],
+  beach: string | null,
+): string => {
+  const firstYear = items
+    .map((n) => n.published_at?.slice(0, 4))
+    .filter((y): y is string => !!y)
+    .sort()[0];
+  return [
+    `${items.length} ${items.length === 1 ? 'noticia' : 'noticias'}${
+      firstYear ? ` desde ${firstYear}` : ''
+    }`,
+    beach,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+};
 
 // Resumen "de este punto" (resumen C): qué cuentan las noticias que
 // nombran el punto — "rotura del emisario · vertido de aguas

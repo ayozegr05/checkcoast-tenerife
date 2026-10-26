@@ -8,6 +8,7 @@ import {
   displayBeachName,
   fmtDate,
   fmtDistance,
+  shortOutfallName,
 } from '../lib/format';
 
 describe('displayBeachName', () => {
@@ -78,5 +79,22 @@ describe('fmtDistance', () => {
     expect(fmtDistance(300)).toBe('300 m');
     expect(fmtDistance(999)).toBe('999 m');
     expect(fmtDistance(1500)).toBe('1.5 km');
+  });
+});
+
+describe('shortOutfallName', () => {
+  it('recorta la comarca del censo ("Valle de La Orotava" → "La Orotava")', () => {
+    expect(shortOutfallName('Emisario Submarino de Punta Brava - Valle de La Orotava')).toBe(
+      'Emisario Submarino de Punta Brava - La Orotava',
+    );
+  });
+
+  it('Palm-Mar se muestra como lo dice la gente: El Palmar', () => {
+    expect(shortOutfallName('Aliviadero EBAR Palm-Mar')).toBe(
+      'Aliviadero EBAR El Palmar',
+    );
+    expect(shortOutfallName('Conducción de desagüe de Palm-Mar')).toBe(
+      'Conducción de desagüe de El Palmar',
+    );
   });
 });

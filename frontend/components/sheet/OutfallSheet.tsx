@@ -10,11 +10,10 @@ import {
 } from 'react-native';
 
 import SatelliteShot, { thumbUrl } from '../SatelliteShot';
+import ScrollChips from '../ScrollChips';
 import type { GeoFeature } from '../../lib/api';
 import {
   OutfallNearbyBeach,
-  OutfallNewsFamily,
-  OutfallNewsGroup,
   OutfallNewsItem,
   OutfallNewsResponse,
   fetchOutfallNearbyBeaches,
@@ -25,6 +24,7 @@ import {
   displayBeachName,
   fmtDate,
   fmtDistance,
+  newsSourceLabel,
 } from '../../lib/format';
 import { outfallRisk, RISK_COLORS } from '../../lib/outfallRisk';
 import { beachStatusKey } from '../../lib/beachStatus';
@@ -43,10 +43,19 @@ import {
   operationDetail,
   nearbyUniqueBeaches,
   OUTFALL_NEWS_TITLE,
-  OUTFALL_NEWS_NOTE,
   OUTFALL_NEWS_NAMED,
   OUTFALL_NEWS_ZONE,
   outfallNewsMeta,
+  flattenNewsGroups,
+  newsChipLabel,
+  clusterNewsCoverage,
+  clusterSpan,
+  clusterHeadline,
+  singleNewsBeach,
+  newsCoverageSynthesis,
+  denunciaLead,
+  FlatNewsItem,
+  NewsCluster as NewsClusterT,
 } from '../../lib/outfallSheet';
 import { colors, fonts } from '../../lib/theme';
 
@@ -62,53 +71,285 @@ type OutfallSheetProps = {
   onSelectBeach?: (feature: GeoFeature) => void;
 };
 
-// Fuente dentro de una familia: hecho como lead en negrita
-// ("fisura del emisario · 28/05/25"), titular y meta debajo — fila
-// plana con filete lateral, no mini-card. Sin hecho (o si repetiría
-// el titular) la fila es solo «titular»+meta
-const NewsSrc = ({ item }: { item: OutfallNewsItem }) => {
-  const date = item.published_at ? fmtDate(item.published_at.slice(0, 10)) : '';
-  const meta = outfallNewsMeta(item, !item.fact);
+// Fila de hemeroteca en dos líneas: meta arriba (fecha·fuente·playa,
+// gris) y hecho/titular debajo (navy) — jerarquía dentro de la fila.
+// `hideBeach`: la playa ya va en la cabecera del grupo (mono-playa);
+// `titleOnly`: dentro de un grupo de cobertura el hecho ya lo dice
+// la cabecera — la fila enseña el titular propio de cada medio
+const NewsSrc = ({
+  item,
+  hideBeach,
+  titleOnly,
+  bare,
+}: {
+  item: FlatNewsItem;
+  hideBeach?: boolean;
+  titleOnly?: boolean;
+  // `bare`: fila hija dentro de una card de cobertura — sin caja
+  // propia ni icono (la familia ya la dice la cabecera del grupo)
+  bare?: boolean;
+}) => {
+  const meta = outfallNewsMeta(item, true, !hideBeach, true);
+  const icon = FAMILY_ICONS[item.family];
   return (
     <Pressable
       onPress={() => Linking.openURL(item.url)}
       accessibilityRole="link"
       accessibilityLabel={`${item.title}, abrir noticia`}
-      style={({ pressed }) => [styles.newsSrc, pressed && styles.pressFx]}
+      style={({ pressed }) => [
+        bare ? styles.newsChildRow : styles.newsCard,
+        pressed && styles.pressFx,
+      ]}
     >
-      {item.fact ? (
-        <Text style={styles.newsLead} numberOfLines={2}>
-          {item.fact}
-          {date ? <Text style={styles.newsLeadDate}> · {date}</Text> : null}
-        </Text>
+      {!bare && icon ? (
+        <Image source={icon} style={styles.newsCardIcon} />
       ) : null}
-      <Text
-        style={item.fact ? styles.newsSrcTitle : styles.newsSrcText}
-        numberOfLines={2}
-      >
-        «{item.title}»
-      </Text>
-      {meta ? <Text style={styles.newsSrcMeta}>{meta}</Text> : null}
+      <View style={styles.newsRowBody}>
+        <Text
+          style={styles.newsRowMain}
+          numberOfLines={bare ? 3 : 2}
+        >
+          {titleOnly || bare
+            ? item.title
+            : TITLE_FIRST_FAMILIES.has(item.family)
+              ? (denunciaLead(item) ?? item.title)
+              : (item.fact ?? item.title)}
+        </Text>
+        {meta ? (
+          <Text style={styles.newsRowMeta} numberOfLines={1}>
+            {meta}
+          </Text>
+        ) : null}
+      </View>
+      <Text style={styles.newsRowChev}>›</Text>
     </Pressable>
   );
 };
 
-// Una familia dentro de un año: nombre + contador + máx 2 fuentes
-// a la vista, el resto expandible
-const SRCS_PER_FAMILY = 2;
+// En Denuncias la noticia que cuenta es la acción — quién
+// investiga, sanciona o denuncia — y esa vive en el titular; el
+// fact físico ("vertido de cloruro férrico") la disimula de
+// vertido. En el resto de familias el fact ES la noticia
+const TITLE_FIRST_FAMILIES = new Set(['Denuncias e investigaciones']);
 
-const NewsFamilyBlock = ({ f }: { f: OutfallNewsFamily }) => {
+// Grupo de cobertura relacionada (nivel medio): varias noticias, misma
+// playa y mismo hecho a ≤30 días — la cabecera dice el hecho una vez
+// ("4 publicaciones · sep–oct 2026") y el despliegue muestra el
+// titular propio de cada medio
+const NewsCluster = ({
+  items,
+  hideBeach,
+  open,
+  onToggle,
+}: {
+  items: FlatNewsItem[];
+  hideBeach?: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) => {
+  const head = items[0];
+  const icon = FAMILY_ICONS[head.family];
+  const span = clusterSpan(items);
+  // Medios distintos que cubrieron el suceso — la corroboración
+  // independiente ES el dato: "3 medios" pesa más que "5 piezas"
+  const outlets = new Set(
+    items.map((n) => newsSourceLabel(n.source)).filter(Boolean),
+  ).size;
+  const meta = [span, `${outlets} ${outlets === 1 ? 'medio' : 'medios'}`]
+    .filter(Boolean)
+    .join(' · ');
+  // El contador ES el titular: "5 publicaciones de vertidos" dice
+  // el volumen y el tema en una línea que siempre casa con todas
+  // las piezas — nunca depende de que los hechos coincidan
+  const headline = `${items.length} publicaciones de ${newsChipLabel(
+    head.family,
+  ).toLowerCase()}`;
+  return (
+    // Pila de recortes: dos hojas asoman bajo la card ámbar — la
+    // silueta dice "hay varias piezas aquí" antes de leer nada
+    <View style={styles.newsStack}>
+      <View style={[styles.newsStackSheet, styles.newsStackBack2]} />
+      <View style={[styles.newsStackSheet, styles.newsStackBack1]} />
+      <View style={styles.newsClusterCard}>
+        <Pressable
+          onPress={onToggle}
+          accessibilityRole="button"
+          accessibilityLabel={`${items.length} noticias relacionadas: ${clusterHeadline(
+            items,
+          )}, ${open ? 'contraer' : 'expandir'}`}
+          style={({ pressed }) => [
+            styles.newsClusterBand,
+            // Cerrada la banda ES la card: redondea también abajo
+            !open && styles.newsClusterBandClosed,
+            pressed && styles.pressFx,
+          ]}
+        >
+          {/* La ilustración de familia vive aquí a tamaño legible —
+              en la barra a 20px era un blob ilegible */}
+          {icon ? <Image source={icon} style={styles.newsCardIcon} /> : null}
+          <View style={styles.newsRowBody}>
+            <Text style={styles.newsRowMain} numberOfLines={2}>
+              {headline}
+            </Text>
+            <Text style={styles.newsRowMeta} numberOfLines={1}>
+              {meta}
+            </Text>
+          </View>
+          {/* ▸/▾ y no ›/⌄: el chevron de las filas abre el enlace,
+              este despliega — mismo glifo, dos acciones confusas */}
+          <Text style={styles.newsRowChev}>{open ? '▾' : '▸'}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+};
+
+// Grupo de prensa: chips-filtro por familia ("Todas · Vertidos ·
+// Otras…") + lista plana "dd/mm · fuente · «titular»". Un chip
+// hace dos trabajos — resumen y filtro; "Otras" pliega las
+// familias con 1-2 ítems para que la fila de chips no desborde
+const NEWS_SHOWN = 4;
+const CHIPS_SHOWN = 3;
+const OTRAS = '__otras__';
+
+// Glifo por familia en la barra segmentada — "Todas" y "Otras"
+// (fold de varias familias) no llevan icono para no mentir
+const FAMILY_ICONS: Record<string, number> = {
+  'Roturas y reparaciones': require('../../assets/icons/fam-rotura.png'),
+  'Roturas y averías': require('../../assets/icons/fam-rotura.png'),
+  Vertidos: require('../../assets/icons/fam-vertido.png'),
+  'Denuncias e investigaciones': require('../../assets/icons/fam-denuncia.png'),
+  Obstrucciones: require('../../assets/icons/fam-obstruccion.png'),
+  'Otros sucesos': require('../../assets/icons/fam-otros.png'),
+};
+
+// Lista de hemeroteca como riel temporal: las entradas (grupos de
+// cobertura + noticias sueltas) cuelgan de anclas de año con un
+// filete a la izquierda — "desde 2024" se ve sin leer una sola
+// noticia. "Ver N más" cuenta entradas (grupos + sueltas)
+const NewsList = ({
+  items,
+  hideBeach,
+}: {
+  items: FlatNewsItem[];
+  hideBeach?: boolean;
+}) => {
   const [open, setOpen] = useState(false);
-  const shown = open ? f.items : f.items.slice(0, SRCS_PER_FAMILY);
-  const extra = f.items.length - SRCS_PER_FAMILY;
+  const [openIds, setOpenIds] = useState<ReadonlySet<number>>(new Set());
+  const toggleCluster = (id: number) =>
+    setOpenIds((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  const clusters = clusterNewsCoverage(items);
+  const shown = open ? clusters : clusters.slice(0, NEWS_SHOWN);
+  const extra = clusters.length - NEWS_SHOWN;
+  // Anclas de año: tramos consecutivos del mismo año (la lista ya
+  // viene ordenada de reciente a antigua)
+  const yearGroups: { year: string | null; entries: NewsClusterT[] }[] = [];
+  for (const c of shown) {
+    const y = c.items[0].published_at?.slice(0, 4) ?? null;
+    const last = yearGroups[yearGroups.length - 1];
+    if (last && last.year === y) last.entries.push(c);
+    else yearGroups.push({ year: y, entries: [c] });
+  }
+  if (!clusters.length)
+    return <Text style={styles.newsEmpty}>Sin noticias con este filtro</Text>;
   return (
     <View>
-      <View style={styles.newsFamRow}>
-        <Text style={styles.newsFam}>{f.family}</Text>
-        <Text style={styles.newsFamCount}>{f.count}</Text>
-      </View>
-      {shown.map((n) => (
-        <NewsSrc key={`n${n.id}`} item={n} />
+      {yearGroups.map((g, gi) => (
+        <View key={`y${g.year ?? 'sf'}${gi}`}>
+          {g.year ? (
+            <View style={styles.newsYearRow}>
+              <Text style={styles.newsYearText}>{g.year}</Text>
+              <View style={styles.newsYearLine} />
+            </View>
+          ) : null}
+          <View>
+            {g.entries.map((c, i) => {
+              const isCluster = c.items.length > 1;
+              const isOpen = openIds.has(c.items[0].id);
+              const lastEntry =
+                gi === yearGroups.length - 1 && i === g.entries.length - 1;
+              // La cabecera solo es "última" si la pila está cerrada;
+              // abierta, la última fila del riel es su última hija
+              const headIsLast = lastEntry && !isOpen;
+              return (
+                <View key={`e${c.items[0].id}`}>
+                  <View style={styles.newsTlItem}>
+                    {/* Riel tipo timeline: dot por fila + línea que
+                        enlaza con la siguiente + tick hasta la card.
+                        Cabecera de pila = dot ámbar; suelta o hija =
+                        dot gris — jerarquía antes de leer */}
+                    <View style={styles.newsTlRail}>
+                      <View
+                        style={[
+                          styles.newsTlDot,
+                          isCluster && styles.newsTlDotCluster,
+                        ]}
+                      />
+                      {!headIsLast ? (
+                        <View style={styles.newsTlLine} />
+                      ) : null}
+                      <View style={styles.newsTlTick} />
+                    </View>
+                    <View style={styles.newsTlCard}>
+                      {isCluster ? (
+                        <NewsCluster
+                          items={c.items}
+                          hideBeach={hideBeach}
+                          open={isOpen}
+                          onToggle={() => toggleCluster(c.items[0].id)}
+                        />
+                      ) : (
+                        <NewsSrc item={c.items[0]} hideBeach={hideBeach} />
+                      )}
+                    </View>
+                  </View>
+                  {isCluster && isOpen ? (
+                    <View style={styles.newsChildBlock}>
+                      {c.items.map((n, ci) => {
+                        const childIsLast =
+                          lastEntry && ci === c.items.length - 1;
+                        return (
+                          <View key={`c${n.id}`} style={styles.newsTlItem}>
+                            <View style={styles.newsTlRail}>
+                              <View style={styles.newsTlDot} />
+                              {!childIsLast ? (
+                                <View style={styles.newsTlLine} />
+                              ) : null}
+                              <View
+                                style={[
+                                  styles.newsTlTick,
+                                  styles.newsTlTickLong,
+                                ]}
+                              />
+                            </View>
+                            <View
+                              style={[
+                                styles.newsTlCard,
+                                styles.newsTlCardIndent,
+                              ]}
+                            >
+                              <NewsSrc
+                                item={n}
+                                hideBeach={hideBeach}
+                                titleOnly
+                                bare
+                              />
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        </View>
       ))}
       {extra > 0 ? (
         <Pressable
@@ -125,19 +366,201 @@ const NewsFamilyBlock = ({ f }: { f: OutfallNewsFamily }) => {
   );
 };
 
-// Un solo encabezado por año; dentro, familias con su contador
-const NewsYears = ({ groups }: { groups: OutfallNewsGroup[] }) => (
-  <>
-    {groups.map((y, yi) => (
-      <View key={`y${yi}`}>
-        <Text style={styles.newsYear}>{y.year ?? 'Sin fecha'}</Text>
-        {y.families.map((f, fi) => (
-          <NewsFamilyBlock key={`y${yi}f${fi}`} f={f} />
+// Tablero de prensa: UN juego de filtros (familia + año) para los
+// dos ámbitos — "En la zona" hereda el filtro del grupo principal
+// en vez de duplicar todo el chrome
+const PressBoard = ({
+  namedItems,
+  zoneItems,
+  namedBeach,
+  zoneBeach,
+}: {
+  namedItems: FlatNewsItem[];
+  zoneItems: FlatNewsItem[];
+  namedBeach: string | null;
+  zoneBeach: string | null;
+}) => {
+  // Los chips agregan los dos ámbitos: el filtro gobierna toda la
+  // sección, así que los contadores cuentan toda la sección
+  const base = [...namedItems, ...zoneItems];
+  // Segunda faceta: años presentes, recientes primero — fila aparte
+  // y más discreta (familias = qué, años = cuándo)
+  const years = [
+    ...new Set(
+      base
+        .map((n) => n.published_at?.slice(0, 4))
+        .filter((y): y is string => !!y),
+    ),
+  ].sort((a, b) => b.localeCompare(a));
+  const [sel, setSel] = useState<string | null>(null);
+  // El año más reciente viene filtrado por defecto — la hemeroteca
+  // se lee "qué ha pasado últimamente" y el resto es un toque más
+  const [selYear, setSelYear] = useState<string | null>(() =>
+    years.length > 1 ? years[0] : null,
+  );
+  const inYear = (list: FlatNewsItem[]) =>
+    selYear === null
+      ? list
+      : list.filter((n) => n.published_at?.startsWith(selYear));
+  // Los contadores responden al año elegido: se agregan sobre los
+  // ítems del año seleccionado, no sobre toda la hemeroteca
+  const yearItems = inYear(base);
+  const yearFam = new Map<string, number>();
+  for (const n of yearItems)
+    yearFam.set(n.family, (yearFam.get(n.family) ?? 0) + 1);
+  const yearChips = [...yearFam.entries()]
+    .map(([family, count]) => ({ family, count }))
+    .sort((a, b) => b.count - a.count);
+  // Con más de CHIPS_SHOWN familias, la cola se pliega en "Otras" —
+  // el fold atrapa cualquier familia fuera del top, en ambos ámbitos
+  const top =
+    yearChips.length > CHIPS_SHOWN + 1
+      ? yearChips.slice(0, CHIPS_SHOWN)
+      : yearChips;
+  const rest = yearChips.slice(top.length);
+  const topFams = new Set(top.map((c) => c.family));
+  const restNames = new Set(
+    [...namedItems, ...zoneItems]
+      .map((n) => n.family)
+      .filter((f) => !topFams.has(f)),
+  );
+  const restCount = rest.reduce((s, c) => s + c.count, 0);
+  const applyFilter = (list: FlatNewsItem[]) =>
+    inYear(list).filter(
+      (n) =>
+        sel === null ||
+        (sel === OTRAS ? restNames.has(n.family) : n.family === sel),
+    );
+  const pick = (f: string | null) => setSel(sel === f ? null : f);
+  // Barra segmentada en vez de píldoras: las píldoras suman ~16px
+  // de padding por chip y no caben en una línea — los segmentos de
+  // texto con separador fino sí, y el activo lleva subrayado
+  const allChips: { key: string | null; label: string; full: string }[] = [
+    {
+      key: null,
+      label: `Todas (${yearItems.length})`,
+      full: `Todas, ${yearItems.length} noticias`,
+    },
+    ...top.map((c) => ({
+      key: c.family as string | null,
+      label: `${newsChipLabel(c.family)} (${c.count})`,
+      full: `${c.family}, ${c.count} noticias`,
+    })),
+    ...(rest.length
+      ? [
+          {
+            key: OTRAS as string | null,
+            label: `Otras (${restCount})`,
+            full: `Otras, ${restCount} noticias`,
+          },
+        ]
+      : []),
+  ];
+  return (
+    <View>
+      {/* La barra hace scroll horizontal en vez de romper a una
+          segunda línea coja cuando las familias no caben — el fade
+          y la flecha › de ScrollChips anuncian que hay más */}
+      <ScrollChips
+        a11yLabel="familias de noticias"
+        contentContainerStyle={styles.newsSegs}
+        arrowColor="rgba(7,82,118,0.55)"
+        arrowSize={20}
+      >
+        {allChips.map((c, i) => (
+          <View key={c.key ?? '__all__'} style={styles.newsSegItem}>
+            {i > 0 ? <View style={styles.newsSegDiv} /> : null}
+            <Pressable
+              onPress={() => pick(c.key)}
+              accessibilityRole="button"
+              accessibilityLabel={c.full}
+              style={({ pressed }) => [
+                styles.newsSeg,
+                sel === c.key && styles.newsSegOn,
+                pressed && styles.pressFx,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.newsSegText,
+                  sel === c.key && styles.newsSegTextOn,
+                ]}
+              >
+                {c.label}
+              </Text>
+            </Pressable>
+          </View>
         ))}
-      </View>
-    ))}
-  </>
-);
+      </ScrollChips>
+      {/* Fila de años: faceta secundaria — chips con borde, sin
+          relleno, para no competir con las familias */}
+      {years.length > 1 ? (
+        <View style={styles.newsChips}>
+          {years.map((y) => (
+            <Pressable
+              key={y}
+              onPress={() => {
+                // Cambiar de año resetea la familia: si no, el filtro
+                // activo podría no tener chip visible en el nuevo año
+                setSelYear(selYear === y ? null : y);
+                setSel(null);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Año ${y}`}
+              style={({ pressed }) => [
+                styles.newsChip,
+                styles.newsChipYear,
+                selYear === y && styles.newsChipYearOn,
+                pressed && styles.pressFx,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.newsChipText,
+                  styles.newsChipYearText,
+                  selYear === y && styles.newsChipYearTextOn,
+                ]}
+              >
+                {y}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+      {namedItems.length ? (
+        <View>
+          <Text style={styles.newsGroup}>{OUTFALL_NEWS_NAMED}</Text>
+          {/* Síntesis: volumen + episodios + playa si el grupo es
+              mono-playa — "16 noticias · 5 episodios desde 2024 ·
+              Playa Jardín" cuenta el abandono sin leer ni una */}
+          <Text style={styles.newsGroupSub}>
+            {newsCoverageSynthesis(namedItems, namedBeach)}
+          </Text>
+          {/* La key remonta la lista al cambiar de filtro → el
+              "Ver más" desplegado vuelve a su estado plegado */}
+          <NewsList
+            key={`n-${sel ?? '_'}-${selYear ?? '_'}`}
+            items={applyFilter(namedItems)}
+            hideBeach={!!namedBeach}
+          />
+        </View>
+      ) : null}
+      {zoneItems.length ? (
+        <View>
+          <Text style={styles.newsGroup}>{OUTFALL_NEWS_ZONE}</Text>
+          <Text style={styles.newsGroupSub}>
+            {newsCoverageSynthesis(zoneItems, zoneBeach)}
+          </Text>
+          <NewsList
+            key={`z-${sel ?? '_'}-${selYear ?? '_'}`}
+            items={applyFilter(zoneItems)}
+            hideBeach={!!zoneBeach}
+          />
+        </View>
+      ) : null}
+    </View>
+  );
+};
 
 // Pin de ubicación desnudo (gota con agujero) dibujado con Views —
 // el asset más cercano llevaba sombrilla y quedaba frito a 22 px
@@ -306,7 +729,9 @@ export default function OutfallSheet({
       ? [
           {
             label: 'Estado de la conducción',
-            value: p.condition.toLowerCase(),
+            value:
+              p.condition[0].toUpperCase() +
+              p.condition.slice(1).toLowerCase(),
             // Icono dibujado, no emoji: el triángulo/check se
             // posiciona al pixel con la línea base del texto
             icon: (
@@ -368,6 +793,19 @@ export default function OutfallSheet({
       cancelled = true;
     };
   }, [feature.id]);
+
+  // Listas planas por ámbito para la síntesis de cabecera (volumen,
+  // episodios, playa si el grupo es mono-playa)
+  const namedItems = useMemo(
+    () => (news ? flattenNewsGroups(news.named_groups) : []),
+    [news],
+  );
+  const zoneItems = useMemo(
+    () => (news ? flattenNewsGroups(news.zone_groups) : []),
+    [news],
+  );
+  const namedBeach = singleNewsBeach(namedItems);
+  const zoneBeach = singleNewsBeach(zoneItems);
 
   // Marcadores de la foto satélite del emisario: otros vertidos y las
   // playas del entorno proyectados al encuadre (el propio emisario es
@@ -531,6 +969,8 @@ export default function OutfallSheet({
           </Text>
         </View>
       </View>
+      {/* Auditoría del veredicto: el score se calcula, así que la
+          ficha dice POR QUÉ — caption muted, veredicto→evidencia */}
       {/* Matiz operativo: la única pieza que la ficha no dice en
           ningún otro sitio (paradas, desbordes, régimen sin estado).
           Frase suelta sin caja — apoya al triaje, no compite */}
@@ -809,29 +1249,17 @@ export default function OutfallSheet({
         <View style={styles.secCard}>
           <View style={styles.secHead}>
             <Image
-              source={require('../../assets/icons/icon-news.png')}
+              source={require('../../assets/icons/icon-episodes.png')}
               style={[styles.secIcon, { tintColor: colors.primaryDark }]}
             />
             <Text style={styles.secCardTitle}>{OUTFALL_NEWS_TITLE}</Text>
           </View>
-          {news.named_groups.length ? (
-            <View>
-              <Text style={styles.newsGroup}>
-                {OUTFALL_NEWS_NAMED}
-                {news.summary ? ` · ${news.summary.named_count} noticias` : ''}
-              </Text>
-              <NewsYears groups={news.named_groups} />
-            </View>
-          ) : null}
-          {news.zone_groups.length ? (
-            <View>
-              <Text style={styles.newsGroup}>{OUTFALL_NEWS_ZONE}</Text>
-              <NewsYears groups={news.zone_groups} />
-            </View>
-          ) : null}
-          {/* El disclaimer al pie: es un "por si acaso", no
-              contenido — no debe competir con el primer titular */}
-          <Text style={styles.newsNote}>{OUTFALL_NEWS_NOTE}</Text>
+          <PressBoard
+            namedItems={namedItems}
+            zoneItems={zoneItems}
+            namedBeach={namedBeach}
+            zoneBeach={zoneBeach}
+          />
         </View>
       ) : null}
 
@@ -843,22 +1271,27 @@ export default function OutfallSheet({
       {/* Fuente oficial como pie discreto — la tabla cruda se fue:
           cada dato relevante ya está narrado en las cards y el resto
           no le dice nada al bañista. Queda el enlace por
-          transparencia */}
-      {p.source_url ? (
-        <Pressable
-          onPress={() => p.source_url && Linking.openURL(p.source_url)}
-          accessibilityRole="link"
-          accessibilityLabel="Abrir el censo oficial de vertidos"
-          style={({ pressed }) => [
-            styles.censusSrcWrap,
-            pressed && styles.pressFx,
-          ]}
-        >
-          <Text style={styles.censusSrc}>
-            Fuente: Censo Vertidos Tierra-Mar 2025 ↗
-          </Text>
-        </Pressable>
-      ) : null}
+          transparencia + la nota epistémica del riesgo */}
+      <View style={styles.censusSrcWrap}>
+        {p.source_url ? (
+          <Pressable
+            onPress={() =>
+              p.source_url && Linking.openURL(p.source_url)
+            }
+            accessibilityRole="link"
+            accessibilityLabel="Abrir el censo oficial de vertidos"
+            style={({ pressed }) => pressed && styles.pressFx}
+          >
+            <Text style={styles.censusSrc}>
+              Fuente: Censo Vertidos Tierra-Mar 2025 ↗
+            </Text>
+          </Pressable>
+        ) : null}
+        <Text style={styles.censusFoot}>
+          Según prensa: la proximidad no implica causalidad · El riesgo
+          es una estimación del censo
+        </Text>
+      </View>
     </View>
   );
 }
@@ -1211,7 +1644,7 @@ const styles = StyleSheet.create({
   // Título de card único: "Qué se vierte", "Dónde y cómo" y
   // "Playas cercanas" comparten tamaño, peso y color
   secCardTitle: {
-    fontSize: 15.5,
+    fontSize: 16.5,
     fontFamily: fonts.extrabold,
     color: colors.primaryDark,
   },
@@ -1312,98 +1745,293 @@ const styles = StyleSheet.create({
   // Prensa del emisario: subtítulo de grupo ("De este emisario"/"En la
   // zona") y fila de titular enlazable — el titular es el enlace
   newsGroup: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: fonts.bold,
     color: colors.textMuted,
     textTransform: 'uppercase',
+    marginTop: 20,
+    marginBottom: 1,
+  },
+  // Síntesis bajo el rótulo del grupo: "16 noticias · 5 episodios
+  // desde 2024 · Playa Jardín" — el patrón de abandono en una línea
+  newsGroupSub: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    marginBottom: 2,
+  },
+
+  // Barra segmentada de familias: texto + separador fino en una
+  // sola línea (las píldoras no cabían) — el activo va subrayado
+  newsSegs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  newsSegItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  newsSegDiv: {
+    width: 1,
+    height: 12,
+    backgroundColor: colors.border,
+    marginHorizontal: 7,
+  },
+  newsSeg: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingVertical: 2,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  newsSegOn: {
+    borderBottomColor: colors.primary,
+  },
+  newsSegText: {
+    fontSize: 13.5,
+    fontFamily: fonts.bold,
+    color: colors.textMuted,
+  },
+  newsSegTextOn: {
+    color: colors.primary,
+  },
+  // Chips de año: faceta secundaria — píldora con borde para no
+  // competir con la barra de familias (familia = qué, año = cuándo)
+  newsChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
     marginTop: 6,
     marginBottom: 2,
   },
-  // Jerarquía de la historia del punto: año > familia (con
-  // contador) > fuentes con su hecho como lead
-  newsYear: {
+  newsChip: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  newsChipText: {
     fontSize: 11,
     fontFamily: fonts.bold,
-    color: colors.textFaint,
-    textTransform: 'uppercase',
+  },
+  newsChipYear: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  newsChipYearOn: {
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark,
+  },
+  newsChipYearText: {
+    color: colors.textMuted,
+  },
+  newsChipYearTextOn: {
+    color: colors.surface,
+  },
+  // Ancla de año del riel temporal: "2026" + hairline que marca
+  // dónde empieza cada tramo — la recurrencia en el tiempo se lee
+  // de un vistazo antes que ninguna noticia
+  newsYearRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 8,
   },
-  newsFamRow: {
+  newsYearText: {
+    fontSize: 12,
+    fontFamily: fonts.extrabold,
+    color: colors.primaryDark,
+  },
+  newsYearLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  // Riel temporal por entrada (vocabulario del timeline de
+  // Municipios): columna con dot + línea descendente + tick hasta
+  // la card. El cluster lleva dot ámbar grande y la card pegada
+  // al riel; la suelta lleva dot gris pequeño, tick más largo y
+  // la card indentada — la jerarquía se lee en la geometría
+  newsTlItem: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-    marginTop: 1,
   },
-  newsFam: {
-    fontSize: 12,
-    fontFamily: fonts.bold,
-    color: colors.text,
-    marginBottom: 1,
+  newsTlRail: {
+    width: 16,
+    alignItems: 'center',
   },
-  newsFamCount: {
-    fontSize: 10,
-    fontFamily: fonts.bold,
-    color: colors.primary,
-    backgroundColor: `${colors.primary}1a`,
-    borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 1,
-    overflow: 'hidden',
+  newsTlDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 25,
+    backgroundColor: colors.textFaint,
   },
-  // Fila de prensa plana: filete lateral fino en vez de mini-card —
-  // el contenido (hecho + titular) ya tiene jerarquía propia
-  newsSrc: {
+  // Dot de cobertura: más grande y en el ámbar "según prensa" de
+  // la banda — el nodo gordo del timeline
+  newsTlDotCluster: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginTop: 24,
+    backgroundColor: colors.status.lab,
+  },
+  newsTlLine: {
+    flex: 1,
+    width: 1.5,
+    backgroundColor: colors.border,
+  },
+  // Puente dot→card a la altura del centro del dot (margen 22-25 +
+  // radio ≈ 29); la hija de pila indenta más y su tick cruza más
+  // hueco — indentar marca pertenencia, no subordinación de tipo
+  newsTlTick: {
+    position: 'absolute',
+    top: 28,
+    left: 16,
+    width: 6,
+    height: 1.5,
+    borderRadius: 1,
+    backgroundColor: colors.border,
+  },
+  newsTlTickLong: {
+    width: 16,
+  },
+  newsTlCard: {
+    flex: 1,
+    marginLeft: 6,
+  },
+  newsTlCardIndent: {
+    marginLeft: 16,
+  },
+  // Hija de pila desplegada: cuelga del riel AL RAS de la banda —
+  // la pila se abre como acordeón y los recortes comparten su
+  // línea izquierda; la pertenencia la da la geometría + el
+  // filete ámbar, no una indentación extra
+  // Bloque de hijas: aire extra al final para que la siguiente
+  // entrada del riel no pegue con el último recorte del paquete
+  newsChildBlock: {
+    position: 'relative',
+    marginBottom: 10,
+  },
+  // Mini-card de noticia: caja blanca sobre el fondo crema de la
+  // sección — cada noticia existe como pieza, no como línea suelta
+  newsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    padding: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  // Icono de familia a tamaño legible — la ilustración identifica
+  // de un vistazo de qué va cada noticia
+  newsCardIcon: {
+    width: 28,
+    height: 28,
+  },
+  newsRowBody: {
+    flex: 1,
+  },
+  // Cobertura relacionada como pila de recortes: dos hojas blancas
+  // asoman bajo la card ámbar — la silueta dice "varios medios
+  // cubrieron esto" antes de leer una sola palabra
+  newsStack: {
+    marginTop: 6,
+    marginBottom: 17,
+  },
+  newsStackSheet: {
+    position: 'absolute',
+    top: 0,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  newsStackBack1: {
+    left: 6,
+    right: 6,
+    bottom: -5,
+  },
+  newsStackBack2: {
+    left: 12,
+    right: 12,
+    bottom: -10,
+  },
+  // El ámbar "según prensa" vive solo en la banda-cabecera: cerrada
+  // la banda ES la card (pila ámbar); abierta las hijas cuelgan en
+  // blanco — el color marca el paquete, no lo baña todo
+  newsClusterCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  newsClusterBand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 9,
+    borderTopLeftRadius: 9,
+    borderTopRightRadius: 9,
+    backgroundColor: colors.tintPress,
+  },
+  newsClusterBandClosed: {
+    borderBottomLeftRadius: 9,
+    borderBottomRightRadius: 9,
+  },
+  // Fila hija de una pila desplegada: card blanca sobria (sin
+  // icono ni filete — la pertenencia la da la indent + la banda)
+  newsChildRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 5,
-    marginLeft: 10,
-    paddingLeft: 8,
-    paddingVertical: 1,
-    borderLeftWidth: 2,
-    borderLeftColor: `${colors.primary}55`,
+    padding: 8,
+    paddingLeft: 9,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  newsLead: {
-    fontSize: 12,
+  newsEmpty: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    marginTop: 6,
+  },
+  newsRowMain: {
+    fontSize: 14,
     fontFamily: fonts.semibold,
     color: colors.text,
-    lineHeight: 16,
+    lineHeight: 18,
   },
-  newsLeadDate: {
-    fontSize: 10,
-    fontFamily: fonts.regular,
-    color: colors.textFaint,
-  },
-  newsSrcTitle: {
+  // La meta va en textMuted, no textFaint: #8fa3ad da ~2.6:1 sobre
+  // blanco (suspende WCAG); #5c7a89 da ~4.6:1 — secundaria pero
+  // legible, que es justo el nivel que debe tener
+  newsRowMeta: {
     fontSize: 11,
     fontFamily: fonts.regular,
     color: colors.textMuted,
-    lineHeight: 15,
-    marginTop: 1,
+    marginTop: 2,
   },
-  newsSrcMeta: {
-    fontSize: 10,
-    fontFamily: fonts.regular,
+  newsRowChev: {
+    fontSize: 17,
+    fontFamily: fonts.bold,
     color: colors.textFaint,
-    marginTop: 1,
   },
-  newsSrcText: {
-    fontSize: 11,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
-    lineHeight: 15,
-  },
-  // "Ver N más": despliega las réplicas ocultas de una familia
+  // "Ver N más": centrado cierra la lista (como el "Ver más
+  // noticias" del diseño), despliega las réplicas ocultas
   newsMore: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: fonts.semibold,
     color: colors.primary,
     marginTop: 4,
-    marginLeft: 12,
-  },
-  // Disclaimers de prensa/episodios: al pie de la card, discreto
-  newsNote: {
-    fontSize: 11,
-    fontFamily: fonts.regular,
-    color: colors.textFaint,
-    marginTop: 8,
+    alignSelf: 'center',
   },
   nearestName: {
     fontSize: 12,
@@ -1423,5 +2051,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semibold,
     color: colors.primary,
     textAlign: 'center',
+  },
+  // Nota epistémica del pie: el riesgo es cálculo propio sobre el
+  // censo, no dato oficial — se declara, no se oculta
+  censusFoot: {
+    fontSize: 10.5,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    textAlign: 'center',
+    marginTop: 4,
   },
 });

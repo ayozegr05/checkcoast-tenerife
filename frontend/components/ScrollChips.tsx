@@ -42,6 +42,8 @@ export default function ScrollChips({
   a11yLabel = 'filtros',
   edgeFade = true,
   anchorEnd = false,
+  arrowColor = 'rgba(13,148,136,0.5)', // verde-mar de las barras
+  arrowSize = 26,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -52,6 +54,12 @@ export default function ScrollChips({
   fadeRgb?: string;
   fadeRgbLeft?: string;
   fadeRgbRight?: string;
+  // Tinte del círculo-flecha: el verde-mar por defecto es el tono de
+  // las barras de Municipios; otras secciones pasan su propio color
+  arrowColor?: string;
+  // Tamaño del círculo-flecha: 26 por defecto (barras Municipios);
+  // secciones compactas lo bajan para no competir con la cabecera
+  arrowSize?: number;
   // Qué se desplaza, para los labels de accesibilidad
   a11yLabel?: string;
   // Sobre fondos fotográficos/degradados el bloque del fade queda
@@ -126,14 +134,25 @@ export default function ScrollChips({
           <Pressable
             style={({ pressed }) => [
               styles.arrow,
-              { left: 2 },
+              {
+                left: 2,
+                backgroundColor: arrowColor,
+                width: arrowSize,
+                height: arrowSize,
+                borderRadius: arrowSize / 2,
+                marginTop: -arrowSize / 2,
+              },
               pressed && styles.pressFx,
             ]}
             onPress={() => scrollBy(-1)}
             accessibilityRole="button"
             accessibilityLabel={`Desplazar ${a11yLabel} a la izquierda`}
           >
-            <Text style={styles.arrowText}>‹</Text>
+            <Text
+              style={[styles.arrowText, { fontSize: arrowSize - 2, lineHeight: arrowSize }]}
+            >
+              ‹
+            </Text>
           </Pressable>
         </View>
       )}
@@ -143,14 +162,25 @@ export default function ScrollChips({
           <Pressable
             style={({ pressed }) => [
               styles.arrow,
-              { right: 2 },
+              {
+                right: 2,
+                backgroundColor: arrowColor,
+                width: arrowSize,
+                height: arrowSize,
+                borderRadius: arrowSize / 2,
+                marginTop: -arrowSize / 2,
+              },
               pressed && styles.pressFx,
             ]}
             onPress={() => scrollBy(1)}
             accessibilityRole="button"
             accessibilityLabel={`Desplazar ${a11yLabel} a la derecha`}
           >
-            <Text style={styles.arrowText}>›</Text>
+            <Text
+              style={[styles.arrowText, { fontSize: arrowSize - 2, lineHeight: arrowSize }]}
+            >
+              ›
+            </Text>
           </Pressable>
         </View>
       )}
@@ -190,7 +220,6 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(13,148,136,0.5)', // verde-mar de las barras
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 3,

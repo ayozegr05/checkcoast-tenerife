@@ -16,7 +16,11 @@ import ZonePicker from './sheet/ZonePicker';
 import { useSheetDrag } from './sheet/useSheetDrag';
 import type { Selection } from './CoastMap';
 import type { EpisodeFocus, GeoFeature } from '../lib/api';
-import { beachBaseName, displayBeachName } from '../lib/format';
+import {
+  beachBaseName,
+  displayBeachName,
+  shortOutfallName,
+} from '../lib/format';
 import { beachStatusKey } from '../lib/beachStatus';
 import { PM_SUFFIX, pmTagOf } from '../lib/pm';
 import { arenalBase, zoneName } from '../lib/zones';
@@ -39,6 +43,7 @@ export default function FeatureSheet({
   onFocusConsumed,
   onZoneShown,
   onCoverageChange,
+  onSheetTopChange,
 }: {
   selection: Selection;
   onClose: () => void;
@@ -68,6 +73,9 @@ export default function FeatureSheet({
   // cierre — se calcula por geometría, no solo por "expandida":
   // en pantallas bajas la ficha en reposo ya puede cubrirlos
   onCoverageChange?: (coversControls: boolean) => void;
+  // Borde superior real de la ficha en reposo: la cámara corrige el
+  // encuadre del pin de emisario con la altura ya medida
+  onSheetTopChange?: (topY: number) => void;
 }) {
   const { feature } = selection;
   const p = feature.properties;
@@ -154,6 +162,7 @@ export default function FeatureSheet({
     },
     onClose,
     onCoverageChange,
+    onRestTopChange: onSheetTopChange,
   });
 
   // Tap en la foto satélite: cierra la card con la misma animación y
@@ -186,7 +195,12 @@ export default function FeatureSheet({
     ? displayBeachName(beachBaseName(p.name))
     : sameBase
       ? displayBeachName(arenalBase(beachFeature.properties.name)) + pmSuffix
-      : displayBeachName(stripPm(beachFeature.properties.name));
+      : isBeach
+        ? displayBeachName(stripPm(beachFeature.properties.name))
+        : // Emisario: título sin la comarca ("…del Valle de La
+          // Orotava" → "…de La Orotava") — la misma etiqueta que
+          // el pin muestra en el mapa
+          displayBeachName(shortOutfallName(stripPm(p.name ?? '')));
 
   // Acento de la cabecera según estado (playa o vertido): tinta sutil
   // + línea superior del color de estado
@@ -231,9 +245,10 @@ export default function FeatureSheet({
         style={styles.body}
         contentContainerStyle={[
           styles.bodyContent,
-          // El emisario acaba en el enlace a la fuente: menos aire
-          // de cola que la ficha de playa (que cierra con cards)
-          !isBeach && { paddingBottom: 10 },
+          // El emisario acaba en el enlace a la fuente y la píldora
+          // "Ver más" flota sobre el borde (~40px): aire de cola
+          // suficiente para que el último contenido suba por encima
+          !isBeach && { paddingBottom: 56 },
         ]}
         showsVerticalScrollIndicator={false}
         {...bodyProps}

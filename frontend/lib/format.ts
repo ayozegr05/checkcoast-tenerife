@@ -70,6 +70,42 @@ export const fmtDate = (iso: string) => {
   return `${d}/${m}/${y}`;
 };
 
+// "2026-09-14" -> "14/09/26" — filas densas donde el año se repite
+// (hemeroteca del emisario); el formato largo queda para banners
+export const fmtDateShort = (iso: string) => {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y.slice(2)}`;
+};
+
+// Nombre editorial del medio: la ingesta a veces guarda el dominio
+// ("eldia.es") o variantes de la cabecera — la ficha siempre muestra
+// el nombre del periódico. Sin entrada en el mapa se devuelve tal
+// cual: mejor un dominio honesto que un nombre inventado
+const NEWS_SOURCE_NAMES: Record<string, string> = {
+  'eldia.es': 'El Día',
+  'www.eldia.es': 'El Día',
+  eldía: 'El Día',
+  'el día': 'El Día',
+  'diario de avisos': 'Diario de Avisos',
+  'diariodeavisos.es': 'Diario de Avisos',
+  'diariodeavisos.elespanol.com': 'Diario de Avisos',
+  'canarias7.es': 'Canarias7',
+  canarias7: 'Canarias7',
+  'europapress.es': 'Europa Press',
+  'europa press': 'Europa Press',
+  'laopinion.es': 'La Opinión de Tenerife',
+  'laopiniondetenerife.es': 'La Opinión de Tenerife',
+  'la opinión': 'La Opinión de Tenerife',
+  'atlanticohoy.com': 'Atlántico Hoy',
+  'atlántico hoy': 'Atlántico Hoy',
+  'canariasenpleno.es': 'Canarias en Pleno',
+  'canarias en pleno': 'Canarias en Pleno',
+  'tenerifeahora.com': 'Tenerife Ahora',
+  'tenerife ahora': 'Tenerife Ahora',
+};
+export const newsSourceLabel = (s: string | null | undefined): string =>
+  s ? (NEWS_SOURCE_NAMES[s.trim().toLowerCase()] ?? s) : '';
+
 export const fmtDistance = (m: number) =>
   m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
 
@@ -225,3 +261,15 @@ export const pointLongLabel = (name: string) => {
   const s = l.replace(/PM(\d+)/, 'zona $1');
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
+
+// Nombre corto del vertido para etiqueta de pin y título de ficha:
+// el censo anida la comarca en el topónimo ("Emisario Submarino del
+// Valle de La Orotava") y a 13px la etiqueta salta a 4 líneas —
+// "Valle de X" se lee siempre como X ("La Orotava", "Güímar").
+// "Palm-Mar" es el nombre comercial de la urbanización; los de la
+// zona dicen "El Palmar" — alias de display, el censo no se toca
+export const shortOutfallName = (name: string) =>
+  name
+    .replace(/\bpalm-?mar\b/i, 'El Palmar')
+    .replace(/\bvalle de\s+(la|los|las)\s+/i, '$1 ')
+    .replace(/\bvalle de\s+/i, '');

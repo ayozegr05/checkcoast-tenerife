@@ -174,6 +174,37 @@ tensión es fiel al dato, no un descuido.
 etiqueta del pin y buscador en un solo punto. La BD conserva el nombre
 crudo del censo.
 
+### Prensa: pilas de cobertura, medios distintos y el pie honesto
+
+- **Las pilas son heurística de cobertura, no episodios oficiales:**
+  agrupan por familia editorial + ventana temporal (≤30 días, cadena
+  de fechas). Nunca se presentan como "episodios" — un mismo suceso
+  real cubierto por varios medios con ángulos distintos es cobertura
+  relacionada, no una deducción.
+- **La métrica editorial es "M medios", no "N noticias":** la banda
+  cuenta medios distintos porque la corroboración independiente es
+  lo que da peso a la evidencia, no el volumen bruto (que arrastra
+  réplicas del mismo artículo por cada PM de playa).
+- **Una noticia sin playa solo entra en una pila si hay exactamente
+  una candidata de su familia ya anclada por playa** — nunca se
+  agrupan dos sin-playa entre sí (falsa agrupación).
+- **El lead de una suelta es el hecho extraído (`fact` /
+  `denunciaLead`), no el titular crudo:** el titular suele ser
+  ruido sensacionalista; el hecho es lo editorialmente honesto. Las
+  hijas de pila sí muestran titular (son el documento de archivo).
+- **Mismo artículo = una pieza, aunque Google le dé dos URLs:** el
+  endpoint deduplica por URL y, como segundo cerrojo, por (título
+  normalizado, medio) — Google News envuelve el mismo artículo con
+  distintas URL y fechas que bailan un día.
+- **Disclaimer permanente "según prensa — la proximidad no implica
+  causalidad":** la app jamás dice "este emisario cerró esta playa";
+  muestra cobertura y distancia, no causalidad.
+- **El riesgo se declara estimación:** `outfallRisk` es una fórmula
+  determinista sobre el censo (índice de priorización, no veredicto
+  sanitario) y el pie de la ficha lo dice: "El riesgo es una
+  estimación a partir de los datos del censo" — la misma disciplina
+  epistémica que el disclaimer de prensa.
+
 ## Infra y calidad
 
 ### Docker Compose con auto-migración

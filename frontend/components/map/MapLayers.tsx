@@ -364,7 +364,7 @@ export default function MapLayers({
             type="symbol"
             filter={['==', ['get', 'sel'], true]}
             layout={{
-              'text-field': ['get', 'name'],
+              'text-field': ['coalesce', ['get', 'label'], ['get', 'name']],
               'text-size': 13,
               'text-font': ['Noto Sans Bold'],
               'text-offset': [0, 1.0],

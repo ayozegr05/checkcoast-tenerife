@@ -2,7 +2,7 @@ import React from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { BeachNews } from '../../lib/api';
-import { fmtDate } from '../../lib/format';
+import { fmtDate, newsSourceLabel } from '../../lib/format';
 import { NEWS_PHASE_COLOR, type NewsGroup } from '../../lib/news';
 import { colors, fonts } from '../../lib/theme';
 
@@ -26,7 +26,7 @@ function NewsItemRow({ n, accent }: { n: BeachNews; accent: string }) {
         </Text>
         <Text style={styles.newsMeta} numberOfLines={1}>
           {[
-            n.source,
+            newsSourceLabel(n.source),
             n.published_at ? fmtDate(n.published_at.slice(0, 10)) : null,
           ]
             .filter(Boolean)

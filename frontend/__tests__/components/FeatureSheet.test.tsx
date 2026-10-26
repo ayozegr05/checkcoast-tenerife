@@ -115,7 +115,8 @@ describe('<FeatureSheet />', () => {
     );
     expect(nearbyMock).toHaveBeenCalledWith(9);
     expect(screen.getByText('Emisario Los Llanos')).toBeTruthy();
-    expect(screen.getByText('No autorizado')).toBeTruthy();
+    // El triaje muestra el sello ILEGAL, no el texto "No autorizado"
+    expect(screen.getByText('ILEGAL')).toBeTruthy();
 
     const fantasma = await screen.findByRole('button', {
       name: 'Playa Fantasma, ver en el mapa',

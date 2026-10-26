@@ -288,6 +288,35 @@ def test_infra_outfall_for_text_toponym_alone_is_not_attribution():
     assert infra_outfall_for_text(text, _cluster()) is None
 
 
+def test_civic_building_never_attributes():
+    """'Ayuntamiento'/'aparcamiento' son edificios, no topónimos:
+    "la depuradora del Ayuntamiento" habla del consistorio y no
+    puede colgar del punto del censo (caso real: las noticias de
+    El Médano se enlazaban al Aliviadero de Candelaria)."""
+    o = _FakeOutfall(
+        1, "Aliviadero EBAR Ayuntamiento - Aparcamiento"
+    )
+    assert "ayuntamiento" not in outfall_keys(o)
+    assert "aparcamiento" not in outfall_keys(o)
+    text = norm_txt("La depuradora del ayuntamiento vierte al mar")
+    assert infra_outfall_for_text(text, [o]) is None
+
+
+def test_prefix_toponym_never_attributes():
+    """'Puertito' (El Puertito de Tabaiba) es prefijo de 'Puertito
+    de Radazul': aunque solo lo tenga un punto, la prensa que dice
+    "el emisario del Puertito" no distingue entre los Puertitos de
+    la isla → sin atribución."""
+    a = _FakeOutfall(
+        1, "Conducción de desagüe de Tabaiba", location="El Puertito"
+    )
+    b = _FakeOutfall(2, "Aliviadero EBAR", location="Puertito de Radazul")
+    text = norm_txt(
+        "Cierran dos playas por problemas en el emisario del Puertito"
+    )
+    assert infra_outfall_for_text(text, [a, b]) is None
+
+
 class _FakeNews:
     """ORM duck-typed para el agrupador: los campos que lee
     named_by_family/_infra_family."""
@@ -351,19 +380,17 @@ def test_news_by_year_family_groups_year_then_semantic_family():
         ),
     ]
     groups = news_by_year_family(named)
-    # 2026 primero, 2025 después — un bloque por año; Reparación
-    # encabeza el orden de familias (la respuesta va antes que el
-    # daño: es la noticia más accionable)
+    # 2026 primero, 2025 después — un bloque por año; rotura y
+    # reparación son UNA familia (lo que no se rompe no se repara)
     assert [g["year"] for g in groups] == [2026, 2025]
     assert [f["family"] for f in groups[0]["families"]] == [
-        "Reparaciones y obras",
-        "Roturas y averías",
+        "Roturas y reparaciones",
     ]
     # las dos roturas de 2025 comparten familia pero son hechos
     # distintos: ítems planos ordenados por firma — el más reciente
     # de cada bloque primero
     rot25 = groups[1]["families"][0]
-    assert rot25["family"] == "Roturas y averías"
+    assert rot25["family"] == "Roturas y reparaciones"
     assert rot25["count"] == 2
     assert len(rot25["items"]) == 2
     assert rot25["items"][0][0].infra_cause == "rotura del emisario"
@@ -453,7 +480,7 @@ def test_news_by_year_family_signature_groups_paraphrases():
     groups = news_by_year_family(named)
     # la fisura cae en Roturas; los tres vertidos-paráfrasis en Vertidos
     assert [f["family"] for f in groups[0]["families"]] == [
-        "Roturas y averías",
+        "Roturas y reparaciones",
         "Vertidos",
     ]
     fam = groups[0]["families"][1]
@@ -497,7 +524,7 @@ def test_news_by_year_family_ignores_playa_cause():
             )
         ]
     )
-    assert groups[0]["families"][0]["family"] == "Roturas y averías"
+    assert groups[0]["families"][0]["family"] == "Roturas y reparaciones"
 
 
 def test_news_by_year_family_fallback_other_and_sin_fecha():

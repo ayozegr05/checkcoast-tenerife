@@ -23,6 +23,9 @@ type UseSheetDragOpts = {
   // cierre — se calcula por geometría, no solo por "expandida":
   // en pantallas bajas la ficha en reposo ya puede cubrirlos
   onCoverageChange?: (coversControls: boolean) => void;
+  // Borde superior de la ficha en reposo (Y en pantalla): el mapa lo
+  // usa para corregir el encuadre del pin una vez medido el contenido
+  onRestTopChange?: (topY: number) => void;
 };
 
 // Card flotante arrastrable: peek (~42% alto) -> expandida (~86%) ->
@@ -34,6 +37,7 @@ export function useSheetDrag({
   interceptClose,
   onClose,
   onCoverageChange,
+  onRestTopChange,
 }: UseSheetDragOpts) {
   const winH = useWindowDimensions().height;
   // Card anclada ABAJO: al expandir crece hacia arriba hasta ~92% de
@@ -83,6 +87,11 @@ export function useSheetDrag({
     () => onCoverageChange?.(coversControls),
     [coversControls, onCoverageChange],
   );
+  // La ficha mide su contenido (peek = bodyH+cabecera): el borde
+  // superior real solo se conoce tras el layout — se publica para
+  // que la cámara deje el pin justo encima con su etiqueta entera
+  const restTop = winH - restBottom - peek;
+  useEffect(() => onRestTopChange?.(restTop), [restTop, onRestTopChange]);
   // Scroll del cuerpo: BeachDetail lo usa para bajar a "Ver titulares"
   const bodyRef = useRef<ScrollView>(null);
   // "Ver más" visible mientras quede contenido por debajo del viewport.

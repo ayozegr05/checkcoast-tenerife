@@ -290,7 +290,7 @@ def test_outfall_news(seed_data):
             for it in f["items"]
             if it["title"] == named.title
         )
-        assert fam["family"] == "Roturas y averías"
+        assert fam["family"] == "Roturas y reparaciones"
         assert fam["count"] == 1
         assert row["fact"] == "rotura del emisario"
         assert ygrp["year"] is None

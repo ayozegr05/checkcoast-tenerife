@@ -103,6 +103,10 @@ export default function App() {
   // capas) — se desactivan para que la ✕ no pulse el botón de
   // satélite que queda debajo
   const [sheetCoversControls, setSheetCoversControls] = useState(false);
+  // Borde superior real de la ficha de emisario (lo reporta
+  // FeatureSheet tras medir el contenido): la cámara corrige el
+  // encuadre del pin para que la etiqueta no quede bajo la ficha
+  const [sheetTopY, setSheetTopY] = useState<number | null>(null);
   // Doble atrás para salir: marca temporal del último atrás en el mapa
   const lastBackRef = useRef(0);
   // Registro push fallido (permiso denegado, sin projectId o error de
@@ -530,6 +534,9 @@ export default function App() {
         pmPoints={pmPointsFC}
         zoneFocus={zoneShown}
         controlsCovered={sheetCoversControls && !!selection && !sheetHidden}
+        outfallSheetTop={
+          selection?.type === 'outfall' && !sheetHidden ? sheetTopY : null
+        }
         onSelect={(s) => {
           setSelection(s);
           setSheetHidden(false);
@@ -716,6 +723,7 @@ export default function App() {
           onFocusConsumed={() => setFocusIncident(null)}
           onZoneShown={setZoneShown}
           onCoverageChange={setSheetCoversControls}
+          onSheetTopChange={setSheetTopY}
           onViewOnMap={() => {
             // Ocultar la card pero mantener la selección: el pin sigue
             // destacado y el mapa vuela cerca del punto

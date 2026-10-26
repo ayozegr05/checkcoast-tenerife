@@ -4,6 +4,7 @@ import type { CameraRef } from '@maplibre/maplibre-react-native';
 
 import type { FeatureCollection, GeoFeature } from '../lib/api';
 import type { MapBeachGroup } from '../lib/mapData';
+import { shortOutfallName } from '../lib/format';
 
 // Vista inicial: la isla entera encuadrada con margen (fitBounds se
 // adapta al tamaño de pantalla, a diferencia de un zoom fijo)
@@ -39,6 +40,12 @@ type UseMapCameraArgs = {
   pmPoints?: FeatureCollection;
   // Grupos de playa: el foco sobre un PM se traduce a su centroide
   beachGroups: Record<string, MapBeachGroup>;
+  // Borde superior real de la ficha de emisario abierta (lo reporta
+  // FeatureSheet tras medir el contenido) — corrige el encuadre del
+  // pin para que su etiqueta no quede bajo la ficha
+  outfallSheetTop?: number | null;
+  // Emisario seleccionado (para el re-encuadre fino de arriba)
+  selectedOutfall?: GeoFeature | null;
 };
 
 // Coreografía de cámara del mapa: guarda la vista antes de un vuelo,
@@ -53,6 +60,8 @@ export function useMapCamera({
   zoneFocus = null,
   pmPoints,
   beachGroups,
+  outfallSheetTop = null,
+  selectedOutfall = null,
 }: UseMapCameraArgs) {
   const cameraRef = useRef<CameraRef>(null);
   const { height: winH } = useWindowDimensions();
@@ -75,22 +84,31 @@ export function useMapCamera({
     top: cardPad.top,
     bottom: Math.min(Math.round(winH * 0.28) + 348, winH - 180),
   };
-  // La card de vertido flota alta (~30%): su pin sube un poco más que
-  // el de playa para no quedar tapado por la ficha
+  // Card de vertido: estimación inicial conservadora (~media
+  // pantalla). La ficha mide su contenido real (peek = cuerpo +
+  // cabecera) y reporta su borde superior — el ajuste fino llega
+  // con outfallSheetTop abajo; aquí solo evitamos que el pin
+  // arranque dentro de la ficha
+  const outfallSheetOcc = Math.min(Math.round(winH * 0.5) + 44, winH - 220);
+  // El nombre del vertido se dibuja BAJO el pin (~16px/línea a 13px,
+  // ~15 caracteres por línea con wrap por palabra, sobre la etiqueta
+  // ya acortada sin "Valle de…"): cada línea pide su reserva bajo el
+  // punto o la card se la come — el +12 es aire entre label y ficha
+  const outfallPadFor = (name?: string | null) => {
+    const lines = Math.max(
+      1,
+      Math.ceil(shortOutfallName(name ?? '').length / 15),
+    );
+    return {
+      top: 120,
+      bottom: Math.min(outfallSheetOcc + lines * 16 + 12, winH - 180),
+    };
+  };
+  // Foco externo sin nombre a la mano: peor caso de etiqueta (2 líneas)
   const outfallPad = {
     top: 120,
-    bottom: Math.min(Math.round(winH * 0.5) + 140, winH - 180),
+    bottom: Math.min(outfallSheetOcc + 44, winH - 180),
   };
-  // El nombre del vertido se dibuja BAJO el pin (~16px por línea):
-  // nombres de 3 líneas ("Nuevo Emisario submarino de Las Galletas")
-  // piden reserva extra o la card se come la última línea
-  const outfallPadFor = (name?: string | null) => ({
-    top: outfallPad.top,
-    bottom: Math.min(
-      outfallPad.bottom + ((name?.length ?? 0) >= 33 ? 27 : 0),
-      winH - 180,
-    ),
-  });
 
   // Vista actual + vista guardada antes de volar a un pin (para
   // restaurar al cerrar la card)
@@ -274,6 +292,35 @@ export function useMapCamera({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
+
+  // Re-encuadre fino del pin de emisario: el vuelo inicial usa una
+  // reserva estimada; cuando la ficha reporta su borde superior real
+  // (peek medido) se recoloca el punto para que la etiqueta completa
+  // quede justo encima. Solo en reposo — expandir no cambia peek,
+  // así que un arrastre del usuario no dispara correcciones
+  useEffect(() => {
+    if (outfallSheetTop == null || !selectedOutfall) return;
+    const [lon, lat] = selectedOutfall.geometry.coordinates as [number, number];
+    const lines = Math.max(
+      1,
+      Math.ceil(
+        shortOutfallName(selectedOutfall.properties.name ?? '').length / 15,
+      ),
+    );
+    cameraRef.current?.easeTo({
+      center: [lon, lat],
+      zoom: lastView.current.zoom,
+      padding: {
+        top: 120,
+        bottom: Math.min(
+          Math.round(winH - outfallSheetTop) + lines * 16 + 8,
+          winH - 180,
+        ),
+      },
+      duration: 450,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outfallSheetTop, selectedOutfall]);
 
   // onRegionDidChange del Map: actualiza la vista actual y marca el
   // paneo/zoom manual (al cerrar la card no se restaura la vista

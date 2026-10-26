@@ -4,10 +4,14 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  clusterNewsCoverage,
   conduitSegs,
+  denunciaLead,
+  flattenNewsGroups,
   kpiSegs,
   natureParts,
   nearbyUniqueBeaches,
+  newsFamilyChips,
   operationDetail,
   operationShort,
   operationText,
@@ -134,7 +138,7 @@ describe('kpiSegs', () => {
       lead: 'Emisario submarino vierte a:',
       tiles: [
         { v: '922 m', l: 'de la orilla' },
-        { v: '41 m', l: 'de profundidad' },
+        { v: '41 m', l: 'bajo el mar' },
       ],
     });
   });
@@ -277,7 +281,7 @@ describe('nearbyUniqueBeaches', () => {
 });
 
 describe('outfallNewsMeta (Hito 11.2)', () => {
-  it('junta medio · fecha · playa casada', () => {
+  it('junta fecha · medio · playa casada', () => {
     expect(
       outfallNewsMeta({
         id: 1,
@@ -292,7 +296,7 @@ describe('outfallNewsMeta (Hito 11.2)', () => {
         infra_cause: null,
         fact: null,
       }),
-    ).toBe('El Día · 09/10/2026 · Playa Jardín');
+    ).toBe('09/10/26 · El Día · Playa Jardín');
   });
 
   it('el hecho de infra va de titular de fila, no en la meta', () => {
@@ -312,7 +316,7 @@ describe('outfallNewsMeta (Hito 11.2)', () => {
         infra_cause: 'fisura en la conducción',
         fact: 'fisura en la conducción',
       }),
-    ).toBe('El Día · 09/10/2026');
+    ).toBe('09/10/26 · El Día');
   });
 
   it('withDate:false omite la fecha (el lead ya la lleva)', () => {
@@ -352,6 +356,175 @@ describe('outfallNewsMeta (Hito 11.2)', () => {
         fact: null,
       }),
     ).toBe('');
+  });
+
+  it('dayOnly (hijas de pila): "7 oct" sin año — el año lo da el riel', () => {
+    expect(
+      outfallNewsMeta(
+        {
+          id: 1,
+          beach_id: 2,
+          title: 'Vertido',
+          url: 'https://x.test/b',
+          source: 'El Día',
+          published_at: '2026-10-07T12:00:00Z',
+          event_type: 'infra',
+          cause: null,
+          beach_name: 'PLAYA JARDIN PM4',
+          infra_cause: null,
+          fact: null,
+        },
+        true,
+        true,
+        true,
+      ),
+    ).toBe('7 oct · El Día · Playa Jardín');
+  });
+});
+
+describe('lista plana de prensa (chips + hemeroteca)', () => {
+  const item = (id: number, published_at: string | null) => ({
+    id,
+    beach_id: null,
+    title: `t${id}`,
+    url: 'https://x.test',
+    source: 'El Día',
+    published_at,
+    event_type: 'infra',
+    cause: null,
+    beach_name: null,
+    infra_cause: null,
+    fact: null,
+  });
+  const groups = [
+    {
+      year: 2025,
+      families: [
+        {
+          family: 'rotura del emisario',
+          count: 2,
+          items: [item(1, '2025-05-28'), item(2, '2025-03-01')],
+        },
+        { family: 'vertido', count: 1, items: [item(3, '2025-06-10')] },
+      ],
+    },
+    {
+      year: 2024,
+      families: [
+        {
+          family: 'rotura del emisario',
+          count: 1,
+          items: [item(4, '2024-11-02')],
+        },
+      ],
+    },
+  ];
+
+  it('flattenNewsGroups aplana años y familias, recientes primero', () => {
+    expect(flattenNewsGroups(groups).map((n) => n.id)).toEqual([3, 1, 2, 4]);
+  });
+
+  it('newsFamilyChips agrega el contador de cada familia entre años', () => {
+    expect(newsFamilyChips(groups)).toEqual([
+      { family: 'rotura del emisario', count: 3 },
+      { family: 'vertido', count: 1 },
+    ]);
+  });
+});
+
+describe('clusterNewsCoverage (pilas de prensa)', () => {
+  const flat = (
+    id: number,
+    family: string,
+    published_at: string,
+    beach_name: string | null,
+  ) => ({
+    id,
+    beach_id: null,
+    title: `t${id}`,
+    url: 'https://x.test',
+    source: 'El Día',
+    published_at,
+    event_type: 'infra',
+    cause: null,
+    beach_name,
+    infra_cause: null,
+    fact: null,
+    family,
+  });
+
+  it('una pieza sin playa se engancha a la única pila de su familia', () => {
+    const items = [
+      flat(1, 'rotura', '2026-09-27', 'PLAYA JARDIN PM1'),
+      flat(2, 'rotura', '2026-09-28', null),
+      flat(3, 'vertido', '2026-09-30', 'PLAYA JARDIN PM4'),
+    ];
+    const clusters = clusterNewsCoverage(items);
+    expect(clusters).toHaveLength(2);
+    expect(
+      clusters.find((c) => c.items.length === 2)?.items.map((n) => n.id),
+    ).toEqual([2, 1]);
+  });
+
+  it('sin playa y con dos pilas posibles no adivina: queda suelta', () => {
+    const items = [
+      flat(1, 'rotura', '2026-09-27', 'PLAYA JARDIN PM1'),
+      flat(2, 'rotura', '2026-09-20', 'EL MÉDANO PM3'),
+      flat(3, 'rotura', '2026-09-25', null),
+    ];
+    const clusters = clusterNewsCoverage(items);
+    expect(clusters).toHaveLength(3);
+    expect(clusters.every((c) => c.items.length === 1)).toBe(true);
+  });
+
+  it('dos piezas sin playa no forman pila: falta el ancla', () => {
+    const items = [
+      flat(1, 'rotura', '2026-09-27', null),
+      flat(2, 'rotura', '2026-09-28', null),
+    ];
+    const clusters = clusterNewsCoverage(items);
+    expect(clusters).toHaveLength(2);
+  });
+
+  it('sin playa y familia fuera de ventana queda suelta', () => {
+    const items = [
+      flat(1, 'denuncia', '2024-09-28', 'PLAYA JARDIN PM4'),
+      flat(2, 'denuncia', '2025-08-27', null),
+    ];
+    const clusters = clusterNewsCoverage(items);
+    expect(clusters).toHaveLength(2);
+  });
+});
+
+describe('denunciaLead (lead corto de Denuncias)', () => {
+  it('lee la acción del titular y la antepone al hecho físico', () => {
+    expect(
+      denunciaLead({
+        title: 'El vertido de 1.000 litros que investiga el Cabildo',
+        fact: 'vertido de cloruro férrico por rotura de manguera',
+      }),
+    ).toBe('investigación por vertido de cloruro férrico por rotura de manguera');
+    expect(
+      denunciaLead({
+        title: 'Sanción a la concesionaria por el derrame',
+        fact: 'derrame químico',
+      }),
+    ).toBe('expediente sancionador por derrame químico');
+    expect(
+      denunciaLead({
+        title: 'La Fiscalía denuncia a la depuradora',
+        fact: 'vertido de aguas fecales',
+      }),
+    ).toBe('denuncia por vertido de aguas fecales');
+  });
+
+  it('sin keyword clara o sin hecho devuelve null → la fila usa el titular', () => {
+    expect(
+      denunciaLead({ title: 'El Cabildo actúa', fact: 'algo' }),
+    ).toBeNull();
+    expect(
+      denunciaLead({ title: 'investiga el Cabildo', fact: null }),
+    ).toBeNull();
   });
 });
 

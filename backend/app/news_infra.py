@@ -236,6 +236,24 @@ _GENERIC_TOPONYMS = {
     "sur",
     "este",
     "oeste",
+    # edificios y servicios cívicos: "el emisario del ayuntamiento"
+    # habla del consistorio, no de un punto del censo (caso real:
+    # el Aliviadero EBAR Ayuntamiento - Aparcamiento se tragaba las
+    # noticias de "la depuradora del Ayuntamiento" de toda la isla)
+    "ayuntamiento",
+    "aparcamiento",
+    "plaza",
+    "mercado",
+    "iglesia",
+    "colegio",
+    "instituto",
+    "polideportivo",
+    "oficina",
+    "garaje",
+    "nave",
+    "piscina",
+    "piscinas",
+    "tour",
 }
 
 
@@ -301,12 +319,24 @@ def _toponym_owners(outfalls: Iterable) -> dict[str, set[int]]:
     Un topónimo solo puede atribuir cuando es único en todo el censo:
     "Bajamar" lo comparten 5 puntos del clúster — la noticia que dice
     "el aliviadero de Bajamar" no distingue y no se atribuye a ninguno.
+
+    Y una clave que es prefijo de otra clave del censo tampoco puede
+    atribuir, aunque sea única: "Puertito" (El Puertito de Tabaiba)
+    es prefijo de "puertito de guimar" y "puertito de radazul" — la
+    prensa que dice "el emisario del Puertito" no distingue entre
+    los tres Puertitos de la isla.
     """
     owners: dict[str, set[int]] = {}
     for o in outfalls:
         for k in outfall_keys(o):
             owners.setdefault(k, set()).add(o.id)
-    return owners
+    ambiguous = {
+        k
+        for k in owners
+        for k2 in owners
+        if k2 != k and k2.startswith(k + " ")
+    }
+    return {k: ids for k, ids in owners.items() if k not in ambiguous}
 
 
 def outfall_named_patterns(
@@ -344,7 +374,8 @@ def infra_outfall_for_text(text: str, outfalls: Iterable) -> int | None:
 # --- Sección de prensa del emisario (endpoint + landing) ---
 
 OUTFALL_NEWS_RADIUS_M = 2000
-OUTFALL_NEWS_LIMIT = 10
+# Sin tope de ítems: la ficha ya acota con la vista por años y el
+# "Ver más" — truncar escondía hemeroteca que ya viajaba en `named`
 
 # Familias semánticas para agrupar las noticias "de este punto": la
 # causa del LLM es texto libre ("vertido de aguas residuales" vs
@@ -352,9 +383,14 @@ OUTFALL_NEWS_LIMIT = 10
 # palabras clave. El hecho (infra_cause/cause) manda sobre el
 # titular; "Vertido" va de cajón final — una denuncia o reparación
 # por vertido sigue siendo noticia de denuncia/reparación
+# "Roturas y reparaciones" es UNA familia: la reparación es el
+# capítulo dos de la rotura — lo que no se rompe no se repara.
+# Dos regex con el mismo label conservan la precedencia original:
+# la reparación se detecta antes que la denuncia (la respuesta es
+# lo más accionable) y la rotura después.
 _INFRA_FAMILIES: list[tuple[str, re.Pattern]] = [
     (
-        "Reparaciones y obras",
+        "Roturas y reparaciones",
         re.compile(r"repara|obra|arregl|licit|concurso|retras", re.I),
     ),
     (
@@ -364,7 +400,7 @@ _INFRA_FAMILIES: list[tuple[str, re.Pattern]] = [
         ),
     ),
     (
-        "Roturas y averías",
+        "Roturas y reparaciones",
         re.compile(r"rotur|fisur|revent|aver[ií]a|derrame", re.I),
     ),
     ("Obstrucciones", re.compile(r"obstru|atasc|toallita|colaps", re.I)),
@@ -452,7 +488,11 @@ def news_by_year_family(
         n, _ = pair
         year = n.published_at.year if n.published_at else 0
         by_fam.setdefault((year, _infra_family(n)), []).append(pair)
-    order = {label: i for i, (label, _) in enumerate(_INFRA_FAMILIES)}
+    # Con labels repetidos (rotura+reparación comparten familia) el
+    # orden manda la primera aparición, no la última
+    order: dict[str, int] = {}
+    for i, (label, _) in enumerate(_INFRA_FAMILIES):
+        order.setdefault(label, i)
     years: dict[int, list[dict]] = {}
     for (year, fam), items in by_fam.items():
         years.setdefault(year, []).append(
@@ -502,7 +542,7 @@ def gather_infra_news(
     - La proximidad es contexto de prensa: nunca implica causalidad.
     - Devuelve además `summary` (dict {"named_count", "causes"} o
       None): la línea resumen "de este punto" — recuento sobre TODAS
-      las named, no solo las que caben en el límite — y `groups`
+      las named — y `groups`
       ({"named": [...], "zone": [...]}), ambas listas agrupadas
       año → familia semántica (la zona también tiene ruido: mismas
       réplicas apiladas bajo el mismo hecho).
@@ -545,10 +585,18 @@ def gather_infra_news(
     named: list[tuple[NewsItem, str | None]] = []
     zone: list[tuple[NewsItem, str | None]] = []
     seen: set[str] = set()  # dedup por URL: réplicas en cada PM
+    seen_piece: set[tuple[str, str]] = set()  # mismo artículo, URL gemela
     for n in rows:
         if n.url in seen:
             continue
         seen.add(n.url)
+        # Segundo cerrojo: Google News envuelve el MISMO artículo con
+        # URLs distintas (y la fecha puede bailar un día) — la réplica
+        # caza por URL, el wrapper gemelo solo por (titular, medio)
+        piece = (norm_txt(n.title or ''), (n.source or '').lower())
+        if piece in seen_piece:
+            continue
+        seen_piece.add(piece)
         pair = (n, beach_names.get(n.beach_id))
         if n.infra_outfall_id is not None:
             # Atribución persistida (titular o cuerpo): propio →
@@ -577,15 +625,13 @@ def gather_infra_news(
             dict.fromkeys(c for n, _ in named if (c := infra_cause_of(n)))
         )
         summary = {"named_count": len(named), "causes": causes[:3]}
-    shown = named[:OUTFALL_NEWS_LIMIT]
-    shown_zone = zone[:OUTFALL_NEWS_LIMIT]
     return (
-        shown,
-        shown_zone,
+        named,
+        zone,
         summary,
         {
-            "named": news_by_year_family(shown),
-            "zone": news_by_year_family(shown_zone),
+            "named": news_by_year_family(named),
+            "zone": news_by_year_family(zone),
         },
     )
 
