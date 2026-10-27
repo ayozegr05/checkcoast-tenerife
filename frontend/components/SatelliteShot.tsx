@@ -68,11 +68,7 @@ const shotUrl = (lon: number, lat: number, scale: number) => {
 // el máximo zoom antes de que la imagen de Esri se pixelice.
 // `scale` se deja tunear: la lista de playas usa ~0.5 (366 m)
 // para que el arenal se lea como playa y no solo como costa
-export const thumbUrl = (
-  coords: [number, number],
-  px = 160,
-  scale = 0.2,
-) => {
+export const thumbUrl = (coords: [number, number], px = 160, scale = 0.2) => {
   const [lon, lat] = coords;
   const d = BASE_DLAT * scale;
   return (

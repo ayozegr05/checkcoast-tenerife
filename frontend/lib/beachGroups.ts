@@ -194,7 +194,11 @@ export const buildGroups = (
     // Solo se invierte la parte rankeada (apta > aviso > cerrada);
     // sin monitorizar y sin datos se quedan al fondo igualmente
     const aptasRank = (s: string) =>
-      s === 'unmonitored' ? 3 : s === 'unknown' ? 4 : 2 - (STATUS_ORDER[s] ?? 2);
+      s === 'unmonitored'
+        ? 3
+        : s === 'unknown'
+          ? 4
+          : 2 - (STATUS_ORDER[s] ?? 2);
     arr.sort(
       (a, b) =>
         aptasRank(worstStatusOf(a)) - aptasRank(worstStatusOf(b)) ||

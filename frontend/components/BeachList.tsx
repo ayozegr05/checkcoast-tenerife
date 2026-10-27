@@ -465,16 +465,12 @@ export default function BeachList({
                               style={[
                                 styles.filterTabDot,
                                 {
-                                  backgroundColor:
-                                    STATUS_COLORS[statusFilter],
+                                  backgroundColor: STATUS_COLORS[statusFilter],
                                 },
                               ]}
                             />
                           )}
-                        <Text
-                          style={styles.filterTabValue}
-                          numberOfLines={1}
-                        >
+                        <Text style={styles.filterTabValue} numberOfLines={1}>
                           {t.value}
                         </Text>
                         {t.count != null && (
@@ -496,216 +492,213 @@ export default function BeachList({
                 );
               })}
             </View>
-            {openFilter !== null && (
-              <View style={styles.filterBarDivider} />
-            )}
+            {openFilter !== null && <View style={styles.filterBarDivider} />}
             {openFilter === 'muni' && (
-            <ScrollChips
-              style={styles.chips}
-              contentContainerStyle={styles.chipsContent}
-              fadeRgbLeft="140,216,230"
-              fadeRgbRight="242,251,253"
-              a11yLabel="municipios"
-            >
-              <Pressable
-                style={({ pressed }) => [
-                  styles.chip,
-                  municipality === undefined && styles.chipActive,
-                  pressed && styles.pressFx,
-                ]}
-                onPress={() => setMunicipality(undefined)}
-                accessibilityRole="button"
-                accessibilityLabel="Mostrar todas las playas"
-                accessibilityState={{ selected: municipality === undefined }}
+              <ScrollChips
+                style={styles.chips}
+                contentContainerStyle={styles.chipsContent}
+                fadeRgbLeft="140,216,230"
+                fadeRgbRight="242,251,253"
+                a11yLabel="municipios"
               >
-                <Text
-                  style={[
-                    styles.chipText,
-                    municipality === undefined && styles.chipTextActive,
-                  ]}
-                >
-                  {`Todos (${noMuni.length})`}
-                </Text>
-              </Pressable>
-              {municipalities.map((m) => (
                 <Pressable
-                  key={m}
                   style={({ pressed }) => [
                     styles.chip,
-                    municipality === m && styles.chipActive,
+                    municipality === undefined && styles.chipActive,
                     pressed && styles.pressFx,
                   ]}
-                  onPress={() =>
-                    setMunicipality(municipality === m ? undefined : m)
-                  }
+                  onPress={() => setMunicipality(undefined)}
                   accessibilityRole="button"
-                  accessibilityLabel={`Filtrar por municipio ${m}`}
-                  accessibilityState={{ selected: municipality === m }}
+                  accessibilityLabel="Mostrar todas las playas"
+                  accessibilityState={{ selected: municipality === undefined }}
                 >
                   <Text
                     style={[
                       styles.chipText,
-                      municipality === m && styles.chipTextActive,
+                      municipality === undefined && styles.chipTextActive,
                     ]}
                   >
-                    {`${m} (${muniCounts.get(m) ?? 0})`}
+                    {`Todos (${noMuni.length})`}
                   </Text>
                 </Pressable>
-              ))}
-              {beaches.some((f) => f.properties.municipality == null) && (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.chip,
-                    municipality === null && styles.chipActive,
-                    pressed && styles.pressFx,
-                  ]}
-                  onPress={() =>
-                    setMunicipality(municipality === null ? undefined : null)
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel="Filtrar por playas sin municipio"
-                  accessibilityState={{ selected: municipality === null }}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      municipality === null && styles.chipTextActive,
-                    ]}
-                  >
-                    {`Sin municipio (${muniCounts.get(null) ?? 0})`}
-                  </Text>
-                </Pressable>
-              )}
-            </ScrollChips>
-            )}
-            {openFilter === 'estado' && (
-            <ScrollChips
-              style={styles.chips}
-              contentContainerStyle={styles.chipsContent}
-              fadeRgbLeft="140,216,230"
-              fadeRgbRight="242,251,253"
-              a11yLabel="filtros de estado"
-            >
-              {presentStatuses.map((s) => (
-                <Pressable
-                  key={s}
-                  style={({ pressed }) => [
-                    styles.chip,
-                    styles.chipStatus,
-                    statusFilter === s && styles.chipActive,
-                    pressed && styles.pressFx,
-                  ]}
-                  onPress={() =>
-                    setStatusFilter(statusFilter === s ? undefined : s)
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel={`Filtrar por estado ${STATUS_LABELS[s]}`}
-                  accessibilityState={{ selected: statusFilter === s }}
-                >
-                  <View
-                    style={[
-                      styles.chipDot,
-                      { backgroundColor: STATUS_COLORS[s] },
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.chipText,
-                      statusFilter === s && styles.chipTextActive,
-                    ]}
-                  >
-                    {`${STATUS_LABELS[s]} (${statusCounts.get(s) ?? 0})`}
-                  </Text>
-                </Pressable>
-              ))}
-              {/* «Agua siempre apta» es un filtro de estado (récord
-                  limpio), no un orden: vive en este panel aunque su
-                  activación también fije el orden interno a Estado */}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.chip,
-                  statusFilter === 'impecables' && styles.chipActive,
-                  pressed && styles.pressFx,
-                ]}
-                onPress={() => {
-                  if (statusFilter === 'impecables') return;
-                  setStatusFilter('impecables');
-                  setSortMode('estado');
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Filtrar por playas que nunca tuvieron un problema de agua"
-                accessibilityState={{
-                  selected: statusFilter === 'impecables',
-                }}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    statusFilter === 'impecables' &&
-                      styles.chipTextActive,
-                  ]}
-                >
-                  {`Agua siempre apta (${impecablesCount})`}
-                </Text>
-              </Pressable>
-            </ScrollChips>
-            )}
-            {openFilter === 'orden' && (
-            /* Ordenar (radio puro): el orden siempre es uno. Con «Agua
-            siempre apta» activo el orden interno es Estado pero el
-            chip no se marca — solo un chip activo a la vez */
-            <ScrollChips
-              style={styles.chips}
-              contentContainerStyle={styles.chipsContent}
-              fadeRgbLeft="140,216,230"
-              fadeRgbRight="242,251,253"
-              a11yLabel="ordenar"
-            >
-              {(['estado', 'aptas', 'cierres', 'calidad'] as const).map(
-                (item) => (
+                {municipalities.map((m) => (
                   <Pressable
-                    key={item}
+                    key={m}
                     style={({ pressed }) => [
                       styles.chip,
-                      sortMode === item &&
-                        statusFilter !== 'impecables' &&
-                        styles.chipActive,
+                      municipality === m && styles.chipActive,
                       pressed && styles.pressFx,
                     ]}
-                    onPress={() => {
-                      setSortMode(item);
-                      // Elegir un orden sale del modo "Agua siempre apta"
-                      if (statusFilter === 'impecables')
-                        setStatusFilter(undefined);
-                    }}
+                    onPress={() =>
+                      setMunicipality(municipality === m ? undefined : m)
+                    }
                     accessibilityRole="button"
-                    accessibilityLabel={`Ordenar: ${SORT_LABELS[item]}`}
-                    accessibilityState={{
-                      selected:
-                        sortMode === item && statusFilter !== 'impecables',
-                    }}
+                    accessibilityLabel={`Filtrar por municipio ${m}`}
+                    accessibilityState={{ selected: municipality === m }}
                   >
                     <Text
                       style={[
                         styles.chipText,
-                        sortMode === item &&
-                          statusFilter !== 'impecables' &&
-                          styles.chipTextActive,
+                        municipality === m && styles.chipTextActive,
                       ]}
                     >
-                      {SORT_LABELS[item]}
+                      {`${m} (${muniCounts.get(m) ?? 0})`}
                     </Text>
                   </Pressable>
-                ),
-              )}
-            </ScrollChips>
+                ))}
+                {beaches.some((f) => f.properties.municipality == null) && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.chip,
+                      municipality === null && styles.chipActive,
+                      pressed && styles.pressFx,
+                    ]}
+                    onPress={() =>
+                      setMunicipality(municipality === null ? undefined : null)
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel="Filtrar por playas sin municipio"
+                    accessibilityState={{ selected: municipality === null }}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        municipality === null && styles.chipTextActive,
+                      ]}
+                    >
+                      {`Sin municipio (${muniCounts.get(null) ?? 0})`}
+                    </Text>
+                  </Pressable>
+                )}
+              </ScrollChips>
+            )}
+            {openFilter === 'estado' && (
+              <ScrollChips
+                style={styles.chips}
+                contentContainerStyle={styles.chipsContent}
+                fadeRgbLeft="140,216,230"
+                fadeRgbRight="242,251,253"
+                a11yLabel="filtros de estado"
+              >
+                {presentStatuses.map((s) => (
+                  <Pressable
+                    key={s}
+                    style={({ pressed }) => [
+                      styles.chip,
+                      styles.chipStatus,
+                      statusFilter === s && styles.chipActive,
+                      pressed && styles.pressFx,
+                    ]}
+                    onPress={() =>
+                      setStatusFilter(statusFilter === s ? undefined : s)
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`Filtrar por estado ${STATUS_LABELS[s]}`}
+                    accessibilityState={{ selected: statusFilter === s }}
+                  >
+                    <View
+                      style={[
+                        styles.chipDot,
+                        { backgroundColor: STATUS_COLORS[s] },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.chipText,
+                        statusFilter === s && styles.chipTextActive,
+                      ]}
+                    >
+                      {`${STATUS_LABELS[s]} (${statusCounts.get(s) ?? 0})`}
+                    </Text>
+                  </Pressable>
+                ))}
+                {/* «Agua siempre apta» es un filtro de estado (récord
+                  limpio), no un orden: vive en este panel aunque su
+                  activación también fije el orden interno a Estado */}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.chip,
+                    statusFilter === 'impecables' && styles.chipActive,
+                    pressed && styles.pressFx,
+                  ]}
+                  onPress={() => {
+                    if (statusFilter === 'impecables') return;
+                    setStatusFilter('impecables');
+                    setSortMode('estado');
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Filtrar por playas que nunca tuvieron un problema de agua"
+                  accessibilityState={{
+                    selected: statusFilter === 'impecables',
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      statusFilter === 'impecables' && styles.chipTextActive,
+                    ]}
+                  >
+                    {`Agua siempre apta (${impecablesCount})`}
+                  </Text>
+                </Pressable>
+              </ScrollChips>
+            )}
+            {openFilter === 'orden' && (
+              /* Ordenar (radio puro): el orden siempre es uno. Con «Agua
+            siempre apta» activo el orden interno es Estado pero el
+            chip no se marca — solo un chip activo a la vez */
+              <ScrollChips
+                style={styles.chips}
+                contentContainerStyle={styles.chipsContent}
+                fadeRgbLeft="140,216,230"
+                fadeRgbRight="242,251,253"
+                a11yLabel="ordenar"
+              >
+                {(['estado', 'aptas', 'cierres', 'calidad'] as const).map(
+                  (item) => (
+                    <Pressable
+                      key={item}
+                      style={({ pressed }) => [
+                        styles.chip,
+                        sortMode === item &&
+                          statusFilter !== 'impecables' &&
+                          styles.chipActive,
+                        pressed && styles.pressFx,
+                      ]}
+                      onPress={() => {
+                        setSortMode(item);
+                        // Elegir un orden sale del modo "Agua siempre apta"
+                        if (statusFilter === 'impecables')
+                          setStatusFilter(undefined);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ordenar: ${SORT_LABELS[item]}`}
+                      accessibilityState={{
+                        selected:
+                          sortMode === item && statusFilter !== 'impecables',
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          sortMode === item &&
+                            statusFilter !== 'impecables' &&
+                            styles.chipTextActive,
+                        ]}
+                      >
+                        {SORT_LABELS[item]}
+                      </Text>
+                    </Pressable>
+                  ),
+                )}
+              </ScrollChips>
             )}
           </ImageBackground>
 
           {statusFilter === 'impecables' && (
             <Text style={styles.impecablesNote}>
-              Solo playas monitorizadas por Sanidad: cero muestras no aptas y cero
-              episodios de contaminación
+              Solo playas monitorizadas por Sanidad: cero muestras no aptas y
+              cero episodios de contaminación
             </Text>
           )}
 
@@ -765,10 +758,7 @@ export default function BeachList({
                     <Image
                       source={{
                         uri: thumbUrl(
-                          g.members[0].geometry.coordinates as [
-                            number,
-                            number,
-                          ],
+                          g.members[0].geometry.coordinates as [number, number],
                           160,
                           0.5,
                         ),
@@ -837,16 +827,12 @@ export default function BeachList({
                           ? [
                               (st.own_closures ?? 0) > 0
                                 ? `${st.own_closures} ${
-                                    st.own_closures === 1
-                                      ? 'cierre'
-                                      : 'cierres'
+                                    st.own_closures === 1 ? 'cierre' : 'cierres'
                                   }`
                                 : null,
                               (st.own_warnings ?? 0) > 0
                                 ? `${st.own_warnings} ${
-                                    st.own_warnings === 1
-                                      ? 'aviso'
-                                      : 'avisos'
+                                    st.own_warnings === 1 ? 'aviso' : 'avisos'
                                   }`
                                 : null,
                               (st.own_lab ?? 0) > 0

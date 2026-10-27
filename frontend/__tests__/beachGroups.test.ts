@@ -115,9 +115,7 @@ describe('orden por estado', () => {
   });
 
   it('«aptas primero» espeja el default: apta > aviso > cerrada > no monitorizada > sin datos', () => {
-    const names = buildGroups(list(), { sortMode: 'aptas' }).map(
-      (g) => g.name,
-    );
+    const names = buildGroups(list(), { sortMode: 'aptas' }).map((g) => g.name);
     expect(names).toEqual([
       'PLAYA ABIERTA',
       'PLAYA CON AVISO',

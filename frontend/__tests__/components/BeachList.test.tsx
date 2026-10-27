@@ -110,7 +110,9 @@ describe('<BeachList />', () => {
     await render(<BeachList {...props()} />);
     expect(statsMock).toHaveBeenCalled();
     expect(episodesMock).toHaveBeenCalled();
-    expect(screen.getByText('3 monitorizadas · 1 sin monitorizar')).toBeTruthy();
+    expect(
+      screen.getByText('3 monitorizadas · 1 sin monitorizar'),
+    ).toBeTruthy();
     expect(rowNames()).toEqual([
       'Playa Jardín',
       'Playa El Camisón',
