@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Animated,
   Image,
@@ -14,7 +14,6 @@ import ScrollChips from '../ScrollChips';
 import type { GeoFeature } from '../../lib/api';
 import {
   OutfallNearbyBeach,
-  OutfallNewsItem,
   OutfallNewsResponse,
   fetchOutfallNearbyBeaches,
   fetchOutfallNews,
@@ -22,7 +21,6 @@ import {
 import {
   beachBaseName,
   displayBeachName,
-  fmtDate,
   fmtDistance,
   newsSourceLabel,
 } from '../../lib/format';
@@ -602,7 +600,7 @@ const PULSE_MS: Record<string, number> = {
 };
 
 const PulseDot = ({ color, level }: { color: string; level: string }) => {
-  const pulse = useRef(new Animated.Value(0)).current;
+  const pulse = useMemo(() => new Animated.Value(0), []);
   const duration = PULSE_MS[level] ?? 1500;
   useEffect(() => {
     const anim = Animated.loop(

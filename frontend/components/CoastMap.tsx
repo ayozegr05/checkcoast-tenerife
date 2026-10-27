@@ -263,7 +263,6 @@ export default function CoastMap({
   const {
     cameraRef,
     cardPad,
-    outfallPad,
     outfallPadFor,
     saveView,
     discardSavedView,
