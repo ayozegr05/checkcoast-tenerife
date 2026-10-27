@@ -722,9 +722,7 @@ def test_documented_start_contemporaneous_claim():
     """'cerrada desde el 10' afirmado el 13 es el suceso vigente:
     el closed_since vale aunque sea de 1 solo medio (y la pub es
     testigo por sí misma)."""
-    items = [
-        news(date(2026, 8, 13), "closure", closed_since="2026-08-10")
-    ]
+    items = [news(date(2026, 8, 13), "closure", closed_since="2026-08-10")]
     assert documented_start_candidates(items, date(2026, 8, 14)) == [
         date(2026, 8, 10),
         date(2026, 8, 13),
@@ -735,9 +733,7 @@ def test_documented_start_retro_single_source_ignored():
     """Pieza retrospectiva de 1 medio: ni su afirmación ni su fecha
     cuentan — la orden de cierre de junio que el ayuntamiento nunca
     ejecutó (Jardín) no documenta un cierre para el acta de agosto."""
-    items = [
-        news(date(2026, 7, 28), "closure", closed_since="2026-06-22")
-    ]
+    items = [news(date(2026, 7, 28), "closure", closed_since="2026-06-22")]
     assert documented_start_candidates(items, date(2026, 8, 11)) == []
 
 

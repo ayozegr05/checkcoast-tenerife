@@ -1052,9 +1052,7 @@ def beach_incidents(
     for _inc3, o in official_rows:
         if not o.press_items:
             continue
-        items = [
-            news_by_id[p.id] for p in o.press_items if p.id in news_by_id
-        ]
+        items = [news_by_id[p.id] for p in o.press_items if p.id in news_by_id]
         prev_end = max(
             (
                 e
@@ -1065,8 +1063,7 @@ def beach_incidents(
         )
         for cand in documented_start_candidates(items, o.opened_at):
             if prev_end is not None and (
-                cand < prev_end
-                or (cand == prev_end and cand in reopen_days)
+                cand < prev_end or (cand == prev_end and cand in reopen_days)
             ):
                 continue
             o.official_opened_at = o.opened_at

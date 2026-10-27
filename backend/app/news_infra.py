@@ -593,7 +593,7 @@ def gather_infra_news(
         # Segundo cerrojo: Google News envuelve el MISMO artículo con
         # URLs distintas (y la fecha puede bailar un día) — la réplica
         # caza por URL, el wrapper gemelo solo por (titular, medio)
-        piece = (norm_txt(n.title or ''), (n.source or '').lower())
+        piece = (norm_txt(n.title or ""), (n.source or "").lower())
         if piece in seen_piece:
             continue
         seen_piece.add(piece)

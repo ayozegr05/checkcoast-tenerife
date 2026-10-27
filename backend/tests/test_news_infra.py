@@ -293,9 +293,7 @@ def test_civic_building_never_attributes():
     "la depuradora del Ayuntamiento" habla del consistorio y no
     puede colgar del punto del censo (caso real: las noticias de
     El Médano se enlazaban al Aliviadero de Candelaria)."""
-    o = _FakeOutfall(
-        1, "Aliviadero EBAR Ayuntamiento - Aparcamiento"
-    )
+    o = _FakeOutfall(1, "Aliviadero EBAR Ayuntamiento - Aparcamiento")
     assert "ayuntamiento" not in outfall_keys(o)
     assert "aparcamiento" not in outfall_keys(o)
     text = norm_txt("La depuradora del ayuntamiento vierte al mar")
