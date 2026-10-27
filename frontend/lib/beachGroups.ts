@@ -48,7 +48,23 @@ export const worstStatusOf = (g: BeachGroup) =>
     .sort((a, b) => (STATUS_ORDER[a] ?? 9) - (STATUS_ORDER[b] ?? 9))[0] ??
   'unknown';
 
-export type SortMode = 'estado' | 'cierres' | 'calidad';
+export type SortMode = 'estado' | 'aptas' | 'cierres' | 'calidad';
+
+// "Impecable": grupo vigilado que nunca tuvo un problema de AGUA —
+// ni una muestra no apta ni un episodio de contaminación (oficial o
+// de prensa). Desprendimientos/obras no descuentan: el agua no tuvo
+// la culpa. Exportado para que los contadores de la lista usen el
+// mismo criterio que el filtro
+export const isImpecableGroup = (
+  g: BeachGroup,
+  stats: Map<number, BeachStats>,
+): boolean =>
+  g.members.some((m) => (stats.get(m.id)?.total_samples ?? 0) > 0) &&
+  g.members.every(
+    (m) =>
+      (stats.get(m.id)?.non_apta_samples ?? 1) === 0 &&
+      (stats.get(m.id)?.contam_episodes ?? 1) === 0,
+  );
 
 // Puntuación de calidad: peor = evaluación mala + más muestras no aptas
 // El historial pesa de verdad (una playa con 8 muestras "prohibido"
@@ -172,6 +188,18 @@ export const buildGroups = (
       (a, b) =>
         byMonitored(a, b) || worstQuality(b) - worstQuality(a) || byName(a, b),
     );
+  } else if (opts.sortMode === 'aptas') {
+    // Espejo del default: las que mejor están primero — decisión
+    // explícita del usuario (la app sigue abriendo con cerradas).
+    // Solo se invierte la parte rankeada (apta > aviso > cerrada);
+    // sin monitorizar y sin datos se quedan al fondo igualmente
+    const aptasRank = (s: string) =>
+      s === 'unmonitored' ? 3 : s === 'unknown' ? 4 : 2 - (STATUS_ORDER[s] ?? 2);
+    arr.sort(
+      (a, b) =>
+        aptasRank(worstStatusOf(a)) - aptasRank(worstStatusOf(b)) ||
+        byName(a, b),
+    );
   } else {
     arr.sort(
       (a, b) =>
@@ -179,20 +207,8 @@ export const buildGroups = (
           (STATUS_ORDER[worstStatusOf(b)] ?? 9) || byName(a, b),
     );
   }
-  // "impecables": grupos vigilados que nunca tuvieron un problema de
-  // AGUA — ni una muestra no apta ni un episodio de contaminación
-  // (oficial o de prensa). Desprendimientos/obras no descuentan: el
-  // agua no tuvo la culpa
   if (opts.statusFilter === 'impecables') {
-    return arr.filter(
-      (g) =>
-        g.members.some((m) => (stats.get(m.id)?.total_samples ?? 0) > 0) &&
-        g.members.every(
-          (m) =>
-            (stats.get(m.id)?.non_apta_samples ?? 1) === 0 &&
-            (stats.get(m.id)?.contam_episodes ?? 1) === 0,
-        ),
-    );
+    return arr.filter((g) => isImpecableGroup(g, stats));
   }
   return opts.statusFilter === undefined
     ? arr

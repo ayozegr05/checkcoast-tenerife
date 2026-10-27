@@ -110,7 +110,7 @@ describe('<BeachList />', () => {
     await render(<BeachList {...props()} />);
     expect(statsMock).toHaveBeenCalled();
     expect(episodesMock).toHaveBeenCalled();
-    expect(screen.getByText('3 vigiladas · 1 sin vigilar')).toBeTruthy();
+    expect(screen.getByText('3 monitorizadas · 1 sin monitorizar')).toBeTruthy();
     expect(rowNames()).toEqual([
       'Playa Jardín',
       'Playa El Camisón',
@@ -124,7 +124,7 @@ describe('<BeachList />', () => {
     ).toBeTruthy();
     expect(
       await screen.findByText(
-        'Puerto de la Cruz · 2 zonas · 1 cierre · 0 avisos · 2 muestras no aptas',
+        'Puerto de la Cruz · 2 zonas · 1 cierre · 2 muestras no aptas',
       ),
     ).toBeTruthy();
   });
@@ -141,6 +141,9 @@ describe('<BeachList />', () => {
   it('filtra por municipio, por «sin municipio» y por estado', async () => {
     await render(<BeachList {...props()} />);
     await fireEvent.press(
+      screen.getByRole('button', { name: 'Municipio: Todos' }),
+    );
+    await fireEvent.press(
       screen.getByRole('button', { name: 'Filtrar por municipio Arona' }),
     );
     expect(
@@ -156,12 +159,19 @@ describe('<BeachList />', () => {
     await fireEvent.press(
       screen.getByRole('button', { name: 'Mostrar todas las playas' }),
     );
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Estado: Todos' }),
+    );
     const aviso = screen.getByRole('button', {
       name: 'Filtrar por estado Aviso',
     });
     await fireEvent.press(aviso);
     expect(aviso).toBeSelected();
+    // El contador vive en el chip y en la cara de la pestaña
     expect(screen.getByText('Aviso (1)')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Estado: Aviso (1)' }),
+    ).toBeTruthy();
     expect(rowNames()).toEqual(['Playa El Camisón']);
     await fireEvent.press(aviso);
     expect(rowNames()).toHaveLength(4);
@@ -169,6 +179,9 @@ describe('<BeachList />', () => {
 
   it('solo ofrece chips de los estados presentes', async () => {
     await render(<BeachList {...props({ beaches: [vistas, camison] })} />);
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Estado: Todos' }),
+    );
     expect(
       screen.getByRole('button', { name: 'Filtrar por estado Apta' }),
     ).toBeTruthy();
@@ -179,28 +192,35 @@ describe('<BeachList />', () => {
 
   it('ordena por cierres y «Agua siempre apta» excluye cualquier problema', async () => {
     await render(<BeachList {...props()} />);
-    await screen.findByText(/1 cierre · 0 avisos/);
+    await screen.findByText(/1 cierre · 2 muestras no aptas/);
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Ordenar por Más cierres' }),
+      screen.getByRole('button', { name: 'Ordenar: Por defecto' }),
+    );
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Ordenar: Más cierres' }),
     );
     expect(rowNames()[0]).toBe('Playa Las Vistas');
     expect(rowNames().at(-1)).toBe('Playa de Benijo');
 
+    // «Agua siempre apta» vive en el panel de Estado (es un filtro,
+    // no un orden)
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Estado: Todos' }),
+    );
     const agua = screen.getByRole('button', {
       name: 'Filtrar por playas que nunca tuvieron un problema de agua',
     });
     await fireEvent.press(agua);
     expect(agua).toBeSelected();
-    expect(
-      screen.getByRole('button', { name: 'Ordenar por Más cierres' }),
-    ).not.toBeSelected();
     expect(rowNames()).toEqual(['Playa El Camisón']);
     expect(screen.getByText(/cero muestras no aptas/)).toBeTruthy();
 
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Ordenar por Estado' }),
+      screen.getByRole('button', { name: 'Ordenar: Por defecto' }),
     );
-    expect(agua).not.toBeSelected();
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Ordenar: Más cierres' }),
+    );
     expect(rowNames()).toHaveLength(4);
   });
 
@@ -271,7 +291,7 @@ describe('<BeachList />', () => {
     );
     expect(
       await screen.findByText(
-        /De las 2 playas con cierres por contaminación,\s+1 tienen un emisario a menos de 500 m/,
+        /De las 2 playas que han tenido cierres por\s+contaminación, 1 tienen un emisario a menos de\s+500 m/,
       ),
     ).toBeTruthy();
   });

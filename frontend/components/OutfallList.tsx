@@ -367,6 +367,11 @@ export default function OutfallList({
           keyExtractor={(f) => String(f.id)}
           style={styles.list}
           contentContainerStyle={styles.listContent}
+          // 'handled': el tap llega a la fila aunque el teclado esté
+          // abierto (un tap, no dos); 'on-drag': scrollear retira
+          // el teclado sin esperar a un tap
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           renderItem={({ item: f }) => {
             const s = f.properties.status ?? 'unknown';
             const risk = outfallRisk(f.properties);

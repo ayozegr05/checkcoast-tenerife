@@ -65,10 +65,16 @@ const shotUrl = (lon: number, lat: number, scale: number) => {
 // Miniatura cuadrada para filas de lista (Playas cercanas del
 // emisario): mismo servicio Esri, bbox cuadrado en grados para no
 // deformar. scale 0.2 ≈ 146 m de encuadre a 160 px ≈ 0.9 m/px —
-// el máximo zoom antes de que la imagen de Esri se pixelice
-export const thumbUrl = (coords: [number, number], px = 160) => {
+// el máximo zoom antes de que la imagen de Esri se pixelice.
+// `scale` se deja tunear: la lista de playas usa ~0.5 (366 m)
+// para que el arenal se lea como playa y no solo como costa
+export const thumbUrl = (
+  coords: [number, number],
+  px = 160,
+  scale = 0.2,
+) => {
   const [lon, lat] = coords;
-  const d = BASE_DLAT * 0.2;
+  const d = BASE_DLAT * scale;
   return (
     'https://server.arcgisonline.com/ArcGIS/rest/services/' +
     `World_Imagery/MapServer/export?bbox=${lon - d},${lat - d},` +

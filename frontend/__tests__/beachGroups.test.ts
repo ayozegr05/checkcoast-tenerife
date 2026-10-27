@@ -114,6 +114,19 @@ describe('orden por estado', () => {
     ]);
   });
 
+  it('«aptas primero» espeja el default: apta > aviso > cerrada > no monitorizada > sin datos', () => {
+    const names = buildGroups(list(), { sortMode: 'aptas' }).map(
+      (g) => g.name,
+    );
+    expect(names).toEqual([
+      'PLAYA ABIERTA',
+      'PLAYA CON AVISO',
+      'PLAYA CERRADA',
+      'Cala OSM',
+      'PLAYA SIN DATOS',
+    ]);
+  });
+
   it('el filtro de estado casa con el peor estado del grupo', () => {
     const closed = buildGroups(list(), { statusFilter: 'closed' });
     expect(closed.map((g) => g.name)).toEqual(['PLAYA CERRADA']);

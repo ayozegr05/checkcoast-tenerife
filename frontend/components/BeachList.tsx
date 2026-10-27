@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import BeachDetail from './BeachDetail';
 import ScrollChips from './ScrollChips';
+import { thumbUrl } from './SatelliteShot';
 import {
   BeachStats,
   GeoFeature,
@@ -36,6 +37,7 @@ import {
   buildGroups,
   evalShort,
   groupKeyOf,
+  isImpecableGroup,
   statusOf,
   worstEvalOf,
   worstStatusOf,
@@ -45,15 +47,28 @@ import { BEACH_STATE_LABEL } from '../lib/structural';
 
 const STATUS_LABELS = BEACH_STATE_LABEL;
 
+// Versión corta para la cara de la pestaña (≈100 px + contador):
+// "Cerrada · estructural" → "Estructural". El resto conserva el
+// label completo y se trunca donde haga falta — el contador va
+// aparte y siempre sobrevive
+const STATUS_TAB_LABELS: Record<string, string> = {
+  ...STATUS_LABELS,
+  structural: 'Estructural',
+};
+
 const STATUS_COLORS = colors.status;
 
 const displayName = (name: string) =>
   displayBeachName(name.replace(PM_SUFFIX, ''));
 
 const SORT_LABELS: Record<SortMode, string> = {
-  estado: 'Estado',
+  // 'estado' se nombra por su efecto visible (como sus hermanos):
+  // las cerradas encabezan la lista, luego avisos, aptas y sin
+  // monitorizar — es el orden con el que abre la app
+  estado: 'Cerradas primero',
+  aptas: 'Aptas primero',
   cierres: 'Más cierres',
-  calidad: 'Peor calidad',
+  calidad: 'Peor calidad del agua',
 };
 // Evaluación oficial de la última muestra, resumida para la sub-fila
 const evalLabel = (evaluation: string | null) => {
@@ -105,6 +120,12 @@ export default function BeachList({
   const [episodes, setEpisodes] = useState<MunicipalityIncident[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<GeoFeature | null>(null);
+  // Barra de filtros en modo acordeón: tres botones (Municipio /
+  // Estado / Orden) muestran la selección actual; solo se despliega
+  // la fila de chips de la categoría abierta
+  const [openFilter, setOpenFilter] = useState<
+    'muni' | 'estado' | 'orden' | null
+  >(null);
   // Scroll del detalle: BeachDetail baja a "Ver titulares" al expandir
   const detailScrollRef = useRef<ScrollView>(null);
   // "Ver más" del detalle: visible mientras quede contenido bajo el
@@ -270,6 +291,38 @@ export default function BeachList({
     [beaches, query, municipality, sortMode, statusFilter, stats],
   );
 
+  // Conteos por opción para los paneles del acordeón: cada chip
+  // muestra cuántas playas daría elegirlo — el número se calcula
+  // SIN su propio filtro pero CON el resto aplicado (municipio
+  // respeta búsqueda+estado; estado respeta búsqueda+municipio)
+  const noStatus = useMemo(
+    () => buildGroups(beaches, { query, municipality, sortMode, stats }),
+    [beaches, query, municipality, sortMode, stats],
+  );
+  const statusCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const g of noStatus) {
+      const s = worstStatusOf(g);
+      m.set(s, (m.get(s) ?? 0) + 1);
+    }
+    return m;
+  }, [noStatus]);
+  const impecablesCount = useMemo(
+    () => noStatus.filter((g) => isImpecableGroup(g, stats)).length,
+    [noStatus, stats],
+  );
+  const noMuni = useMemo(
+    () => buildGroups(beaches, { query, sortMode, statusFilter, stats }),
+    [beaches, query, sortMode, statusFilter, stats],
+  );
+  const muniCounts = useMemo(() => {
+    const m = new Map<string | null, number>();
+    for (const g of noMuni) {
+      m.set(g.municipality, (m.get(g.municipality) ?? 0) + 1);
+    }
+    return m;
+  }, [noMuni]);
+
   // PMs del complejo de la ficha abierta (los hermanos de `detail`)
   const detailMembers = useMemo(
     () =>
@@ -313,12 +366,13 @@ export default function BeachList({
               </View>
             </View>
             <Text style={[styles.headerSub, { marginTop: 23 }]}>
-              {totals.mon} vigiladas · {totals.un} sin vigilar
+              {totals.mon} monitorizadas · {totals.un} sin monitorizar
             </Text>
             {correlation && (
               <Text style={styles.headerSub}>
-                De las {correlation.total} playas con cierres por contaminación,{' '}
-                {correlation.near} tienen un emisario a menos de 500 m
+                De las {correlation.total} playas que han tenido cierres por
+                contaminación, {correlation.near} tienen un emisario a menos de
+                500 m
               </Text>
             )}
           </ImageBackground>
@@ -345,6 +399,107 @@ export default function BeachList({
             style={styles.filterBar}
             imageStyle={styles.filterBarImg}
           >
+            {/* Tres desplegables (una fila en vez de tres): cada
+                botón enseña su categoría + selección actual y abre
+                su propia fila de chips — acordeón, una a la vez */}
+            <View style={styles.filterTabs}>
+              {(
+                [
+                  {
+                    key: 'muni' as const,
+                    label: 'Municipio',
+                    value:
+                      municipality === undefined
+                        ? 'Todos'
+                        : (municipality ?? 'Sin municipio'),
+                    count: municipality === undefined ? null : groups.length,
+                  },
+                  {
+                    key: 'estado' as const,
+                    label: 'Estado',
+                    value:
+                      statusFilter === undefined
+                        ? 'Todos'
+                        : statusFilter === 'impecables'
+                          ? 'Agua siempre apta'
+                          : STATUS_TAB_LABELS[statusFilter],
+                    count: statusFilter === undefined ? null : groups.length,
+                  },
+                  {
+                    key: 'orden' as const,
+                    label: 'Ordenar',
+                    // En la cara va el rol («Por defecto» cabe sin
+                    // truncar); el chip dentro dice el criterio real
+                    // («Cerradas primero»)
+                    value:
+                      sortMode === 'estado'
+                        ? 'Por defecto'
+                        : SORT_LABELS[sortMode],
+                    count: null,
+                  },
+                ] as const
+              ).map((t) => {
+                const open = openFilter === t.key;
+                return (
+                  <Pressable
+                    key={t.key}
+                    style={({ pressed }) => [
+                      styles.filterTab,
+                      open && styles.filterTabOpen,
+                      pressed && styles.pressFx,
+                    ]}
+                    onPress={() => setOpenFilter(open ? null : t.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t.label}: ${t.value}${
+                      t.count != null ? ` (${t.count})` : ''
+                    }`}
+                    accessibilityState={{ expanded: open }}
+                  >
+                    <View style={styles.filterTabText}>
+                      <Text style={styles.filterTabLabel}>{t.label}</Text>
+                      <View style={styles.filterTabValueRow}>
+                        {t.key === 'estado' &&
+                          statusFilter !== undefined &&
+                          statusFilter !== 'impecables' && (
+                            <View
+                              style={[
+                                styles.filterTabDot,
+                                {
+                                  backgroundColor:
+                                    STATUS_COLORS[statusFilter],
+                                },
+                              ]}
+                            />
+                          )}
+                        <Text
+                          style={styles.filterTabValue}
+                          numberOfLines={1}
+                        >
+                          {t.value}
+                        </Text>
+                        {t.count != null && (
+                          <Text style={styles.filterTabCount}>
+                            {` (${t.count})`}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    <Text
+                      style={[
+                        styles.filterTabChevron,
+                        open && styles.filterTabChevronOpen,
+                      ]}
+                    >
+                      ›
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {openFilter !== null && (
+              <View style={styles.filterBarDivider} />
+            )}
+            {openFilter === 'muni' && (
             <ScrollChips
               style={styles.chips}
               contentContainerStyle={styles.chipsContent}
@@ -369,7 +524,7 @@ export default function BeachList({
                     municipality === undefined && styles.chipTextActive,
                   ]}
                 >
-                  Todos
+                  {`Todos (${noMuni.length})`}
                 </Text>
               </Pressable>
               {municipalities.map((m) => (
@@ -393,7 +548,7 @@ export default function BeachList({
                       municipality === m && styles.chipTextActive,
                     ]}
                   >
-                    {m}
+                    {`${m} (${muniCounts.get(m) ?? 0})`}
                   </Text>
                 </Pressable>
               ))}
@@ -417,13 +572,13 @@ export default function BeachList({
                       municipality === null && styles.chipTextActive,
                     ]}
                   >
-                    Sin municipio
+                    {`Sin municipio (${muniCounts.get(null) ?? 0})`}
                   </Text>
                 </Pressable>
               )}
             </ScrollChips>
-            <View style={styles.filterBarDivider} />
-            {/* Filtros de estado (toggles independientes) */}
+            )}
+            {openFilter === 'estado' && (
             <ScrollChips
               style={styles.chips}
               contentContainerStyle={styles.chipsContent}
@@ -459,104 +614,97 @@ export default function BeachList({
                       statusFilter === s && styles.chipTextActive,
                     ]}
                   >
-                    {STATUS_LABELS[s]}
-                    {statusFilter === s ? ` (${groups.length})` : ''}
+                    {`${STATUS_LABELS[s]} (${statusCounts.get(s) ?? 0})`}
                   </Text>
                 </Pressable>
               ))}
+              {/* «Agua siempre apta» es un filtro de estado (récord
+                  limpio), no un orden: vive en este panel aunque su
+                  activación también fije el orden interno a Estado */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.chip,
+                  statusFilter === 'impecables' && styles.chipActive,
+                  pressed && styles.pressFx,
+                ]}
+                onPress={() => {
+                  if (statusFilter === 'impecables') return;
+                  setStatusFilter('impecables');
+                  setSortMode('estado');
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Filtrar por playas que nunca tuvieron un problema de agua"
+                accessibilityState={{
+                  selected: statusFilter === 'impecables',
+                }}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    statusFilter === 'impecables' &&
+                      styles.chipTextActive,
+                  ]}
+                >
+                  {`Agua siempre apta (${impecablesCount})`}
+                </Text>
+              </Pressable>
             </ScrollChips>
-            <View style={styles.filterBarDivider} />
-            {/* Orden (radio): el orden siempre es uno. "Agua siempre apta"
-            es un modo de este grupo — al activarlo fija el orden a
-            "Estado", y elegir otro chip lo desactiva (no es un toggle
-            aparte) */}
+            )}
+            {openFilter === 'orden' && (
+            /* Ordenar (radio puro): el orden siempre es uno. Con «Agua
+            siempre apta» activo el orden interno es Estado pero el
+            chip no se marca — solo un chip activo a la vez */
             <ScrollChips
               style={styles.chips}
               contentContainerStyle={styles.chipsContent}
               fadeRgbLeft="140,216,230"
               fadeRgbRight="242,251,253"
-              a11yLabel="orden"
+              a11yLabel="ordenar"
             >
-              {(['estado', 'agua', 'cierres', 'calidad'] as const).map(
-                (item) =>
-                  item === 'agua' ? (
-                    <Pressable
-                      key="agua"
-                      style={({ pressed }) => [
-                        styles.chip,
-                        styles.chipStatus,
-                        statusFilter === 'impecables' && styles.chipActive,
-                        pressed && styles.pressFx,
-                      ]}
-                      onPress={() => {
-                        if (statusFilter === 'impecables') return;
-                        setStatusFilter('impecables');
-                        setSortMode('estado');
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel="Filtrar por playas que nunca tuvieron un problema de agua"
-                      accessibilityState={{
-                        selected: statusFilter === 'impecables',
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          statusFilter === 'impecables' &&
-                            styles.chipTextActive,
-                        ]}
-                      >
-                        Agua siempre apta
-                        {statusFilter === 'impecables'
-                          ? ` (${groups.length})`
-                          : ''}
-                      </Text>
-                    </Pressable>
-                  ) : (
-                    <Pressable
-                      key={item}
-                      style={({ pressed }) => [
-                        styles.chip,
-                        // Radio puro: con "Agua siempre apta" activo el
-                        // orden interno es Estado pero el chip no se
-                        // marca — solo un chip activo a la vez
+              {(['estado', 'aptas', 'cierres', 'calidad'] as const).map(
+                (item) => (
+                  <Pressable
+                    key={item}
+                    style={({ pressed }) => [
+                      styles.chip,
+                      sortMode === item &&
+                        statusFilter !== 'impecables' &&
+                        styles.chipActive,
+                      pressed && styles.pressFx,
+                    ]}
+                    onPress={() => {
+                      setSortMode(item);
+                      // Elegir un orden sale del modo "Agua siempre apta"
+                      if (statusFilter === 'impecables')
+                        setStatusFilter(undefined);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Ordenar: ${SORT_LABELS[item]}`}
+                    accessibilityState={{
+                      selected:
+                        sortMode === item && statusFilter !== 'impecables',
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
                         sortMode === item &&
                           statusFilter !== 'impecables' &&
-                          styles.chipActive,
-                        pressed && styles.pressFx,
+                          styles.chipTextActive,
                       ]}
-                      onPress={() => {
-                        setSortMode(item);
-                        // Elegir un orden sale del modo "Agua siempre apta"
-                        if (statusFilter === 'impecables')
-                          setStatusFilter(undefined);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Ordenar por ${SORT_LABELS[item]}`}
-                      accessibilityState={{
-                        selected:
-                          sortMode === item && statusFilter !== 'impecables',
-                      }}
                     >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          sortMode === item &&
-                            statusFilter !== 'impecables' &&
-                            styles.chipTextActive,
-                        ]}
-                      >
-                        {SORT_LABELS[item]}
-                      </Text>
-                    </Pressable>
-                  ),
+                      {SORT_LABELS[item]}
+                    </Text>
+                  </Pressable>
+                ),
               )}
             </ScrollChips>
+            )}
           </ImageBackground>
 
           {statusFilter === 'impecables' && (
             <Text style={styles.impecablesNote}>
-              Solo playas vigiladas por Sanidad: cero muestras no aptas y cero
+              Solo playas monitorizadas por Sanidad: cero muestras no aptas y cero
               episodios de contaminación
             </Text>
           )}
@@ -610,6 +758,25 @@ export default function BeachList({
                       g.members.length > 1 ? { expanded } : undefined
                     }
                   >
+                    {/* Miniatura satélite del arenal: reconocer la
+                        playa de un vistazo en la lista — la misma
+                        foto Esri que la ficha (máximo zoom legible).
+                        En grupos multipunto se usa el primer PM */}
+                    <Image
+                      source={{
+                        uri: thumbUrl(
+                          g.members[0].geometry.coordinates as [
+                            number,
+                            number,
+                          ],
+                          160,
+                          0.5,
+                        ),
+                      }}
+                      style={styles.rowThumb}
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                    />
                     <View style={styles.rowText}>
                       <Text style={styles.rowName}>{displayName(g.name)}</Text>
                       <Text style={styles.rowSub}>
@@ -617,13 +784,20 @@ export default function BeachList({
                         {g.members.length > 1
                           ? ` · ${g.members.length} zonas`
                           : ''}
-                        {closures + warnings > 0
-                          ? ` · ${closures} ${
-                              closures === 1 ? 'cierre' : 'cierres'
-                            } · ${warnings} ${
-                              warnings === 1 ? 'aviso' : 'avisos'
-                            }`
-                          : ''}
+                        {[
+                          closures > 0
+                            ? `${closures} ${
+                                closures === 1 ? 'cierre' : 'cierres'
+                              }`
+                            : null,
+                          warnings > 0
+                            ? `${warnings} ${
+                                warnings === 1 ? 'aviso' : 'avisos'
+                              }`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .map((s) => ` · ${s}`)}
                         {sortMode === 'calidad' && worstEvalOf(g, stats) != null
                           ? ` · última: ${evalShort(worstEvalOf(g, stats))}`
                           : ''}
@@ -660,17 +834,29 @@ export default function BeachList({
                           (st.own_warnings ?? 0) +
                           (st.own_lab ?? 0) >
                           0
-                          ? `${st.own_closures} ${
-                              st.own_closures === 1 ? 'cierre' : 'cierres'
-                            } · ${st.own_warnings} ${
-                              st.own_warnings === 1 ? 'aviso' : 'avisos'
-                            }${
-                              st.own_lab
-                                ? ` · ${st.own_lab} muestra${
+                          ? [
+                              (st.own_closures ?? 0) > 0
+                                ? `${st.own_closures} ${
+                                    st.own_closures === 1
+                                      ? 'cierre'
+                                      : 'cierres'
+                                  }`
+                                : null,
+                              (st.own_warnings ?? 0) > 0
+                                ? `${st.own_warnings} ${
+                                    st.own_warnings === 1
+                                      ? 'aviso'
+                                      : 'avisos'
+                                  }`
+                                : null,
+                              (st.own_lab ?? 0) > 0
+                                ? `${st.own_lab} muestra${
                                     st.own_lab === 1 ? ' no apta' : 's no aptas'
                                   }`
-                                : ''
-                            }`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')
                           : null,
                       ]
                         .filter(Boolean)
@@ -690,6 +876,21 @@ export default function BeachList({
                           }, ${STATUS_LABELS[fStatus]}`}
                           accessibilityHint="Abrir ficha del punto de muestreo"
                         >
+                          {/* Miniatura del punto concreto: cada PM
+                              tiene su coordenada — en zonas separadas
+                              (Jardín) se ve que NO son la misma cala */}
+                          <Image
+                            source={{
+                              uri: thumbUrl(
+                                f.geometry.coordinates as [number, number],
+                                80,
+                                0.5,
+                              ),
+                            }}
+                            style={styles.pmThumb}
+                            accessibilityElementsHidden
+                            importantForAccessibility="no"
+                          />
                           <View style={styles.pmText}>
                             <Text style={styles.pmName}>
                               {pointLongLabel(f.properties.name) ??
@@ -1004,6 +1205,81 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(8,107,150,0.18)',
     marginHorizontal: 10,
   },
+  // Pestañas desplegables: una sola fila resume las 3 categorías —
+  // cada una muestra qué hay seleccionado sin ocupar filas de chips
+  filterTabs: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  filterTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(8,107,150,0.14)',
+  },
+  filterTabOpen: {
+    backgroundColor: colors.accent,
+    borderColor: 'transparent',
+  },
+  filterTabText: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+  },
+  filterTabLabel: {
+    fontSize: 10,
+    fontFamily: fonts.semibold,
+    color: colors.text, // navy como el valor: jerarquía por tamaño, no por gris lavado
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    textAlign: 'center',
+  },
+  filterTabValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 1,
+  },
+  // Dot del color de estado en la pestaña cerrada: el lenguaje
+  // visual de los chips sobrevive al acordeón
+  filterTabDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  filterTabValue: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    color: colors.text,
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  // Contador aparte del valor: nunca se corta — el nombre largo se
+  // trunca ("Buenavista del N…") pero "(9)" sobrevive
+  filterTabCount: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    color: colors.text,
+    flexShrink: 0,
+  },
+  filterTabChevron: {
+    fontSize: 15,
+    fontFamily: fonts.semibold,
+    color: colors.primaryDark,
+    transform: [{ rotate: '90deg' }],
+    marginLeft: 3,
+  },
+  filterTabChevronOpen: {
+    transform: [{ rotate: '-90deg' }],
+    color: colors.text,
+  },
   chips: {
     flexGrow: 0,
   },
@@ -1094,6 +1370,24 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textFaint,
     marginTop: 1,
+  },
+  // Miniatura Esri del arenal: cuadrada, tamaño de fila — vende la
+  // playa mejor que el nombre (misma fuente que la ficha)
+  rowThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    marginRight: 10,
+    backgroundColor: colors.border,
+  },
+  // Versión reducida para las sub-filas de PM (jerarquía: el grupo
+  // pesa más que sus puntos)
+  pmThumb: {
+    width: 40,
+    height: 40,
+    borderRadius: 7,
+    marginRight: 10,
+    backgroundColor: colors.border,
   },
   rowText: {
     flex: 1,
