@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { SafeGradient } from './SafeGradient';
 
 import BeachDetail from './BeachDetail';
 import OutfallSheet from './sheet/OutfallSheet';
@@ -310,7 +310,7 @@ export default function FeatureSheet({
               blanco — el "hay más" se insinúa sin ruido de texto
               cortado. Degradado nativo: las tiras de alfa (truco de
               ScrollChips) escalonaban sobre fotos oscuras */}
-          <LinearGradient
+          <SafeGradient
             colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.97)']}
             locations={[0, 0.8]}
             style={styles.moreFade}

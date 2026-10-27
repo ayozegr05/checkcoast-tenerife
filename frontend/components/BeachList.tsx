@@ -16,7 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { SafeGradient } from './SafeGradient';
 
 import BeachDetail from './BeachDetail';
 import ScrollChips from './ScrollChips';
@@ -995,7 +995,7 @@ export default function BeachList({
                 funde el contenido + píldora con arte de mar */}
             {showMore && (
               <>
-                <LinearGradient
+                <SafeGradient
                   colors={['rgba(242,247,248,0)', 'rgba(242,247,248,0.97)']}
                   locations={[0, 0.8]}
                   style={styles.moreFade}
