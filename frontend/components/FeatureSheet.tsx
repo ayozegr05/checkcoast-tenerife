@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import BeachDetail from './BeachDetail';
 import OutfallSheet from './sheet/OutfallSheet';
@@ -304,8 +305,19 @@ export default function FeatureSheet({
           ambos casos baja sola hasta el final. Se oculta al llegar
           abajo. */}
       {showMore && (
-        <Pressable
-          style={({ pressed }) => [styles.moreBtn, pressed && styles.pressFx]}
+        <>
+          {/* Scrim: el contenido que pasa bajo la píldora se funde a
+              blanco — el "hay más" se insinúa sin ruido de texto
+              cortado. Degradado nativo: las tiras de alfa (truco de
+              ScrollChips) escalonaban sobre fotos oscuras */}
+          <LinearGradient
+            colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.97)']}
+            locations={[0, 0.8]}
+            style={styles.moreFade}
+            pointerEvents="none"
+          />
+          <Pressable
+            style={({ pressed }) => [styles.moreBtn, pressed && styles.pressFx]}
           onPress={onMore}
           accessibilityRole="button"
           accessibilityLabel="Ver más contenido de la ficha"
@@ -316,7 +328,8 @@ export default function FeatureSheet({
             imageStyle={styles.moreBtnImg}
           />
           <Text style={styles.moreText}>Ver más</Text>
-        </Pressable>
+          </Pressable>
+        </>
       )}
     </Animated.View>
   );
@@ -404,6 +417,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 28,
   },
+  moreFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 44,
+  },
+  // Sin sombra proyectada: sobre el scrim blanco la sombra hacia
+  // abajo se leía como un "subrayado" claro pegado al texto
   moreBtn: {
     position: 'absolute',
     bottom: 10,
@@ -411,11 +433,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 13,
     paddingVertical: 6,
     borderRadius: 12,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+    overflow: 'hidden',
   },
   moreBtnImg: {
     borderRadius: 12,

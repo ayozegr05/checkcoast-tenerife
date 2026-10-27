@@ -16,6 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import BeachDetail from './BeachDetail';
 import ScrollChips from './ScrollChips';
@@ -802,28 +803,46 @@ export default function BeachList({
               </View>
             </ScrollView>
             {/* "Ver más": insinúa que hay contenido debajo; autoscroll
-                hasta el final y se oculta al llegar abajo */}
+                hasta el final y se oculta al llegar abajo. Mismo
+                tratamiento que la card del mapa: scrim nativo que
+                funde el contenido + píldora con arte de mar */}
             {showMore && (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.moreBtn,
-                  pressed && styles.pressFx,
-                ]}
-                onPress={() => {
-                  detailScrollRef.current?.scrollToEnd({
-                    animated: true,
-                  });
-                  setTimeout(() => {
-                    const m = scrollMetrics.current;
-                    if (m.ch > 0 && m.y + m.vh >= m.ch - 120)
-                      setShowMore(false);
-                  }, 1200);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Ver más contenido de la ficha"
-              >
-                <Text style={styles.moreText}>Ver más ⌄</Text>
-              </Pressable>
+              <>
+                <LinearGradient
+                  colors={[
+                    'rgba(242,247,248,0)',
+                    'rgba(242,247,248,0.97)',
+                  ]}
+                  locations={[0, 0.8]}
+                  style={styles.moreFade}
+                  pointerEvents="none"
+                />
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.moreBtn,
+                    pressed && styles.pressFx,
+                  ]}
+                  onPress={() => {
+                    detailScrollRef.current?.scrollToEnd({
+                      animated: true,
+                    });
+                    setTimeout(() => {
+                      const m = scrollMetrics.current;
+                      if (m.ch > 0 && m.y + m.vh >= m.ch - 120)
+                        setShowMore(false);
+                    }, 1200);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver más contenido de la ficha"
+                >
+                  <ImageBackground
+                    source={require('../assets/gradient-sea.png')}
+                    style={StyleSheet.absoluteFill}
+                    imageStyle={styles.moreBtnImg}
+                  />
+                  <Text style={styles.moreText}>Ver más</Text>
+                </Pressable>
+              </>
             )}
           </View>
         )}
@@ -887,21 +906,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === 'android' ? 44 : 24,
   },
+  // Scrim: misma geometría que FeatureSheet (44px de fundido que
+  // abraza la píldora) pero fundiendo al fondo de esta vista
+  // (#f2f7f8) — a blanco puro se vería una mancha sobre el gris
+  moreFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: Platform.OS === 'android' ? 42 : 4,
+    height: 48,
+  },
+  // Sin sombra proyectada: sobre el scrim se leía como un
+  // "subrayado" claro pegado al texto (mismo fix que FeatureSheet)
   moreBtn: {
     position: 'absolute',
     // Por encima de la barra de gestos/botones nativos de Android,
     // igual que la card del mapa (CARD_BOTTOM ≈ 44)
     bottom: Platform.OS === 'android' ? 49 : 12,
     alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 7,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+    paddingHorizontal: 13,
+    paddingVertical: 6,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  moreBtnImg: {
+    borderRadius: 12,
+    opacity: 0.7,
   },
   moreText: {
     fontSize: 12,

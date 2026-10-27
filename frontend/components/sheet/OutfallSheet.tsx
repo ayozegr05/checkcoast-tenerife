@@ -167,9 +167,15 @@ const NewsCluster = ({
   return (
     // Pila de recortes: dos hojas asoman bajo la card ámbar — la
     // silueta dice "hay varias piezas aquí" antes de leer nada
-    <View style={styles.newsStack}>
-      <View style={[styles.newsStackSheet, styles.newsStackBack2]} />
-      <View style={[styles.newsStackSheet, styles.newsStackBack1]} />
+    <View style={[styles.newsStack, open ? styles.newsStackOpen : null]}>
+      {/* La pila de hojas solo existe CERRADA: al desplegar el
+          paquete se "desempaqueta" y la metáfora sobra */}
+      {!open ? (
+        <>
+          <View style={[styles.newsStackSheet, styles.newsStackBack2]} />
+          <View style={[styles.newsStackSheet, styles.newsStackBack1]} />
+        </>
+      ) : null}
       <View style={styles.newsClusterCard}>
         <Pressable
           onPress={onToggle}
@@ -195,9 +201,17 @@ const NewsCluster = ({
               {meta}
             </Text>
           </View>
-          {/* ▸/▾ y no ›/⌄: el chevron de las filas abre el enlace,
-              este despliega — mismo glifo, dos acciones confusas */}
-          <Text style={styles.newsRowChev}>{open ? '▾' : '▸'}</Text>
+          {/* Un chevron en ambos sitios — la convención móvil
+              (iOS/Material): › quieto en fila = navega; › que gira
+              90° en la banda = despliega. La rotación ES el toggle */}
+          <Text
+            style={[
+              styles.newsRowChev,
+              open && styles.newsBandChevOpen,
+            ]}
+          >
+            ›
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -284,6 +298,14 @@ const NewsList = ({
                         Cabecera de pila = dot ámbar; suelta o hija =
                         dot gris — jerarquía antes de leer */}
                     <View style={styles.newsTlRail}>
+                      {/* Línea arriba + línea abajo en flex:1 → el dot
+                          queda centrado en su fila sea cual sea la
+                          altura de la card */}
+                      {gi === 0 && i === 0 ? (
+                        <View style={styles.newsTlGap} />
+                      ) : (
+                        <View style={styles.newsTlLine} />
+                      )}
                       <View
                         style={[
                           styles.newsTlDot,
@@ -292,7 +314,9 @@ const NewsList = ({
                       />
                       {!headIsLast ? (
                         <View style={styles.newsTlLine} />
-                      ) : null}
+                      ) : (
+                        <View style={styles.newsTlGap} />
+                      )}
                       <View style={styles.newsTlTick} />
                     </View>
                     <View style={styles.newsTlCard}>
@@ -316,10 +340,13 @@ const NewsList = ({
                         return (
                           <View key={`c${n.id}`} style={styles.newsTlItem}>
                             <View style={styles.newsTlRail}>
+                              <View style={styles.newsTlLine} />
                               <View style={styles.newsTlDot} />
                               {!childIsLast ? (
                                 <View style={styles.newsTlLine} />
-                              ) : null}
+                              ) : (
+                                <View style={styles.newsTlGap} />
+                              )}
                               <View
                                 style={[
                                   styles.newsTlTick,
@@ -1866,7 +1893,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginTop: 25,
     backgroundColor: colors.textFaint,
   },
   // Dot de cobertura: más grande y en el ámbar "según prensa" de
@@ -1875,7 +1901,6 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    marginTop: 24,
     backgroundColor: colors.status.lab,
   },
   newsTlLine: {
@@ -1883,12 +1908,17 @@ const styles = StyleSheet.create({
     width: 1.5,
     backgroundColor: colors.border,
   },
-  // Puente dot→card a la altura del centro del dot (margen 22-25 +
-  // radio ≈ 29); la hija de pila indenta más y su tick cruza más
-  // hueco — indentar marca pertenencia, no subordinación de tipo
+  // Tramo de riel sin línea (primera/última fila): ocupa su flex
+  // como la línea para que el dot siga centrado igual
+  newsTlGap: {
+    flex: 1,
+  },
+  // Puente dot→card: a la altura del centro del dot, que el flex
+  // de las líneas centra en la fila sea cual sea su altura
   newsTlTick: {
     position: 'absolute',
-    top: 28,
+    top: '50%',
+    marginTop: -0.75,
     left: 16,
     width: 6,
     height: 1.5,
@@ -1943,6 +1973,10 @@ const styles = StyleSheet.create({
   newsStack: {
     marginTop: 6,
     marginBottom: 17,
+  },
+  // Abierta no hay hojas que reservar: la banda abraza a sus hijas
+  newsStackOpen: {
+    marginBottom: 2,
   },
   newsStackSheet: {
     position: 'absolute',
@@ -2023,6 +2057,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: fonts.bold,
     color: colors.textFaint,
+  },
+  // Banda abierta: el mismo chevron girado 90° apunta al contenido
+  newsBandChevOpen: {
+    transform: [{ rotate: '90deg' }],
   },
   // "Ver N más": centrado cierra la lista (como el "Ver más
   // noticias" del diseño), despliega las réplicas ocultas
