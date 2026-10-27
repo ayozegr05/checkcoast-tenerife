@@ -149,7 +149,10 @@ export default function ScrollChips({
             accessibilityLabel={`Desplazar ${a11yLabel} a la izquierda`}
           >
             <Text
-              style={[styles.arrowText, { fontSize: arrowSize - 2, lineHeight: arrowSize }]}
+              style={[
+                styles.arrowText,
+                { fontSize: arrowSize - 2, lineHeight: arrowSize },
+              ]}
             >
               ‹
             </Text>
@@ -177,7 +180,10 @@ export default function ScrollChips({
             accessibilityLabel={`Desplazar ${a11yLabel} a la derecha`}
           >
             <Text
-              style={[styles.arrowText, { fontSize: arrowSize - 2, lineHeight: arrowSize }]}
+              style={[
+                styles.arrowText,
+                { fontSize: arrowSize - 2, lineHeight: arrowSize },
+              ]}
             >
               ›
             </Text>

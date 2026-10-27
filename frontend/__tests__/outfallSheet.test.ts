@@ -503,7 +503,9 @@ describe('denunciaLead (lead corto de Denuncias)', () => {
         title: 'El vertido de 1.000 litros que investiga el Cabildo',
         fact: 'vertido de cloruro férrico por rotura de manguera',
       }),
-    ).toBe('investigación por vertido de cloruro férrico por rotura de manguera');
+    ).toBe(
+      'investigación por vertido de cloruro férrico por rotura de manguera',
+    );
     expect(
       denunciaLead({
         title: 'Sanción a la concesionaria por el derrame',

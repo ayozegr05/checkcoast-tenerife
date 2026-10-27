@@ -287,7 +287,12 @@ describe('<OutfallSheet />', () => {
     nearbyMock.mockResolvedValue([]);
     // misma playa + misma familia + ≤30 días entre piezas → un solo
     // grupo de cobertura aunque los hechos difieran en redacción
-    const mk = (id: number, title: string, fact: string | null, when: string) => ({
+    const mk = (
+      id: number,
+      title: string,
+      fact: string | null,
+      when: string,
+    ) => ({
       id,
       beach_id: 3,
       title,
@@ -328,9 +333,7 @@ describe('<OutfallSheet />', () => {
 
     // los titulares no se ven hasta expandir; la cabecera ES el
     // contador: "3 publicaciones de vertidos" + meta de intervalo
-    expect(
-      await screen.findByText('3 publicaciones de vertidos'),
-    ).toBeTruthy();
+    expect(await screen.findByText('3 publicaciones de vertidos')).toBeTruthy();
     expect(screen.queryByText('Uno')).toBeNull();
 
     await fireEvent.press(

@@ -84,9 +84,11 @@ describe('fmtDistance', () => {
 
 describe('shortOutfallName', () => {
   it('recorta la comarca del censo ("Valle de La Orotava" → "La Orotava")', () => {
-    expect(shortOutfallName('Emisario Submarino de Punta Brava - Valle de La Orotava')).toBe(
-      'Emisario Submarino de Punta Brava - La Orotava',
-    );
+    expect(
+      shortOutfallName(
+        'Emisario Submarino de Punta Brava - Valle de La Orotava',
+      ),
+    ).toBe('Emisario Submarino de Punta Brava - La Orotava');
   });
 
   it('Palm-Mar se muestra como lo dice la gente: El Palmar', () => {

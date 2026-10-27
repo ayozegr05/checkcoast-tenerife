@@ -809,10 +809,7 @@ export default function BeachList({
             {showMore && (
               <>
                 <LinearGradient
-                  colors={[
-                    'rgba(242,247,248,0)',
-                    'rgba(242,247,248,0.97)',
-                  ]}
+                  colors={['rgba(242,247,248,0)', 'rgba(242,247,248,0.97)']}
                   locations={[0, 0.8]}
                   style={styles.moreFade}
                   pointerEvents="none"

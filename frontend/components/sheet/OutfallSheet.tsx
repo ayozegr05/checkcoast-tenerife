@@ -105,10 +105,7 @@ const NewsSrc = ({
         <Image source={icon} style={styles.newsCardIcon} />
       ) : null}
       <View style={styles.newsRowBody}>
-        <Text
-          style={styles.newsRowMain}
-          numberOfLines={bare ? 3 : 2}
-        >
+        <Text style={styles.newsRowMain} numberOfLines={bare ? 3 : 2}>
           {titleOnly || bare
             ? item.title
             : TITLE_FIRST_FAMILIES.has(item.family)
@@ -204,12 +201,7 @@ const NewsCluster = ({
           {/* Un chevron en ambos sitios — la convención móvil
               (iOS/Material): › quieto en fila = navega; › que gira
               90° en la banda = despliega. La rotación ES el toggle */}
-          <Text
-            style={[
-              styles.newsRowChev,
-              open && styles.newsBandChevOpen,
-            ]}
-          >
+          <Text style={[styles.newsRowChev, open && styles.newsBandChevOpen]}>
             ›
           </Text>
         </Pressable>
@@ -757,8 +749,7 @@ export default function OutfallSheet({
           {
             label: 'Estado de la conducción',
             value:
-              p.condition[0].toUpperCase() +
-              p.condition.slice(1).toLowerCase(),
+              p.condition[0].toUpperCase() + p.condition.slice(1).toLowerCase(),
             // Icono dibujado, no emoji: el triángulo/check se
             // posiciona al pixel con la línea base del texto
             icon: (
@@ -1302,9 +1293,7 @@ export default function OutfallSheet({
       <View style={styles.censusSrcWrap}>
         {p.source_url ? (
           <Pressable
-            onPress={() =>
-              p.source_url && Linking.openURL(p.source_url)
-            }
+            onPress={() => p.source_url && Linking.openURL(p.source_url)}
             accessibilityRole="link"
             accessibilityLabel="Abrir el censo oficial de vertidos"
             style={({ pressed }) => pressed && styles.pressFx}
@@ -1315,8 +1304,8 @@ export default function OutfallSheet({
           </Pressable>
         ) : null}
         <Text style={styles.censusFoot}>
-          Según prensa: la proximidad no implica causalidad · El riesgo
-          es una estimación del censo
+          Según prensa: la proximidad no implica causalidad · El riesgo es una
+          estimación del censo
         </Text>
       </View>
     </View>

@@ -623,9 +623,7 @@ export const clusterNewsCoverage = (items: FlatNewsItem[]): NewsCluster[] => {
             c.items.some((m) => m.beach_name) &&
             c.items.some((m) => {
               const md = day(m);
-              return (
-                Number.isFinite(md) && Math.abs(d - md) <= REL_WINDOW_MS
-              );
+              return Number.isFinite(md) && Math.abs(d - md) <= REL_WINDOW_MS;
             }),
         )
       : [];

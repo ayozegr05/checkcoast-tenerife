@@ -318,16 +318,16 @@ export default function FeatureSheet({
           />
           <Pressable
             style={({ pressed }) => [styles.moreBtn, pressed && styles.pressFx]}
-          onPress={onMore}
-          accessibilityRole="button"
-          accessibilityLabel="Ver más contenido de la ficha"
-        >
-          <ImageBackground
-            source={require('../assets/gradient-sea.png')}
-            style={StyleSheet.absoluteFill}
-            imageStyle={styles.moreBtnImg}
-          />
-          <Text style={styles.moreText}>Ver más</Text>
+            onPress={onMore}
+            accessibilityRole="button"
+            accessibilityLabel="Ver más contenido de la ficha"
+          >
+            <ImageBackground
+              source={require('../assets/gradient-sea.png')}
+              style={StyleSheet.absoluteFill}
+              imageStyle={styles.moreBtnImg}
+            />
+            <Text style={styles.moreText}>Ver más</Text>
           </Pressable>
         </>
       )}
