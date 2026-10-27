@@ -14,6 +14,16 @@ export type OutfallRisk = {
   reasons: string[];
 };
 
+// "En la orilla / somero": el vertido llega al bañista sin columna
+// de agua que lo diluya — profundidad somera, descarga directa sin
+// emisario (DPMT) o el punto a <50 m de la costa. Compartido entre
+// el índice y el filtro de la lista para que midan lo mismo
+export const isShallowDischarge = (p: GeoFeature['properties']) =>
+  (p.outfall_depth != null &&
+    (p.outfall_depth >= 0 || Math.abs(p.outfall_depth) < 8)) ||
+  (p.kind ?? '').includes('DPMT') ||
+  (p.shore_m != null && p.shore_m < 50);
+
 export function outfallRisk(p: GeoFeature['properties']): OutfallRisk {
   const n = (p.nature ?? '').toLowerCase();
   const o = (p.origin ?? '').toLowerCase();
@@ -85,12 +95,8 @@ export function outfallRisk(p: GeoFeature['properties']): OutfallRisk {
   // (patógenos al bañista), salmuera (capa sobre el fondo), pluvial
   // (riada sucia a la playa). Cloro o temperatura se disipan en
   // nada: una piscina en la orilla no es más riesgo que en el mar
-  const d = p.outfall_depth;
-  const shallow =
-    (d != null && (d >= 0 || Math.abs(d) < 8)) ||
-    (p.kind ?? '').includes('DPMT') ||
-    (p.shore_m != null && p.shore_m < 50);
-  if (shallow && substance >= 1) weighted.push([1, 'vierte en la orilla']);
+  if (isShallowDischarge(p) && substance >= 1)
+    weighted.push([1, 'vierte en la orilla']);
 
   if (p.condition === 'Malo') weighted.push([1, 'estado malo']);
   else if (p.condition === 'Precario') weighted.push([0.5, 'estado precario']);
