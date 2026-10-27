@@ -11,7 +11,7 @@ import { Text, View } from 'react-native';
 // dentro del factory del mock (jest solo permite vars `mock*`).
 let mockNativePresent = true;
 jest.mock('expo-modules-core', () => ({
-  ...jest.requireActual('expo-modules-core'),
+  ...(jest.requireActual('expo-modules-core') as Record<string, unknown>),
   requireOptionalNativeModule: () => mockNativePresent,
 }));
 
