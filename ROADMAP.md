@@ -147,7 +147,7 @@ Tres niveles, en orden de impacto/esfuerzo:
 | 6.7 | (extensión) Timeline de incidentes por municipio en la ficha del municipio | ✅ Hecho (`066ba2b`) | 🟡 Medio |
 | — | **Bonus 6.x**: agrupación de pins por playa (1 pin/peor estado + selector de PMs + dots etiquetados en mapa), nombres oficiales de playa (`lib/format.ts`: "Playa del Bobo", romanos, acentos), bottom-sheet anclado con "Ver más" | ✅ Hecho (`fa6f49c`, `461553c`, `1647113`) | 🟡 Medio |
 
-## Hito 7 — Pulido visual ⬜
+## Hito 7 — Pulido visual ✅
 
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
@@ -158,7 +158,7 @@ Tres niveles, en orden de impacto/esfuerzo:
 | 7.5 | Accessibility labels en controles principales | ✅ Hecho (auditoría completa: chips, filas, buscadores, selector PM, switches, toggle gráfica) | 🟡 Medio |
 | 7.6 | Mar de la vista satélite (costuras de tile PNOA en mar abierto) | ✅ Decisión consciente (2026-09-28): se queda **PNOA sin procesar** (sin capas sintéticas encima). Evaluadas y descartadas: batimetría Esri/GEBCO (artefactos de sonar + velo sobre tierra), `fill-pattern` con textura clonada/sintética (efecto toalla/losa), Sentinel-2 EOX (tierra muy suave), Esri World Imagery (tiles negros en Anaga/Teide), velo de color plano (artificioso). Las costuras son inherentes a la ortofoto libre — Google usa un mar sintético procesado de pago, no una foto real | 🟡 Medio (evaluación) |
 
-## Hito 8 — Calidad y despliegue ⬜
+## Hito 8 — Calidad y despliegue ✅
 
 | # | Tarea | Estado | Esfuerzo |
 |---|-------|--------|----------|
@@ -457,6 +457,7 @@ cuerpo de las noticias, no en su fecha de publicación.
 | 10.13 | **Badge de CI en README**: `ci.yml` corre verde pero el README no lo muestra — una línea, visible en 2 s para quien abre el repo | ✅ Hecho (17-oct) — badge del workflow junto a los de cobertura | 🟢 Trivial |
 | 10.14 | **Typecheck backend (mypy/pyright)**: Ruff cubre lint+format; añadir typecheck en modo laxo + step en `ci.yml` suma una puerta de calidad más | ✅ Hecho (17-oct): `mypy~=1.20` en modo laxo (`pyproject.toml`: check_untyped_defs, warn_unreachable; excluye alembic/tests). Primera pasada: 82 errores → arreglados TODOS con guards/narrowing reales (walrus para `published_at` filtrados, `NewsItem.beach` → `Mapped[Beach \| None]` — la relación mentía, `beach_id` es nullable — y variables reutilizadas con tipos distintos renombradas). Step `mypy app/` en CI | 🟡 Medio |
 | 10.15 | **Coverage badge (codecov)**: `pytest --cov` + upload + badge en README | ✅ Hecho (17-oct) — pytest-cov + jest cobertura → Codecov con flags backend/frontend, badges por flag en READMEs, `CODECOV_TOKEN` en secrets. Decisión documentada: no perseguir >80% | 🟢 Trivial |
+| 10.16 | **Rebuild APK dev-client-e2e**: el asset del CI es del 15-oct, previo a `expo-linear-gradient`/`@react-native-firebase`/`expo-location`. El e2e ya va verde gracias al gate `SafeGradient` (`requireOptionalNativeModule` → scrim opcional), pero el APK no ejercita la UI real ni lleva App Check/location funcionando. Cuando vuelva la cuota del plan Free (reset 1-nov-2026): `eas build -p android --profile development` → subir el asset al release `dev-client-e2e` → actualizar la URL en `ci.yml`. Alternativa sin cuota: build local con `gradlew` (10.4) | ⏸️ DIFERIDO hasta reset de cuota (1-nov) | 🟢 Trivial |
 
 ## Hito 11 — Ficha de emisario enriquecida 🟡 *(propuesta 2026-09-30; parcial ya hecho — revisado 2026-10-17)*
 
@@ -477,7 +478,7 @@ que queda (tratamiento, diámetro, nº autorización) se descarta.
 
 ---
 
-## Hito 12 — Troceado del backend ⬜ *(propuesto 2026-10-07, tras cerrar el troceado frontend)*
+## Hito 12 — Troceado del backend ✅ *(propuesto 2026-10-07; parte útil hecha, resto descartado con razón)*
 
 Tras el repaso de portfolio quedó el backend con un único "componente
 grande": `app/routers/beaches.py` (1.158 líneas). Mismo criterio que
@@ -498,41 +499,40 @@ evalúa como higiene de tamaño de archivo, no como deuda técnica.
 | 12.3 | **`events.py`** (648) | ❌ Descartado — ya es lógica pura de punta a punta (sin DB: el router carga el `Beach` y solo se leen `measurements`/`incidents`). La separación puro/IO que se proponía ya existe; partir el archivo en `synth_events.py` + `episodes.py` sería solo contar líneas, sin ganancia real | � Trivial |
 | 12.4 | `queries.py` (581) y `news_sources.py` (489) | Cohesivos hoy — solo si crecen: `news/` como paquete por fuente (Google/municipal/media/guía) | 🟢 Trivial |
 
+## Hito 13 — Pulido visual: fichas y secciones de lista 🚧
 
+Pulido iterado en pantalla real (móvil), con el mismo criterio en las
+tres secciones de lista: hechos del censo separados de la valoración
+propia, conteos cruzados honestos y un patrón de filtros común.
+
+| # | Tarea | Estado | Detalle |
+|---|-------|--------|---------|
+| 13.1 | **Fichas pulidas (playa + emisario)** | ✅ Hecho | Prensa de emisario separada «De este emisario» / «En la zona» (hecho, fecha, medio, playa) con disclaimer «según prensa — la proximidad no implica causalidad»; filtros editoriales por familia/año; redacción cuidada del derrame de cloruro férrico (se afirma el derrame + la investigación, no la causalidad); triage de ficha con legalidad/funcionamiento/riesgo como ejes distintos |
+| 13.2 | **Sección Playas — acordeón de filtros** | ✅ Hecho (`572d15c`) | 3 pestañas (Municipio · Estado · Ordenar) con cara label+valor+contador, panel de chips debajo; conteos que respetan los otros filtros; miniaturas satélite a zoom abierto; «Aptas primero»; «Agua siempre apta» como faceta de Estado; «Todas» concordando con playa |
+| 13.3 | **Sección Emisarios — filtros en dos filas** | ✅ Hecho (27-oct) | Fila 1: Estado · Riesgo · Municipio + botón `+/−`; fila 2 bajo demanda: Vertido (sustancia) · Conducción (Bueno/Malo/Precario) · Entorno (🛡 Zona protegida + En la orilla, toggles acumulables). Los paneles se abren pegados a su fila; single-select cierra al elegir, Entorno no (es multi-toggle). Filtro de riesgo nuevo — el índice propio como faceta. Conteos cruzados entre las 6 facetas. Legalidad degradada de píldora a glifo en la línea de hechos (`✗ sin autorizar` rojo, `⏳ en trámite` ámbar, `✓ autorizado` neutro); la columna derecha solo lleva `Riesgo X`. **`isShallowDischarge()` compartida** entre el filtro «En la orilla» y el índice: profundidad <8 m, descarga DPMT o <50 m de costa — antes el filtro y el riesgo medían cosas distintas. Peso dinámico (pestaña activa `flex:2`) SOLO en fila 2 — probado en fila 1 y Playas y revertido: con 4 elementos o labels que envuelven queda peor. Iteraciones descartadas documentadas en el historial: chips-combobox scrollables, fila de chips `✕`, fusión Estado+Riesgo, fusión flags en Riesgo |
+| 13.4 | **Sección Municipios — filtros** | ⬜ Pendiente | Aplicar el patrón a `MunicipalityStats`: el conmutador Ranking/Temporada + facetas contextuales (¿qué filtra cada vista?). Diseño aparte — municipio es la entidad, no un filtro de la lista |
+| 13.5 | **Equiparar landing + fichas web a la app** | ⬜ Pendiente | Las fichas `/b/{id}` y `/o/{id}` y la home deben hablar el lenguaje nuevo: índice de riesgo, glifos legales, prensa separada por procedencia, conteos. Revisar tras cerrar 13.4 — solapa con L9 |
 
 ### Estado actual
-**Hito activo:** 9 — Portfolio (quedan capturas/vídeo del APK, repo
-público en GitHub y post LinkedIn; 8.8 queda verificación end-to-end
-de App Links con build firmada por EAS)
-**Última actualización:** 2026-09-27 — UX de la lista de playas:
-3 filas de chips (municipios / estados / orden), "Agua siempre apta"
-como modo radio, "Sin datos" siempre último, "Peor calidad" con
-evidencia en fila y ordenada por historial de muestras, vigiladas
-siempre antes que no monitorizadas en empates. Repo preparado para
-publicación: barrido de secretos del historial (limpio salvo
-`google-services.json`, público por diseño), LICENSE MIT, README al
-día + vars de entorno documentadas, historial reescrito a identidad
-noreply de GitHub vía mailmap. Nuevos pendientes: 10.8 `/health` +
-uptime monitor, 10.9 tests de componente, 10.10 CD por SSH.
-Antes, 2026-09-26 — Hito 8.12 implementado:
-`news_items.closed_since` (inicio real del cierre según el texto),
-fuente Guía Islas Canarias vía sitemap (~50 fichas, `lastmod`, sin
-push), episodios estructurales sin caducidad por silencio en el
-historial. Benijo verificado en local: "riesgo de desprendimientos ·
-desde jul-2024". Antes, Hito 8.11 desplegado: push con reintento
-persistido, banner verde de reapertura (≤7 d), `since` al último
-clúster, ola de reaperturas cierra un solo episodio, endpoint
-`/episodes`, "Reabiertas recientemente" en el banner de alertas y
-vista Temporada en el ranking municipal. Alertas resueltas 25-sep:
-Médano PM3 y Socorro PM1 (2 días cerradas, según prensa); siguen
-cerradas Gaviotas/Benijo/Garachico (desprendimientos, estructural).
-APK release local regenerada con toda la UI final (leyenda corregida).
-Pendiente: 9.2 capturas del APK → 9.5 GitHub → 9.6 vídeo → 9.7 LinkedIn;
-8.8 verificación App Links E2E (requiere build firmada por EAS)
-**2026-09-30:** documentado Hito 11 (ficha de emisario: censo completo →
-noticias cercanas → correlación vertido↔cierre). Antes: arreglar
-episodios de prensa en playas (Puertito: faltan reaperturas 9-may y
-6-jun; ficha unmonitored no pide /incidents; item 485 mal casado)
+**Hito activo:** 9 — Portfolio (quedan capturas/vídeo del APK y post
+LinkedIn) + 13.4/13.5 (filtros de Municipios y equiparar landing)
+**Última actualización:** 2026-10-27 — Hito 13 en curso: sección
+Emisarios con filtros en dos filas (6 facetas con conteos cruzados,
+índice de riesgo como faceta, `isShallowDischarge` compartida entre
+filtro e índice, legalidad como glifo en la línea de hechos),
+sección Playas con acordeón equivalente y «Todas» gramatical.
+Iteración intensa en pantalla real: probados y descartados
+chips-combobox scrollables, fila de chips `✕`, fusiones de facetas
+y peso dinámico fuera de la fila 2. Pendiente de commit el bloque
+completo de filtros de Emisarios.
+**2026-10-20:** Hito 11 cerrado — ficha de emisario con prensa propia
+(`PROMPT_INFRA` en cascada) y episodios de contaminación del entorno
+con disclaimer de no-causalidad.
+**2026-10-18:** Landing viva — mapa interactivo MapLibre, fichas
+`/o/{id}` con OG, compartir estilo app, CD por SSH a la VM.
+**2026-10-07/17:** `/health` con jobs/errores + UptimeRobot, tests de
+componente RNTL, badge CI, mypy laxo en CI, codecov, Hito 12
+(backend troceado en su parte útil).
 
 ### Landing — pendientes para dejarla "viva" (18-oct)
 
