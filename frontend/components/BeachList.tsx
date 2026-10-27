@@ -417,9 +417,12 @@ export default function BeachList({
                   {
                     key: 'estado' as const,
                     label: 'Estado',
+                    // «Todas» concuerda con las opciones femeninas
+                    // (Apta/Cerrada — hablan de playas); no «todos
+                    // los estados»
                     value:
                       statusFilter === undefined
-                        ? 'Todos'
+                        ? 'Todas'
                         : statusFilter === 'impecables'
                           ? 'Agua siempre apta'
                           : STATUS_TAB_LABELS[statusFilter],

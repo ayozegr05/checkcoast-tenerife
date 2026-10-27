@@ -162,7 +162,7 @@ describe('<BeachList />', () => {
       screen.getByRole('button', { name: 'Mostrar todas las playas' }),
     );
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Estado: Todos' }),
+      screen.getByRole('button', { name: 'Estado: Todas' }),
     );
     const aviso = screen.getByRole('button', {
       name: 'Filtrar por estado Aviso',
@@ -182,7 +182,7 @@ describe('<BeachList />', () => {
   it('solo ofrece chips de los estados presentes', async () => {
     await render(<BeachList {...props({ beaches: [vistas, camison] })} />);
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Estado: Todos' }),
+      screen.getByRole('button', { name: 'Estado: Todas' }),
     );
     expect(
       screen.getByRole('button', { name: 'Filtrar por estado Apta' }),
@@ -207,7 +207,7 @@ describe('<BeachList />', () => {
     // «Agua siempre apta» vive en el panel de Estado (es un filtro,
     // no un orden)
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Estado: Todos' }),
+      screen.getByRole('button', { name: 'Estado: Todas' }),
     );
     const agua = screen.getByRole('button', {
       name: 'Filtrar por playas que nunca tuvieron un problema de agua',
