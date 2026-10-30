@@ -231,6 +231,20 @@ _FEATURE_BEFORE = re.compile(
     r"(?:DEL\s+|DE\s+(?:LA\s+|LOS\s+|LAS\s+)?|DE\s+)$"
 )
 
+# Topónimo como extremo de una vía/sendero, no como playa: "reabre
+# el sendero entre Radazul y Tabaiba", "reabre el paseo Radazul-
+# Tabaiba" — Radazul/Tabaiba nombran el itinerario, no la zona de
+# baño. Veto solo si hay palabra de vía antes Y la clave está en
+# posición de extremo (ENTRE/Y/guion o tras la vía a secas). Un
+# rasgo de baño intermedio resetea el contexto: "cierran el paseo
+# marítimo y la playa de Bajamar" sigue casando a Bajamar
+_ROUTE_WORDS = r"SENDERO|SENDA|CAMINO|PASEO|PASARELA|RUTA|VIA|VÍA|LITORAL"
+_ROUTE_BEFORE = re.compile(
+    rf"(?:{_ROUTE_WORDS})\s*$"
+    rf"|(?:{_ROUTE_WORDS})\b(?:\s+(?!PLAYAS?|PISCINAS?|CHARCOS?|CALAS?|"
+    rf"ARENAL\b)[\w\-–—]+)*(?:\s+(?:ENTRE|Y)\s*|[-–—]\s*)$"
+)
+
 # La clave aparece literal pero NO nombra la playa: es el nombre del
 # municipio/ayuntamiento ("en el municipio tinerfeño de Candelaria") o
 # el color de la bandera ("con bandera amarilla" ≠ Playa Amarilla).
@@ -278,6 +292,8 @@ def _name_in_title(key: str, title_norm: str) -> bool:
     for m in re.finditer(rf"(?<![A-Z0-9]){flex}(?![A-Z0-9])", title_norm):
         before = title_norm[: m.start()]
         if _SPURIOUS_BEFORE.search(before):
+            continue
+        if _ROUTE_BEFORE.search(before):
             continue
         feat = _FEATURE_BEFORE.search(before)
         if not feat or feat.group(1):

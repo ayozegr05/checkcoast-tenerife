@@ -144,7 +144,9 @@ def press_episode_summary(
     # marítimo) no narran este resumen — fuera del foco de la app,
     # mismo corte que en synthesize_events/effective_states
     rows = [r for r in rows if not is_sea_state_cause(r.cause)]
-    dominant = _event_mode(rows)
+    # El dominante NO se calcula aquí: todas las piezas del banner
+    # (tipo, causa, fecha, titulares) salen del ÚLTIMO episodio de
+    # cobertura — se decide tras construir la cadena de clústers
     # Una reapertura real termina el episodio de cobertura: la
     # cadena no se encadena a través de ella aunque el hueco sea
     # <GAP (Jardín: cierres 12-ago→reapertura 4-sep→cierre 30-sep
@@ -220,22 +222,6 @@ def press_episode_summary(
             or len(outlets_by_day.get(pub.date(), set())) >= 2
         )
 
-    dominant_rows = [
-        r for r in rows if r.event_type == dominant and r.published_at
-    ]
-    dominant_items = sorted(
-        dominant_rows, key=lambda r: cast(datetime, r.published_at)
-    )
-    if dominant == "closure" and last_reopen is not None:
-        post_reopen = [
-            r
-            for r in dominant_items
-            if r.published_at
-            and r.published_at > last_reopen
-            and _is_new_episode_closure(r)
-        ]
-        if post_reopen:
-            dominant_items = post_reopen
     # Un episodio estructural ABIERTO no se parte por hueco de
     # cobertura: nadie repite la misma noticia mientras dura la obra
     # (Gaviotas: cierre jun-2026 y titular de sep es el mismo episodio
@@ -265,70 +251,6 @@ def press_episode_summary(
         for e in evs
         if e.via == "press" and e.closed_at is None and _is_structural(e)
     ]
-    # Una reapertura intercalada solo corta la cadena si lo que la
-    # sigue es un episodio NUEVO de verdad — misma regla que la cadena
-    # de titulares: una pieza retrospectiva del episodio resuelto no
-    # reabre el "desde" (Médano: los cierres de estenerife del 25-sep
-    # salieron ENTRE reaperturas del mismo día; cortar ahí dejaba
-    # since=25-sep aunque el episodio arrancaba el 23)
-    since = None
-    prev = None
-    for item in dominant_items:
-        d = cast(datetime, item.published_at)
-        inside_open_struct = False
-        boundary = False
-        if prev is not None:
-            p = prev
-            inside_open_struct = any(
-                lo <= p.date() <= hi and lo <= d.date() <= hi
-                for lo, hi in open_struct_spans
-            )
-            boundary = (
-                d - p > PRESS_CLUSTER_GAP and not inside_open_struct
-            ) or any(
-                p < rd < d
-                and (
-                    item.event_type != "closure"
-                    or _is_new_episode_closure(item, rd)
-                )
-                for rd in reopen_dates
-            )
-        if since is None or boundary:
-            since = d
-        prev = d
-    # El inicio del episodio es la evidencia MÁS ANTIGUA disponible:
-    # si una incidencia oficial cubre la ventana, su opened_at manda
-    # sobre la primera cobertura de prensa (El Socorro: Náyade dice
-    # 21-sep aunque los titulares lleguen el 23 — la prensa llegó
-    # tarde). Si la prensa se adelanta, vale su fecha
-    official_start = None
-    if since is not None:
-        # La ventana se evalúa sobre el `since` ORIGINAL (ancla de
-        # cobertura): mutarlo dentro del bucle permitía arrastrar
-        # incidencias de episodios anteriores en cascada (Jardín PM4:
-        # 30-sep → cubierto por la incidencia del 2-3 sep → y esa por
-        # la del 11-ago → "desde el 11-ago" para el cierre actual)
-        anchor = since.date()
-        reopen_d = last_reopen.date() if last_reopen else None
-        for inc in incidents:
-            if is_ungraded_note(inc.observations):
-                continue
-            # Incidencia ya cerrada ANTES de la última reapertura:
-            # pertenece al episodio anterior, no puede abrir este
-            if (
-                reopen_d is not None
-                and inc.closed_at is not None
-                and inc.closed_at <= reopen_d
-            ):
-                continue
-            if _in_window(anchor, inc.opened_at, inc.closed_at, today):
-                if official_start is None or inc.opened_at < official_start:
-                    official_start = inc.opened_at
-                opened = datetime.combine(
-                    inc.opened_at, datetime.min.time(), tzinfo=UTC
-                )
-                if opened < since:
-                    since = opened
     # Titulares del ÚLTIMO episodio de cobertura. Se camina hacia
     # atrás por la cadena de sucesos adversos (cierre/aviso/
     # contaminación): un hueco >PRESS_CLUSTER_GAP la rompe, y una
@@ -401,6 +323,14 @@ def press_episode_summary(
         and ep_start is not None
         and r.published_at >= ep_start
     ]
+    # TODAS las piezas del banner salen del último episodio de
+    # cobertura: tipo, causa, fecha y titulares narran la MISMA
+    # historia. La versión anterior votaba el tipo sobre toda la
+    # historia de la playa y la causa solo sobre el último clúster —
+    # con una historia mezclada salían frases imposibles (Radazul:
+    # "Estuvo cerrada por vertido de emisario", pegando el cierre de
+    # 2020 con el vídeo del emisario de 2026)
+    dominant = _event_mode(ep_items_full) or _event_mode(rows)
     # Los desplegables enseñan los hitos del episodio (cierre/
     # reapertura/aviso/contaminación): una pieza "other" es contexto
     # de la ola pero no narra el suceso ("Salud Pública estudia un
@@ -413,6 +343,93 @@ def press_episode_summary(
         for r in ep_items_full
         if dominant == "other" or r.event_type != "other"
     ]
+    # El inicio narrado no es la primera cobertura del clúster sino
+    # el arranque del último episodio DEL TIPO DOMINANTE dentro de
+    # él: una pieza retrospectiva del episodio resuelto forma parte
+    # de la cobertura (sale en los titulares) pero no inaugura el
+    # suceso nuevo (El Socorro: cierre del 12-sep con closed_since de
+    # agosto — el episodio vivo arranca con el cierre del 5-oct)
+    dominant_items = sorted(
+        (
+            r
+            for r in (ep_items_full or rows)
+            if r.event_type == dominant and r.published_at
+        ),
+        key=lambda r: cast(datetime, r.published_at),
+    )
+    if dominant == "closure" and last_reopen is not None:
+        post_reopen = [
+            r
+            for r in dominant_items
+            if r.published_at
+            and r.published_at > last_reopen
+            and _is_new_episode_closure(r)
+        ]
+        if post_reopen:
+            dominant_items = post_reopen
+    # Una reapertura intercalada solo corta la cadena si lo que la
+    # sigue es un episodio NUEVO de verdad — misma regla que la cadena
+    # de titulares: una pieza retrospectiva del episodio resuelto no
+    # reabre el "desde" (Médano: los cierres de estenerife del 25-sep
+    # salieron ENTRE reaperturas del mismo día; cortar ahí dejaba
+    # since=25-sep aunque el episodio arrancaba el 23)
+    since = None
+    prev = None
+    for item in dominant_items:
+        d = cast(datetime, item.published_at)
+        inside_open_struct = False
+        boundary = False
+        if prev is not None:
+            p = prev
+            inside_open_struct = any(
+                lo <= p.date() <= hi and lo <= d.date() <= hi
+                for lo, hi in open_struct_spans
+            )
+            boundary = (
+                d - p > PRESS_CLUSTER_GAP and not inside_open_struct
+            ) or any(
+                p < rd < d
+                and (
+                    item.event_type != "closure"
+                    or _is_new_episode_closure(item, rd)
+                )
+                for rd in reopen_dates
+            )
+        if since is None or boundary:
+            since = d
+        prev = d
+    # Si una incidencia oficial cubre la ventana, su opened_at manda
+    # sobre la prensa (El Socorro: Náyade dice 21-sep aunque los
+    # titulares lleguen el 23 — la prensa llegó tarde).
+    # Si la prensa se adelanta, vale su fecha
+    official_start = None
+    if since is not None:
+        # La ventana se evalúa sobre el `since` ORIGINAL (ancla de
+        # cobertura): mutarlo dentro del bucle permitía arrastrar
+        # incidencias de episodios anteriores en cascada (Jardín PM4:
+        # 30-sep → cubierto por la incidencia del 2-3 sep → y esa por
+        # la del 11-ago → "desde el 11-ago" para el cierre actual)
+        anchor = since.date()
+        reopen_d = last_reopen.date() if last_reopen else None
+        for inc in incidents:
+            if is_ungraded_note(inc.observations):
+                continue
+            # Incidencia ya cerrada ANTES de la última reapertura:
+            # pertenece al episodio anterior, no puede abrir este
+            if (
+                reopen_d is not None
+                and inc.closed_at is not None
+                and inc.closed_at <= reopen_d
+            ):
+                continue
+            if _in_window(anchor, inc.opened_at, inc.closed_at, today):
+                if official_start is None or inc.opened_at < official_start:
+                    official_start = inc.opened_at
+                opened = datetime.combine(
+                    inc.opened_at, datetime.min.time(), tzinfo=UTC
+                )
+                if opened < since:
+                    since = opened
     # closed_since: el propio texto puede afirmar un inicio real muy
     # anterior a la cobertura (Benijo: "cerrada desde julio de 2024"
     # aunque el titular sea de 2026). El saco de afirmaciones son los

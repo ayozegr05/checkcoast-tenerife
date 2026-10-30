@@ -1422,7 +1422,7 @@ def test_press_general_closure_not_attributed_to_sibling(seed_data):
     informa de la zona hermana cuando este punto ya resolvió la suya
     (Jardín oct-2026: PM1/PM5 decían "la zona 4 sigue cerrada" estando
     ellos mismos marcados cerrados por prensa)."""
-    from datetime import datetime
+    from datetime import datetime, timedelta
 
     from geoalchemy2.elements import WKTElement
 
@@ -1440,10 +1440,20 @@ def test_press_general_closure_not_attributed_to_sibling(seed_data):
     )
     db.add(sibling)
     db.flush()
+    # Fechas relativas a hoy: el episodio de prensa debe seguir VIVO
+    # (última mención dentro de PRESS_STALE) para que el punto narre
+    # el suyo — con fechas fijas el test caducaba al envejecer
+    today = date.today()
+    d1 = datetime.combine(
+        today - timedelta(days=15), datetime.min.time(), tzinfo=UTC
+    )
+    d2 = datetime.combine(
+        today - timedelta(days=8), datetime.min.time(), tzinfo=UTC
+    )
     # La hermana tiene evidencia oficial del mismo episodio
     sib_inc = BeachIncident(
         beach_id=sibling.id,
-        opened_at=date(2026, 9, 30),
+        opened_at=today - timedelta(days=15),
         closed_at=None,
         observations="Prohibido el baño",
     )
@@ -1451,14 +1461,14 @@ def test_press_general_closure_not_attributed_to_sibling(seed_data):
         _news(
             beach_id,
             "closure",
-            datetime(2026, 9, 30, tzinfo=UTC),
+            d1,
             "https://news.test/gen-close-1",
             "Cierran la playa",
         ),
         _news(
             beach_id,
             "closure",
-            datetime(2026, 10, 7, tzinfo=UTC),
+            d2,
             "https://news.test/gen-close-2",
             "Sigue cerrada la playa",
         ),

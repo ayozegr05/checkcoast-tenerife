@@ -782,3 +782,57 @@ def test_trailing_comma_does_not_break_list():
         beaches=beaches,
         title="Las playas de Candelaria seguirán cerradas",
     ) == [87, 92]
+
+
+
+def test_route_endpoints_are_not_beaches():
+    """Caso real jun-2026: "El Rosario reabre el sendero entre
+    Radazul y Tabaiba y permite la estancia en el solarium y en la
+    playa del Moro" casó con Playa de Tabaiba y Radazul — los
+    toponimos nombran los extremos del sendero, no las playas. La
+    extracción apuntaba a "playa del Moro" (no existe en censo) y
+    el rescate literal de titular casó los extremos de la via."""
+    beaches = [
+        SimpleNamespace(
+            id=82, name="Radazul", municipality="El Rosario"
+        ),
+        SimpleNamespace(
+            id=197, name="Playa de Tabaiba", municipality="El Rosario"
+        ),
+    ]
+    title = (
+        "El Rosario reabre el sendero entre Radazul y Tabaiba y "
+        "permite la estancia en el solarium y en la playa del Moro"
+    )
+    # la extracción nombra una playa que no existe: el rescate no
+    # debe casar los extremos del sendero
+    assert ids(
+        ext("playa del Moro", "El Rosario"), beaches=beaches, title=title
+    ) == []
+    assert ids(ext(None), beaches=beaches, title=title) == []
+
+
+def test_hyphenated_route_name_is_not_a_beach():
+    """Mismo caso: "reabre el paseo Radazul-Tabaiba" — Tabaiba es
+    el segundo extremo del nombre compuesto de la via, no la playa."""
+    beaches = [
+        SimpleNamespace(
+            id=197, name="Playa de Tabaiba", municipality="El Rosario"
+        ),
+        SimpleNamespace(
+            id=82, name="Radazul", municipality="El Rosario"
+        ),
+    ]
+    title = (
+        "El Rosario reabre el paseo Radazul-Tabaiba y el solarium "
+        "del dique después del desprendimiento"
+    )
+    assert ids(ext(None), beaches=beaches, title=title) == []
+
+
+def test_route_then_beach_still_matches():
+    """Guarda del veto: un rasgo de baño intermedio resetea el
+    contexto — "cierran el paseo marítimo y la playa de Bajamar" sí
+    casa Bajamar."""
+    title = "Cierran el paseo marítimo y la playa de Bajamar"
+    assert ids(ext(None), title=title) == [3]
