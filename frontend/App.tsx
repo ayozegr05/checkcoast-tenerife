@@ -68,13 +68,19 @@ export default function App() {
   const [listOpen, setListOpen] = useState(false);
   const [muniOpen, setMuniOpen] = useState(false);
   // Vista inicial del panel de municipios: el enlace del banner de
-  // alertas lo abre directamente en "Temporada"
-  const [muniView, setMuniView] = useState<'ranking' | 'temporada' | 'year'>(
+  // alertas lo abre directamente en Episodios ventana verano
+  const [muniView, setMuniView] = useState<'ranking' | 'verano' | 'año'>(
     'ranking',
   );
-  // Causa preseleccionada al abrir la vista "Este año" (drill-down
+  // Causa preseleccionada al abrir la cronología (drill-down
   // del paréntesis del banner de alertas)
   const [muniCause, setMuniCause] = useState<string | null>(null);
+  // Sesión de apertura del panel de municipios: solo sube en las
+  // aperturas nuevas (menú, banner de temporada) — las restauraciones
+  // al cerrar una ficha o la lista de playas la conservan, así el
+  // panel distingue "reabrir la misma sesión" de "abrir de nuevo"
+  // y no resetea año/histórico/causa al volver
+  const [muniSession, setMuniSession] = useState(0);
   const [outfallListOpen, setOutfallListOpen] = useState(false);
   const [listMunicipality, setListMunicipality] = useState<
     string | null | undefined
@@ -555,12 +561,14 @@ export default function App() {
           closeAllOverlays();
           setMuniView('ranking');
           setMuniCause(null);
+          setMuniSession((s) => s + 1);
           setMuniOpen(true);
         }}
         onOpenTemporada={() => {
           closeAllOverlays();
-          setMuniView('temporada');
+          setMuniView('verano');
           setMuniCause(null);
+          setMuniSession((s) => s + 1);
           setMuniOpen(true);
         }}
         episodes={episodes}
@@ -683,6 +691,7 @@ export default function App() {
           una ficha de playa desde su línea temporal */}
       <MunicipalityStats
         visible={muniOpen}
+        session={muniSession}
         beaches={beachesFC.features}
         episodes={episodes}
         initialView={muniView}

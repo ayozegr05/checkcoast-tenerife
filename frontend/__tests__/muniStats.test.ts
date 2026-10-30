@@ -6,12 +6,9 @@ import {
   buildMuniRows,
   durationDays,
   muniCauseCounts,
-  rankColorOf,
   scoreOf,
-  yearLineText,
   yearMuniCounts,
 } from '../lib/muniStats';
-import { colors } from '../lib/theme';
 
 const beach = (
   id: number,
@@ -116,12 +113,6 @@ describe('buildMuniRows — ranking por municipio', () => {
     ]);
     expect(scoreOf(rows[0])).toBe(100 + 20 + 3 + 3);
   });
-
-  it('el podio usa el color de severidad y el resto, neutro', () => {
-    expect(rankColorOf(rows[0], 0)).toBe(colors.status.closed);
-    expect(rankColorOf(rows[2], 2)).toBe(colors.status.open);
-    expect(rankColorOf(rows[0], 3)).toBe('#8fa3ad');
-  });
 });
 
 describe('yearMuniCounts', () => {
@@ -166,33 +157,5 @@ describe('durationDays', () => {
     expect(
       durationDays(ep({ opened_at: '2026-07-01', closed_at: '2026-07-01' })),
     ).toBe(1);
-  });
-});
-
-describe('yearLineText', () => {
-  const live = [
-    beach(1, 'A', 'Arona', { status: 'closed' }),
-    beach(2, 'B', 'Arona', { status: 'open' }),
-  ];
-  const episodes = [
-    ep({}),
-    ep({ opened_at: '2025-08-01', closed_at: '2025-08-02' }),
-    ep({ kind: 'warning' }),
-  ];
-
-  it('histórico: totales, año de inicio y activas ahora', () => {
-    expect(yearLineText(episodes, live, 2026, false, [2026, 2025, 2023])).toBe(
-      '2 cierres · 1 aviso desde 2023 · 1 activa ahora',
-    );
-  });
-
-  it('sin episodios no hay línea', () => {
-    expect(yearLineText([], live, 2026, false, [])).toBeNull();
-  });
-
-  it('modo-año: solo los cierres de ese año', () => {
-    expect(yearLineText(episodes, live, 2025, true, [2026, 2025])).toBe(
-      '2025 · 1 cierre',
-    );
   });
 });

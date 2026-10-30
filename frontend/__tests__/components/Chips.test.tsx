@@ -13,7 +13,7 @@ const thisYear = new Date().getFullYear();
 const yearProps = (
   over: Partial<React.ComponentProps<typeof YearChips>> = {},
 ): React.ComponentProps<typeof YearChips> => ({
-  view: 'ranking',
+  summer: false,
   visibleYears: [thisYear, 2024],
   selYear: 2024,
   histMode: false,
@@ -34,30 +34,30 @@ describe('<YearChips />', () => {
   it('ranking: años con conteo + chip «Histórico»', async () => {
     const props = yearProps();
     await render(<YearChips {...props} />);
-    expect(screen.getByText('Este año (5)')).toBeTruthy();
+    expect(screen.getByText(`${thisYear} (5)`)).toBeTruthy();
     expect(screen.getByText('2024 (3)')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Ver año 2024' }));
     expect(props.onPickYear).toHaveBeenCalledWith(2024);
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Ver ranking histórico completo' }),
+      screen.getByRole('button', { name: 'Ver histórico completo' }),
     );
     expect(props.onHistoric).toHaveBeenCalled();
     expect(screen.getByText('Histórico (20)')).toBeTruthy();
   });
 
-  it('temporada: habla de veranos y no ofrece histórico', async () => {
+  it('verano: etiquetas «Ver verano Y» e histórico también disponible', async () => {
     await render(
       <YearChips
-        {...yearProps({ view: 'temporada', visibleYears: [2023, 2024] })}
+        {...yearProps({ summer: true, visibleYears: [2023, 2024] })}
       />,
     );
-    expect(screen.getByText('Verano 2024 (3)')).toBeTruthy();
+    expect(screen.getByText('2024 (3)')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Ver verano 2023' }),
     ).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: 'Ver ranking histórico completo' }),
-    ).toBeNull();
+      screen.getByRole('button', { name: 'Ver histórico completo' }),
+    ).toBeTruthy();
   });
 
   it('«Más años ›» / «Menos ›» pliegan y despliegan', async () => {
@@ -134,7 +134,7 @@ describe('<CauseChips />', () => {
     );
     expect(onChange).toHaveBeenLastCalledWith('Mar agitado');
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Ver todos los episodios del año' }),
+      screen.getByRole('button', { name: 'Ver todos los episodios' }),
     );
     expect(onChange).toHaveBeenLastCalledWith('all');
   });

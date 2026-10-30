@@ -1,6 +1,6 @@
 import { BeachStats, GeoFeature, MunicipalityIncident } from './api';
-import { causeFamily, closuresThisYear, episodeDays } from './episodes';
-import { displayBeachName, fmtDate } from './format';
+import { causeFamily, episodeDays } from './episodes';
+import { beachGroupKey, displayBeachName, fmtDate } from './format';
 import { PM_SUFFIX } from './pm';
 import { colors } from './theme';
 
@@ -42,12 +42,6 @@ export const barColorOf = (m: MuniStats) =>
     : m.warningNow > 0
       ? colors.status.warning
       : colors.status.open;
-
-// Círculo de posición: el podio usa el color de severidad del municipio
-// (rojo = cierres ahora, naranja = avisos, azul = solo histórico) — el
-// top 3 marca "los que peor están", no un premio. Neutro del 4º en adelante
-export const rankColorOf = (m: MuniStats, index: number) =>
-  index < 3 ? barColorOf(m) : colors.textFaint;
 
 // Modo-año: un cierre pesa el triple que un aviso; la barra roja si
 // hubo cierres, naranja si solo avisos
@@ -136,8 +130,11 @@ export function buildMuniRows(
       badSamples: 0,
     };
     // El conteo de playas incluye todas las catalogadas;
-    // solo las monitorizadas tienen estado oficial ni stats
-    m.beachNames.add(baseName(f.properties.name));
+    // solo las monitorizadas tienen estado oficial ni stats.
+    // Misma clave que la lista de playas (calas fundidas en su
+    // arenal, variantes OSM↔censo unificadas) — si no, el "N
+    // playas" de la ficha no cuadra con lo que el usuario ve
+    m.beachNames.add(beachGroupKey(f.properties.name));
     // El estado vivo cuenta para TODAS las playas: una OSM cerrada
     // según prensa (Benijo) también es una afectación real. Los
     // puntos de muestreo y el histórico sí son solo de monitorizadas
@@ -166,42 +163,4 @@ export function buildMuniRows(
       beaches: beachNames.size,
     }))
     .sort((a, b) => scoreOf(b) - scoreOf(a) || a.name.localeCompare(b.name));
-}
-
-// Línea-resumen bajo el título del ranking: histórico completo con
-// causas y año de inicio, o "año · N cierres" en modo-año
-export function yearLineText(
-  episodes: MunicipalityIncident[],
-  beaches: GeoFeature[],
-  selYear: number,
-  isYearMode: boolean,
-  years: number[],
-): string | null {
-  // "Activas" = alertas VIVAS (estado efectivo), no episodios sin
-  // cerrar: un cierre estructural sin prensa fresca sigue vivo aunque
-  // su episodio tenga fin estimado (Benijo, Gaviotas, Garachico)
-  const live = beaches.filter(
-    (f) =>
-      f.properties.status === 'closed' || f.properties.status === 'warning',
-  ).length;
-  if (!isYearMode) {
-    // Histórico: registro completo — totales, causas de los cierres
-    // y desde qué año hay datos (mediciones Náyade desde ene-2023)
-    const closures = episodes.filter((e) => e.kind === 'closure');
-    const warnings = episodes.length - closures.length;
-    if (closures.length === 0 && warnings === 0) return null;
-    const firstYear = years[years.length - 1];
-    const parts = [
-      `${closures.length} ${closures.length === 1 ? 'cierre' : 'cierres'}`,
-    ];
-    if (warnings)
-      parts.push(`${warnings} ${warnings === 1 ? 'aviso' : 'avisos'}`);
-    let line = parts.join(' · ');
-    if (firstYear) line += ` desde ${firstYear}`;
-    if (live) line += ` · ${live} ${live === 1 ? 'activa' : 'activas'} ahora`;
-    return line;
-  }
-  const n = closuresThisYear(episodes, selYear).length;
-  if (n === 0) return null;
-  return `${selYear} · ${n} ${n === 1 ? 'cierre' : 'cierres'}`;
 }

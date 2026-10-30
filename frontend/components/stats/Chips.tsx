@@ -1,18 +1,18 @@
 import React from 'react';
 import { Pressable, Text } from 'react-native';
 
-import { seasonYear } from '../../lib/episodes';
+import { displayCause } from '../../lib/format';
 import ScrollChips from '../ScrollChips';
 import { styles } from './statsStyles';
 
-export type StatsView = 'ranking' | 'temporada' | 'year';
 export type SeasonFilter = 'all' | 'closure' | 'warning' | 'active';
 
-// Chips de año compartidas por las tres vistas — en ranking seleccionar
-// un año entra en modo-año y "Histórico" (chip fijo al final) lo quita.
+// Chips de año compartidas por ranking y cronología — elegir un año
+// sale del modo histórico; "Histórico" (chip fijo al final) lo
+// activa. `summer` solo ajusta la lectura accesible ("verano 2024")
+// porque la pestaña decide qué significa el año.
 // Con más de MAX_YEAR_CHIPS años los antiguos se pliegan tras "Más años ›"
 export function YearChips({
-  view,
   visibleYears,
   selYear,
   histMode,
@@ -20,11 +20,11 @@ export function YearChips({
   totalEpisodes,
   showAllYears,
   canCollapse,
+  summer,
   onPickYear,
   onToggleAll,
   onHistoric,
 }: {
-  view: StatsView;
   visibleYears: number[];
   selYear: number;
   histMode: boolean;
@@ -32,12 +32,12 @@ export function YearChips({
   totalEpisodes: number;
   showAllYears: boolean;
   canCollapse: boolean;
+  summer: boolean;
   onPickYear: (year: number) => void;
   onToggleAll: () => void;
   onHistoric: () => void;
 }) {
-  const chipOn = (y: number) =>
-    view === 'ranking' ? !histMode && selYear === y : selYear === y;
+  const chipOn = (y: number) => !histMode && selYear === y;
   return (
     <ScrollChips
       style={styles.seasonChipsWrap}
@@ -54,9 +54,7 @@ export function YearChips({
           ]}
           onPress={() => onPickYear(y)}
           accessibilityRole="button"
-          accessibilityLabel={`Ver ${
-            view === 'temporada' ? 'verano' : 'año'
-          } ${y}`}
+          accessibilityLabel={`Ver ${summer ? 'verano' : 'año'} ${y}`}
         >
           <Text
             style={[
@@ -64,14 +62,7 @@ export function YearChips({
               chipOn(y) && styles.seasonChipTextOn,
             ]}
           >
-            {view === 'temporada'
-              ? y === seasonYear()
-                ? 'Este verano'
-                : `Verano ${y}`
-              : y === new Date().getFullYear()
-                ? 'Este año'
-                : `${y}`}
-            {` (${chipCounts.get(y) ?? 0})`}
+            {`${y} (${chipCounts.get(y) ?? 0})`}
           </Text>
         </Pressable>
       ))}
@@ -88,37 +79,31 @@ export function YearChips({
           }
         >
           <Text style={styles.seasonChipText}>
-            {showAllYears
-              ? 'Menos ›'
-              : view === 'temporada'
-                ? 'Más veranos ›'
-                : 'Más años ›'}
+            {showAllYears ? 'Menos ›' : 'Más años ›'}
           </Text>
         </Pressable>
       )}
-      {view === 'ranking' && (
-        <Pressable
-          style={({ pressed }) => [
-            styles.seasonChip,
-            histMode && styles.seasonChipOn,
-            pressed && styles.pressFx,
-          ]}
-          onPress={onHistoric}
-          accessibilityRole="button"
-          accessibilityLabel="Ver ranking histórico completo"
+      <Pressable
+        style={({ pressed }) => [
+          styles.seasonChip,
+          histMode && styles.seasonChipOn,
+          pressed && styles.pressFx,
+        ]}
+        onPress={onHistoric}
+        accessibilityRole="button"
+        accessibilityLabel="Ver histórico completo"
+      >
+        <Text
+          style={[styles.seasonChipText, histMode && styles.seasonChipTextOn]}
         >
-          <Text
-            style={[styles.seasonChipText, histMode && styles.seasonChipTextOn]}
-          >
-            Histórico ({totalEpisodes})
-          </Text>
-        </Pressable>
-      )}
+          Histórico ({totalEpisodes})
+        </Text>
+      </Pressable>
     </ScrollChips>
   );
 }
 
-// Chips-filtro de la vista Temporada: cierres | avisos | activas ahora
+// Chips-filtro de la cronología: cierres | avisos | activas ahora
 export function SeasonFilterChips({
   counts,
   filter,
@@ -134,6 +119,25 @@ export function SeasonFilterChips({
       contentContainerStyle={styles.seasonChips}
       a11yLabel="filtros de episodios"
     >
+      <Pressable
+        style={({ pressed }) => [
+          styles.seasonChip,
+          filter === 'all' && styles.seasonChipOn,
+          pressed && styles.pressFx,
+        ]}
+        onPress={() => onChange('all')}
+        accessibilityRole="button"
+        accessibilityLabel="Ver todos los episodios"
+      >
+        <Text
+          style={[
+            styles.seasonChipText,
+            filter === 'all' && styles.seasonChipTextOn,
+          ]}
+        >
+          Todos
+        </Text>
+      </Pressable>
       {(
         [
           ['closure', counts.closures, 'cierre', 'cierres'],
@@ -170,7 +174,7 @@ export function SeasonFilterChips({
   );
 }
 
-// Chips de causa del ranking y la vista "Este año" — cuentan solo
+// Chips de causa del ranking y la cronología — cuentan solo
 // CIERRES, igual que el desglose del banner ("14 cierres (7 mar
 // agitado · …)"). Tocar la activa la quita
 export function CauseChips({
@@ -196,7 +200,7 @@ export function CauseChips({
         ]}
         onPress={() => onChange('all')}
         accessibilityRole="button"
-        accessibilityLabel="Ver todos los episodios del año"
+        accessibilityLabel="Ver todos los episodios"
       >
         <Text
           style={[
@@ -225,7 +229,7 @@ export function CauseChips({
               active === cause && styles.seasonChipTextOn,
             ]}
           >
-            {`${n} ${cause.charAt(0).toLowerCase()}${cause.slice(1)}`}
+            {`${n} ${displayCause(cause)}`}
           </Text>
         </Pressable>
       ))}

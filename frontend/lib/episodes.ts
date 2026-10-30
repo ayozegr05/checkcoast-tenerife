@@ -28,13 +28,36 @@ export const seasonEpisodes = (
   year: number = seasonYear(),
 ): MunicipalityIncident[] => overlapping(eps, `${year}-06-01`, `${year}-09-30`);
 
-// Episodios que tocaron el año natural (ene-dic) — la vista "Este año"
+// Episodios que tocaron ALGUNA temporada de baño (jun-sep de
+// cualquier año) — la ventana "Verano · Histórico" de la vista
+// Episodios: todos los veranos registrados de una vez
+export const summerEpisodes = (
+  eps: MunicipalityIncident[],
+): MunicipalityIncident[] => {
+  const cur = new Date().getFullYear();
+  const first = eps.reduce(
+    (min, e) => Math.min(min, Number(e.opened_at.slice(0, 4)) || cur),
+    cur,
+  );
+  const out: MunicipalityIncident[] = [];
+  const seen = new Set<MunicipalityIncident>();
+  for (let y = cur; y >= first; y--)
+    for (const e of seasonEpisodes(eps, y))
+      if (!seen.has(e)) {
+        seen.add(e);
+        out.push(e);
+      }
+  return out;
+};
+
+// Episodios que tocaron el año natural (ene-dic) — la ventana
+// "Todo el año" de la cronología y el modo-año del ranking
 export const yearEpisodes = (
   eps: MunicipalityIncident[],
   year: number = new Date().getFullYear(),
 ): MunicipalityIncident[] => overlapping(eps, `${year}-01-01`, `${year}-12-31`);
 
-// Años con algún episodio (selector de temporada/año): del más viejo
+// Años con algún episodio (faceta Año de Municipios): del más viejo
 // al actual — Benijo abrió en 2024 y sigue abierta, así que 2025 y
 // 2026 también cuentan como años que la "tocaron"
 export const episodeYears = (eps: MunicipalityIncident[]): number[] => {
@@ -55,7 +78,7 @@ export const latestEpisodeYear = (eps: MunicipalityIncident[]): number | null =>
   episodeYears(eps).find((y) => yearEpisodes(eps, y).length > 0) ?? null;
 
 // Pares [causa, nº episodios] ordenados por frecuencia — para las
-// cabeceras y las chips-filtro de la vista "Este año". Los episodios
+// cabeceras y las chips-filtro de la cronología. Los episodios
 // sin causa van al final como etiqueta "sin causa".
 export const causeCounts = (
   eps: MunicipalityIncident[],
@@ -121,7 +144,7 @@ export const causeFamilyCounts = (
 };
 
 // Cierres (no avisos) que TOCARON el año en curso — misma semántica
-// de solape que la vista "Este año": un cierre abierto antes que sigue
+// de solape que la cronología anual: un cierre abierto antes que sigue
 // (o siguió durante) el año cuenta igual (Benijo cerró todo 2026
 // aunque abriera en 2024). Si esta cuenta difiere del desglose que
 // ve el usuario al entrar, la cifra miente

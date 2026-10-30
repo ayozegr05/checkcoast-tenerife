@@ -29,7 +29,9 @@ describe('<EpisodeRow />', () => {
         onPress={onPress}
       />,
     );
-    expect(screen.getByText('Aviso resuelto')).toBeTruthy();
+    // Episodio cerrado: sin badge — las fechas ya lo cuentan (badge
+    // solo para lo que sigue activo)
+    expect(screen.queryByText(/resuelto/)).toBeNull();
     expect(
       screen.getByText(/^Sin municipio · 01\/07\/2026 → 03\/07\/2026/),
     ).toBeTruthy();

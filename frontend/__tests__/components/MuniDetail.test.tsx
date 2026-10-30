@@ -95,7 +95,25 @@ describe('<MuniDetail />', () => {
     );
     expect(await screen.findByText(/Playa Jardín/)).toBeTruthy();
     expect(screen.queryByText(/Playa Martiánez/)).toBeNull();
-    expect(screen.getByText(/· 2025 · más reciente primero/)).toBeTruthy();
+    expect(screen.getByText(/\d+ episodios? ·/)).toBeTruthy();
+    expect(screen.getByText(/\d+ de \d+ playas afectadas ›/)).toBeTruthy();
+    // El conmutador de ámbito etiqueta el año activo
+    expect(
+      screen.getByRole('button', { name: 'Ver episodios de 2025' }),
+    ).toBeTruthy();
+  });
+
+  it('conmuta el ámbito al histórico sin salir de la ficha', async () => {
+    await render(
+      <MuniDetail {...props({ isYearMode: true, selYear: 2025 })} />,
+    );
+    expect(await screen.findByText(/Playa Jardín/)).toBeTruthy();
+    expect(screen.queryByText(/Playa Martiánez/)).toBeNull();
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Ver histórico' }),
+    );
+    expect(await screen.findByText(/Playa Martiánez/)).toBeTruthy();
+    expect(screen.getByText(/Playa Jardín/)).toBeTruthy();
   });
 
   it('navegación: volver, ver playas y abrir ficha', async () => {
@@ -109,7 +127,7 @@ describe('<MuniDetail />', () => {
       expect.objectContaining({ beach_id: 10 }),
     );
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Ver playas del municipio' }),
+      screen.getByRole('link', { name: 'Ver playas del municipio' }),
     );
     expect(p.onSelect).toHaveBeenCalledWith('Puerto de la Cruz');
     await fireEvent.press(

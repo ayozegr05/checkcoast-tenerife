@@ -48,15 +48,94 @@ export const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: 'rgba(255,255,255,0.85)',
     paddingHorizontal: 16,
-    marginTop: 23,
+    marginTop: 16,
   },
-  // Cifra de contexto bajo el subtítulo ("4 episodios · 2 playas")
+  // Cabecera del detalle municipal: mini-mapa de la isla
+  // centrado como pieza visual y línea de contexto debajo
+  headerSplit: {
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  // Línea de contexto del detalle ("4 episodios · 2/15 playas ›")
   subtitleCount: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontFamily: fonts.bold,
     color: 'rgba(255,255,255,0.75)',
-    paddingHorizontal: 16,
-    marginTop: 3,
+    marginTop: 6,
+  },
+  // Mini-conmutador de ámbito en el detalle (año ↔ histórico)
+  scopeTabs: {
+    flexDirection: 'row',
+    marginTop: 8,
+    // 10px: el vocabulario de esquinas de la app vive en 8-12 —
+    // a 14 el toggle era una cápsula y chirriaba con las facetas
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.45)',
+    overflow: 'hidden',
+  },
+  scopeTab: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  scopeTabActive: { backgroundColor: 'rgba(255,255,255,0.95)' },
+  // › rotado del selector de año — mismo idioma que las facetas
+  scopeTabChevron: {
+    fontSize: 14,
+    fontFamily: fonts.semibold,
+    color: 'rgba(255,255,255,0.85)',
+    transform: [{ rotate: '90deg' }],
+    marginLeft: 4,
+  },
+  scopeTabChevronOpen: { transform: [{ rotate: '-90deg' }] },
+  scopeTabText: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  scopeTabTextActive: { color: colors.primaryDark },
+  // Selector de año plegable bajo el conmutador de ámbito
+  yearRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: 8,
+    maxWidth: 280,
+  },
+  yearOption: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    // 8px: mismo radio absoluto que el toggle se lee más curvo en
+    // un elemento más bajo — compensación óptica, y casa con los
+    // filterTab del ranking (misma familia de elemento)
+    borderRadius: 8,
+    marginHorizontal: 3,
+    marginVertical: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  yearOptionActive: { backgroundColor: 'rgba(255,255,255,0.95)' },
+  yearOptionText: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  yearOptionTextActive: { color: colors.primaryDark },
+  // Pie del selector: explica por qué la suma de chips puede
+  // superar el total histórico (episodios que cruzan años)
+  yearNote: {
+    fontSize: 9.5,
+    fontFamily: fonts.regular,
+    color: 'rgba(255,255,255,0.55)',
+    marginTop: 5,
+    textAlign: 'center',
+  },
+  // Segmento-enlace dentro del contador ("2/15 playas ›")
+  muniLinkPart: {
+    color: 'rgba(255,255,255,0.95)',
+    textDecorationLine: 'underline',
   },
   searchWrap: {
     flexDirection: 'row',
@@ -105,26 +184,6 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  rank: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  rankPodium: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    elevation: 2,
-  },
-  rankText: {
-    fontSize: 11,
-    fontFamily: fonts.extrabold,
-    color: colors.onColor,
-  },
-
   rowName: {
     fontSize: 15,
     fontFamily: fonts.bold,
@@ -163,23 +222,35 @@ export const styles = StyleSheet.create({
     color: colors.onColor,
     overflow: 'hidden',
   },
+  // Badge al final de una cabecera de fila: no se aplasta y deja
+  // aire al nombre truncado
+  badgeTail: {
+    flexShrink: 0,
+    marginLeft: 8,
+  },
+  // Fila de episodio: miniatura satélite a la izquierda (mismo tamaño
+  // que el thumb de BeachList — 52 px) + cuerpo que se estira
+  epMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  epThumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    marginRight: 10,
+    backgroundColor: colors.border,
+  },
+  epBody: {
+    flex: 1,
+  },
   badgeClosed: {
     backgroundColor: colors.status.closed,
   },
   badgeWarning: {
     backgroundColor: colors.status.warning,
   },
-  // Episodio resuelto en la vista Temporada: verde mar
-  badgeOpen: {
-    backgroundColor: colors.status.open,
-  },
-  yearLine: {
-    fontSize: 12,
-    fontFamily: fonts.bold,
-    color: colors.onColor,
-    paddingHorizontal: 16,
-    marginTop: 6,
-  },
+
   viewToggle: {
     flexDirection: 'row',
     marginHorizontal: 16,
@@ -205,6 +276,82 @@ export const styles = StyleSheet.create({
   viewTabTextOn: {
     color: colors.primaryDark,
   },
+  // Pestañas-faceta del acordeón — mismo lenguaje que las barras de
+  // filtros de Emisarios/Playas: label pequeño + valor + contador,
+  // chevron que gira al abrir. Solo puede haber un panel abierto
+  filterTabs: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+  },
+  filterTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(8,107,150,0.14)',
+  },
+  filterTabOpen: {
+    backgroundColor: colors.accent,
+    borderColor: 'transparent',
+  },
+  filterTabText: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+  },
+  filterTabLabel: {
+    fontSize: 10,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    textAlign: 'center',
+  },
+  filterTabValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 1,
+  },
+  filterTabValue: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    color: colors.text,
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  // Contador aparte del valor: nunca se corta — el nombre largo se
+  // trunca ("Riesgo estructu…") pero "(4)" sobrevive
+  filterTabCount: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    color: colors.text,
+    flexShrink: 0,
+  },
+  filterTabChevron: {
+    fontSize: 15,
+    fontFamily: fonts.semibold,
+    color: colors.primaryDark,
+    transform: [{ rotate: '90deg' }],
+    marginLeft: 3,
+  },
+  filterTabChevronOpen: {
+    transform: [{ rotate: '-90deg' }],
+    color: colors.text,
+  },
+  // Separador entre la fila de pestañas y el panel de chips abierto
+  filterBarDivider: {
+    height: 1,
+    backgroundColor: 'rgba(8,107,150,0.18)',
+    marginHorizontal: 10,
+    marginTop: 6,
+  },
   // Chips-filtro de la vista Temporada (cierres/avisos/activas) —
   // tocando uno se filtra la lista a ese tipo de episodio
   seasonChipsWrap: {
@@ -218,7 +365,7 @@ export const styles = StyleSheet.create({
   seasonChip: {
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 12,
+    borderRadius: 8,
   },
   seasonChipOn: {
     backgroundColor: colors.accent,
@@ -309,7 +456,6 @@ export const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    marginTop: 14,
     borderWidth: 2,
     borderColor: colors.surface,
     elevation: 1,
@@ -319,12 +465,18 @@ export const styles = StyleSheet.create({
     width: 2,
     backgroundColor: colors.border,
   },
-  // Puente dot→tarjeta: el dot está centrado en el rail (20px) y la
-  // tarjeta empieza 6px más allá — el tick cruza ese hueco a la
-  // altura del centro del dot (marginTop 14 + radio 6 = 20)
+  // Extremos del rail (antes del primer punto y tras el último):
+  // línea invisible que conserva el centrado del nodo
+  tlLineStub: {
+    backgroundColor: 'transparent',
+  },
+  // Puente dot→tarjeta: el dot está centrado verticalmente sobre
+  // la tarjeta y empieza 6px más allá del rail — el tick cruza ese
+  // hueco a la altura del centro del nodo
   tlTick: {
     position: 'absolute',
-    top: 19,
+    top: '50%',
+    marginTop: -1,
     right: -6,
     width: 10,
     height: 1.5,
@@ -371,11 +523,11 @@ export const styles = StyleSheet.create({
   tlContent: {
     flex: 1,
   },
-  // Cuerpo en dos columnas como la fila de Episodios de la ficha:
-  // identidad/fechas/obs a la izquierda, badge de causa (o
-  // etiqueta de estado) + causa a la derecha
+  // Dos columnas bajo el título: fechas/fuente a la izquierda,
+  // badge de causa (o etiqueta de estado) + causa a la derecha
   tlRow: {
     flexDirection: 'row',
+    marginTop: 5,
     // wrap: los titulares desplegados bajan a línea propia a ancho
     // completo, debajo de las dos columnas (como la ficha)
     flexWrap: 'wrap',
@@ -388,6 +540,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     flexShrink: 0,
     paddingLeft: 8,
+    marginTop: 4,
     gap: 1,
   },
   // Badges de causa en fila — uno por parámetro en causas
@@ -418,8 +571,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fonts.bold,
     color: colors.text,
-    flex: 1,
-    marginRight: 8,
+    textAlign: 'center',
   },
   // Sufijo de cala dentro del nombre ("Playa del Médano · Leocadio
   // Machado"): mismo tamaño, sin negrita — matiz dentro del título
@@ -466,11 +618,12 @@ export const styles = StyleSheet.create({
     // Sin el padding de fuente de Android el glyph no centra bien
     includeFontPadding: false,
   },
-  // Línea de acciones de la fila: "Ver titulares ▾" a la izquierda
+  // "Ver titulares" dentro de la columna de texto — margen mínimo:
+  // el aire de separación ya lo da la altura de la fila
   tlActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 5,
   },
   // Toggle de titulares — mismo tono que newsToggle en la ficha:
   // color de acento del episodio inyectado en línea

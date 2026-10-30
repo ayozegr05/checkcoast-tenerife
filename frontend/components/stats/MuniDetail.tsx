@@ -23,18 +23,21 @@ import { colors } from '../../lib/theme';
 import { zoneName } from '../../lib/zones';
 import Skeleton from '../Skeleton';
 import NewsGroupList from '../beach/NewsGroupList';
+import MuniMiniMap from './MuniMiniMap';
 import { styles } from './statsStyles';
 
 // Un item de la línea temporal del municipio: punto de color (sólido si
 // sigue activo, apagado si cerró) + tarjeta con playa, fechas y badge
 function TimelineRow({
   inc,
+  isFirst,
   isLast,
   live,
   zone,
   onSelectBeach,
 }: {
   inc: MunicipalityIncident;
+  isFirst: boolean;
   isLast: boolean;
   // Estado vivo de la playa: un incidente abierto cuyo observations no
   // dice "prohibido" se clasifica como aviso, pero si la playa está
@@ -87,6 +90,10 @@ function TimelineRow({
   return (
     <View style={styles.tlItem}>
       <View style={styles.tlRail}>
+        {/* Línea continua arriba y abajo del punto — con los dos
+            tramos en flex el nodo queda centrado sobre la tarjeta;
+            los extremos del rail van transparentes */}
+        <View style={[styles.tlLine, isFirst && styles.tlLineStub]} />
         <View
           style={[
             styles.tlDot,
@@ -102,7 +109,7 @@ function TimelineRow({
                 },
           ]}
         />
-        {!isLast && <View style={styles.tlLine} />}
+        <View style={[styles.tlLine, isLast && styles.tlLineStub]} />
         {/* Tick horizontal dot→tarjeta a la altura del dot: el rail
             lee "línea temporal conectada" (tipo git-log) en vez de
             puntos flotando junto a las tarjetas */}
@@ -139,23 +146,25 @@ function TimelineRow({
             primera línea */}
         <View style={styles.tlWrap}>
           <View style={styles.tlContent}>
-            {/* Mismo layout que una fila de Episodios de la ficha:
-                identidad y fechas a la izquierda; a la derecha el
-                badge circular de la causa (en cierres) o la etiqueta
-                de estado (avisos / notas pendientes), con la causa
-                debajo */}
+            {/* Título a todo el ancho: el nombre ya no se trunca
+                contra la columna de causa — debajo, dos columnas:
+                fechas/fuente a la izquierda, badges + causa a la
+                derecha */}
+            <Text style={styles.tlBeach} numberOfLines={2}>
+              {displayBeachName(inc.beach_name)}
+              {zone ? <Text style={styles.tlZone}> · {zone}</Text> : null}
+            </Text>
             <View style={styles.tlRow}>
               <View style={styles.tlMain}>
-                <Text style={styles.tlBeach} numberOfLines={2}>
-                  {displayBeachName(inc.beach_name)}
-                  {zone ? <Text style={styles.tlZone}> · {zone}</Text> : null}
-                </Text>
                 <Text style={styles.tlDates}>
                   {inc.end_estimated
                     ? // Fin estimado (última mención en prensa): no se
-                      // muestra, pero la fecha pelada parece dato roto
-                      // — el "según prensa" la contextualiza
-                      `${inc.opened_at ? fmtDate(inc.opened_at) : '—'} · según prensa`
+                      // muestra como fecha — no sabemos cuándo se
+                      // levantó el cierre, "desconocido" lo dice con
+                      // la misma gramática inicio → fin de las filas
+                      // oficiales. La fuente la marca la línea de
+                      // abajo ("Cierre según prensa")
+                      `${inc.opened_at ? fmtDate(inc.opened_at) : '—'} → desconocido`
                     : `${inc.opened_at ? fmtDate(inc.opened_at) : '—'} → ${
                         inc.closed_at ? fmtDate(inc.closed_at) : 'activo'
                       }${inc.opened_at ? ` · ${formatDays(durationDays(inc))}` : ''}`}
@@ -163,6 +172,31 @@ function TimelineRow({
                 {inc.observations ? (
                   <Text style={styles.tlObs}>{inc.observations}</Text>
                 ) : null}
+                {/* "Ver titulares" cuelga de la última línea de
+                    texto (columna izquierda), no del final de la
+                    fila — si la causa a la derecha es más alta, el
+                    enlace no se hunde dejando aire muerto */}
+                {pressItems.length > 0 && (
+                  <View style={styles.tlActions}>
+                    <Pressable
+                      onPress={() => setTitlesOpen((o) => !o)}
+                      hitSlop={8}
+                      style={({ pressed }) => pressed && styles.pressFx}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        titlesOpen
+                          ? 'Ocultar titulares del episodio'
+                          : `Ver ${pressItems.length} titulares del episodio`
+                      }
+                    >
+                      <Text style={[styles.tlNewsToggle, { color: accent }]}>
+                        {titlesOpen
+                          ? 'Ocultar titulares ▴'
+                          : `Ver titulares (${pressItems.length}) ▾`}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
               <View style={styles.tlSide}>
                 {kind === 'closure' && !unclassified ? (
@@ -198,28 +232,9 @@ function TimelineRow({
                 ) : null}
               </View>
             </View>
-            {/* Línea de acciones: ▾ despliega la evidencia aquí mismo */}
-            {pressItems.length > 0 && (
-              <View style={styles.tlActions}>
-                <Pressable
-                  onPress={() => setTitlesOpen((o) => !o)}
-                  hitSlop={8}
-                  style={({ pressed }) => pressed && styles.pressFx}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    titlesOpen
-                      ? 'Ocultar titulares del episodio'
-                      : `Ver ${pressItems.length} titulares del episodio`
-                  }
-                >
-                  <Text style={[styles.tlNewsToggle, { color: accent }]}>
-                    {titlesOpen
-                      ? 'Ocultar titulares ▴'
-                      : `Ver titulares (${pressItems.length}) ▾`}
-                  </Text>
-                </Pressable>
-              </View>
-            )}
+            {/* Titulares desplegados: a ancho completo bajo las dos
+                columnas (el wrap del row no los recluye a la
+                columna izquierda) */}
             {pressItems.length > 0 && titlesOpen && (
               <View style={styles.tlTitles}>
                 <NewsGroupList
@@ -273,11 +288,35 @@ export default function MuniDetail({
     detail.municipality ? null : [],
   );
 
-  // Reset durante render al cambiar de municipio abierto
-  const [prevDetail, setPrevDetail] = useState(detail);
-  if (prevDetail !== detail) {
-    setPrevDetail(detail);
-    setIncidents(detail.municipality ? null : []);
+  // Ámbito del detalle: hereda la faceta del ranking pero se
+  // puede conmutar aquí (año ↔ histórico) sin salir de la ficha.
+  // El año también es interno: la pestaña del año despliega un
+  // selector con los años que tienen episodios en el municipio
+  const [scopeHist, setScopeHist] = useState(!isYearMode);
+  const [scopeYear, setScopeYear] = useState(selYear);
+  const [yearOpen, setYearOpen] = useState(false);
+  // El selector muestra los años recientes; con historiales largos
+  // (>6 años con episodios) los antiguos quedan tras un chip "+N" —
+  // el municipio problemático de 2036 no estira el header
+  const [yearsExpanded, setYearsExpanded] = useState(false);
+
+  // Reset durante render al cambiar de municipio abierto o al
+  // cambiar la faceta del ranking estando la ficha montada:
+  // el ámbito externo manda sobre la elección manual
+  const [prevCtx, setPrevCtx] = useState({ detail, isYearMode, selYear });
+  if (
+    prevCtx.detail !== detail ||
+    prevCtx.isYearMode !== isYearMode ||
+    prevCtx.selYear !== selYear
+  ) {
+    if (prevCtx.detail !== detail) {
+      setIncidents(detail.municipality ? null : []);
+    }
+    setPrevCtx({ detail, isYearMode, selYear });
+    setScopeHist(!isYearMode);
+    setScopeYear(selYear);
+    setYearOpen(false);
+    setYearsExpanded(false);
   }
 
   // Línea temporal de incidentes del municipio abierto; solo las playas
@@ -293,11 +332,12 @@ export default function MuniDetail({
     };
   }, [detail]);
 
-  // Línea temporal del municipio abierto: el backend ya devuelve
-  // incidentes oficiales + eventos reconstruidos (analítica/prensa).
-  // Solo "Sin municipio" necesita síntesis en cliente: el endpoint
-  // no puede filtrar por municipio NULL
-  const detailRows = useMemo<MunicipalityIncident[]>(() => {
+  // Pool del municipio abierto (oficiales + reconstruidos, filtro de
+  // causa aplicado): el backend ya devuelve ambos tipos — solo "Sin
+  // municipio" sintetiza alertas de prensa en cliente porque el
+  // endpoint no puede filtrar por municipio NULL. De aquí salen el
+  // timeline del ámbito, los años del selector y los conteos
+  const poolRows = useMemo<MunicipalityIncident[]>(() => {
     const official = incidents ?? [];
     const pressRows: MunicipalityIncident[] = detail.municipality
       ? [] // solo "Sin municipio" sintetiza alertas de prensa en cliente
@@ -332,16 +372,64 @@ export default function MuniDetail({
               ? !inc.cause
               : causeFamily(inc.cause) === yearCause,
         )
-        // En modo-año la línea temporal solo muestra episodios que
-        // tocaron ese año (mismo solape que yearEpisodes)
-        .filter(
-          (inc) =>
-            !isYearMode ||
-            ((inc.opened_at ?? '') <= `${selYear}-12-31` &&
-              (inc.closed_at === null || inc.closed_at >= `${selYear}-01-01`)),
-        )
     );
-  }, [detail, incidents, beaches, yearCause, isYearMode, selYear]);
+  }, [detail, incidents, beaches, yearCause]);
+
+  // En modo-año la línea temporal solo muestra episodios que
+  // tocaron ese año (mismo solape que yearEpisodes)
+  const detailRows = useMemo(
+    () =>
+      poolRows.filter(
+        (inc) =>
+          scopeHist ||
+          ((inc.opened_at ?? '') <= `${scopeYear}-12-31` &&
+            (inc.closed_at === null || inc.closed_at >= `${scopeYear}-01-01`)),
+      ),
+    [poolRows, scopeHist, scopeYear],
+  );
+
+  // Episodios del municipio que tocaron un año concreto — el
+  // conteo de las pestañas del selector ("2024 (2)")
+  const yearCountOf = (y: number) =>
+    poolRows.filter(
+      (inc) =>
+        (inc.opened_at ?? '') <= `${y}-12-31` &&
+        (inc.closed_at === null || inc.closed_at >= `${y}-01-01`),
+    ).length;
+
+  // Años con episodios del municipio (post-filtro de causa) —
+  // opciones del selector plegable de la pestaña de año
+  const muniYears = useMemo(() => {
+    const ys = new Set<number>([scopeYear]);
+    for (const i of poolRows) {
+      const y = parseInt((i.opened_at ?? '').slice(0, 4), 10);
+      if (!isNaN(y)) ys.add(y);
+    }
+    return [...ys].sort((a, b) => b - a);
+  }, [poolRows, scopeYear]);
+
+  // Vista del selector: los 5 años más recientes + el año activo
+  // (aunque sea viejo — no se esconde el seleccionado); con ≤6 años
+  // totales se muestran todos — esconder uno no compensa el chip
+  const YEAR_PREVIEW = 5;
+  const visibleYears =
+    yearsExpanded || muniYears.length <= YEAR_PREVIEW + 1
+      ? muniYears
+      : [...new Set([...muniYears.slice(0, YEAR_PREVIEW), scopeYear])].sort(
+          (a, b) => b - a,
+        );
+  const hiddenYears = muniYears.length - visibleYears.length;
+
+  // ¿La suma de los chips supera el histórico? Solo pasa cuando hay
+  // episodios que cruzan años (cuentan en cada año que tocaron) —
+  // sin divergencia el pie aclaratorio no hace falta
+  const yearCountsDiverge =
+    muniYears.reduce((s, y) => s + yearCountOf(y), 0) > poolRows.length;
+
+  const openCount = useMemo(
+    () => detailRows.filter((i) => i.closed_at === null).length,
+    [detailRows],
+  );
 
   const liveStatus = useMemo(
     () => new Map(beaches.map((f) => [f.id, f.properties.status ?? 'unknown'])),
@@ -394,31 +482,163 @@ export default function MuniDetail({
           >
             <Text style={styles.backText}>‹</Text>
           </Pressable>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text
+            style={[styles.title, { flex: 1, textAlign: 'center' }]}
+            numberOfLines={1}
+          >
             {detail.name}
           </Text>
-          <Pressable
-            onPress={() => onSelect(detail.municipality)}
-            style={({ pressed }) => [styles.listBtn, pressed && styles.pressFx]}
-            accessibilityRole="button"
-            accessibilityLabel="Ver playas del municipio"
-          >
-            <Text style={styles.listBtnText}>Ver playas</Text>
-          </Pressable>
+          {/* Compensa el botón ‹ para centrar el título */}
+          <View style={{ width: 32 }} />
         </View>
-        <Text style={styles.subtitle}>
-          Línea temporal de incidentes
-          {isYearMode ? ` · ${selYear}` : ''} · más reciente primero
-        </Text>
-        {/* Resumen del detalle: cuántos episodios y en cuántas
-            playas distintas — contexto rápido antes de scrollear */}
-        {detailRows.length > 0 && (
-          <Text style={styles.subtitleCount}>
-            {detailRows.length} episodio{detailRows.length === 1 ? '' : 's'} ·{' '}
-            {new Set(detailRows.map((i) => i.beach_name)).size} playa
-            {new Set(detailRows.map((i) => i.beach_name)).size === 1 ? '' : 's'}
-          </Text>
-        )}
+        <View style={styles.headerSplit}>
+          {/* Silueta de la isla con el municipio resaltado */}
+          <MuniMiniMap name={detail.name} />
+          {/* Ámbito del timeline: la pestaña del año despliega los
+              años con episodios del municipio; Histórico los suma */}
+          <View style={styles.scopeTabs}>
+            <Pressable
+              onPress={() => {
+                setYearOpen((v) => !v);
+                setYearsExpanded(false);
+              }}
+              style={[styles.scopeTab, !scopeHist && styles.scopeTabActive]}
+              accessibilityRole="button"
+              accessibilityLabel={`Ver episodios de ${scopeYear}`}
+              accessibilityState={{
+                selected: !scopeHist,
+                expanded: yearOpen,
+              }}
+            >
+              <Text
+                style={[
+                  styles.scopeTabText,
+                  !scopeHist && styles.scopeTabTextActive,
+                ]}
+              >
+                {scopeYear} ({yearCountOf(scopeYear)})
+              </Text>
+              {/* › rotado como en las facetas: vertical = desplegar,
+                  horizontal = navegar (idioma de la app) */}
+              <Text
+                style={[
+                  styles.scopeTabChevron,
+                  !scopeHist && styles.scopeTabTextActive,
+                  yearOpen && styles.scopeTabChevronOpen,
+                ]}
+              >
+                ›
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setScopeHist(true);
+                setYearOpen(false);
+              }}
+              style={[styles.scopeTab, scopeHist && styles.scopeTabActive]}
+              accessibilityRole="button"
+              accessibilityLabel="Ver histórico"
+              accessibilityState={{ selected: scopeHist }}
+            >
+              <Text
+                style={[
+                  styles.scopeTabText,
+                  scopeHist && styles.scopeTabTextActive,
+                ]}
+              >
+                Histórico ({poolRows.length})
+              </Text>
+            </Pressable>
+          </View>
+          {yearOpen && (
+            <View style={styles.yearRow}>
+              {visibleYears.map((y) => (
+                <Pressable
+                  key={y}
+                  onPress={() => {
+                    setScopeYear(y);
+                    setScopeHist(false);
+                    setYearOpen(false);
+                  }}
+                  style={[
+                    styles.yearOption,
+                    !scopeHist && scopeYear === y && styles.yearOptionActive,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver episodios de ${y}`}
+                >
+                  <Text
+                    style={[
+                      styles.yearOptionText,
+                      !scopeHist &&
+                        scopeYear === y &&
+                        styles.yearOptionTextActive,
+                    ]}
+                  >
+                    {y} ({yearCountOf(y)})
+                  </Text>
+                </Pressable>
+              ))}
+              {/* Historiales largos: los años antiguos quedan tras un
+                  chip — "+4" despliega el resto en el mismo wrap */}
+              {hiddenYears > 0 && (
+                <Pressable
+                  onPress={() => setYearsExpanded(true)}
+                  style={styles.yearOption}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver ${hiddenYears} años más antiguos`}
+                >
+                  <Text style={styles.yearOptionText}>+{hiddenYears}</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+          {/* La suma de chips puede superar el histórico cuando un
+              episodio abierto varios años cuenta en cada uno — el
+              pie solo aparece en ese caso concreto */}
+          {yearOpen && yearCountsDiverge && (
+            <Text style={styles.yearNote}>
+              Cada episodio cuenta en todos los años que estuvo activo
+            </Text>
+          )}
+          {/* Resumen del ámbito + puente a la lista: "4 episodios ·
+              2/15 playas ›" (afectadas sobre el total municipal) */}
+          {detailRows.length > 0 && (
+            <Pressable
+              onPress={() => onSelect(detail.municipality)}
+              hitSlop={8}
+              style={({ pressed }) => pressed && styles.pressFx}
+              accessibilityRole="link"
+              accessibilityLabel="Ver playas del municipio"
+            >
+              <Text style={styles.subtitleCount}>
+                {detailRows.length} episodio
+                {detailRows.length === 1 ? '' : 's'} ·{' '}
+                <Text style={styles.muniLinkPart}>
+                  {new Set(detailRows.map((i) => i.beach_name)).size} de{' '}
+                  {detail.beaches} playas afectadas ›
+                </Text>
+                {openCount > 0 &&
+                  ` · ${openCount} abierto${openCount === 1 ? '' : 's'}`}
+              </Text>
+            </Pressable>
+          )}
+          {/* Sin episodios en el ámbito el resumen no pinta, pero
+              la lista de playas del municipio sigue existiendo */}
+          {detailRows.length === 0 && (
+            <Pressable
+              onPress={() => onSelect(detail.municipality)}
+              hitSlop={8}
+              style={({ pressed }) => pressed && styles.pressFx}
+              accessibilityRole="link"
+              accessibilityLabel="Ver playas del municipio"
+            >
+              <Text style={[styles.subtitleCount, styles.muniLinkPart]}>
+                Ver las {detail.beaches} playas ›
+              </Text>
+            </Pressable>
+          )}
+        </View>
       </ImageBackground>
 
       <FlatList
@@ -429,6 +649,7 @@ export default function MuniDetail({
         renderItem={({ item: inc, index }) => (
           <TimelineRow
             inc={inc}
+            isFirst={index === 0}
             isLast={index === detailRows.length - 1}
             live={liveStatus.get(inc.beach_id)}
             zone={zoneLabelOf(inc)}

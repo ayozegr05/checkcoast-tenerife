@@ -1,19 +1,26 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 
 import { MunicipalityIncident } from '../../lib/api';
 import { episodeDays } from '../../lib/episodes';
-import { displayBeachName, formatDays } from '../../lib/format';
+import { displayBeachName, displayCause, formatDays } from '../../lib/format';
 import { fmtDate } from '../../lib/muniStats';
+import { thumbUrl } from '../SatelliteShot';
 import { styles } from './statsStyles';
 
-// Fila de episodio de las vistas cronológicas (Temporada y "Este año"):
-// playa + badge de estado + municipio, fechas y causa
+// Fila de episodio de las vistas cronológicas (Verano y Año): miniatura
+// satélite de la playa + badge de estado + municipio, fechas y causa.
+// Cada fila es una playa distinta — la foto la identifica de un vistazo,
+// como en la lista de Playas
 export default function EpisodeRow({
   ep,
+  coords = null,
   onPress,
 }: {
   ep: MunicipalityIncident;
+  // Centro de la playa (lon/lat) para la miniatura Esri — null si la
+  // playa no está en el conjunto cargado
+  coords?: [number, number] | null;
   onPress: () => void;
 }) {
   const open = ep.closed_at === null;
@@ -24,41 +31,48 @@ export default function EpisodeRow({
       accessibilityRole="button"
       accessibilityLabel={`Ver ficha de ${displayBeachName(ep.beach_name)}`}
     >
-      <View style={styles.rowHeader}>
-        <Text style={styles.rowName} numberOfLines={1}>
-          {displayBeachName(ep.beach_name)}
-        </Text>
-        <Text
-          style={[
-            styles.badge,
-            open
-              ? ep.kind === 'closure'
-                ? styles.badgeClosed
-                : styles.badgeWarning
-              : styles.badgeOpen,
-          ]}
-        >
-          {open
-            ? ep.kind === 'closure'
-              ? 'Sigue cerrada'
-              : 'Aviso activo'
-            : ep.kind === 'closure'
-              ? 'Cierre resuelto'
-              : 'Aviso resuelto'}
-        </Text>
+      <View style={styles.epMain}>
+        {coords && (
+          <Image
+            source={{ uri: thumbUrl(coords, 160, 0.5) }}
+            style={styles.epThumb}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          />
+        )}
+        <View style={styles.epBody}>
+          <View style={styles.rowHeader}>
+            <Text style={styles.rowName} numberOfLines={1}>
+              {displayBeachName(ep.beach_name)}
+            </Text>
+            {/* Badge solo en lo que exige atención: un episodio cerrado
+                no es "bueno", solo es pasado — las fechas ya lo cuentan */}
+            {open && (
+              <Text
+                style={[
+                  styles.badge,
+                  styles.badgeTail,
+                  ep.kind === 'closure'
+                    ? styles.badgeClosed
+                    : styles.badgeWarning,
+                ]}
+              >
+                {ep.kind === 'closure' ? 'Sigue cerrada' : 'Aviso activo'}
+              </Text>
+            )}
+          </View>
+          <Text style={styles.rowSub}>
+            {ep.municipality ?? 'Sin municipio'} ·{' '}
+            {open
+              ? `desde el ${fmtDate(ep.opened_at)}`
+              : `${fmtDate(ep.opened_at)} → ${fmtDate(
+                  ep.closed_at as string,
+                )} · ${formatDays(episodeDays(ep))}`}
+            {ep.cause ? ` · ${displayCause(ep.cause)}` : ''}
+            {ep.via === 'press' ? ' · según prensa' : ''}
+          </Text>
+        </View>
       </View>
-      <Text style={styles.rowSub}>
-        {ep.municipality ?? 'Sin municipio'} ·{' '}
-        {open
-          ? `desde el ${fmtDate(ep.opened_at)}`
-          : `${fmtDate(ep.opened_at)} → ${fmtDate(
-              ep.closed_at as string,
-            )} · ${formatDays(episodeDays(ep))}`}
-        {ep.cause
-          ? ` · ${ep.cause.charAt(0).toLowerCase()}${ep.cause.slice(1)}`
-          : ''}
-        {ep.via === 'press' ? ' · según prensa' : ''}
-      </Text>
     </Pressable>
   );
 }

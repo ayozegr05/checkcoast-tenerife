@@ -7,6 +7,7 @@ import {
   latestEpisodeYear,
   recentlyResolved,
   seasonEpisodes,
+  summerEpisodes,
   yearEpisodes,
 } from '../lib/episodes';
 
@@ -55,6 +56,32 @@ describe('seasonEpisodes — filtro por solape con el verano', () => {
         2026,
       ),
     ).toHaveLength(1);
+  });
+});
+
+describe('summerEpisodes — todos los veranos registrados', () => {
+  it('junta los jun-sep de varios años sin duplicar', () => {
+    const eps = [
+      ep({ id: 1, opened_at: '2024-07-10', closed_at: '2024-07-12' }),
+      ep({ id: 2, opened_at: '2025-08-01', closed_at: '2025-08-02' }),
+      ep({ id: 3, opened_at: '2025-02-01', closed_at: '2025-02-10' }),
+    ];
+    const out = summerEpisodes(eps);
+    expect(out.map((e) => e.id).sort()).toEqual([1, 2]);
+  });
+
+  it('un cierre largo que cruza varios veranos sale una sola vez', () => {
+    const eps = [
+      ep({ id: 1, opened_at: '2023-05-01', closed_at: '2025-10-01' }),
+      ep({ id: 2, opened_at: '2025-12-01', closed_at: '2026-01-01' }),
+    ];
+    const out = summerEpisodes(eps);
+    expect(out.filter((e) => e.id === 1)).toHaveLength(1);
+    expect(out.map((e) => e.id)).toEqual([1]);
+  });
+
+  it('lista vacía devuelve vacío', () => {
+    expect(summerEpisodes([])).toEqual([]);
   });
 });
 

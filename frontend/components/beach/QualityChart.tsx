@@ -99,7 +99,12 @@ export default function QualityChart({
           ))}
         </View>
       </View>
-      <ScrollChips fadeRgb="255, 255, 255" a11yLabel="la gráfica" anchorEnd>
+      <ScrollChips
+        fadeRgb="255, 255, 255"
+        a11yLabel="la gráfica"
+        anchorEnd
+        arrowColor="rgba(13,148,136,0.5)"
+      >
         <View style={styles.chartInner}>
           <View style={styles.chartArea}>
             {(() => {

@@ -42,7 +42,7 @@ export default function ScrollChips({
   a11yLabel = 'filtros',
   edgeFade = true,
   anchorEnd = false,
-  arrowColor = 'rgba(13,148,136,0.5)', // verde-mar de las barras
+  arrowColor = 'rgba(23,184,206,0.5)', // accent a media densidad
   arrowSize = 26,
 }: {
   children: React.ReactNode;
@@ -54,8 +54,11 @@ export default function ScrollChips({
   fadeRgb?: string;
   fadeRgbLeft?: string;
   fadeRgbRight?: string;
-  // Tinte del círculo-flecha: el verde-mar por defecto es el tono de
-  // las barras de Municipios; otras secciones pasan su propio color
+  // Tinte del círculo-flecha: turquesa accent a media densidad por
+  // defecto (habla el idioma de los chips activos); una sección
+  // puede pasar su propio color si lo pide — la gráfica de calidad
+  // conserva el verde-mar que casa con sus barras, la ficha de
+  // emisario va en navy con su sección
   arrowColor?: string;
   // Tamaño del círculo-flecha: 26 por defecto (barras Municipios);
   // secciones compactas lo bajan para no competir con la cabecera
@@ -217,8 +220,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     flexDirection: 'row',
   },
-  // Círculo pequeño verde-mar translúcido (casa con las barras de la
-  // gráfica) con chevron navy grande: casi llena el círculo, sin halo
+  // Círculo pequeño translúcido (arrowColor lo tinta por sección)
+  // con chevron grande: casi llena el círculo, sin halo
   arrow: {
     position: 'absolute',
     top: '50%',

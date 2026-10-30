@@ -42,6 +42,11 @@ backend/scripts/_*.py
 frontend/assets/sea-mask.json
 frontend/assets/sea-texture.png
 
+# Fuente GeoJSON municipal del Cabildo (~6 MB, regenerable con
+# build_muni_map.py) y el preview rotulado de verificación
+backend/scripts/municip_4326.geojson
+backend/muni_preview.png
+
 # Sitios Caddy de otros proyectos en la VM
 caddy-sites/
 

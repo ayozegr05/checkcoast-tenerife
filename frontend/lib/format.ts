@@ -223,6 +223,14 @@ export const beachGroupKey = (name: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+// Causa en texto corrido ("…· e. coli · según prensa"): minúscula
+// inicial salvo nombres propios — "E. coli" es epíteto de especie,
+// siempre mayúscula y con espacio
+export const displayCause = (cause: string): string =>
+  cause
+    .replace(/^./, (c) => c.toLowerCase())
+    .replace(/\be\.?\s*coli\b/gi, 'E. coli');
+
 // Normalizador de búsqueda: sin acentos y con "del" ≡ "de el" — la
 // toponimia oficial mezcla "PLAYA DEL CARMEN" y "PLAYA DE EL MÉDANO",
 // así que el usuario no tiene que adivinar la grafía del censo
