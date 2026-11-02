@@ -5,6 +5,7 @@ import {
   ImageBackground,
   Modal,
   Pressable,
+  SectionList,
   Text,
   TextInput,
   View,
@@ -38,17 +39,46 @@ import {
   yearScoreOf,
 } from '../lib/muniStats';
 import { colors } from '../lib/theme';
-import {
-  CauseChips,
-  SeasonFilter,
-  SeasonFilterChips,
-  YearChips,
-} from './stats/Chips';
+import { CauseChips, SeasonFilter, YearChips } from './stats/Chips';
 import EpisodeRow from './stats/EpisodeRow';
 import ScrollChips from './ScrollChips';
 import MuniDetail from './stats/MuniDetail';
 import MuniRow from './stats/MuniRow';
 import { styles } from './stats/statsStyles';
+
+// Cabeceras de mes para las cronologías — la clave es 'YYYY-MM' del
+// opened_at del episodio
+const MONTHS = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+const monthTitle = (key: string) => {
+  const [y, m] = key.split('-');
+  const name = MONTHS[Number(m) - 1] ?? m;
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${y}`;
+};
+
+// Predicados de filtro compartidos por la lista y por los conteos
+// facetados — cada faceta cuenta dentro de los otros filtros, así
+// la cara y las chips nunca se contradicen («Cierres (0)» vs «25
+// cierres» con un municipio seleccionado)
+const matchTipo = (e: MunicipalityIncident, f: string): boolean =>
+  f === 'all' ? true : f === 'active' ? e.closed_at === null : e.kind === f;
+const matchCause = (e: MunicipalityIncident, c: string): boolean =>
+  c === 'all'
+    ? true
+    : e.kind === 'closure' &&
+      (c === 'sin causa' ? !e.cause : causeFamily(e.cause) === c);
 
 export default function MunicipalityStats({
   visible,
@@ -162,21 +192,41 @@ export default function MunicipalityStats({
     () => (view === 'verano' ? veranoRows : histMode ? episodes : yearAll),
     [view, veranoRows, histMode, episodes, yearAll],
   );
-  // Chips de Tipo: cuentan la ventana sin tocar Tipo/Causa (la cara
-  // de cada faceta ya lleva el conteo del resultado filtrado)
+  // Conteos facetados: cada faceta cuenta dentro de los OTROS
+  // filtros activos, no sobre la isla entera — las chips de Tipo
+  // cuentan dentro de municipio × causa, las de Causa dentro de
+  // municipio × tipo
+  const scopedByMuni = useMemo(
+    () =>
+      selMuni === null
+        ? winRows
+        : winRows.filter(
+            (e) => (e.municipality ?? 'Sin municipio') === selMuni,
+          ),
+    [winRows, selMuni],
+  );
+  const scopedNoTipo = useMemo(
+    () => scopedByMuni.filter((e) => matchCause(e, cause)),
+    [scopedByMuni, cause],
+  );
+  const scopedNoCause = useMemo(
+    () => scopedByMuni.filter((e) => matchTipo(e, tipoFilter)),
+    [scopedByMuni, tipoFilter],
+  );
   const tipoCounts = useMemo(
     () => ({
-      closures: winRows.filter((e) => e.kind === 'closure').length,
-      warnings: winRows.filter((e) => e.kind !== 'closure').length,
-      active: winRows.filter((e) => e.closed_at === null).length,
+      closures: scopedNoTipo.filter((e) => e.kind === 'closure').length,
+      warnings: scopedNoTipo.filter((e) => e.kind !== 'closure').length,
+      active: scopedNoTipo.filter((e) => e.closed_at === null).length,
     }),
-    [winRows],
+    [scopedNoTipo],
   );
-  // Familias de causa de la ventana — alimentan las chips de Causa
-  // en cronología (en ranking el ámbito lo marca causaScope)
+  // Familias de causa de la ventana × municipio × tipo — alimentan
+  // las chips de Causa en cronología (en ranking el ámbito lo marca
+  // causaScope)
   const scopeCauses = useMemo(
-    () => causeFamilyCounts(winRows.filter((e) => e.kind === 'closure')),
-    [winRows],
+    () => causeFamilyCounts(scopedNoCause.filter((e) => e.kind === 'closure')),
+    [scopedNoCause],
   );
   // Lista final de la cronología: ventana × tipo × causa. Las que
   // siguen abiertas van primero — una playa cerrada hoy importa más
@@ -184,27 +234,57 @@ export default function MunicipalityStats({
   const episodeRows = useMemo(
     () =>
       winRows
-        .filter((e) =>
-          tipoFilter === 'all'
-            ? true
-            : tipoFilter === 'active'
-              ? e.closed_at === null
-              : e.kind === tipoFilter,
-        )
-        .filter((e) =>
-          cause === 'all'
-            ? true
-            : e.kind === 'closure' &&
-              (cause === 'sin causa'
-                ? !e.cause
-                : causeFamily(e.cause) === cause),
-        )
+        .filter((e) => matchTipo(e, tipoFilter))
+        .filter((e) => matchCause(e, cause))
         .sort(
           (a, b) =>
             (a.closed_at === null ? 0 : 1) - (b.closed_at === null ? 0 : 1) ||
             b.opened_at.localeCompare(a.opened_at),
         ),
     [winRows, tipoFilter, cause],
+  );
+
+  // Municipios presentes en la cronología — alimentan la faceta
+  // Municipio de las vistas Verano/Cronología (la misma idea que el
+  // índice del ranking pero sobre episodios, no sobre filas)
+  const epMunis = useMemo(
+    () =>
+      [
+        ...new Set(episodeRows.map((e) => e.municipality ?? 'Sin municipio')),
+      ].sort((a, b) => a.localeCompare(b)),
+    [episodeRows],
+  );
+  // La faceta Municipio también filtra las cronologías
+  const episodeRowsFiltered = useMemo(
+    () =>
+      selMuni === null
+        ? episodeRows
+        : episodeRows.filter(
+            (e) => (e.municipality ?? 'Sin municipio') === selMuni,
+          ),
+    [episodeRows, selMuni],
+  );
+  // Cronología agrupada por mes de apertura (secciones descendentes;
+  // dentro de cada mes se conserva el orden abierto-primero/fecha)
+  const episodeSections = useMemo(() => {
+    const groups = new Map<string, MunicipalityIncident[]>();
+    for (const ep of episodeRowsFiltered) {
+      const key = ep.opened_at.slice(0, 7);
+      const arr = groups.get(key);
+      if (arr) arr.push(ep);
+      else groups.set(key, [ep]);
+    }
+    return [...groups.entries()]
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([key, eps]) => ({ title: monthTitle(key), data: eps }));
+  }, [episodeRowsFiltered]);
+
+  // Denominador honesto del titular: municipios con playas censadas
+  const totalMunis = useMemo(
+    () =>
+      new Set(beaches.map((b) => b.properties.municipality).filter(Boolean))
+        .size,
+    [beaches],
   );
 
   // Ámbito de la causa en el ranking: Histórico = todo el registro,
@@ -320,6 +400,30 @@ export default function MunicipalityStats({
     [displayRows, muniQ, selMuni],
   );
 
+  // Titular insular del ámbito activo: la "noticia" de la pantalla
+  // (episodios + municipios + abiertos ahora) antes del desglose
+  const scopeNote = useMemo(() => {
+    if (!epRowMode || displayRows.length === 0) return null;
+    const eps = displayRows.reduce(
+      (s, m) => s + (m.yearClosures ?? 0) + (m.yearWarnings ?? 0),
+      0,
+    );
+    if (eps === 0) return null;
+    const open = displayRows.reduce((s, m) => s + (m.yearActive ?? 0), 0);
+    const scope = histMode
+      ? `desde ${years[years.length - 1]}`
+      : `en ${selYear}`;
+    return (
+      `${eps} episodio${eps === 1 ? '' : 's'} ${scope} · ` +
+      `${displayRows.length} de ${totalMunis} municipios con playa afectados` +
+      (open
+        ? ` · ${open} ${open === 1 ? 'sigue' : 'siguen'} vigente${
+            open === 1 ? '' : 's'
+          }`
+        : '')
+    );
+  }, [displayRows, epRowMode, histMode, selYear, years, totalMunis]);
+
   const maxScore = Math.max(
     1,
     ...displayRows.map((m) => (epRowMode ? yearScoreOf(m) : scoreOf(m))),
@@ -341,22 +445,30 @@ export default function MunicipalityStats({
   // verano/año → Año + Tipo + Causa
   const causeList = view === 'ranking' ? yearCauses : scopeCauses;
   const causeRows =
-    view === 'ranking' ? filteredRows.length : episodeRows.length;
+    view === 'ranking' ? filteredRows.length : episodeRowsFiltered.length;
   type FacetTab = {
-    key: 'año' | 'tipo' | 'causa';
+    key: 'municipio' | 'año' | 'causa';
     label: string;
     value: string;
     count: number | null;
   };
+  // Chips de la faceta Municipio — índice del ranking o municipios
+  // presentes en la cronología; el seleccionado nunca desaparece de
+  // la lista aunque la ventana no tenga episodios suyos
+  const muniChips = useMemo(() => {
+    const base = view === 'ranking' ? muniNames : epMunis;
+    return selMuni !== null && !base.includes(selMuni)
+      ? [selMuni, ...base]
+      : base;
+  }, [view, muniNames, epMunis, selMuni]);
   const facetTabs = (
     [
-      view === 'ranking' &&
-        muniNames.length > 1 && {
-          key: 'municipio',
-          label: 'Municipio',
-          value: selMuni ?? 'Todos',
-          count: null,
-        },
+      (view === 'ranking' ? muniNames.length > 1 : epMunis.length > 1) && {
+        key: 'municipio',
+        label: 'Municipio',
+        value: selMuni ?? 'Todos',
+        count: null,
+      },
       years.length > 1 && {
         key: 'año',
         label: 'Año',
@@ -367,22 +479,6 @@ export default function MunicipalityStats({
             : winRows.length
           : (chipCounts.get(selYear) ?? 0),
       },
-      view !== 'ranking' &&
-        winRows.length > 0 && {
-          key: 'tipo',
-          label: 'Tipo',
-          value:
-            tipoFilter === 'all'
-              ? 'Todos'
-              : (
-                  {
-                    closure: 'Cierres',
-                    warning: 'Avisos',
-                    active: 'Activas',
-                  } as const
-                )[tipoFilter],
-          count: tipoFilter === 'all' ? null : episodeRows.length,
-        },
       causeList.length > 0 && {
         key: 'causa',
         label: 'Causa',
@@ -458,7 +554,7 @@ export default function MunicipalityStats({
                       ? 'Ver por municipio'
                       : v === 'verano'
                         ? 'Ver episodios de verano'
-                        : 'Ver episodios del año'
+                        : 'Ver cronología de episodios'
                   }
                 >
                   <Text
@@ -468,7 +564,7 @@ export default function MunicipalityStats({
                       ? 'Por municipio'
                       : v === 'verano'
                         ? 'Verano'
-                        : 'Año'}
+                        : 'Cronología'}
                   </Text>
                 </Pressable>
               ))}
@@ -520,7 +616,7 @@ export default function MunicipalityStats({
               </View>
             )}
             {openFilter !== null && <View style={styles.filterBarDivider} />}
-            {openFilter === 'municipio' && view === 'ranking' && (
+            {openFilter === 'municipio' && (
               <ScrollChips
                 style={styles.seasonChipsWrap}
                 contentContainerStyle={styles.seasonChips}
@@ -548,7 +644,7 @@ export default function MunicipalityStats({
                     Todos
                   </Text>
                 </Pressable>
-                {muniNames.map((name) => (
+                {muniChips.map((name) => (
                   <Pressable
                     key={name}
                     style={({ pressed }) => [
@@ -599,16 +695,6 @@ export default function MunicipalityStats({
                 }}
               />
             )}
-            {openFilter === 'tipo' && view !== 'ranking' && (
-              <SeasonFilterChips
-                counts={tipoCounts}
-                filter={tipoFilter}
-                onChange={(f) => {
-                  setTipoFilter(f);
-                  setOpenFilter(null);
-                }}
-              />
-            )}
             {openFilter === 'causa' && (
               <CauseChips
                 causes={causeList}
@@ -618,6 +704,75 @@ export default function MunicipalityStats({
                   setOpenFilter(null);
                 }}
               />
+            )}
+
+            {/* Tipo como barra segmentada siempre visible — selector
+                primario de la cronología, no una faceta plegable; los
+                conteos informan sin tocar nada */}
+            {view !== 'ranking' && winRows.length > 0 && (
+              <View style={styles.tipoSeg}>
+                {(
+                  [
+                    ['all', 'Todos', 'Ver todos los episodios'],
+                    [
+                      'closure',
+                      `${tipoCounts.closures} ${
+                        tipoCounts.closures === 1 ? 'cierre' : 'cierres'
+                      }`,
+                      `${
+                        tipoFilter === 'closure'
+                          ? 'Quitar filtro de'
+                          : 'Filtrar por'
+                      } ${tipoCounts.closures === 1 ? 'cierre' : 'cierres'}`,
+                    ],
+                    [
+                      'warning',
+                      `${tipoCounts.warnings} ${
+                        tipoCounts.warnings === 1 ? 'aviso' : 'avisos'
+                      }`,
+                      `${
+                        tipoFilter === 'warning'
+                          ? 'Quitar filtro de'
+                          : 'Filtrar por'
+                      } ${tipoCounts.warnings === 1 ? 'aviso' : 'avisos'}`,
+                    ],
+                    [
+                      'active',
+                      `${tipoCounts.active} ${
+                        tipoCounts.active === 1 ? 'activa' : 'activas'
+                      }`,
+                      `${
+                        tipoFilter === 'active'
+                          ? 'Quitar filtro de'
+                          : 'Filtrar por'
+                      } ${tipoCounts.active === 1 ? 'activa' : 'activas'}`,
+                    ],
+                  ] as const
+                ).map(([k, label, a11y]) => (
+                  <Pressable
+                    key={k}
+                    style={({ pressed }) => [
+                      styles.tipoSegTab,
+                      tipoFilter === k && styles.tipoSegTabOn,
+                      pressed && styles.pressFx,
+                    ]}
+                    onPress={() =>
+                      setTipoFilter(k === 'all' || tipoFilter === k ? 'all' : k)
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={a11y}
+                  >
+                    <Text
+                      style={[
+                        styles.tipoSegText,
+                        tipoFilter === k && styles.tipoSegTextOn,
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             )}
 
             {view === 'ranking' && (
@@ -638,13 +793,20 @@ export default function MunicipalityStats({
                 />
               </View>
             )}
+            {view === 'ranking' && scopeNote !== null && (
+              <Text style={styles.scopeNote}>{scopeNote}</Text>
+            )}
 
             {view !== 'ranking' ? (
-              <FlatList
-                data={episodeRows}
+              <SectionList
+                sections={episodeSections}
                 keyExtractor={(ep) => `s${ep.id}-${ep.beach_id}`}
                 style={styles.list}
                 contentContainerStyle={styles.listContent}
+                stickySectionHeadersEnabled
+                renderSectionHeader={({ section }) => (
+                  <Text style={styles.monthHeader}>{section.title}</Text>
+                )}
                 renderItem={({ item: ep }) => (
                   <EpisodeRow
                     ep={ep}

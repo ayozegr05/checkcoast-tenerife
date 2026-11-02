@@ -153,6 +153,17 @@ export const styles = StyleSheet.create({
     height: 16,
     tintColor: colors.textFaint,
   },
+  // Titular del ámbito activo — la "noticia" de la pantalla antes
+  // del desglose por municipio
+  scopeNote: {
+    fontSize: 11.5,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    textAlign: 'left',
+    paddingHorizontal: 16,
+    marginTop: 6,
+    marginBottom: 2,
+  },
   search: {
     flex: 1,
     paddingVertical: 10,
@@ -164,6 +175,19 @@ export const styles = StyleSheet.create({
   list: {
     flex: 1,
     marginTop: 4,
+  },
+  // Cabecera de mes en las cronologías — marca el ritmo temporal;
+  // fondo opaco porque es sticky mientras se hace scroll
+  monthHeader: {
+    fontSize: 11,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+    backgroundColor: colors.background,
   },
   listContent: {
     // Aire entre la cabecera del municipio y la primera tarjeta —
@@ -178,6 +202,20 @@ export const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     elevation: 1,
+  },
+  // Miniatura de silueta municipal + contenido — la forma da
+  // identidad a cada fila sin repetir la isla entera
+  rowBody: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  rowShape: {
+    width: 50,
+    height: 50,
+  },
+  rowContent: {
+    flex: 1,
   },
   rowHeader: {
     flexDirection: 'row',
@@ -354,6 +392,36 @@ export const styles = StyleSheet.create({
   },
   // Chips-filtro de la vista Temporada (cierres/avisos/activas) —
   // tocando uno se filtra la lista a ese tipo de episodio
+  // Barra segmentada de Tipo en las cronologías — mismo idioma que
+  // el conmutador de ámbito del detalle pero sobre fondo claro.
+  // Selector PRIMARIO de la lista: la distinción con las chips de
+  // faceta (plegables) es el punto — dos controles no comparten piel
+  tipoSeg: {
+    flexDirection: 'row',
+    marginHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+  },
+  tipoSegTab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 7,
+  },
+  tipoSegTabOn: {
+    backgroundColor: colors.accent,
+  },
+  tipoSegText: {
+    fontSize: 11.5,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+  },
+  tipoSegTextOn: {
+    color: colors.onColor,
+  },
   seasonChipsWrap: {
     marginTop: 10,
   },
@@ -395,6 +463,21 @@ export const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textMuted,
     marginTop: 6,
+  },
+  // La fracción «2 de 15 playas afectadas» va en su propia línea y
+  // un pelín más marcada — es el dato clave de la fila; los nombres
+  // cuelgan debajo en tono subordinado
+  rowSubStrong: {
+    fontSize: 12,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+    marginTop: 6,
+  },
+  rowSubNames: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 1,
   },
   empty: {
     textAlign: 'center',

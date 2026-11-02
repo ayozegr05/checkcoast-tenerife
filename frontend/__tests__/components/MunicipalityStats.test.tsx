@@ -148,9 +148,16 @@ describe('<MunicipalityStats />', () => {
     // badges de cierres/avisos + playas afectadas, no el vivo
     expect(screen.getByText('2 cierres')).toBeTruthy();
     expect(screen.getByText('1 aviso')).toBeTruthy();
-    expect(screen.getByText('Afectadas: Playa Jardín')).toBeTruthy();
+    expect(screen.getByText('1 de 1 playa afectada')).toBeTruthy();
+    expect(screen.getByText('2 de 2 playas afectadas')).toBeTruthy();
     expect(
-      screen.getByText('Afectadas: Playa El Camisón · Playa Las Vistas'),
+      screen.getByText('Playa El Camisón · Playa Las Vistas'),
+    ).toBeTruthy();
+    // Titular insular del ámbito: episodios + municipios + abiertos
+    expect(
+      screen.getByText(
+        '3 episodios desde 2024 · 2 de 2 municipios con playa afectados',
+      ),
     ).toBeTruthy();
   });
 
@@ -195,7 +202,7 @@ describe('<MunicipalityStats />', () => {
     const p = props();
     await render(<MunicipalityStats {...p} />);
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Ver episodios del año' }),
+      screen.getByRole('button', { name: 'Ver cronología de episodios' }),
     );
     expect(episodeNames()).toEqual(['Playa Las Vistas', 'Playa Jardín']);
     await fireEvent.press(screen.getByRole('button', { name: 'Causa: Todos' }));
@@ -220,8 +227,13 @@ describe('<MunicipalityStats />', () => {
   it('ventana Verano: solo episodios de junio a septiembre', async () => {
     await render(<MunicipalityStats {...props({ initialView: 'verano' })} />);
     expect(episodeNames()).toEqual(['Playa Las Vistas']);
-    await fireEvent.press(screen.getByRole('button', { name: 'Tipo: Todos' }));
+    // Las chips de Tipo van siempre visibles — el conteo informa
+    // sin desplegar nada
     expect(screen.getByText('1 cierre')).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Filtrar por cierre' }),
+    );
+    expect(episodeNames()).toEqual(['Playa Las Vistas']);
     await fireEvent.press(
       screen.getByRole('button', { name: 'Año: 2025 (1)' }),
     );
@@ -288,21 +300,31 @@ describe('<MunicipalityStats />', () => {
     expect(p.onClose).toHaveBeenCalled();
   });
 
-  it('facetas contextuales: «Tipo» solo en las cronologías', async () => {
+  it('«Tipo» son chips siempre visibles en las cronologías', async () => {
     await render(<MunicipalityStats {...props()} />);
     expect(screen.getByRole('button', { name: 'Año: 2025 (2)' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Causa: Todos' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /^Tipo:/ })).toBeNull();
-    // «Tipo» existe tanto en «Verano» como en «Año» — la ventana la
-    // decide la pestaña, no una faceta
+    // En el ranking no hay chips de tipo — el desglose ya vive en
+    // las filas
+    expect(
+      screen.queryByRole('button', { name: /^Filtrar por cierres?$/ }),
+    ).toBeNull();
+    // En las cronologías sí: «Año» cuenta 1 cierre + 1 aviso en 2025
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Ver episodios del año' }),
+      screen.getByRole('button', { name: 'Ver cronología de episodios' }),
     );
-    expect(screen.getByRole('button', { name: 'Tipo: Todos' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Filtrar por cierre' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Filtrar por aviso' }),
+    ).toBeTruthy();
     await fireEvent.press(
       screen.getByRole('button', { name: 'Ver episodios de verano' }),
     );
-    expect(screen.getByRole('button', { name: 'Tipo: Todos' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Filtrar por cierre' }),
+    ).toBeTruthy();
   });
 
   it('«Verano» filtra jun-sep y su «Histórico» junta todos los veranos', async () => {
@@ -310,7 +332,7 @@ describe('<MunicipalityStats />', () => {
     expect(episodeNames()).toEqual(['Playa Las Vistas']);
     // Cambiar de pestaña = cambiar de ventana: entra el episodio de marzo
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Ver episodios del año' }),
+      screen.getByRole('button', { name: 'Ver cronología de episodios' }),
     );
     expect(episodeNames()).toEqual(['Playa Las Vistas', 'Playa Jardín']);
     // Histórico en la pestaña «Año»: los tres episodios registrados
