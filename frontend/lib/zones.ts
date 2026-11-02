@@ -36,6 +36,13 @@ const ZONE_NAMES: Record<string, Record<string, string>> = {
     PM1: 'Playa de los Perros',
     PM4: 'Playa de El Cabezo',
   },
+  // Las Teresitas (Santa Cruz): los cierres parciales se anuncian por
+  // acceso numerado (0-11 desde San Andrés hacia el dique); el acceso
+  // 8 corresponde al tramo de PM2 (verificado in situ). El resto de
+  // PMs no tiene nombre común conocido — el fallback "Zona N" sirve
+  'PLAYA TERESITAS (LAS)': {
+    PM2: 'Acceso 8',
+  },
   // El Médano (Granadilla): tres zonas del mismo arenal — se indexan
   // por sufijo porque Chica y Leocadio Machado comparten el PM1
   'PLAYA MEDANO (EL)': {

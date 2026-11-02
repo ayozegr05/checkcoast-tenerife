@@ -489,7 +489,9 @@ export const styles = StyleSheet.create({
   // — discretos (sin tarjeta) para no competir con los afectados
   quiet: {
     marginTop: 4,
-    paddingHorizontal: 4,
+    // Alineado con el borde de las tarjetas del ranking
+    // (marginHorizontal: 12 de `row`)
+    paddingHorizontal: 12,
     paddingBottom: 12,
   },
   quietToggle: {
@@ -544,12 +546,10 @@ export const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 5,
   },
+  // Puntito macizo en los dos casos: verde = vigilado sin episodios,
+  // gris fuerte = sin puntos de Sanidad (la zona ciega marca más)
   quietDotOn: { backgroundColor: '#63b8af' },
-  quietDotOff: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: colors.textFaint,
-  },
+  quietDotOff: { backgroundColor: '#7d929c' },
   quietLegend: {
     flexDirection: 'row',
     alignItems: 'center',

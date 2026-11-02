@@ -805,19 +805,30 @@ def _merge_generic_sibling_press(episodes: list[Episode]) -> list[Episode]:
     fila sin zona (`zone_beach_ids` recuerda los PM cubiertos). La
     cala nombrada ("Playa Grande y Charcón") tiene titulares
     distintos — conserva su fila propia."""
-    merged: dict[tuple, Episode] = {}
-    out: list[Episode] = []
-    for e in episodes:
-        if e.via != "press" or not e.press_items:
-            out.append(e)
-            continue
-        key = (
+
+    def _key(e: Episode) -> tuple:
+        return (
             e.municipality,
             e.base,
             e.start,
             e.end,
             frozenset(n.url for n in e.press_items),
         )
+
+    # Una fila de prensa en UN solo PM es episodio acotado por zona
+    # (el texto nombró la cala: "acceso 8" → PM2) — conserva su
+    # `zone_tag`. La etiqueta solo se borra cuando la firma se
+    # repite en varios PMs: réplica genérica sin cala
+    sig_counts = Counter(
+        _key(e) for e in episodes if e.via == "press" and e.press_items
+    )
+    merged: dict[tuple, Episode] = {}
+    out: list[Episode] = []
+    for e in episodes:
+        if e.via != "press" or not e.press_items or sig_counts[_key(e)] == 1:
+            out.append(e)
+            continue
+        key = _key(e)
         prev = merged.get(key)
         if prev is None:
             e.zone_tag = None  # la noticia no precisó cala

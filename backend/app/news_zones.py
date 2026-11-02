@@ -85,6 +85,41 @@ _ZONE_GROUPS: dict[tuple[str, str], dict[str, dict]] = {
             "weak_aliases": (),
         },
     },
+    # Las Teresitas (Santa Cruz): accesos numerados 0-11 de San Andrés
+    # (acceso 1, donde para la guagua 910) hacia el dique. Los cierres
+    # parciales se anuncian por acceso ("a la altura del acceso
+    # número 8"), no por cala. Correspondencia acceso↔PM verificada
+    # in situ: acceso 8 = tramo de PM2. El resto de PMs no tiene
+    # acceso conocido — nombre neutro de zona, sin topónimo inventado
+    ("PLAYA TERESITAS (LAS)", "SANTA CRUZ DE TENERIFE"): {
+        "PM1": {
+            "name": "Zona 1",
+            "aliases": (),
+            "weak_aliases": (),
+        },
+        "PM2": {
+            "name": "Acceso 8",
+            "ref": "acceso 8",
+            "aliases": (
+                "ACCESO 8",
+                "ACCESO N O 8",
+                "ACCESO OCHO",
+                "ACCESO NUMERO 8",
+                "ACCESO NUMERO OCHO",
+            ),
+            "weak_aliases": (),
+        },
+        "PM3": {
+            "name": "Zona 3",
+            "aliases": (),
+            "weak_aliases": (),
+        },
+        "PM4": {
+            "name": "Zona 4",
+            "aliases": (),
+            "weak_aliases": (),
+        },
+    },
     # El Médano (Granadilla): tres puntos del mismo arenal con nombre
     # propio en el censo — se indexan por sufijo porque Chica y
     # Leocadio Machado comparten la etiqueta PM1

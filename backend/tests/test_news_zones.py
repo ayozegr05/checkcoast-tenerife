@@ -118,6 +118,58 @@ def test_cabezo_perros_narrows_to_pm1():
     assert [b.id for b in hits] == [7]
 
 
+TERESITAS = [
+    SimpleNamespace(
+        id=54,
+        name="PLAYA TERESITAS (LAS) PM1",
+        municipality="Santa Cruz de Tenerife",
+    ),
+    SimpleNamespace(
+        id=55,
+        name="PLAYA TERESITAS (LAS) PM2",
+        municipality="Santa Cruz de Tenerife",
+    ),
+    SimpleNamespace(
+        id=56,
+        name="PLAYA TERESITAS (LAS) PM3",
+        municipality="Santa Cruz de Tenerife",
+    ),
+    SimpleNamespace(
+        id=57,
+        name="PLAYA TERESITAS (LAS) PM4",
+        municipality="Santa Cruz de Tenerife",
+    ),
+]
+
+
+def test_teresitas_access_8_narrows_to_pm2():
+    """Los cierres parciales de Teresitas se anuncian por acceso
+    numerado ("a la altura del acceso número 8"): acceso 8 = PM2
+    (verificado in situ)."""
+    hits = narrow_hits_by_zone(
+        TERESITAS,
+        "Las Teresitas",
+        "Santa Cruz prohíbe el baño en el acceso 8 de la playa de "
+        "Las Teresitas por contaminación",
+    )
+    assert [b.id for b in hits] == [55]
+    # Variantes redaccionales del bando/la prensa
+    hits = narrow_hits_by_zone(
+        TERESITAS,
+        "Las Teresitas",
+        "Cerrado un tramo de la playa de Las Teresitas por contaminación",
+        body="...izada la bandera roja a la altura del acceso número 8...",
+    )
+    assert [b.id for b in hits] == [55]
+    # Titular genérico sin acceso → todo el complejo (conservador)
+    hits = narrow_hits_by_zone(
+        TERESITAS,
+        "Las Teresitas",
+        "Bandera amarilla en Las Teresitas por carabelas portuguesas",
+    )
+    assert {b.id for b in hits} == {54, 55, 56, 57}
+
+
 def test_single_hit_untouched():
     hits = narrow_hits_by_zone(JARDIN[:1], "Playa Grande")
     assert [b.id for b in hits] == [41]

@@ -423,11 +423,11 @@ export default function MunicipalityStats({
   const quietTint = useMemo(() => {
     if (!quietRows) return {};
     const tint: Record<string, string> = {};
+    // Vigilado sin episodios = verde (calma); la zona ciega
+    // ("sin puntos de Sanidad") va en gris fuerte macizo —
+    // es la que debe gritar, no la base de la isla
     for (const n of quietRows.watched) tint[n] = '#63b8af';
-    // "Sin puntos de Sanidad" = zona ciega: gris medio que contraste
-    // con la base de la isla (#c4d5dd) — antes #e6ecee casi se fundía
-    // con ella y parecía municipio vacío (Fasnia, Arafo…)
-    for (const n of quietRows.unwatched) tint[n] = '#8fa3ad';
+    for (const n of quietRows.unwatched) tint[n] = '#7d929c';
     return tint;
   }, [quietRows]);
 
