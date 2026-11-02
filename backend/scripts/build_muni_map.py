@@ -147,13 +147,13 @@ def render(munis: dict[str, MultiPolygon]) -> None:
         # se lee como espacio muerto a los lados
         bbox = img.getbbox()
         if bbox:
-            l, t, r, b = bbox
+            x0, y0, x1, y1 = bbox
             img = img.crop(
                 (
-                    max(l - 6, 0),
-                    max(t - 6, 0),
-                    min(r + 6, W),
-                    min(b + 6, H),
+                    max(x0 - 6, 0),
+                    max(y0 - 6, 0),
+                    min(x1 + 6, W),
+                    min(y1 + 6, H),
                 )
             )
         img.save(os.path.join(OUT_DIR, f"{slug(target)}.png"))
