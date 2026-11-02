@@ -606,7 +606,7 @@ def synthesize_events(
     fresh = any(
         n.event_type in ("closure", "warning", "pollution", "reopening")
         and n.published_at is not None
-        and cast(datetime, n.published_at).date() >= today - PRESS_STALE
+        and n.published_at.date() >= today - PRESS_STALE
         for n in items
     )
     latest_change = next(

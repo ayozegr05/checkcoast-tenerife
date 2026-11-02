@@ -80,11 +80,7 @@ def load(src: str | None = None) -> dict[str, MultiPolygon]:
         if f["properties"].get("ROQUE"):
             continue  # islotes/roques — solo la isla grande
         geom = shape(f["geometry"])
-        polys = (
-            list(geom.geoms)
-            if isinstance(geom, MultiPolygon)
-            else [geom]
-        )
+        polys = list(geom.geoms) if isinstance(geom, MultiPolygon) else [geom]
         by_muni.setdefault(f["properties"]["NOMBRE"], []).extend(
             p for p in polys if isinstance(p, Polygon)
         )
@@ -125,11 +121,7 @@ def render(munis: dict[str, MultiPolygon]) -> None:
         dr = ImageDraw.Draw(img)
         for name, mp in munis.items():
             hi = name == target
-            polys = (
-                list(mp.geoms)
-                if isinstance(mp, MultiPolygon)
-                else [mp]
-            )
+            polys = list(mp.geoms) if isinstance(mp, MultiPolygon) else [mp]
             for poly in polys:
                 dr.polygon(
                     ring_pts(poly.exterior, xy),

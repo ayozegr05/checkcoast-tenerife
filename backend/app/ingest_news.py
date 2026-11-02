@@ -96,6 +96,8 @@ def _procedural_title(title: str) -> bool:
     return bool(
         _PROCEDURAL_RE.search(title) and not _STATE_ASSERT_RE.search(title)
     )
+
+
 # Ventana de dedup: noticias del mismo evento suelen salir en días
 # consecutivos — un push por evento, no por titular
 _PRESS_PUSH_DAYS = 7

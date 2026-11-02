@@ -784,7 +784,6 @@ def test_trailing_comma_does_not_break_list():
     ) == [87, 92]
 
 
-
 def test_route_endpoints_are_not_beaches():
     """Caso real jun-2026: "El Rosario reabre el sendero entre
     Radazul y Tabaiba y permite la estancia en el solarium y en la
@@ -793,9 +792,7 @@ def test_route_endpoints_are_not_beaches():
     extracción apuntaba a "playa del Moro" (no existe en censo) y
     el rescate literal de titular casó los extremos de la via."""
     beaches = [
-        SimpleNamespace(
-            id=82, name="Radazul", municipality="El Rosario"
-        ),
+        SimpleNamespace(id=82, name="Radazul", municipality="El Rosario"),
         SimpleNamespace(
             id=197, name="Playa de Tabaiba", municipality="El Rosario"
         ),
@@ -806,9 +803,10 @@ def test_route_endpoints_are_not_beaches():
     )
     # la extracción nombra una playa que no existe: el rescate no
     # debe casar los extremos del sendero
-    assert ids(
-        ext("playa del Moro", "El Rosario"), beaches=beaches, title=title
-    ) == []
+    assert (
+        ids(ext("playa del Moro", "El Rosario"), beaches=beaches, title=title)
+        == []
+    )
     assert ids(ext(None), beaches=beaches, title=title) == []
 
 
@@ -819,9 +817,7 @@ def test_hyphenated_route_name_is_not_a_beach():
         SimpleNamespace(
             id=197, name="Playa de Tabaiba", municipality="El Rosario"
         ),
-        SimpleNamespace(
-            id=82, name="Radazul", municipality="El Rosario"
-        ),
+        SimpleNamespace(id=82, name="Radazul", municipality="El Rosario"),
     ]
     title = (
         "El Rosario reabre el paseo Radazul-Tabaiba y el solarium "
