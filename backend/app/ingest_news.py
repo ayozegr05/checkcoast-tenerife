@@ -67,6 +67,35 @@ def _norm_key(s: str | None) -> str:
 # Solo estos eventos de prensa despiertan el móvil; el resto queda como
 # contexto en la ficha
 _PRESS_PUSH_EVENTS = {"closure", "warning", "reopening"}
+
+# Titular de proceso administrativo/judicial (sanción, multa,
+# expediente, condena, fiscalía…): la noticia versa sobre la gestión
+# de un suceso pasado — no es testimonio del estado actual del agua.
+# "denuncia" NO entra: en boca de vecinos/activistas es reporte de un
+# problema vigente, no un trámite ("vecinos denuncian vertidos")
+_PROCEDURAL_RE = re.compile(
+    r"multa|sancion|expediente|condena|sentencia|juicio|"
+    r"fiscal[ií]a|indemniz|pagar[áa]\b|pague\b",
+    re.IGNORECASE,
+)
+# Afirmación de suceso vigente en el propio titular: si dice que la
+# playa cierra, está cerrada, prohibida o al baño vetado, el suceso es
+# actual aunque también hable de la sanción (Benijo: "multas a quienes
+# ACCEDAN a la playa cerrada" — corrobora el cierre, no lo inventa)
+_STATE_ASSERT_RE = re.compile(
+    r"cierr|cerrad|prohib|reabr|abiert|acced|ba[ñn]",
+    re.IGNORECASE,
+)
+
+
+def _procedural_title(title: str) -> bool:
+    """Titular sobre proceso administrativo/judicial sin afirmación
+    de estado vigente — una multa por un vertido pasado no debe votar
+    cierre/aviso en la playa (Punta Brava oct-2026: 'El Cabildo
+    sanciona a Aqualia' salió 'pollution' y fabricó un aviso falso)."""
+    return bool(
+        _PROCEDURAL_RE.search(title) and not _STATE_ASSERT_RE.search(title)
+    )
 # Ventana de dedup: noticias del mismo evento suelen salir en días
 # consecutivos — un push por evento, no por titular
 _PRESS_PUSH_DAYS = 7
@@ -708,6 +737,24 @@ def run(
                     time.sleep(2)
                     if ext_i is not None and ext_i.relevant:
                         infra_cause = ext_i.cause
+            # Guardarraíl de titulares de proceso: una sanción por un
+            # suceso pasado no afirma el estado actual de la playa —
+            # degrada el voto (closure/warning/pollution); si el texto
+            # nombra la instalación pasa a 'infra' y se casa con el
+            # emisario (la noticia sirve en su ficha), si no, a 'other'
+            if (
+                ext.relevant
+                and ext.event_type in ("closure", "warning", "pollution")
+                and _procedural_title(art.title)
+            ):
+                ext = replace(
+                    ext,
+                    event_type=(
+                        INFRA_EVENT_TYPE
+                        if INFRA_RE.search(art.title)
+                        else "other"
+                    ),
+                )
             # una fila por PM de la playa
             press_beaches: Iterable[Beach | None] = hits or [None]
             for beach in press_beaches:

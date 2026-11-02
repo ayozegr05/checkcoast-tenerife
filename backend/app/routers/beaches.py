@@ -43,6 +43,7 @@ from app.queries import (
     effective_states,
     is_sea_state_cause,
     is_ungraded_note,
+    on_mission_press,
 )
 from app.schemas import (
     BeachIncidentOut,
@@ -1134,6 +1135,11 @@ def beach_news(beach_id: int, db: Session = Depends(get_db)) -> BeachNewsOut:
     # fuera del endpoint entero — ni cuenta medios ni aparece en
     # titulares
     rows = [r for r in rows if not is_sea_state_cause(r.cause)]
+    # 'other' fuera de misión (obras del paseo, fauna suelta, piezas
+    # sin causa) tampoco narran el problema de agua/gestión que la
+    # app documenta — sobreviven los 'other' sobre contaminación,
+    # vertidos o costa (sanciones y análisis son la tesis)
+    rows = [r for r in rows if on_mission_press(r)]
     summary = press_episode_summary(
         rows, synthesize_events(beach), beach.incidents, date.today()
     )

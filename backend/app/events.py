@@ -599,8 +599,15 @@ def synthesize_events(
     # la reapertura del 14 → episodios distintos). Sin corroboración la
     # reapertura era ruido ("agilizan las obras" mal clasificadas) y el
     # episodio nunca se interrumpió (Benijo)
-    fresh = bool(items) and (
-        cast(datetime, items[-1].published_at).date() >= today - PRESS_STALE
+    # Frescura = última noticia que AFIRMA algo del estado, no
+    # cualquier mención: las 'other'/'infra' no mantienen vivo un
+    # cierre (obras del paseo de Olegario resucitaban un episodio
+    # de contaminación de 16 meses atrás — mismo corte que /alerts)
+    fresh = any(
+        n.event_type in ("closure", "warning", "pollution", "reopening")
+        and n.published_at is not None
+        and cast(datetime, n.published_at).date() >= today - PRESS_STALE
+        for n in items
     )
     latest_change = next(
         (

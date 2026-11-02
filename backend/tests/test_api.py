@@ -535,6 +535,187 @@ def test_press_closure_enters_alerts(seed_data):
         db.close()
 
 
+def test_press_alert_ignores_other_mentions(seed_data):
+    """Caso Olegario: una noticia 'other' fresca NO prorroga un cierre
+    de prensa viejo — la frescura la mide la última noticia que vota
+    estado (closure/warning/pollution/reopening), no cualquier
+    mención. Las obras del paseo resucitaban un episodio de
+    contaminación de 16 meses."""
+    from datetime import datetime, timedelta
+
+    from app.db import SessionLocal
+    from app.models import NewsItem
+
+    osm_id = seed_data["osm_beach_id"]  # sin estado oficial: decide prensa
+    db = SessionLocal()
+    now = datetime.now(UTC)
+    old_closure = NewsItem(
+        url="https://news.test/pytest-olegario-closure",
+        title="Cierran la cala por contaminación",
+        source="Test Press",
+        relevant=True,
+        beach_id=osm_id,
+        event_type="closure",
+        cause="contaminación",
+        published_at=now - timedelta(days=60),
+    )
+    works = NewsItem(
+        url="https://news.test/pytest-olegario-obras",
+        title="Comienzan las obras de remodelación del paseo",
+        source="Ayto Test",
+        relevant=True,
+        beach_id=osm_id,
+        event_type="other",
+        cause="obras",
+        published_at=now - timedelta(days=1),
+    )
+    db.add_all([old_closure, works])
+    db.commit()
+    try:
+        body = client.get(f"/beaches/{osm_id}/status").json()
+        assert body["status"] != "closed"
+        assert osm_id not in {
+            a["beach_id"] for a in client.get("/alerts").json()
+        }
+    finally:
+        for it in (old_closure, works):
+            db.delete(it)
+        db.commit()
+        db.close()
+
+
+def test_press_reported_at_is_deciding_event(seed_data):
+    """`reported_at` es la fecha del evento que decide el estado, no
+    la de la última mención: una obra no 'reporta' un cierre por
+    contaminación."""
+    from datetime import datetime, timedelta
+
+    from app.db import SessionLocal
+    from app.models import NewsItem
+
+    osm_id = seed_data["osm_beach_id"]
+    db = SessionLocal()
+    now = datetime.now(UTC)
+    closure = NewsItem(
+        url="https://news.test/pytest-reported-closure",
+        title="Cierran la cala por contaminación",
+        source="Test Press",
+        relevant=True,
+        beach_id=osm_id,
+        event_type="closure",
+        cause="contaminación",
+        published_at=now - timedelta(days=10),
+    )
+    works = NewsItem(
+        url="https://news.test/pytest-reported-obras",
+        title="Comienzan las obras de remodelación",
+        source="Ayto Test",
+        relevant=True,
+        beach_id=osm_id,
+        event_type="other",
+        cause="obras",
+        published_at=now - timedelta(days=1),
+    )
+    db.add_all([closure, works])
+    db.commit()
+    try:
+        body = client.get(f"/beaches/{osm_id}/status").json()
+        assert body["status"] == "closed"
+        assert (
+            body["reported_at"][:10]
+            == (now - timedelta(days=10)).date().isoformat()
+        )
+    finally:
+        for it in (closure, works):
+            db.delete(it)
+        db.commit()
+        db.close()
+
+
+def test_beach_news_hides_off_mission_other(seed_data):
+    """La caja de prensa solo enseña 'other' de la tesis (agua,
+    vertidos, costa): obras del paseo, regeneración o piezas sin
+    causa son cobertura fuera de misión — quedan en BD pero no se
+    muestran."""
+    from datetime import datetime, timedelta
+
+    from app.db import SessionLocal
+    from app.models import NewsItem
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    now = datetime.now(UTC)
+    closure = NewsItem(
+        url="https://news.test/pytest-mission-closure",
+        title="Cierran la playa por contaminación",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="closure",
+        cause="contaminación",
+        published_at=now - timedelta(days=3),
+    )
+    obras = NewsItem(
+        url="https://news.test/pytest-mission-obras",
+        title="Comienzan las obras de remodelación del paseo",
+        source="Ayto Test",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="other",
+        cause="obras de remodelación",
+        published_at=now - timedelta(days=2),
+    )
+    sancion = NewsItem(
+        url="https://news.test/pytest-mission-sancion",
+        title="El Cabildo sanciona a la depuradora por el vertido",
+        source="Diario Test",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="other",
+        cause="contaminación fecal",
+        published_at=now - timedelta(days=1),
+    )
+    db.add_all([closure, obras, sancion])
+    db.commit()
+    try:
+        body = client.get(f"/beaches/{beach_id}/news").json()
+        titles = {i["title"] for i in body["items"]}
+        assert "Comienzan las obras de remodelación del paseo" not in titles
+        assert "El Cabildo sanciona a la depuradora por el vertido" in titles
+        assert "Cierran la playa por contaminación" in titles
+    finally:
+        for it in (closure, obras, sancion):
+            db.delete(it)
+        db.commit()
+        db.close()
+
+
+def test_procedural_title_demotes_sanction_without_state():
+    """Un titular de sanción/proceso por suceso pasado no debe votar
+    estado; si además afirma un suceso vigente (cierre, prohibición)
+    el voto se conserva — y 'denuncian' de vecinos no es trámite."""
+    from app.ingest_news import _procedural_title
+
+    assert _procedural_title(
+        "El Cabildo de Tenerife sanciona con 5.400 euros a Aqualia "
+        "por el derrame de la depuradora"
+    )
+    assert _procedural_title(
+        "La Fiscalía denuncia los vertidos tóxicos de dos plantas"
+    )
+    # 'denuncian' ciudadano = reporte de un problema vigente, no trámite
+    assert not _procedural_title(
+        "Vecinos de Granadilla denuncian vertidos fecales en la playa"
+    )
+    # Sanción + afirmación de estado en el titular: corrobora, no inventa
+    assert not _procedural_title(
+        "Multas a quienes accedan a la playa de Benijo, cerrada al baño"
+    )
+    assert not _procedural_title(
+        "El Cabildo multa a la depuradora mientras la playa sigue cerrada"
+    )
+
+
 def test_press_closure_persistence_by_cause(seed_data):
     """La caducidad de un cierre de prensa depende de la CAUSA, no de
     si la playa está monitorizada (Sanidad no contradice causas

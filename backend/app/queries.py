@@ -204,6 +204,34 @@ def _short_cause(text: str | None) -> str | None:
     return None
 
 
+# Un 'other' entra en la caja de prensa solo si habla del problema de
+# la app (agua, vertidos, costa): sanciones, exigencias o análisis
+# sobre la gestión son evidencia; obras del paseo, regeneración o
+# titulares sin causa son ruido fuera de misión (Olegario enseñaba 4
+# noticias de repavimentación como contexto de un cierre)
+_NEWS_ON_MISSION = {
+    "Contaminación",
+    "Contaminación fecal",
+    "E. coli",
+    "Enterococos",
+    "Hidrocarburos",
+    "Algas",
+    "Desprendimientos",
+    "Colapso del terreno",
+    "Medusas",
+}
+
+
+def on_mission_press(item) -> bool:
+    """True si la noticia pertenece al relato de la app: cualquier
+    evento que vote estado, o un 'other' cuya causa toca el agua,
+    los vertidos o la costa. Los 'other' de obras, rescates o sin
+    causa son cobertura ajena — quedan en BD pero no se muestran."""
+    if item.event_type != "other":
+        return True
+    return _short_cause(item.cause) in _NEWS_ON_MISSION
+
+
 _CAUSE_VALUE_RE = re.compile(
     r"\s*[><≥≤~]?\s*\d[\d.,]*\s*UFC\s*/\s*100\s*m?l?\b", re.I
 )
@@ -559,7 +587,19 @@ def effective_states(db: Session) -> dict[int, dict]:
     press_dominant: dict[int, str] = {}
     ep_items: dict[int, list[NewsItem]] = {}
     for beach_id, its in by_beach.items():
-        newest = its[0].published_at
+        # Frescura = última noticia que AFIRMA algo del estado (vota):
+        # una mención 'other'/'infra' no prorroga una alerta — las
+        # noticias de las obras del paseo de Olegario (oct-2026)
+        # mantenían vivo un cierre por contaminación de jun-2025
+        newest = next(
+            (
+                i.published_at
+                for i in its
+                if i.event_type
+                in ("closure", "warning", "pollution", "reopening")
+            ),
+            None,
+        )
         if newest is None:
             continue
         # El episodio vigente arranca tras la última reapertura; el
@@ -728,7 +768,11 @@ def effective_states(db: Session) -> dict[int, dict]:
             "status": state,
             "via": "press",
             "alerted": True,
-            "reported_at": by_beach[beach_id][0].published_at,
+            # La fecha del evento que DECIDE el estado, no la de la
+            # última mención — una obra del paseo no "reporta" un
+            # cierre por contaminación (Olegario mostraba la fecha
+            # de la noticia de obras como si fuera la del cierre)
+            "reported_at": press_when.get(beach_id),
             "source_url": None,
             "cause": press_cause.get(beach_id),
             "cause_via": "press" if press_cause.get(beach_id) else None,
