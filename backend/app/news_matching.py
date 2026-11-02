@@ -206,6 +206,45 @@ def _press_key(name: str) -> str:
     return re.sub(r"\s+", " ", s).strip(" -")
 
 
+def _twin_key(b: Beach) -> tuple[str, str | None]:
+    return (_press_key(_normalize(b.name)), b.municipality)
+
+
+def osm_twin_ids(beaches: list[Beach]) -> set[int]:
+    """Playas OSM (sin vigilar) que duplican a una del censo: mismo
+    nombre normalizado y municipio ("La Tejita" ≡ "PLAYA TEJITA (LA)
+    PM1"). Son la misma playa física dos veces — no cuentan episodios
+    propios ni deben recibir prensa."""
+    monitored = {
+        _twin_key(b) for b in beaches if getattr(b, "monitored", False)
+    }
+    return {
+        b.id
+        for b in beaches
+        if not getattr(b, "monitored", False) and _twin_key(b) in monitored
+    }
+
+
+def prefer_monitored_twins(
+    found: list[Beach], beaches: list[Beach]
+) -> list[Beach]:
+    """La noticia de una playa duplicada va a la ficha vigilada, no a
+    su gemela OSM — antes se casaba a ambas y cada titular contaba
+    dos episodios (La Tejita: 16 titulares duplicados)."""
+    twins = osm_twin_ids(beaches)
+    if not any(b.id in twins for b in found):
+        return found
+    by_key = {
+        _twin_key(b): b for b in beaches if getattr(b, "monitored", False)
+    }
+    out: list[Beach] = []
+    for b in found:
+        pick = by_key[_twin_key(b)] if b.id in twins else b
+        if pick not in out:
+            out.append(pick)
+    return out
+
+
 def _norm_muni(name: str | None) -> str | None:
     if not name:
         return None
@@ -499,7 +538,7 @@ def match_beaches(
                 if b.id not in seen:
                     seen.add(b.id)
                     out.append(b)
-        return out
+        return prefer_monitored_twins(out, beaches)
 
     if not ext.beach_name:
         return _merge([])

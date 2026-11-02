@@ -125,6 +125,10 @@ export type MunicipalityIncident = {
   // multipunto cada cala rinde sus propios episodios; `zoneName`
   // lo traduce al nombre común ("Punta Brava")
   zone_tag?: string | null;
+  // Última noticia de prensa del episodio (YYYY-MM-DD) — un cierre
+  // estructural no caduca: si es vieja la fila dice "sin noticias
+  // desde ene 2014" para que el lector juzgue
+  last_news_at?: string | null;
   // Causa normalizada ("Contaminación", "Desprendimientos"...) — el
   // backend la infiere de la prensa en ventana; un cierre de Sanidad
   // sin contexto es Contaminación por definición

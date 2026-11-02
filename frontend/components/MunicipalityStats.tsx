@@ -40,6 +40,7 @@ import EpisodeRow from './stats/EpisodeRow';
 import ScrollChips from './ScrollChips';
 import MuniDetail from './stats/MuniDetail';
 import MuniRow from './stats/MuniRow';
+import MuniStateMap from './stats/MuniStateMap';
 import { styles } from './stats/statsStyles';
 
 // Cabeceras de mes para las cronologías — la clave es 'YYYY-MM' del
@@ -397,6 +398,36 @@ export default function MunicipalityStats({
       );
   }, [rows, yearMuni, epRowMode]);
 
+  // Municipios con playa SIN episodios en el ámbito: no desaparecen —
+  // que no pasara nada también es dato. Solo sin facetas que acoten
+  // (con municipio o causa elegidos, "sin episodios" no aplica).
+  // Se separan los que Sanidad vigila de los que no: en estos últimos
+  // "sin episodios" puede ser "nadie mide", no "está limpia"
+  const [quietOpen, setQuietOpen] = useState(false);
+  const quietRows = useMemo(() => {
+    if (!epRowMode || selMuni !== null || cause !== 'all') return null;
+    const shown = new Set(displayRows.map((m) => m.name));
+    const quiet = rows
+      .filter((m) => m.municipality !== null && !shown.has(m.name))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (quiet.length === 0) return null;
+    return {
+      total: quiet.length,
+      watched: quiet.filter((m) => m.points > 0).map((m) => m.name),
+      unwatched: quiet.filter((m) => m.points === 0).map((m) => m.name),
+    };
+  }, [epRowMode, selMuni, cause, displayRows, rows]);
+
+  // Coropleta del pie: verde suave = vigilado sin episodios (calma
+  // real), gris pálido = sin vigilancia (el "nadie mira" del mapa)
+  const quietTint = useMemo(() => {
+    if (!quietRows) return {};
+    const tint: Record<string, string> = {};
+    for (const n of quietRows.watched) tint[n] = '#63b8af';
+    for (const n of quietRows.unwatched) tint[n] = '#e6ecee';
+    return tint;
+  }, [quietRows]);
+
   // Índice de municipios para la faceta — del ámbito activo
   // (histórico o año), alfabético para saltar sin escribir
   const muniNames = useMemo(
@@ -424,8 +455,11 @@ export default function MunicipalityStats({
       ? `desde ${years[years.length - 1]}`
       : `en ${selYear}`;
     return (
+      // Denominador: municipios con playa en el censo — los que no
+      // tienen ninguna no pueden salir afectados y diluirían el dato
       `${eps} episodio${eps === 1 ? '' : 's'} ${scope} · ` +
-      `${displayRows.length} de ${totalMunis} municipios con playa afectados` +
+      `${eps === 1 ? 'afecta' : 'afectan'} a ${displayRows.length} de los ` +
+      `${totalMunis} municipios con playa` +
       (open
         ? ` · ${open} ${open === 1 ? 'sigue' : 'siguen'} vigente${
             open === 1 ? '' : 's'
@@ -894,6 +928,81 @@ export default function MunicipalityStats({
                 }
                 style={styles.list}
                 contentContainerStyle={styles.listContent}
+                ListFooterComponent={
+                  quietRows ? (
+                    <View style={styles.quiet}>
+                      <Pressable
+                        onPress={() => setQuietOpen((o) => !o)}
+                        hitSlop={8}
+                        style={({ pressed }) => [
+                          styles.quietToggle,
+                          pressed && styles.pressFx,
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityState={{ expanded: quietOpen }}
+                      >
+                        <Text style={styles.quietTitle}>
+                          {quietRows.total} municipio
+                          {quietRows.total === 1 ? '' : 's'} sin episodios{' '}
+                          {histMode ? 'registrados' : `en ${selYear}`}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.quietChevron,
+                            quietOpen && styles.quietChevronOpen,
+                          ]}
+                        >
+                          ›
+                        </Text>
+                      </Pressable>
+                      {quietOpen && (
+                        <>
+                          <View style={styles.quietMapWrap}>
+                            <MuniStateMap tint={quietTint} width={210} />
+                          </View>
+                          <View style={styles.quietChips}>
+                            {quietRows.watched.map((n) => (
+                              <View key={n} style={styles.quietChip}>
+                                <View
+                                  style={[styles.quietDot, styles.quietDotOn]}
+                                />
+                                <Text style={styles.quietChipText}>{n}</Text>
+                              </View>
+                            ))}
+                            {quietRows.unwatched.map((n) => (
+                              <View key={n} style={styles.quietChip}>
+                                <View
+                                  style={[styles.quietDot, styles.quietDotOff]}
+                                />
+                                <Text style={styles.quietChipText}>{n}</Text>
+                              </View>
+                            ))}
+                          </View>
+                          <View style={styles.quietLegend}>
+                            <View
+                              style={[styles.quietDot, styles.quietDotOn]}
+                            />
+                            <Text style={styles.quietNote}>
+                              vigilado por Sanidad{'   '}
+                            </Text>
+                            <View
+                              style={[styles.quietDot, styles.quietDotOff]}
+                            />
+                            <Text style={styles.quietNote}>
+                              sin puntos de Sanidad
+                            </Text>
+                          </View>
+                          {quietRows.unwatched.length > 0 && (
+                            <Text style={styles.quietNote}>
+                              En los no vigilados solo cuenta la prensa: sin
+                              episodios no significa agua controlada
+                            </Text>
+                          )}
+                        </>
+                      )}
+                    </View>
+                  ) : null
+                }
                 renderItem={({ item, index }) => (
                   <MuniRow
                     m={item}

@@ -60,3 +60,47 @@ export function muniMapImage(name: string | null | undefined) {
   const s = muniMapSlug(name);
   return s ? (MUNI_MAPS[s] ?? null) : null;
 }
+
+// Mapa coroplético dinámico (municipios sin episodios / vigilancia):
+// base.png es la isla completa y ov-<slug>.png una silueta blanca de
+// un solo municipio — apilada y con `tintColor` se recolorea en caliente
+export const MUNI_BASE = require('../assets/muni-maps/base.png');
+
+const MUNI_OVERLAYS: Record<string, number> = {
+  adeje: require('../assets/muni-maps/ov-adeje.png'),
+  arafo: require('../assets/muni-maps/ov-arafo.png'),
+  arico: require('../assets/muni-maps/ov-arico.png'),
+  arona: require('../assets/muni-maps/ov-arona.png'),
+  'buenavista-del-norte': require('../assets/muni-maps/ov-buenavista-del-norte.png'),
+  candelaria: require('../assets/muni-maps/ov-candelaria.png'),
+  'el-rosario': require('../assets/muni-maps/ov-el-rosario.png'),
+  'el-sauzal': require('../assets/muni-maps/ov-el-sauzal.png'),
+  'el-tanque': require('../assets/muni-maps/ov-el-tanque.png'),
+  fasnia: require('../assets/muni-maps/ov-fasnia.png'),
+  garachico: require('../assets/muni-maps/ov-garachico.png'),
+  'granadilla-de-abona': require('../assets/muni-maps/ov-granadilla-de-abona.png'),
+  'guia-de-isora': require('../assets/muni-maps/ov-guia-de-isora.png'),
+  guimar: require('../assets/muni-maps/ov-guimar.png'),
+  'icod-de-los-vinos': require('../assets/muni-maps/ov-icod-de-los-vinos.png'),
+  'la-guancha': require('../assets/muni-maps/ov-la-guancha.png'),
+  'la-laguna': require('../assets/muni-maps/ov-la-laguna.png'),
+  'la-matanza-de-acentejo': require('../assets/muni-maps/ov-la-matanza-de-acentejo.png'),
+  'la-orotava': require('../assets/muni-maps/ov-la-orotava.png'),
+  'la-victoria-de-acentejo': require('../assets/muni-maps/ov-la-victoria-de-acentejo.png'),
+  'los-realejos': require('../assets/muni-maps/ov-los-realejos.png'),
+  'los-silos': require('../assets/muni-maps/ov-los-silos.png'),
+  'puerto-de-la-cruz': require('../assets/muni-maps/ov-puerto-de-la-cruz.png'),
+  'san-juan-de-la-rambla': require('../assets/muni-maps/ov-san-juan-de-la-rambla.png'),
+  'san-miguel-de-abona': require('../assets/muni-maps/ov-san-miguel-de-abona.png'),
+  'santa-cruz-de-tenerife': require('../assets/muni-maps/ov-santa-cruz-de-tenerife.png'),
+  'santa-ursula': require('../assets/muni-maps/ov-santa-ursula.png'),
+  'santiago-del-teide': require('../assets/muni-maps/ov-santiago-del-teide.png'),
+  tacoronte: require('../assets/muni-maps/ov-tacoronte.png'),
+  tegueste: require('../assets/muni-maps/ov-tegueste.png'),
+  vilaflor: require('../assets/muni-maps/ov-vilaflor.png'),
+};
+
+export function muniOverlay(name: string | null | undefined) {
+  const s = muniMapSlug(name);
+  return s ? (MUNI_OVERLAYS[s] ?? null) : null;
+}

@@ -32,6 +32,7 @@ from app.models import (
 )
 from app.names import pm_label, zone_tag
 from app.news_episodes import press_episode_summary
+from app.news_matching import osm_twin_ids
 from app.queries import (
     _CAUSE_RANK,
     CONTAMINATION_CAUSES,
@@ -282,7 +283,6 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
             selectinload(Beach.news_items),
         )
     )
-    episodes: list[Episode] = []
     # Conteo propio por PM (sin deduplicar entre hermanos): replica la
     # ficha — incidencia con "prohibido" o cierre de prensa =
     # cierre; analítica prohibida = agua no apta (aparte);
@@ -300,22 +300,6 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
             else:
                 own_w += 1
                 inc_w += 1
-            press_items = _press_in_window(
-                beach, inc.opened_at, inc.closed_at or date.today()
-            )
-            episodes.append(
-                Episode(
-                    beach_id=beach.id,
-                    base=base_name(beach.name),
-                    municipality=beach.municipality,
-                    kind=_incident_kind(inc, press_items),
-                    start=inc.opened_at,
-                    end=inc.closed_at,
-                    via="official",
-                    ref_id=inc.id,
-                    obs=None,
-                )
-            )
         for ev in synthesize_events(beach):
             # Un cierre solo en prensa cuenta como cierre; la
             # analítica prohibida corroborada por prensa también;
@@ -324,20 +308,6 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                 own_c += 1
             else:
                 own_lab += 1
-            episodes.append(
-                Episode(
-                    beach_id=beach.id,
-                    base=base_name(beach.name),
-                    municipality=beach.municipality,
-                    kind=ev.kind,
-                    start=ev.opened_at,
-                    end=ev.closed_at,
-                    via=ev.via,
-                    ref_id=-1,
-                    obs=None,
-                    press_confirmed=ev.press_confirmed,
-                )
-            )
         # Episodios de agua (descalifican el récord "impecable"):
         # toda incidencia oficial real — Sanidad solo mide agua — más
         # clústeres de prensa con causa Contaminación FUERA de la
@@ -371,38 +341,49 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
             "lab": own_lab,
             "contam": inc_c + inc_w + press_clusters,
         }
-    # Cada clúster pertenece a UN PM (la agrupación es por punto) —
-    # su cuenta va a ese punto. Solo los que tienen incidencia oficial
-    # van a closures/warnings; los con prensa de cierre van a `recon`
+    # Conteo canónico: el mismo pipeline que Incidencias — actas
+    # consecutivas fusionadas, prensa genérica absorbida por el acta
+    # de la zona hermana y réplicas sin cala fundidas. El episodio
+    # que cubre varias zonas (`zone_beach_ids`) cuenta en CADA una:
+    # el cierre afectó físicamente a todas — igual que en su ficha.
+    # Solo los clústeres con incidencia oficial van a
+    # closures/warnings; los de prensa de cierre van a `recon`
     # (evita doble conteo: el frontend suma ambos campos); los
     # puramente de laboratorio van a `lab` — agua no apta no es un
     # cierre demostrado
     rep_counts: dict[int, dict[str, int]] = {}
-    for g in cluster_episodes(episodes):
-        rep_id = g[0].beach_id
-        c = rep_counts.setdefault(
-            rep_id,
-            {
-                "closures": 0,
-                "warnings": 0,
-                "last_year": 0,
-                "recon": 0,
-                "lab": 0,
-            },
-        )
-        if not any(e.via == "official" for e in g):
-            # Prensa de cierre en la ventana = cierre corroborado;
-            # solo los episodios de laboratorio MUDOS van aparte
-            if any(e.via == "press" or e.press_confirmed for e in g):
-                c["recon"] += 1
+    unified = cluster_episodes(
+        _collect_episodes(beaches, date.today(), include_measurement=True)
+    )
+    for g in unified:
+        covered: set[int] = set()
+        for e in g:
+            covered.update(e.zone_beach_ids or [e.beach_id])
+        for rep_id in covered:
+            c = rep_counts.setdefault(
+                rep_id,
+                {
+                    "closures": 0,
+                    "warnings": 0,
+                    "last_year": 0,
+                    "recon": 0,
+                    "lab": 0,
+                },
+            )
+            if not any(e.via == "official" for e in g):
+                # Prensa de cierre en la ventana = cierre
+                # corroborado; solo los episodios de laboratorio
+                # MUDOS van aparte
+                if any(e.via == "press" or e.press_confirmed for e in g):
+                    c["recon"] += 1
+                else:
+                    c["lab"] += 1
+            elif any(e.kind == "closure" for e in g):
+                c["closures"] += 1
+                if min(e.start for e in g) >= year_ago:
+                    c["last_year"] += 1
             else:
-                c["lab"] += 1
-        elif any(e.kind == "closure" for e in g):
-            c["closures"] += 1
-            if min(e.start for e in g) >= year_ago:
-                c["last_year"] += 1
-        else:
-            c["warnings"] += 1
+                c["warnings"] += 1
     stats: list[BeachStatsOut] = []
     for beach in beaches:
         c = rep_counts.get(
@@ -666,7 +647,27 @@ def _collect_episodes(
     cierre (municipio, isla). Los corroborados sí pasan: cuentan
     como cierres según prensa."""
     episodes: list[Episode] = []
+    # Una playa OSM que duplica a una vigilada del censo (misma playa
+    # física, mismo nombre y municipio — "La Tejita" ≡ "PLAYA TEJITA
+    # (LA) PM1") no genera episodios propios: cada titular casado a
+    # ambas contaría dos veces en municipio/isla
+    twins = osm_twin_ids(beaches)
+    # Solo un complejo con varios puntos nombra la zona de la fila:
+    # Playa del Socorro tiene un único PM — "· PM1" sería jerga sin
+    # nada que distinguir
+    pm_count = Counter(
+        (b.municipality, base_name(b.name))
+        for b in beaches
+        if b.id not in twins
+    )
+
+    def _zone(beach: Beach) -> str | None:
+        multi = pm_count[(beach.municipality, base_name(beach.name))] > 1
+        return zone_tag(beach.name) if multi else None
+
     for beach in beaches:
+        if beach.id in twins:
+            continue
         # Actas consecutivas que son UNA clausura continua según la
         # prensa cuentan como un solo episodio (Jardín PM4:
         # 28-sep→7-oct fueron dos incidencias de Sanidad)
@@ -696,7 +697,7 @@ def _collect_episodes(
                     obs=obs,
                     press_count=len(press_items),
                     pm_label=_pm_label(beach.name),
-                    zone_tag=zone_tag(beach.name),
+                    zone_tag=_zone(beach),
                     # Náyade no dice la causa: la toma la prensa de la
                     # ventana; si nadie la cubrió, un cierre de Sanidad
                     # es Contaminación por definición (solo mide agua)
@@ -711,6 +712,8 @@ def _collect_episodes(
             )
     synth_id = -1
     for beach in beaches:
+        if beach.id in twins:
+            continue
         for ev in synthesize_events(beach):
             if (
                 not include_measurement
@@ -731,7 +734,7 @@ def _collect_episodes(
                     obs=_synth_observations(ev),
                     press_confirmed=ev.press_confirmed,
                     pm_label=_pm_label(beach.name),
-                    zone_tag=zone_tag(beach.name),
+                    zone_tag=_zone(beach),
                     press_count=(ev.press_count if ev.via == "press" else 0),
                     end_estimated=ev.end_estimated,
                     # prensa: voto de sus causas crudas; measurement:
@@ -752,7 +755,79 @@ def _collect_episodes(
                 )
             )
             synth_id -= 1
-    return episodes
+    return _merge_generic_sibling_press(
+        _drop_sibling_press(episodes, beaches, today)
+    )
+
+
+def _drop_sibling_press(
+    episodes: list[Episode], beaches: list[Beach], today: date
+) -> list[Episode]:
+    """Prensa genérica que coincide con un acta de Sanidad de OTRA
+    zona del mismo complejo es ese mismo cierre, no uno nuevo — la
+    misma regla que la ficha ("Ocurrió en la zona 1"). El titular no
+    nombró cala y se replicó a todos los PM; el acta dice cuál fue
+    (El Cabezo sep-2026: Sanidad cerró la zona 1 del 9 al 14 y la
+    prensa del 11 al 16 contaba otra fila en la zona 4).
+
+    Solo se absorbe si TODOS sus titulares están también en la zona
+    del acta (réplica genérica): un titular propio de esta zona
+    ("cierran Playa Grande y Charcón") es evidencia de la cala y la
+    fila se queda. Episodios aún abiertos tampoco: cierre general
+    vigente, cada zona narra el suyo."""
+    urls = {b.id: {n.url for n in b.news_items} for b in beaches}
+    officials = [e for e in episodes if e.via == "official"]
+
+    def _overlap(a: Episode, b: Episode) -> bool:
+        return a.start <= (b.end or today) and b.start <= (a.end or today)
+
+    def _absorbed(p: Episode) -> bool:
+        if p.via != "press" or p.end is None or not p.press_items:
+            return False
+        if any(o.beach_id == p.beach_id and _overlap(o, p) for o in officials):
+            return False
+        return any(
+            (o.municipality, o.base) == (p.municipality, p.base)
+            and o.beach_id != p.beach_id
+            and _overlap(o, p)
+            and all(n.url in urls.get(o.beach_id, ()) for n in p.press_items)
+            for o in officials
+        )
+
+    return [e for e in episodes if not _absorbed(e)]
+
+
+def _merge_generic_sibling_press(episodes: list[Episode]) -> list[Episode]:
+    """Un titular genérico ("cierran Las Teresitas", sin cala) se
+    replica a todos los PM del complejo — es UN episodio, no uno por
+    zona. Las réplicas se reconocen por su firma: misma playa, misma
+    ventana y exactamente el mismo set de titulares. Se funden en una
+    fila sin zona (`zone_beach_ids` recuerda los PM cubiertos). La
+    cala nombrada ("Playa Grande y Charcón") tiene titulares
+    distintos — conserva su fila propia."""
+    merged: dict[tuple, Episode] = {}
+    out: list[Episode] = []
+    for e in episodes:
+        if e.via != "press" or not e.press_items:
+            out.append(e)
+            continue
+        key = (
+            e.municipality,
+            e.base,
+            e.start,
+            e.end,
+            frozenset(n.url for n in e.press_items),
+        )
+        prev = merged.get(key)
+        if prev is None:
+            e.zone_tag = None  # la noticia no precisó cala
+            merged[key] = e
+            out.append(e)
+        else:
+            prev.zone_beach_ids = sorted(
+                {*prev.zone_beach_ids, prev.beach_id, e.beach_id}
+            )
+    return out
 
 
 def _merged_episode_rows(
@@ -781,6 +856,14 @@ def _merged_episode_rows(
             last_leg_start=m.last_leg_start,
             zone_beach_ids=m.zone_beach_ids,
             zone_tag=m.zone_tag,
+            last_news_at=max(
+                (
+                    n.published_at.date()
+                    for n in m.press_items
+                    if n.published_at
+                ),
+                default=None,
+            ),
             press_items=(
                 [_news_out(n) for n in m.press_items] if with_press else []
             ),

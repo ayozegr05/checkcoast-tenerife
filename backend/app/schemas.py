@@ -116,6 +116,10 @@ class MunicipalityIncidentOut(BaseModel):
     # multipunto cada cala rinde sus propios episodios y la UI nombra
     # la zona ("Playa Jardín · Punta Brava"); None en playa de un PM
     zone_tag: str | None = None
+    # Última noticia de prensa del episodio — un cierre estructural no
+    # caduca, y la UI avisa "sin noticias desde 2018" para que el
+    # lector juzgue la vigencia
+    last_news_at: date | None = None
 
 
 class BeachMeasurementOut(BaseModel):

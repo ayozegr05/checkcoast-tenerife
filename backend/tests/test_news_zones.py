@@ -117,7 +117,10 @@ def test_zone_display_name():
     assert zone_display_name(JARDIN[0]) == "El Castillo"
     assert zone_display_name(JARDIN[1]) == "Punta Brava"
     assert zone_display_name(JARDIN[2]) == "El Charcón"
-    assert zone_display_name(GUIMAR[0]) is None
+    # El Cabezo (Güímar): PM1 es el extremo de la playa canina; PM4
+    # (hacia el muelle) no tiene nombre propio mapeado
+    assert zone_display_name(GUIMAR[0]) == "Los Perros"
+    assert zone_display_name(GUIMAR[1]) is None
 
 
 VALLESECO = [
@@ -174,8 +177,13 @@ def test_push_display_name_uses_zone():
 
     assert _display_name(JARDIN[2]) == "Playa Jardin · El Charcón"
     assert _display_name(JARDIN[1]) == "Playa Jardin · Punta Brava"
-    # sin mapa de zonas el nombre censal va limpio: sin PM y con las
-    # preposiciones en minúscula
+    # PM1 de El Cabezo tiene cala mapeada ("Los Perros"); PM4 no → el
+    # nombre censal va limpio: sin PM y con las preposiciones en
+    # minúscula
     assert (
-        _display_name(GUIMAR[0]) == "Playa Cabezo (El)-Paseo de las Palmeras"
+        _display_name(GUIMAR[0])
+        == "Playa Cabezo (El)-Paseo de las Palmeras · Los Perros"
+    )
+    assert (
+        _display_name(GUIMAR[1]) == "Playa Cabezo (El)-Paseo de las Palmeras"
     )

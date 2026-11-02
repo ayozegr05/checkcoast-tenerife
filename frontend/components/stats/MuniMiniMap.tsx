@@ -2,7 +2,6 @@ import React from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 
 import { muniMapImage } from '../../lib/muniMap';
-import { colors } from '../../lib/theme';
 
 // Silueta de Tenerife con el municipio resaltado en el acento — PNG
 // generado desde los límites del Cabildo (build_muni_map.py). La

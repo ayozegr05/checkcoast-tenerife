@@ -29,6 +29,12 @@ const ZONE_NAMES: Record<string, Record<string, string>> = {
   'PLAYA VALLESECO- EL BLOQUE': {
     PM1: 'El Bloque',
   },
+  // El Cabezo–Paseo de las Palmeras (Güímar): PM1 es el extremo de la
+  // playa canina; PM4 (hacia el muelle del Puertito) no tiene nombre
+  // propio conocido — sale como "Zona 4"
+  'PLAYA CABEZO (EL)-PASEO DE LAS PALMERAS': {
+    PM1: 'Los Perros',
+  },
   // El Médano (Granadilla): tres zonas del mismo arenal — se indexan
   // por sufijo porque Chica y Leocadio Machado comparten el PM1
   'PLAYA MEDANO (EL)': {
@@ -90,6 +96,17 @@ export const zoneName = (beachName: string, tag?: string | null) => {
   if (!group) return null;
   const label = (tag ?? zoneTagOf(beachName) ?? '').toUpperCase();
   return group[label] ?? null;
+};
+
+// Etiqueta de la cala para una fila: el nombre común si el complejo
+// está mapeado ("Punta Brava"); si no, "Zona 4" — nunca la sigla
+// interna "PM4"; un sufijo de nombre propio ("CHICA") → "Chica"
+export const zoneLabel = (beachName: string, tag: string) => {
+  const z = zoneName(beachName, tag);
+  if (z) return z;
+  const pm = tag.match(/^PM\s*(\d+)$/i);
+  if (pm) return `Zona ${pm[1]}`;
+  return tag.charAt(0).toUpperCase() + tag.slice(1).toLowerCase();
 };
 
 // Referencia legible a la zona hermana en textos narrativos:

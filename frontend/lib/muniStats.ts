@@ -43,13 +43,10 @@ export const barColorOf = (m: MuniStats) =>
       ? colors.status.warning
       : colors.status.open;
 
-// Modo-año: un cierre pesa el triple que un aviso; la barra roja si
-// hubo cierres, naranja si solo avisos
+// Modo-año: un cierre pesa el triple que un aviso — ordena el
+// ranking y llena su barra (misma métrica)
 export const yearScoreOf = (m: MuniStats) =>
   (m.yearClosures ?? 0) * 3 + (m.yearWarnings ?? 0);
-
-export const yearBarColorOf = (m: MuniStats) =>
-  (m.yearClosures ?? 0) > 0 ? colors.status.closed : colors.status.warning;
 
 // Chips de año visibles antes de plegar el resto tras "Más años ›"
 export const MAX_YEAR_CHIPS = 4;

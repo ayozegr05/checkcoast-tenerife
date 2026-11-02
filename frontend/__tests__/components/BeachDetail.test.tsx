@@ -218,18 +218,21 @@ describe('<BeachDetail />', () => {
 
   it('caso Médano: reapertura cubierta después del cierre oficial casa el incidente', async () => {
     // Sanidad reabrió un día ANTES del primer titular del clúster
-    // (oficial 21→24, prensa 25 — tolerancia hacia atrás); el inicio
-    // narrado es el más temprano documentado (oficial, no el
-    // "desde el 23" que la prensa afirmó)
-    const since = daysAgo(8);
-    newsMock.mockResolvedValue(medanoNews(since, daysAgo(11)));
+    // (tolerancia hacia atrás); el inicio narrado es el más temprano
+    // documentado (oficial, no el "desde el" que la prensa afirmó).
+    // Reapertura ≤7 d → banner verde de reapertura
+    const since = daysAgo(2);
+    newsMock.mockResolvedValue(medanoNews(since, daysAgo(5)));
     incidentsMock.mockResolvedValue([
-      incident({ opened_at: daysAgo(12), closed_at: daysAgo(9) }),
+      incident({ opened_at: daysAgo(6), closed_at: daysAgo(3) }),
     ]);
     await render(<BeachDetail feature={jardin} hasAlert={false} />);
     expect(
-      await screen.findByText(
-        new RegExp(`del ${fmtD(daysAgo(12))} al ${fmtD(daysAgo(9))} · 4 días`),
+      await screen.findByText(`Reabierta el ${fmtD(daysAgo(3))}`),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        new RegExp(`estuvo cerrada desde el ${fmtD(daysAgo(6))} · ~4 días`),
       ),
     ).toBeTruthy();
   });
@@ -237,36 +240,30 @@ describe('<BeachDetail />', () => {
   it('con dos episodios oficiales pegados casa el más cercano a la cobertura', async () => {
     // Jardín consecutivo: dos cierres en la ventana — gana el cuyo
     // cierre está más cerca del clúster, no cualquiera compatible
-    const since = daysAgo(8);
+    const since = daysAgo(2);
     newsMock.mockResolvedValue(medanoNews(since, null));
     incidentsMock.mockResolvedValue([
-      incident({ id: 1, opened_at: daysAgo(30), closed_at: daysAgo(14) }),
-      incident({ id: 2, opened_at: daysAgo(12), closed_at: daysAgo(9) }),
+      incident({ id: 1, opened_at: daysAgo(25), closed_at: daysAgo(9) }),
+      incident({ id: 2, opened_at: daysAgo(6), closed_at: daysAgo(3) }),
     ]);
     await render(<BeachDetail feature={jardin} hasAlert={false} />);
     expect(
-      await screen.findByText(
-        new RegExp(`del ${fmtD(daysAgo(12))} al ${fmtD(daysAgo(9))} · 4 días`),
-      ),
+      await screen.findByText(`Reabierta el ${fmtD(daysAgo(3))}`),
     ).toBeTruthy();
   });
 
-  it('un incidente antiguo fuera de tolerancia no se casa: fecha de la cobertura', async () => {
-    // El cierre oficial terminó 40 días antes del clúster — no es
-    // este episodio; el banner cae a la fecha que la prensa documenta
+  it('un cierre ya resuelto no se narra en el banner: ya está en Episodios', async () => {
+    // Cobertura reciente (5 d) de un cierre que no sigue ni reabrió
+    // en la última semana: en naranja se leía como alerta viva y
+    // repetía la tarjeta de Episodios — el banner no sale
     const since = daysAgo(5);
     newsMock.mockResolvedValue(medanoNews(since, null));
     incidentsMock.mockResolvedValue([
       incident({ opened_at: daysAgo(60), closed_at: daysAgo(45) }),
     ]);
     await render(<BeachDetail feature={jardin} hasAlert={false} />);
-    expect(
-      await screen.findByText(
-        new RegExp(
-          `Estuvo cerrada por E\\. coli y enterococos · el ${fmtD(since)}`,
-        ),
-      ),
-    ).toBeTruthy();
+    await screen.findByText(/^Calidad del agua/);
+    expect(screen.queryByText(/Estuvo cerrada/)).toBeNull();
   });
 
   it('la foto satélite lleva al mapa', async () => {

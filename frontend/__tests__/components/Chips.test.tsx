@@ -86,7 +86,7 @@ describe('<SeasonFilterChips />', () => {
       />,
     );
     expect(screen.getByText('1 cierre')).toBeTruthy();
-    expect(screen.getByText('3 activas')).toBeTruthy();
+    expect(screen.getByText('3 vigentes')).toBeTruthy();
     expect(screen.queryByText(/aviso/)).toBeNull();
   });
 

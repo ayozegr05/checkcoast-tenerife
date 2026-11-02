@@ -58,6 +58,35 @@ def beach(measurements=(), incidents=(), items=()):
     )
 
 
+def test_structural_closure_without_reopening_never_expires():
+    """Un desprendimiento sin reapertura no caduca por silencio —
+    misma regla que el mapa: La Arena (Mesa del Mar) cerrada en 2014
+    y sin noticias desde entonces sigue vigente (la UI avisa "sin
+    noticias desde ene 2014")."""
+    b = beach(
+        items=[news(date(2014, 1, 30), "closure", cause="Desprendimientos")]
+    )
+    (ev,) = synthesize_events(b, today=TODAY)
+    assert ev.closed_at is None
+    assert not ev.end_estimated
+
+
+def test_structural_earlier_wave_still_closes_by_silence():
+    """Solo el ÚLTIMO cierre estructural queda abierto: la ola
+    anterior se cierra por silencio y hace de frontera (Gaviotas:
+    el desprendimiento de jul-2025 ≠ las obras de jun-2026)."""
+    b = beach(
+        items=[
+            news(date(2025, 7, 1), "closure", cause="Desprendimientos"),
+            news(date(2026, 6, 3), "closure", cause="Desprendimientos"),
+        ]
+    )
+    evs = sorted(synthesize_events(b, today=TODAY), key=lambda e: e.opened_at)
+    assert len(evs) == 2
+    assert evs[0].end_estimated and evs[0].closed_at == date(2025, 7, 1)
+    assert evs[1].closed_at is None
+
+
 def test_bad_run_without_incident_makes_measurement_event():
     b = beach(
         measurements=[
@@ -673,6 +702,78 @@ def test_cluster_episodes_firm_end_is_boundary():
     groups = cluster_episodes(eps, today=TODAY)
     assert len(groups) == 2
     assert groups[1][0].start == date(2026, 8, 22)
+
+
+def test_generic_press_overlapping_sibling_act_is_same_closure():
+    """El Cabezo sep-2026: Sanidad cerró la zona 1 (9→14) y la prensa
+    genérica (replicada a ambas zonas) del 11→16 contaba otra fila en
+    la zona 4 — es el mismo cierre. Un titular PROPIO de la zona (solo
+    casado a ella: nombró la cala) sí se queda como fila."""
+    from app.routers.beaches import _drop_sibling_press
+
+    generic = SimpleNamespace(url="u-generic")
+    own = SimpleNamespace(url="u-own")
+    z1 = SimpleNamespace(id=1, news_items=[generic])
+    z4 = SimpleNamespace(id=4, news_items=[generic, own])
+
+    def press(items):
+        return Episode(
+            beach_id=4,
+            base="CABEZO",
+            municipality="M",
+            kind="closure",
+            start=date(2026, 9, 11),
+            end=date(2026, 9, 16),
+            via="press",
+            ref_id=-1,
+            obs=None,
+            press_items=items,
+        )
+
+    act = ep(1, "CABEZO", date(2026, 9, 9), date(2026, 9, 14))
+    kept = _drop_sibling_press([act, press([generic])], [z1, z4], TODAY)
+    assert kept == [act]
+    named = press([generic, own])
+    kept = _drop_sibling_press([act, named], [z1, z4], TODAY)
+    assert kept == [act, named]
+
+
+def test_generic_sibling_press_merges_into_one_row():
+    """Punta Larga: el mismo titular sin cala replicado a PM1 y PM2
+    produce el mismo episodio en ambas — es UN cierre de toda la
+    playa, no dos. Se funde en una fila sin zona que recuerda los
+    PMs cubiertos; una fila con titulares distintos (cala nombrada)
+    no se funde."""
+    from app.routers.beaches import _merge_generic_sibling_press
+
+    generic = SimpleNamespace(url="u-generic")
+    own = SimpleNamespace(url="u-own")
+
+    def press(beach_id, items, zone):
+        return Episode(
+            beach_id=beach_id,
+            base="PUNTA LARGA",
+            municipality="M",
+            kind="closure",
+            start=date(2026, 5, 31),
+            end=None,
+            via="press",
+            ref_id=-1,
+            obs=None,
+            press_items=items,
+            zone_tag=zone,
+        )
+
+    merged = _merge_generic_sibling_press(
+        [press(24, [generic], "PM1"), press(25, [generic], "PM2")]
+    )
+    assert len(merged) == 1
+    assert merged[0].zone_tag is None
+    assert merged[0].zone_beach_ids == [24, 25]
+    distinct = _merge_generic_sibling_press(
+        [press(24, [generic], "PM1"), press(25, [generic, own], "PM2")]
+    )
+    assert len(distinct) == 2
 
 
 def test_min_closed_since_picks_earliest_same_precision():

@@ -151,12 +151,65 @@ def render(munis: dict[str, MultiPolygon]) -> None:
         img.save(os.path.join(OUT_DIR, f"{slug(target)}.png"))
 
 
+def _island_bbox(img: Image.Image) -> tuple[int, int, int, int]:
+    bbox = img.getbbox() or (0, 0, W, H)
+    x0, y0, x1, y1 = bbox
+    return (
+        max(x0 - 6, 0),
+        max(y0 - 6, 0),
+        min(x1 + 6, W),
+        min(y1 + 6, H),
+    )
+
+
+def render_layers(munis: dict[str, MultiPolygon]) -> None:
+    """Capas para el mapa coroplético de la app (municipios sin
+    episodios / vigilancia): `base.png` = isla completa en gris y
+    `ov-<slug>.png` = silueta opaca de UN solo municipio sobre
+    transparente — el frontend la recolorea con `tintColor`, así el
+    mismo asset sirve para cualquier estado dinámico. Todas las
+    capas comparten el recorte de la isla para apilarse alineadas."""
+    xy = projector(list(munis.values()))
+
+    base = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    dr = ImageDraw.Draw(base)
+    for mp in munis.values():
+        polys = list(mp.geoms) if isinstance(mp, MultiPolygon) else [mp]
+        for poly in polys:
+            dr.polygon(
+                ring_pts(poly.exterior, xy), fill=FILL_BASE, outline=EDGE_BASE
+            )
+            for hole in poly.interiors:
+                dr.polygon(
+                    ring_pts(hole, xy),
+                    fill=(0, 0, 0, 0),
+                    outline=EDGE_BASE,
+                )
+    crop = _island_bbox(base)
+    base.crop(crop).save(os.path.join(OUT_DIR, "base.png"))
+
+    for target, mp in munis.items():
+        img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        dr = ImageDraw.Draw(img)
+        polys = list(mp.geoms) if isinstance(mp, MultiPolygon) else [mp]
+        for poly in polys:
+            dr.polygon(
+                ring_pts(poly.exterior, xy), fill="#ffffff", outline="#ffffff"
+            )
+            for hole in poly.interiors:
+                dr.polygon(
+                    ring_pts(hole, xy), fill=(0, 0, 0, 0), outline="#ffffff"
+                )
+        img.crop(crop).save(os.path.join(OUT_DIR, f"ov-{slug(target)}.png"))
+
+
 def main() -> None:
     import sys
 
     munis = load(sys.argv[1] if len(sys.argv) > 1 else None)
     print(f"municipios: {len(munis)}")
     render(munis)
+    render_layers(munis)
     print("slugs:")
     for name in sorted(munis):
         print(f"  {slug(name)}  <-  {name}")

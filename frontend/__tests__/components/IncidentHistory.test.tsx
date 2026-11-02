@@ -59,16 +59,19 @@ describe('<IncidentHistory />', () => {
         onToggleIncident={jest.fn()}
       />,
     );
-    expect(screen.getByText('Episodios (5)')).toBeTruthy();
+    // El título cuenta los episodios de ESTE punto (4); el de la zona
+    // hermana se nombra aparte — título, cifras y resumen cuadran
+    expect(screen.getByText('Episodios (4)')).toBeTruthy();
     // 2 cierres propios (oficial prohibido + prensa), 1 aviso, 1 sin calificar
     expect(screen.getByText('2 cierres')).toBeTruthy();
     expect(screen.getByText('1 aviso')).toBeTruthy();
     expect(screen.getByText('1 sin calificar')).toBeTruthy();
     expect(
       screen.getByText(
-        'Este año: sin episodios  ·  Últimos 5 años: sin episodios',
+        'Este año: ninguno en esta zona  ·  Últimos 5 años: ninguno en esta zona',
       ),
     ).toBeTruthy();
+    expect(screen.getByText('+ 1 en la zona 4')).toBeTruthy();
   });
 
   it('agrupa por año con etiquetas, fechas y zona hermana aparte', async () => {
@@ -91,7 +94,8 @@ describe('<IncidentHistory />', () => {
     expect(screen.getByText('Aviso')).toBeTruthy();
     expect(screen.getByText('Sin calificar')).toBeTruthy();
     expect(screen.getAllByTestId('incident-cause')).toHaveLength(4);
-    expect(screen.getByText('01/08/2015 → 04/08/2015 · 4 días')).toBeTruthy();
+    // La cabecera del año ya dice 2015: fecha corta sin año
+    expect(screen.getByText('1 ago → 4 ago · 4 días')).toBeTruthy();
     // El detalle "muestra sin clasificar" no aporta: la etiqueta
     // lo dice y no se repite como nota
     expect(
@@ -177,7 +181,7 @@ describe('<IncidentHistory />', () => {
       />,
     );
     // El año del episodio llega desplegado sin tocar el acordeón…
-    expect(screen.getByText('01/07/2014 → 02/07/2014 · 2 días')).toBeTruthy();
+    expect(screen.getByText('1 jul → 2 jul · 2 días')).toBeTruthy();
     // …mientras el resto de años antiguos siguen colapsados
     expect(screen.queryByText('01/05/2013 → 02/05/2013 · 2 días')).toBeNull();
     expect(screen.queryByText('10/01/2020 → 12/01/2020 · 3 días')).toBeNull();

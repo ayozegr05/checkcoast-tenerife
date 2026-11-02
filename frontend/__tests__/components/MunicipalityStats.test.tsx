@@ -125,6 +125,40 @@ describe('<MunicipalityStats />', () => {
     expect(muniNames()).toEqual(['Arona', 'Puerto de la Cruz']);
   });
 
+  it('municipios sin episodios: pie plegado que separa vigilados y no vigilados', async () => {
+    await render(
+      <MunicipalityStats
+        {...props({
+          beaches: [
+            ...beaches,
+            beach(4, 'Playa de Antequera', {
+              municipality: 'Santa Cruz de Tenerife',
+              status: 'open',
+            }),
+            beach(5, 'Playa de Bollullo', {
+              municipality: 'La Orotava',
+              monitored: false,
+            }),
+          ],
+        })}
+      />,
+    );
+    // Siguen fuera del ranking (no compiten con los afectados)…
+    expect(muniNames()).toEqual(['Arona', 'Puerto de la Cruz']);
+    // …pero no desaparecen: pie plegado con el total
+    await fireEvent.press(
+      screen.getByRole('button', {
+        name: /2 municipios sin episodios en 2025/,
+      }),
+    );
+    // Chips por municipio + leyenda vigilado/no vigilado
+    expect(screen.getByText('vigilado por Sanidad')).toBeTruthy();
+    expect(screen.getByText('Santa Cruz de Tenerife')).toBeTruthy();
+    // Sin puntos de Sanidad "sin episodios" no es "agua limpia"
+    expect(screen.getByText('sin puntos de Sanidad')).toBeTruthy();
+    expect(screen.getByText('La Orotava')).toBeTruthy();
+  });
+
   it('las chips de año cambian el ranking; «Histórico» muestra el total', async () => {
     await render(<MunicipalityStats {...props()} />);
     await fireEvent.press(
@@ -156,7 +190,7 @@ describe('<MunicipalityStats />', () => {
     // Titular insular del ámbito: episodios + municipios + abiertos
     expect(
       screen.getByText(
-        '3 episodios desde 2024 · 2 de 2 municipios con playa afectados',
+        '3 episodios desde 2024 · afectan a 2 de los 2 municipios con playa',
       ),
     ).toBeTruthy();
   });

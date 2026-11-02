@@ -1534,6 +1534,33 @@ def test_island_episodes(seed_data):
         db.close()
 
 
+def test_island_episodes_single_pm_has_no_zone(seed_data):
+    """Una playa con un único PM no nombra zona en la fila: "· PM1"
+    sería jerga sin nada que distinguir (Playa del Socorro)."""
+    from datetime import date
+
+    from app.db import SessionLocal
+    from app.models import BeachIncident
+
+    db = SessionLocal()
+    inc = BeachIncident(
+        beach_id=seed_data["beach_id"],
+        opened_at=date(2026, 9, 5),
+        closed_at=date(2026, 9, 25),
+        observations="Zona donde queda prohibido el baño temporalmente",
+    )
+    db.add(inc)
+    db.commit()
+    try:
+        rows = client.get("/episodes").json()
+        ep = next(x for x in rows if x["beach_id"] == seed_data["beach_id"])
+        assert ep["zone_tag"] is None
+    finally:
+        db.delete(inc)
+        db.commit()
+        db.close()
+
+
 def _news(beach_id, event_type, published_at, url, title="Titular de test"):
     from app.models import NewsItem
 

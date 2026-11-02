@@ -13,12 +13,33 @@ describe('<EpisodeRow />', () => {
         onPress={jest.fn()}
       />,
     );
-    expect(screen.getByText('Sigue cerrada')).toBeTruthy();
+    expect(screen.getByText('Cierre vigente')).toBeTruthy();
+    // La cabecera de mes ya da el año: la fecha va corta
+    expect(
+      screen.getByText('Puerto de la Cruz · desde el 1 jul · desprendimientos'),
+    ).toBeTruthy();
+  });
+
+  it('cala de complejo multipunto: la zona encabeza la línea de datos', async () => {
+    await render(
+      <EpisodeRow
+        ep={episode({
+          beach_name: 'PLAYA CABEZO (EL)-PASEO DE LAS PALMERAS',
+          zone_tag: 'PM4',
+          opened_at: '2026-12-28',
+          closed_at: '2027-01-03',
+        })}
+        onPress={jest.fn()}
+      />,
+    );
+    // Sin nombre curado → "Zona 4", nunca la sigla "PM4"; un episodio
+    // que cruza de año lleva el año en los dos extremos
     expect(
       screen.getByText(
-        'Puerto de la Cruz · desde el 01/07/2026 · desprendimientos',
+        /^Zona 4 · Puerto de la Cruz · 28 dic 2026 → 3 ene 2027/,
       ),
     ).toBeTruthy();
+    expect(screen.queryByText(/PM4/)).toBeNull();
   });
 
   it('aviso resuelto según prensa, sin municipio', async () => {
@@ -33,7 +54,7 @@ describe('<EpisodeRow />', () => {
     // solo para lo que sigue activo)
     expect(screen.queryByText(/resuelto/)).toBeNull();
     expect(
-      screen.getByText(/^Sin municipio · 01\/07\/2026 → 03\/07\/2026/),
+      screen.getByText(/^Sin municipio · 1 jul → 3 jul · 3 días/),
     ).toBeTruthy();
     expect(screen.getByText(/según prensa$/)).toBeTruthy();
     await fireEvent.press(

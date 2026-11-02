@@ -13,6 +13,7 @@ from app.models import (
     BeachStatus,
     NewsItem,
 )
+from app.news_matching import osm_twin_ids
 
 # Subconsulta: último estado reportado por playa
 _latest = (
@@ -570,10 +571,15 @@ def effective_states(db: Session) -> dict[int, dict]:
     # temporal no son un problema de agua/gestión — la app no es un
     # parte meteo (los datos siguen en BD; solo se excluyen aquí)
     items = [it for it in items if not is_sea_state_cause(it.cause)]
+    # Una playa OSM que duplica a una vigilada del censo ("La Tejita"
+    # ≡ "PLAYA TEJITA (LA) PM1") no decide estado: sus titulares ya
+    # votan en la ficha vigilada — si no, la misma noticia pintaba
+    # dos puntos cerrados en el mapa
+    twin_ids = osm_twin_ids(db.query(Beach).all())
     by_beach: dict[int, list[NewsItem]] = {}
     for it in items:
-        if it.beach_id is None:  # ya filtrado en la query; mypy no lo ve
-            continue
+        if it.beach_id is None or it.beach_id in twin_ids:
+            continue  # ya filtrado beach_id en la query; mypy no lo ve
         by_beach.setdefault(it.beach_id, []).append(it)
 
     # Estado según prensa solo con cobertura fresca — salvo un cierre

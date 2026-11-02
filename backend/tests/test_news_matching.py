@@ -113,6 +113,29 @@ def ids(ext_obj, beaches=BEACHES, title=""):
     return sorted(b.id for b in match_beaches(ext_obj, beaches, title=title))
 
 
+def test_osm_twin_loses_to_monitored_census_beach():
+    # Caso real: OSM "La Tejita" y "PLAYA TEJITA (LA) PM1" son la
+    # misma playa física a ~425 m. La noticia va solo a la vigilada —
+    # antes casaba a ambas y cada episodio contaba dos veces
+    beaches = [
+        SimpleNamespace(
+            id=33,
+            name="PLAYA TEJITA (LA) PM1",
+            municipality="Granadilla de Abona",
+            monitored=True,
+        ),
+        SimpleNamespace(
+            id=168,
+            name="La Tejita",
+            municipality="Granadilla de Abona",
+            monitored=False,
+        ),
+    ]
+    assert ids(ext("La Tejita", "Granadilla de Abona"), beaches) == [33]
+    # sin playa vigilada hermana la OSM sigue recibiendo su prensa
+    assert ids(ext("La Tejita", "Granadilla de Abona"), beaches[1:]) == [168]
+
+
 def test_exact_name_match_without_municipality():
     # Jardín tiene 3 PMs en el mismo municipio: todos casan
     assert ids(ext("Playa Jardín")) == [1, 41, 42]

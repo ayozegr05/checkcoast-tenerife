@@ -3,10 +3,15 @@ import { Image, Pressable, Text, View } from 'react-native';
 
 import { MunicipalityIncident } from '../../lib/api';
 import { episodeDays } from '../../lib/episodes';
-import { displayBeachName, displayCause, formatDays } from '../../lib/format';
-import { fmtDate } from '../../lib/muniStats';
+import {
+  displayBeachName,
+  displayCause,
+  fmtSpan,
+  formatDays,
+  staleNewsNote,
+} from '../../lib/format';
 import { FAUNA_CAUSES, STRUCTURAL_CAUSES } from '../../lib/structural';
-import { zoneName } from '../../lib/zones';
+import { zoneLabel } from '../../lib/zones';
 import { thumbUrl } from '../SatelliteShot';
 import { styles } from './statsStyles';
 
@@ -26,13 +31,12 @@ export default function EpisodeRow({
   onPress: () => void;
 }) {
   const open = ep.closed_at === null;
-  // En complejos multipunto la fila es de UNA cala: el nombre común
-  // ("Punta Brava" para Jardín PM4) la identifica — sin mapa de zona
-  // cae al token ("PM4"); playa de un PM → sin sufijo
-  const zone = ep.zone_tag
-    ? (zoneName(ep.beach_name, ep.zone_tag) ?? ep.zone_tag)
-    : null;
-  const name = displayBeachName(ep.beach_name) + (zone ? ` · ${zone}` : '');
+  const beach = displayBeachName(ep.beach_name);
+  // En complejos multipunto la fila es de UNA cala: va al principio
+  // de la línea de datos ("Punta Brava · Puerto de la Cruz · …") —
+  // un nombre oficial largo que se trunque nunca se come la zona, que
+  // es lo que distingue una fila de su hermana
+  const zone = ep.zone_tag ? zoneLabel(ep.beach_name, ep.zone_tag) : null;
   // Mismo lenguaje de color que el pin del mapa: granate = cierre
   // estructural (desprendimientos/obras/colapso — crónico, no
   // urgente), añil = fauna marina; el rojo queda para contaminación
@@ -41,12 +45,20 @@ export default function EpisodeRow({
     : FAUNA_CAUSES.has(ep.cause ?? '')
       ? styles.badgeFauna
       : styles.badgeClosed;
+  // La cabecera de mes ya dice el año del inicio: el rango no lo
+  // repite salvo que cruce de año ("3 sep → 9 oct · 37 días")
+  const span = fmtSpan(
+    ep.opened_at,
+    ep.closed_at,
+    Number(ep.opened_at.slice(0, 4)),
+  );
+  const stale = staleNewsNote(ep.closed_at, ep.last_news_at);
   return (
     <Pressable
       style={({ pressed }) => [styles.row, pressed && styles.pressFx]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Ver ficha de ${name}`}
+      accessibilityLabel={`Ver ficha de ${beach}${zone ? ` · ${zone}` : ''}`}
     >
       <View style={styles.epMain}>
         {coords && (
@@ -59,8 +71,10 @@ export default function EpisodeRow({
         )}
         <View style={styles.epBody}>
           <View style={styles.rowHeader}>
-            <Text style={styles.rowName} numberOfLines={1}>
-              {name}
+            {/* Hasta dos líneas: los nombres oficiales largos ("Playa
+                del Cabezo-Paseo de las Palmeras") caben enteros */}
+            <Text style={styles.rowName} numberOfLines={2}>
+              {beach}
             </Text>
             {/* Badge solo en lo que exige atención: un episodio cerrado
                 no es "bueno", solo es pasado — las fechas ya lo cuentan */}
@@ -72,19 +86,17 @@ export default function EpisodeRow({
                   ep.kind === 'closure' ? badgeTone : styles.badgeWarning,
                 ]}
               >
-                {ep.kind === 'closure' ? 'Sigue cerrada' : 'Aviso activo'}
+                {ep.kind === 'closure' ? 'Cierre vigente' : 'Aviso vigente'}
               </Text>
             )}
           </View>
           <Text style={styles.rowSub}>
-            {ep.municipality ?? 'Sin municipio'} ·{' '}
-            {open
-              ? `desde el ${fmtDate(ep.opened_at)}`
-              : `${fmtDate(ep.opened_at)} → ${fmtDate(
-                  ep.closed_at as string,
-                )} · ${formatDays(episodeDays(ep))}`}
+            {zone ? `${zone} · ` : ''}
+            {ep.municipality ?? 'Sin municipio'} · {span}
+            {open ? '' : ` · ${formatDays(episodeDays(ep))}`}
             {ep.cause ? ` · ${displayCause(ep.cause)}` : ''}
             {ep.via === 'press' ? ' · según prensa' : ''}
+            {stale ? ` · ${stale}` : ''}
           </Text>
         </View>
       </View>

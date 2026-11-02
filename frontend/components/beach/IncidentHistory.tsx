@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 
 import type { BeachIncident, EpisodeFocus } from '../../lib/api';
-import { fmtDate, formatDays } from '../../lib/format';
+import { fmtDate, fmtSpan, formatDays } from '../../lib/format';
 import {
   episodesInYears,
   episodesThisYear,
@@ -291,14 +291,14 @@ export default function IncidentHistory({
             toda la fila, como las filas de alertas de la portada */}
         <View style={styles.incidentMain}>
           <Text style={styles.incidentDates}>
+            {/* La cabecera del año ya dice el año del inicio: fechas
+                cortas ("3 sep → 9 oct"), con año solo si cruza */}
             {inc.end_estimated
-              ? // Fin desconocido (nadie cubrió la reapertura): se
-                // muestra abierto en vez de la última mención —
-                // menos ruido y comunica lo mismo
-                `${fmtDate(inc.opened_at)} → desconocido`
-              : `${fmtDate(inc.opened_at)} → ${
-                  inc.closed_at ? fmtDate(inc.closed_at) : 'hoy'
-                } · ${formatDays(days)}`}
+              ? // Fin desconocido (nadie cubrió la reapertura): no se
+                // inventa fecha — "fin sin confirmar" lo dice sin
+                // parecer un error del sistema
+                `${fmtSpan(inc.opened_at, null, Number(inc.opened_at.slice(0, 4))).replace(/^desde el /, '')} · fin sin confirmar`
+              : `${fmtSpan(inc.opened_at, inc.closed_at, Number(inc.opened_at.slice(0, 4)))} · ${formatDays(days)}`}
           </Text>
           {/* Las notas van pegadas al fondo de la columna: quedan a
               la altura de la etiqueta de causa de la derecha (badge
@@ -406,6 +406,21 @@ export default function IncidentHistory({
   };
 
   const own = incidents.filter((i) => !i.attributed_pm);
+  // Episodios que la lista enseña pero son de una zona hermana
+  // ("Ocurrió en la zona 1"): no cuentan como de este punto, pero el
+  // resumen los nombra — si no, "Este año: sin episodios" convive con
+  // una tarjeta de este año justo debajo
+  const sibRows = incidents.filter((i) => i.attributed_pm);
+  const sibTags = [...new Set(sibRows.map((i) => i.attributed_pm!))];
+  const sibNote =
+    sibRows.length === 0
+      ? null
+      : `+ ${sibRows.length} en ${
+          sibTags.length === 1
+            ? `la ${siblingZoneRef(beachName, sibTags[0])}`
+            : 'zonas vecinas'
+        }`;
+  const none = sibRows.length > 0 ? 'ninguno en esta zona' : 'sin episodios';
   // Episodios de laboratorio MUDOS aparte: el agua salió no apta
   // pero sin corroboración de cierre — contarlos como "cierres"
   // afirmaría un acto administrativo que no podemos demostrar
@@ -447,7 +462,7 @@ export default function IncidentHistory({
           source={require('../../assets/icons/icon-episodes.png')}
           style={[styles.secIcon, { tintColor: colors.primaryDark }]}
         />
-        <Text style={styles.secCardTitle}>Episodios ({incidents.length})</Text>
+        <Text style={styles.secCardTitle}>Episodios ({own.length})</Text>
       </View>
       <View style={styles.historySummary}>
         {allIn5 && y5parts ? (
@@ -472,7 +487,7 @@ export default function IncidentHistory({
                 <Text style={styles.historySummaryNum}>{y5parts}</Text>
                 {y1parts === y5parts
                   ? ' este año'
-                  : ` (${y1parts || 'sin episodios'} este año)`}
+                  : ` (${y1parts || none} este año)`}
               </>
             )}
             {uncl > 0 && (
@@ -510,10 +525,11 @@ export default function IncidentHistory({
               )}
             </View>
             <Text style={styles.historySummarySub}>
-              {`Este año: ${y1parts || 'sin episodios'}  ·  Últimos 5 años: ${y5parts || 'sin episodios'}`}
+              {`Este año: ${y1parts || none}  ·  Últimos 5 años: ${y5parts || none}`}
             </Text>
           </>
         )}
+        {sibNote && <Text style={styles.historySummarySub}>{sibNote}</Text>}
       </View>
       {/* Sin scroll interno: la sección crece con su contenido y
           scrollea la ficha entera — un cajón fijo dejaba los

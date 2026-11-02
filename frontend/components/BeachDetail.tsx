@@ -353,8 +353,18 @@ export default function BeachDetail({
       n.published_at &&
       new Date().getTime() - Date.parse(n.published_at) <= 90 * 86_400_000,
   );
+  // Un CIERRE ya resuelto (y fuera de los 7 d de reapertura) no se
+  // narra arriba aunque su prensa sea reciente: en naranja se leía
+  // como alerta viva y repetía la tarjeta de Episodios justo debajo.
+  // Los avisos/vertidos recientes sin cierre sí se quedan (contexto)
+  const resolvedClosure =
+    news?.summary.event_type === 'closure' &&
+    !pressStillClosed &&
+    !pressEpisodeOpen;
   const press =
-    news !== null && news.items.length > 0 && (pressLive || pressRecent)
+    news !== null &&
+    news.items.length > 0 &&
+    (pressLive || (pressRecent && !resolvedClosure))
       ? pressSummary(news.summary, {
           stillClosed: pressStillClosed || pressEpisodeOpen,
           reopenedAt: pressEpisodeSpan?.end ?? null,

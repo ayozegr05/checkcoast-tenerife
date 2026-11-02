@@ -820,27 +820,39 @@ export default function BeachList({
                           ? fmtShort(st.latest_sampled_at)
                           : null,
                         ev,
-                        // Conteo propio del PM — cuadra con su ficha
+                        // Conteo canónico del punto: los mismos
+                        // episodios por cala que la fila general e
+                        // Incidencias — la prensa genérica replicada
+                        // a todos los PM no infla cada zona
                         // (agua no apta va aparte: nunca es cierre)
                         st &&
-                        (st.own_closures ?? 0) +
-                          (st.own_warnings ?? 0) +
-                          (st.own_lab ?? 0) >
+                        (st.closures ?? 0) +
+                          (st.reconstructed ?? 0) +
+                          (st.warnings ?? 0) +
+                          (st.lab_episodes ?? 0) >
                           0
                           ? [
-                              (st.own_closures ?? 0) > 0
-                                ? `${st.own_closures} ${
-                                    st.own_closures === 1 ? 'cierre' : 'cierres'
+                              (st.closures ?? 0) + (st.reconstructed ?? 0) > 0
+                                ? `${
+                                    (st.closures ?? 0) + (st.reconstructed ?? 0)
+                                  } ${
+                                    (st.closures ?? 0) +
+                                      (st.reconstructed ?? 0) ===
+                                    1
+                                      ? 'cierre'
+                                      : 'cierres'
                                   }`
                                 : null,
-                              (st.own_warnings ?? 0) > 0
-                                ? `${st.own_warnings} ${
-                                    st.own_warnings === 1 ? 'aviso' : 'avisos'
+                              (st.warnings ?? 0) > 0
+                                ? `${st.warnings} ${
+                                    st.warnings === 1 ? 'aviso' : 'avisos'
                                   }`
                                 : null,
-                              (st.own_lab ?? 0) > 0
-                                ? `${st.own_lab} muestra${
-                                    st.own_lab === 1 ? ' no apta' : 's no aptas'
+                              (st.lab_episodes ?? 0) > 0
+                                ? `${st.lab_episodes} muestra${
+                                    st.lab_episodes === 1
+                                      ? ' no apta'
+                                      : 's no aptas'
                                   }`
                                 : null,
                             ]

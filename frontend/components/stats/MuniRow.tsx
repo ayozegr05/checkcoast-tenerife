@@ -7,9 +7,9 @@ import {
   MuniStats,
   barColorOf,
   scoreOf,
-  yearBarColorOf,
   yearScoreOf,
 } from '../../lib/muniStats';
+import { colors } from '../../lib/theme';
 import { styles } from './statsStyles';
 
 // Fila del ranking de municipios: nombre, nº de playas, barra de
@@ -43,15 +43,15 @@ export default function MuniRow({
   onPress: () => void;
 }) {
   const score = isYearMode ? yearScoreOf(m) : scoreOf(m);
-  const barColor = isYearMode ? yearBarColorOf(m) : barColorOf(m);
-  // La barra mide algo que se puede contar: fracción de playas del
-  // municipio tocadas en el ámbito — no un score abstracto. En el
-  // modo vivo (ranking sin periodo) queda el score relativo
+  // Modo-episodio: la barra mide lo MISMO que ordena el ranking
+  // (episodios del ámbito frente al municipio que más tiene) — se
+  // llena de arriba abajo con el orden. Color de marca, no de alarma:
+  // es volumen histórico; el rojo queda para lo vigente. La fracción
+  // de playas afectadas va en texto debajo
+  const barColor = isYearMode ? colors.primary : barColorOf(m);
   const affected = m.yearBeaches?.length ?? 0;
   const beachWord = m.beaches === 1 ? 'playa' : 'playas';
-  const barRatio = isYearMode
-    ? Math.min(1, affected / Math.max(1, m.beaches))
-    : score / maxScore;
+  const barRatio = score / maxScore;
   const shape = muniMapImage(m.municipality ?? m.name);
   return (
     <Pressable
@@ -105,21 +105,24 @@ export default function MuniRow({
           <View style={styles.rowStats}>
             {isYearMode ? (
               <>
+                {/* Conteos del periodo: outline neutro — son historia,
+                    no alarma. El color sólido se reserva a lo que
+                    sigue vivo hoy (vigente) para que el rojo siempre
+                    signifique "pide atención ahora" */}
                 {(m.yearClosures ?? 0) > 0 && (
-                  <Text style={[styles.badge, styles.badgeClosed]}>
+                  <Text style={[styles.badge, styles.badgeEnded]}>
                     {m.yearClosures}{' '}
                     {m.yearClosures === 1 ? 'cierre' : 'cierres'}
                   </Text>
                 )}
                 {(m.yearWarnings ?? 0) > 0 && (
-                  <Text style={[styles.badge, styles.badgeWarning]}>
+                  <Text style={[styles.badge, styles.badgeEnded]}>
                     {m.yearWarnings} {m.yearWarnings === 1 ? 'aviso' : 'avisos'}
                   </Text>
                 )}
                 {(m.yearActive ?? 0) > 0 && (
-                  <Text style={[styles.badge, styles.badgeEnded]}>
-                    {m.yearActive}{' '}
-                    {m.yearActive === 1 ? 'sigue abierta' : 'siguen abiertas'}
+                  <Text style={[styles.badge, styles.badgeClosed]}>
+                    {m.yearActive} {m.yearActive === 1 ? 'vigente' : 'vigentes'}
                   </Text>
                 )}
               </>

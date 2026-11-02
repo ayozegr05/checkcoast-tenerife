@@ -632,12 +632,17 @@ def synthesize_events(
         # caso frío). Sin esto un cierre viejo sin reapertura publicada
         # se fusiona con el episodio vivo y el "desde" miente años
         # atrás (Punta Larga: vertido ago-2021 ≠ socavación may-2026)
+        latest_ev = max(press_evs, key=lambda e: e.opened_at)
         for ev in press_evs:
             if ev.closed_at is None:
+                # El ÚLTIMO cierre estructural sin reapertura no caduca:
+                # un acantilado no se arregla solo — misma regla que el
+                # mapa (/alerts), que lo da por cerrado. Las olas
+                # anteriores sí se cierran por silencio: hacen de
+                # frontera con la siguiente (Gaviotas jul-2025 ≠ jun-2026)
+                if ev is latest_ev and _is_structural(ev):
+                    continue
                 last = ev.last_closure or ev.opened_at
-                # Estructural aguanta más (la obra sigue sin noticias)
-                # pero no indefinidamente: >STRUCT_STALE sin mención
-                # tampoco puede afirmarse vigente
                 stale = STRUCT_STALE if _is_structural(ev) else PRESS_STALE
                 if today - last > stale:
                     ev.closed_at = last
@@ -887,6 +892,13 @@ def merged_episode(g: list[Episode]) -> Episode:
         for e in g:
             if e.zone_tag in named and e.beach_id not in zone_beach_ids:
                 zone_beach_ids.append(e.beach_id)
+    # Un episodio genérico ya fusionado entre hermanos trae los PMs
+    # que cubre (prensa sin cala replicada a varias zonas) — se
+    # conservan junto a los que la prensa nombró explícitamente
+    for e in g:
+        for bid in e.zone_beach_ids:
+            if bid not in zone_beach_ids:
+                zone_beach_ids.append(bid)
     return Episode(
         # El PM representativo es la primera zona nombrada por la
         # prensa o, en su defecto, la del último tramo: al abrir la

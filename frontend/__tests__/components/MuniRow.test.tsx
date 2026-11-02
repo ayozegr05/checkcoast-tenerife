@@ -61,7 +61,7 @@ describe('<MuniRow />', () => {
     );
     expect(screen.getByText('2 cierres')).toBeTruthy();
     expect(screen.getByText('1 aviso')).toBeTruthy();
-    expect(screen.getByText('1 sigue abierta')).toBeTruthy();
+    expect(screen.getByText('1 vigente')).toBeTruthy();
     expect(screen.getByText('2 desprendimientos')).toBeTruthy();
     expect(screen.getByText('2 de 3 playas afectadas')).toBeTruthy();
     expect(screen.getByText('Playa Chica · Los Cristianos')).toBeTruthy();

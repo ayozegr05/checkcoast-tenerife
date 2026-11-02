@@ -75,11 +75,12 @@ describe('<MuniDetail />', () => {
       'Ver ficha de Playa Martiánez',
       'Ver ficha de Playa Jardín',
     ]);
-    // Cierre vivo: badge circular de causa + marca "activo" en el
+    // Cierre vivo: badge circular de causa + marca "vigente" en el
     // lateral, mismo idioma que las filas de Episodios de la ficha
     expect(screen.getAllByTestId('incident-badge')).toBeTruthy();
-    expect(screen.getByText('activo')).toBeTruthy();
-    expect(screen.getByText('01/07/2025 → 03/07/2025 · 3 días')).toBeTruthy();
+    expect(screen.getByText('vigente')).toBeTruthy();
+    // Histórico: ningún año implícito → el año va una vez al final
+    expect(screen.getByText('1 jul → 3 jul 2025 · 3 días')).toBeTruthy();
     expect(screen.getByText('Oleaje')).toBeTruthy();
   });
 

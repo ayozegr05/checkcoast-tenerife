@@ -1,7 +1,18 @@
 import { describe, expect, it } from '@jest/globals';
 
 import { pointLongLabel } from '../lib/format';
-import { siblingZoneRef, zoneName } from '../lib/zones';
+import { siblingZoneRef, zoneLabel, zoneName } from '../lib/zones';
+
+describe('zoneLabel — etiqueta de cala para filas', () => {
+  it('nombre común si el complejo está mapeado', () => {
+    expect(zoneLabel('PLAYA JARDIN', 'PM4')).toBe('Punta Brava');
+  });
+  it('sin mapa: "Zona N", nunca la sigla PM', () => {
+    expect(zoneLabel('PLAYA CABEZO (EL)-PASEO DE LAS PALMERAS', 'PM4')).toBe(
+      'Zona 4',
+    );
+  });
+});
 
 describe('zonas con nombre propio (Playa Jardín)', () => {
   it('resuelve el nombre común de cada cala', () => {

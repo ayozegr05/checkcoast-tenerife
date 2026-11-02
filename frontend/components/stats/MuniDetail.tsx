@@ -16,8 +16,13 @@ import {
 } from '../../lib/api';
 import { causeLabelArts, STRUCT_CAUSES } from '../../lib/causeArt';
 import { causeFamily } from '../../lib/episodes';
-import { displayBeachName, formatDays } from '../../lib/format';
-import { MuniStats, durationDays, fmtDate } from '../../lib/muniStats';
+import {
+  displayBeachName,
+  fmtSpan,
+  formatDays,
+  staleNewsNote,
+} from '../../lib/format';
+import { MuniStats, durationDays } from '../../lib/muniStats';
 import { groupNewsItems } from '../../lib/news';
 import { colors } from '../../lib/theme';
 import { zoneName } from '../../lib/zones';
@@ -34,11 +39,15 @@ function TimelineRow({
   isLast,
   live,
   zone,
+  refYear,
   onSelectBeach,
 }: {
   inc: MunicipalityIncident;
   isFirst: boolean;
   isLast: boolean;
+  // Año que ya dice el ámbito (pestaña de año) — las fechas no lo
+  // repiten; null en histórico (cada fecha lleva su año)
+  refYear: number | null;
   // Estado vivo de la playa: un incidente abierto cuyo observations no
   // dice "prohibido" se clasifica como aviso, pero si la playa está
   // cerrada ahora mismo el badge debe decir "Cierre activo"
@@ -120,9 +129,11 @@ function TimelineRow({
           styles.tlBody,
           {
             borderLeftColor: accent,
-            // Velo del color de causa (~6% alfa): la fila respira el
-            // estado del episodio sin competir con la raya ni el dot
-            backgroundColor: `${accent}10`,
+            // La raya dice la causa siempre; el velo de color (~6%
+            // alfa) solo en lo VIGENTE — una resuelta va en blanco
+            // para no leerse como alarma (mismo idioma que el ranking:
+            // color sólido = sigue pasando hoy)
+            ...(active && { backgroundColor: `${accent}10` }),
           },
           pressed && styles.pressFx,
         ]}
@@ -157,18 +168,24 @@ function TimelineRow({
             <View style={styles.tlRow}>
               <View style={styles.tlMain}>
                 <Text style={styles.tlDates}>
-                  {inc.end_estimated
-                    ? // Fin estimado (última mención en prensa): no se
-                      // muestra como fecha — no sabemos cuándo se
-                      // levantó el cierre, "desconocido" lo dice con
-                      // la misma gramática inicio → fin de las filas
-                      // oficiales. La fuente la marca la línea de
-                      // abajo ("Cierre según prensa")
-                      `${inc.opened_at ? fmtDate(inc.opened_at) : '—'} → desconocido`
-                    : `${inc.opened_at ? fmtDate(inc.opened_at) : '—'} → ${
-                        inc.closed_at ? fmtDate(inc.closed_at) : 'activo'
-                      }${inc.opened_at ? ` · ${formatDays(durationDays(inc))}` : ''}`}
+                  {!inc.opened_at
+                    ? '—'
+                    : inc.end_estimated
+                      ? // Fin estimado (última mención en prensa): no
+                        // se muestra como fecha — no sabemos cuándo se
+                        // levantó el cierre. "Fin sin confirmar" lo
+                        // dice sin parecer un error del sistema
+                        `${fmtSpan(inc.opened_at, null, refYear).replace(/^desde el /, '')} · fin sin confirmar`
+                      : // Abierto: "desde el 8 jul 2024 · 2 años y 4
+                        // meses" — el "vigente" de la columna derecha
+                        // ya dice que sigue
+                        `${fmtSpan(inc.opened_at, inc.closed_at, refYear)} · ${formatDays(durationDays(inc))}`}
                 </Text>
+                {staleNewsNote(inc.closed_at, inc.last_news_at) ? (
+                  <Text style={styles.tlObs}>
+                    {staleNewsNote(inc.closed_at, inc.last_news_at)}
+                  </Text>
+                ) : null}
                 {inc.observations ? (
                   <Text style={styles.tlObs}>{inc.observations}</Text>
                 ) : null}
@@ -227,7 +244,7 @@ function TimelineRow({
                 ) : null}
                 {active && !unclassified ? (
                   <Text style={[styles.tlActive, { color: accent }]}>
-                    activo
+                    vigente
                   </Text>
                 ) : null}
               </View>
@@ -619,7 +636,7 @@ export default function MuniDetail({
                   {detail.beaches} playas afectadas ›
                 </Text>
                 {openCount > 0 &&
-                  ` · ${openCount} abierto${openCount === 1 ? '' : 's'}`}
+                  ` · ${openCount} vigente${openCount === 1 ? '' : 's'}`}
               </Text>
             </Pressable>
           )}
@@ -653,6 +670,7 @@ export default function MuniDetail({
             isLast={index === detailRows.length - 1}
             live={liveStatus.get(inc.beach_id)}
             zone={zoneLabelOf(inc)}
+            refYear={scopeHist ? null : scopeYear}
             onSelectBeach={onSelectBeach}
           />
         )}

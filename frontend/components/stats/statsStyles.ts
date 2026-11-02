@@ -485,6 +485,76 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 1,
   },
+  // Pie del ranking: municipios sin episodios en el ámbito, plegados
+  // — discretos (sin tarjeta) para no competir con los afectados
+  quiet: {
+    marginTop: 4,
+    paddingHorizontal: 4,
+    paddingBottom: 12,
+  },
+  quietToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  quietTitle: {
+    fontSize: 13,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+  },
+  quietChevron: {
+    fontSize: 14,
+    fontFamily: fonts.semibold,
+    color: colors.textMuted,
+    transform: [{ rotate: '90deg' }],
+    marginLeft: 6,
+  },
+  quietChevronOpen: { transform: [{ rotate: '-90deg' }] },
+  quietNote: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textFaint,
+    marginTop: 1,
+  },
+  quietMapWrap: { alignItems: 'center', marginTop: 4, marginBottom: 8 },
+  quietChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+  },
+  quietChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  quietChipText: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+  },
+  quietDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    marginRight: 5,
+  },
+  quietDotOn: { backgroundColor: '#63b8af' },
+  quietDotOff: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: colors.textFaint,
+  },
+  quietLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
   empty: {
     textAlign: 'center',
     fontFamily: fonts.regular,

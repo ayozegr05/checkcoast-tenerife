@@ -66,6 +66,18 @@ _ZONE_GROUPS: dict[tuple[str, str], dict[str, dict]] = {
             "weak_aliases": (),
         },
     },
+    # El Cabezo–Paseo de las Palmeras (Güímar): PM1 es el extremo de la
+    # playa canina (Los Perros); PM4 queda hacia el muelle del Puertito
+    # sin nombre propio conocido. Sin aliases: "El Cabezo y la playa de
+    # Los Perros" en un titular significa todo el complejo — acotar a
+    # PM1 perdería la cobertura real de PM4
+    ("PLAYA CABEZO (EL)-PASEO DE LAS PALMERAS", "GUIMAR"): {
+        "PM1": {
+            "name": "Los Perros",
+            "aliases": (),
+            "weak_aliases": (),
+        },
+    },
     # El Médano (Granadilla): tres puntos del mismo arenal con nombre
     # propio en el censo — se indexan por sufijo porque Chica y
     # Leocadio Machado comparten la etiqueta PM1

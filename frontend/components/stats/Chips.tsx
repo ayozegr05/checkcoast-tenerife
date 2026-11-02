@@ -103,7 +103,7 @@ export function YearChips({
   );
 }
 
-// Chips-filtro de la cronología: cierres | avisos | activas ahora
+// Chips-filtro de la cronología: cierres | avisos | vigentes
 export function SeasonFilterChips({
   counts,
   filter,
@@ -142,7 +142,7 @@ export function SeasonFilterChips({
         [
           ['closure', counts.closures, 'cierre', 'cierres'],
           ['warning', counts.warnings, 'aviso', 'avisos'],
-          ['active', counts.active, 'activa', 'activas'],
+          ['active', counts.active, 'vigente', 'vigentes'],
         ] as const
       ).map(([k, n, one, many]) =>
         n > 0 ? (

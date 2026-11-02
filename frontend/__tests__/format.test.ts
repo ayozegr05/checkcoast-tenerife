@@ -8,8 +8,51 @@ import {
   displayBeachName,
   fmtDate,
   fmtDistance,
+  fmtSpan,
   shortOutfallName,
+  staleNewsNote,
 } from '../lib/format';
+
+describe('staleNewsNote — cierre vigente sin noticias recientes', () => {
+  const now = new Date('2026-11-02T12:00:00Z');
+  it('vigente con última noticia >6 meses: lo avisa', () => {
+    expect(staleNewsNote(null, '2014-01-30', now)).toBe(
+      'sin noticias desde ene 2014',
+    );
+  });
+  it('noticia reciente o episodio resuelto: nada', () => {
+    expect(staleNewsNote(null, '2026-10-15', now)).toBeNull();
+    expect(staleNewsNote('2014-02-01', '2014-01-30', now)).toBeNull();
+  });
+});
+
+describe('displayBeachName — guion compuesto', () => {
+  it('pega el guion con espacios sueltos del censo', () => {
+    expect(displayBeachName('PLAYA VALLESECO- EL BLOQUE')).toBe(
+      'Playa Valleseco-El Bloque',
+    );
+  });
+});
+
+describe('fmtSpan — rango corto de episodio', () => {
+  it('no repite el año que el contexto ya dice', () => {
+    expect(fmtSpan('2026-09-03', '2026-10-09', 2026)).toBe('3 sep → 9 oct');
+  });
+  it('año una vez al final si el contexto no lo da', () => {
+    expect(fmtSpan('2025-07-01', '2025-07-03', null)).toBe(
+      '1 jul → 3 jul 2025',
+    );
+  });
+  it('cruza de año: año en los dos extremos', () => {
+    expect(fmtSpan('2026-12-28', '2027-01-03', 2026)).toBe(
+      '28 dic 2026 → 3 ene 2027',
+    );
+  });
+  it('abierto: "desde el", con año si es de otro año', () => {
+    expect(fmtSpan('2024-07-08', null, 2026)).toBe('desde el 8 jul 2024');
+    expect(fmtSpan('2026-08-03', null, 2026)).toBe('desde el 3 ago');
+  });
+});
 
 describe('displayBeachName', () => {
   it('mueve el artículo en paréntesis a forma natural', () => {

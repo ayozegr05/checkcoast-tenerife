@@ -164,6 +164,46 @@ export const fmtPartialDate = (iso: string) => {
   return fmtDate(iso);
 };
 
+// "2026-09-03" → "3 sep" (sin año) / "3 sep 2026"
+const fmtDayMonth = (iso: string, withYear: boolean) => {
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${Number(d)} ${MONTHS_SHORT[Number(m) - 1] ?? m}${withYear ? ` ${y}` : ''}`;
+};
+
+// Rango corto de un episodio: "3 sep → 9 oct". `refYear` es el año
+// que el contexto ya dice (cabecera de mes, año seleccionado): si el
+// episodio es de ese año no se repite; si no, el año va una vez al
+// final ("3 sep → 9 oct 2025") o en ambos extremos si cruza de año.
+// Abierto → "desde el 8 jul 2024". null = el contexto no da año
+export const fmtSpan = (
+  start: string,
+  end: string | null,
+  refYear: number | null,
+) => {
+  const sy = Number(start.slice(0, 4));
+  const showYear = sy !== refYear;
+  if (end === null) return `desde el ${fmtDayMonth(start, showYear)}`;
+  const crosses = Number(end.slice(0, 4)) !== sy;
+  return `${fmtDayMonth(start, crosses)} → ${fmtDayMonth(end, crosses || showYear)}`;
+};
+
+// Cierre vigente cuya última noticia tiene >6 meses: no caduca (un
+// acantilado no se arregla solo) pero el lector debe saber desde
+// cuándo nadie lo cuenta — "sin noticias desde ene 2014"
+const STALE_NEWS_DAYS = 180;
+export const staleNewsNote = (
+  closedAt: string | null,
+  lastNewsAt: string | null | undefined,
+  now: Date = new Date(),
+) => {
+  if (closedAt !== null || !lastNewsAt) return null;
+  const age =
+    (now.getTime() - Date.parse(lastNewsAt.slice(0, 10))) / 86_400_000;
+  if (age <= STALE_NEWS_DAYS) return null;
+  const m = Number(lastNewsAt.slice(5, 7));
+  return `sin noticias desde ${MONTHS_SHORT[m - 1]} ${lastNewsAt.slice(0, 4)}`;
+};
+
 const ARTICLE_PAREN = /\s*\((EL|LA|LOS|LAS)\)/i;
 const DE_FORMS: Record<string, string> = {
   el: 'del',
@@ -179,12 +219,15 @@ const DISPLAY_NAMES: Record<string, string> = {
   'PLAYA GUIOS-LOS GIGANTES (ARGEL)': 'Playa de los Guíos',
 };
 
-export const displayBeachName = (name: string) => {
-  const override = DISPLAY_NAMES[beachBaseName(name).toUpperCase()];
+export const displayBeachName = (raw: string) => {
+  const override = DISPLAY_NAMES[beachBaseName(raw).toUpperCase()];
   if (override) return override;
+  // El censo escribe el guion compuesto con espacios sueltos
+  // ("VALLESECO- EL BLOQUE", "X -Y"): siempre pegado, como el resto
+  const name = raw.replace(/(\S)\s*-\s*(?=\S)/g, '$1-');
   const m = name.match(ARTICLE_PAREN);
   if (!m) return capName(name);
-  const base = name.replace(ARTICLE_PAREN, '').replace(/ -(?=\S)/g, '-');
+  const base = name.replace(ARTICLE_PAREN, '');
   if (/^PLAYA\s/i.test(base)) {
     return capName(
       base.replace(/^PLAYA\s+/i, `PLAYA ${DE_FORMS[m[1].toLowerCase()]} `),
