@@ -41,7 +41,10 @@ const ZONE_NAMES: Record<string, Record<string, string>> = {
   // 8 corresponde al tramo de PM2 (verificado in situ). El resto de
   // PMs no tiene nombre común conocido — el fallback "Zona N" sirve
   'PLAYA TERESITAS (LAS)': {
+    PM1: 'Zona 1',
     PM2: 'Acceso 8',
+    PM3: 'Zona 3',
+    PM4: 'Zona 4',
   },
   // El Médano (Granadilla): tres zonas del mismo arenal — se indexan
   // por sufijo porque Chica y Leocadio Machado comparten el PM1

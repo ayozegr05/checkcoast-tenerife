@@ -25,7 +25,7 @@ import {
 import { MuniStats, durationDays } from '../../lib/muniStats';
 import { groupNewsItems } from '../../lib/news';
 import { colors } from '../../lib/theme';
-import { zoneName } from '../../lib/zones';
+import { arenalBase, zoneName } from '../../lib/zones';
 import Skeleton from '../Skeleton';
 import NewsGroupList from '../beach/NewsGroupList';
 import MuniMiniMap from './MuniMiniMap';
@@ -461,11 +461,21 @@ export default function MuniDetail({
   // Cala concreta del episodio dentro del complejo: las zonas que la
   // prensa nombró (zone_beach_ids) o el propio punto si el episodio
   // es de una sola playa. "Playa del Médano · Leocadio Machado" —
-  // sin complejo zoneName devuelve null y la fila va a secas
+  // sin complejo zoneName devuelve null y la fila va a secas.
+  // OJO: un episodio genérico cubre TODOS los PM del complejo — no es
+  // "todas las calas nombradas", es "la playa a secas" (la Bandera
+  // Negra de Teresitas no ocurrió "en el acceso 8" aunque ese sea el
+  // único PM con nombre común)
   const zoneLabelOf = (inc: MunicipalityIncident) => {
     const ids = inc.zone_beach_ids?.length
       ? inc.zone_beach_ids
       : [inc.beach_id];
+    const siblings = beaches
+      .map((f) => [f.id, f.properties.name ?? ''] as const)
+      .filter(([, n]) => arenalBase(n) === inc.beach_name)
+      .map(([id]) => id);
+    if (siblings.length > 1 && siblings.every((s) => ids.includes(s)))
+      return null;
     const zones = [
       ...new Set(
         ids
