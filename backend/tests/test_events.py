@@ -575,28 +575,32 @@ def ep(beach_id, base, start, end=None, via="official", kind="closure"):
     )
 
 
-def test_cluster_episodes_merges_pms_same_window():
+def test_cluster_episodes_splits_pms_into_zones():
+    """Complejo multipunto: cada cala rinde sus propios cierres —
+    PM1 y PM2 de Jardín con ventanas solapadas son DOS filas, no una
+    del arenal (Jardín → El Castillo / Punta Brava por separado)."""
     eps = [
         ep(1, "PLAYA JARDIN", date(2026, 1, 10), date(2026, 1, 20)),
+        ep(1, "PLAYA JARDIN", date(2026, 1, 12), date(2026, 1, 22)),
         ep(2, "PLAYA JARDIN", date(2026, 1, 12), date(2026, 1, 22)),
         ep(1, "PLAYA JARDIN", date(2026, 5, 1), date(2026, 5, 10)),
         ep(3, "PLAYA OTRA", date(2026, 1, 11), date(2026, 1, 21)),
     ]
     groups = cluster_episodes(eps, today=TODAY)
-    assert len(groups) == 3  # ene fusionado, mayo aparte, otra playa
+    # PM1: ene fusionado (solapa) + mayo aparte; PM2: su propia fila;
+    # otra playa aparte → 4
+    assert len(groups) == 4
     merged = merged_episode(groups[0])
     assert merged.start == date(2026, 1, 10)
     assert merged.end == date(2026, 1, 22)
     assert merged.via == "official"
-    # El PM representativo es el del último tramo de cierre (PM2,
-    # cierre 12-ene), no el de menor id — la ficha abierta desde la
-    # fila muestra la zona que cerró por última vez
-    assert merged.beach_id == 2
+    # La fila es del PM1 en sí — el último tramo dentro del punto
+    assert merged.beach_id == 1
     assert merged.last_leg_start == date(2026, 1, 12)
 
 
 def test_cluster_episodes_merges_mixed_via_same_window():
-    """Los Cristianos: cierre oficial en PM2 + prensa en PM4, misma
+    """Los Cristianos: cierre oficial + prensa en el mismo PM, misma
     ventana → un episodio oficial que agrega la prensa absorbida."""
     eps = [
         Episode(
@@ -611,7 +615,7 @@ def test_cluster_episodes_merges_mixed_via_same_window():
             obs="Baño prohibido",
         ),
         Episode(
-            beach_id=2,
+            beach_id=1,
             base="LOS CRISTIANOS",
             municipality="M",
             kind="closure",
@@ -621,6 +625,10 @@ def test_cluster_episodes_merges_mixed_via_same_window():
             ref_id=-1,
             obs="Cierre recogido solo en prensa",
             press_count=2,
+            # Fin incierto (la pata de prensa murió por silencio): el
+            # hueco corto sí funde — un fin firme (reapertura real)
+            # haría de frontera y el cierre oficial sería otra oleada
+            end_estimated=True,
         ),
     ]
     groups = cluster_episodes(eps, today=TODAY)
@@ -630,6 +638,41 @@ def test_cluster_episodes_merges_mixed_via_same_window():
     assert m.start == date(2026, 8, 21)  # el más antiguo gana
     assert m.obs == "Baño prohibido"  # la fila oficial va limpia
     assert m.press_count == 2  # la prensa absorbida sigue contando
+
+
+def test_cluster_episodes_firm_end_is_boundary():
+    """Jardín verano-2026: una reapertura real (fin firme) hace de
+    frontera — el cierre que sigue a 8 días es OTRA oleada, no el
+    mismo episodio cosido por el hueco ≤14 d."""
+    eps = [
+        Episode(
+            beach_id=1,
+            base="PLAYA JARDIN",
+            municipality="M",
+            kind="closure",
+            start=date(2026, 7, 23),
+            end=date(2026, 8, 14),  # reabrió de verdad
+            via="press",
+            ref_id=-1,
+            obs="Cierre recogido solo en prensa",
+            press_count=6,
+        ),
+        Episode(
+            beach_id=1,
+            base="PLAYA JARDIN",
+            municipality="M",
+            kind="closure",
+            start=date(2026, 8, 22),
+            end=date(2026, 9, 4),
+            via="press",
+            ref_id=-2,
+            obs="Nueva ola de cierres",
+            press_count=3,
+        ),
+    ]
+    groups = cluster_episodes(eps, today=TODAY)
+    assert len(groups) == 2
+    assert groups[1][0].start == date(2026, 8, 22)
 
 
 def test_min_closed_since_picks_earliest_same_precision():

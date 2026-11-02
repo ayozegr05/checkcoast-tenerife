@@ -229,7 +229,7 @@ export function CauseChips({
               active === cause && styles.seasonChipTextOn,
             ]}
           >
-            {`${n} ${displayCause(cause)}`}
+            {`${displayCause(cause)} · ${n}`}
           </Text>
         </Pressable>
       ))}

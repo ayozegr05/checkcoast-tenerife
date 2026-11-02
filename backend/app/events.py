@@ -797,18 +797,34 @@ def _near(a_end: date | None, b_start: date, today: date) -> bool:
 def cluster_episodes(
     eps: list[Episode], today: date | None = None
 ) -> list[list[Episode]]:
-    """Agrupa episodios de la misma playa (base+municipio) cuyas
-    ventanas se solapan o distan ≤14 días. Devuelve grupos en el orden
-    de llegada (eps ya deben venir ordenados por start asc)."""
+    """Agrupa episodios del mismo punto (base+municipio+beach_id)
+    cuyas ventanas se solapan — cada cala de un complejo multipunto
+    rinde sus propios cierres (Jardín → El Castillo / Punta Brava /
+    El Charcón, Médano → Chica / Leocadio / PM3), no se diluyen en
+    una fila del arenal. El hueco ≤14 días solo funde cuando el
+    final del grupo es incierto (abierto o estimado): una reapertura
+    real (fin firme) hace de frontera — lo que sigue es otra oleada
+    aunque esté cerca (Jardín verano-2026: reabrió de verdad el
+    14-ago y el cierre del 22-ago es otro episodio, no el mismo).
+    Devuelve grupos en el orden de llegada (eps ya deben venir
+    ordenados por start asc)."""
     today = today or date.today()
     groups: list[list[Episode]] = []
     for ep in sorted(eps, key=lambda e: e.start):
         for g in groups:
             g0 = g[0]
-            if (g0.municipality, g0.base) != (ep.municipality, ep.base):
+            if (g0.municipality, g0.base, g0.beach_id) != (
+                ep.municipality,
+                ep.base,
+                ep.beach_id,
+            ):
                 continue
             g_end = max(e.end or today for e in g)
-            if ep.start <= g_end + EPISODE_GAP:
+            if ep.start <= g_end:
+                g.append(ep)
+                break
+            soft_end = any(e.end is None or e.end_estimated for e in g)
+            if soft_end and ep.start <= g_end + EPISODE_GAP:
                 g.append(ep)
                 break
         else:
@@ -911,6 +927,10 @@ def merged_episode(g: list[Episode]) -> Episode:
         )[0],
         last_leg_start=last_leg_start,
         zone_beach_ids=zone_beach_ids,
+        # La fila es de UN punto: su etiqueta de zona ("PM4", "CHICA")
+        # viaja para que la cronología nombre la cala ("Punta Brava")
+        pm_label=g[0].pm_label,
+        zone_tag=g[0].zone_tag,
         # Evidencia del episodio fusionado: unión de la prensa de los
         # tramos, deduplicada por id (ventanas solapadas recogen el
         # mismo titular dos veces) y ordenada por fecha

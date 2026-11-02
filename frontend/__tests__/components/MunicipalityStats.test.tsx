@@ -187,15 +187,15 @@ describe('<MunicipalityStats />', () => {
     expect(muniNames()).toEqual(['Arona', 'Puerto de la Cruz']);
   });
 
-  it('busca municipio por nombre', async () => {
+  it('faceta Municipio acota el ranking al elegir una chip', async () => {
     await render(<MunicipalityStats {...props()} />);
-    const search = screen.getByLabelText('Buscar municipio por nombre');
-    await fireEvent.changeText(search, 'puerto');
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Municipio: Todos' }),
+    );
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Ver solo Puerto de la Cruz' }),
+    );
     expect(muniNames()).toEqual(['Puerto de la Cruz']);
-    await fireEvent.changeText(search, 'xyz');
-    expect(
-      screen.getByText('Sin municipios que coincidan con “xyz”'),
-    ).toBeTruthy();
   });
 
   it('vista «Año»: cronología filtrable por causa', async () => {
@@ -217,23 +217,23 @@ describe('<MunicipalityStats />', () => {
       1,
       expect.objectContaining({ beach_id: 1 }),
     );
+    // Las chips de año cuentan dentro de la causa activa: 2025 solo
+    // tiene 1 episodio de contaminación, 2024 ninguno
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Año: 2025 (2)' }),
+      screen.getByRole('button', { name: 'Año: 2025 (1)' }),
     );
     await fireEvent.press(screen.getByRole('button', { name: 'Ver año 2024' }));
-    expect(screen.getByRole('button', { name: 'Año: 2024 (1)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Año: 2024 (0)' })).toBeTruthy();
+    expect(screen.getByText('Sin episodios en 2024')).toBeTruthy();
   });
 
   it('ventana Verano: solo episodios de junio a septiembre', async () => {
     await render(<MunicipalityStats {...props({ initialView: 'verano' })} />);
     expect(episodeNames()).toEqual(['Playa Las Vistas']);
-    // Las chips de Tipo van siempre visibles — el conteo informa
-    // sin desplegar nada
-    expect(screen.getByText('1 cierre')).toBeTruthy();
-    await fireEvent.press(
-      screen.getByRole('button', { name: 'Filtrar por cierre' }),
-    );
-    expect(episodeNames()).toEqual(['Playa Las Vistas']);
+    // Verano 2025 tiene un único episodio (cierre): «1 cierre»
+    // filtraría lo mismo que «Todos» — solo queda el total
+    expect(screen.getByText('Todos (1)')).toBeTruthy();
+    expect(screen.queryByText('1 cierre')).toBeNull();
     await fireEvent.press(
       screen.getByRole('button', { name: 'Año: 2025 (1)' }),
     );
@@ -310,6 +310,7 @@ describe('<MunicipalityStats />', () => {
       screen.queryByRole('button', { name: /^Filtrar por cierres?$/ }),
     ).toBeNull();
     // En las cronologías sí: «Año» cuenta 1 cierre + 1 aviso en 2025
+    // — ambos segmentos discriminan y aparecen
     await fireEvent.press(
       screen.getByRole('button', { name: 'Ver cronología de episodios' }),
     );
@@ -319,12 +320,15 @@ describe('<MunicipalityStats />', () => {
     expect(
       screen.getByRole('button', { name: 'Filtrar por aviso' }),
     ).toBeTruthy();
+    // En Verano 2025 solo hay 1 episodio: ningún segmento añade
+    // discriminación sobre «Todos» — la barra se queda en el total
     await fireEvent.press(
       screen.getByRole('button', { name: 'Ver episodios de verano' }),
     );
     expect(
-      screen.getByRole('button', { name: 'Filtrar por cierre' }),
-    ).toBeTruthy();
+      screen.queryByRole('button', { name: 'Filtrar por cierre' }),
+    ).toBeNull();
+    expect(screen.getByText('Todos (1)')).toBeTruthy();
   });
 
   it('«Verano» filtra jun-sep y su «Histórico» junta todos los veranos', async () => {

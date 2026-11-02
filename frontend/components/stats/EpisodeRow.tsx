@@ -5,6 +5,8 @@ import { MunicipalityIncident } from '../../lib/api';
 import { episodeDays } from '../../lib/episodes';
 import { displayBeachName, displayCause, formatDays } from '../../lib/format';
 import { fmtDate } from '../../lib/muniStats';
+import { FAUNA_CAUSES, STRUCTURAL_CAUSES } from '../../lib/structural';
+import { zoneName } from '../../lib/zones';
 import { thumbUrl } from '../SatelliteShot';
 import { styles } from './statsStyles';
 
@@ -24,12 +26,27 @@ export default function EpisodeRow({
   onPress: () => void;
 }) {
   const open = ep.closed_at === null;
+  // En complejos multipunto la fila es de UNA cala: el nombre común
+  // ("Punta Brava" para Jardín PM4) la identifica — sin mapa de zona
+  // cae al token ("PM4"); playa de un PM → sin sufijo
+  const zone = ep.zone_tag
+    ? (zoneName(ep.beach_name, ep.zone_tag) ?? ep.zone_tag)
+    : null;
+  const name = displayBeachName(ep.beach_name) + (zone ? ` · ${zone}` : '');
+  // Mismo lenguaje de color que el pin del mapa: granate = cierre
+  // estructural (desprendimientos/obras/colapso — crónico, no
+  // urgente), añil = fauna marina; el rojo queda para contaminación
+  const badgeTone = STRUCTURAL_CAUSES.has(ep.cause ?? '')
+    ? styles.badgeStructural
+    : FAUNA_CAUSES.has(ep.cause ?? '')
+      ? styles.badgeFauna
+      : styles.badgeClosed;
   return (
     <Pressable
       style={({ pressed }) => [styles.row, pressed && styles.pressFx]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Ver ficha de ${displayBeachName(ep.beach_name)}`}
+      accessibilityLabel={`Ver ficha de ${name}`}
     >
       <View style={styles.epMain}>
         {coords && (
@@ -43,7 +60,7 @@ export default function EpisodeRow({
         <View style={styles.epBody}>
           <View style={styles.rowHeader}>
             <Text style={styles.rowName} numberOfLines={1}>
-              {displayBeachName(ep.beach_name)}
+              {name}
             </Text>
             {/* Badge solo en lo que exige atención: un episodio cerrado
                 no es "bueno", solo es pasado — las fechas ya lo cuentan */}
@@ -52,9 +69,7 @@ export default function EpisodeRow({
                 style={[
                   styles.badge,
                   styles.badgeTail,
-                  ep.kind === 'closure'
-                    ? styles.badgeClosed
-                    : styles.badgeWarning,
+                  ep.kind === 'closure' ? badgeTone : styles.badgeWarning,
                 ]}
               >
                 {ep.kind === 'closure' ? 'Sigue cerrada' : 'Aviso activo'}

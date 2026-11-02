@@ -371,14 +371,15 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
             "lab": own_lab,
             "contam": inc_c + inc_w + press_clusters,
         }
-    # Cada clúster se cuenta una vez, en el PM representativo (min id).
-    # Solo los que tienen incidencia oficial van a closures/warnings;
-    # los con prensa de cierre van a `recon` (evita doble conteo:
-    # el frontend suma ambos campos); los puramente de laboratorio
-    # van a `lab` — agua no apta no es un cierre demostrado
+    # Cada clúster pertenece a UN PM (la agrupación es por punto) —
+    # su cuenta va a ese punto. Solo los que tienen incidencia oficial
+    # van a closures/warnings; los con prensa de cierre van a `recon`
+    # (evita doble conteo: el frontend suma ambos campos); los
+    # puramente de laboratorio van a `lab` — agua no apta no es un
+    # cierre demostrado
     rep_counts: dict[int, dict[str, int]] = {}
     for g in cluster_episodes(episodes):
-        rep_id = min(e.beach_id for e in g)
+        rep_id = g[0].beach_id
         c = rep_counts.setdefault(
             rep_id,
             {
@@ -631,10 +632,10 @@ def municipality_incidents(
     demuestra que la playa se cerrara (la ficha sí las lista, como
     "Laboratorio: agua no apta").
 
-    Una playa con varios PMs produce UNA fila por episodio (ventanas
-    solapadas o a ≤14 días se fusionan sobre el nombre base); `beach_id`
-    apunta al PM representativo — al abrir la ficha se ven los demás
-    PMs del grupo."""
+    Una playa con varios PMs produce una fila por cala y episodio
+    (las ventanas se fusionan dentro del mismo punto: solapadas, o
+    a ≤14 días si el fin anterior fue incierto) — El Castillo, Punta
+    Brava y El Charcón rinden cada una sus cierres."""
     beaches = (
         db.query(Beach)
         .options(
@@ -757,8 +758,9 @@ def _collect_episodes(
 def _merged_episode_rows(
     episodes: list[Episode], with_press: bool = False
 ) -> list[MunicipalityIncidentOut]:
-    """Agrupa los episodios por playa base + municipio y los convierte
-    en filas de salida (una por episodio real, no por PM).
+    """Agrupa los episodios por punto de muestreo y los convierte
+    en filas de salida — en complejos multipunto cada cala produce
+    sus propias filas (`zone_tag` nombra la zona).
 
     `with_press` emite la evidencia de prensa de cada episodio —
     la línea temporal municipal la despliega por fila; `/episodes`
@@ -778,6 +780,7 @@ def _merged_episode_rows(
             end_estimated=m.end_estimated,
             last_leg_start=m.last_leg_start,
             zone_beach_ids=m.zone_beach_ids,
+            zone_tag=m.zone_tag,
             press_items=(
                 [_news_out(n) for n in m.press_items] if with_press else []
             ),
@@ -791,7 +794,7 @@ def island_episodes(
     db: Session = Depends(get_db),
 ) -> list[MunicipalityIncidentOut]:
     """Todos los episodios de la isla (oficiales + reconstruidos),
-    agrupados por playa base + municipio y más reciente primero.
+    agrupados por punto de muestreo y más reciente primero.
 
     Alimenta el resumen anual ("N cierres en 2026"), la sección
     "Resueltas recientemente" del panel de alertas y la vista

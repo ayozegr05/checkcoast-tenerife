@@ -121,6 +121,10 @@ export type MunicipalityIncident = {
   // multipunto): la UI las lista "Playa Jardín · Punta Brava";
   // vacío si el episodio fue genérico — la playa se nombra a secas
   zone_beach_ids?: number[];
+  // Token de la cala de la fila ("PM4", "CHICA") — en complejos
+  // multipunto cada cala rinde sus propios episodios; `zoneName`
+  // lo traduce al nombre común ("Punta Brava")
+  zone_tag?: string | null;
   // Causa normalizada ("Contaminación", "Desprendimientos"...) — el
   // backend la infiere de la prensa en ventana; un cierre de Sanidad
   // sin contexto es Contaminación por definición

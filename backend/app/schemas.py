@@ -112,6 +112,10 @@ class MunicipalityIncidentOut(BaseModel):
     # multipunto): la UI los muestra "Playa Jardín · Punta Brava";
     # vacío si el episodio fue genérico — la playa se nombra a secas
     zone_beach_ids: list[int] = []
+    # Token de la cala de la fila ("PM4", "CHICA") — en complejos
+    # multipunto cada cala rinde sus propios episodios y la UI nombra
+    # la zona ("Playa Jardín · Punta Brava"); None en playa de un PM
+    zone_tag: str | None = None
 
 
 class BeachMeasurementOut(BaseModel):

@@ -285,6 +285,12 @@ export const styles = StyleSheet.create({
   badgeClosed: {
     backgroundColor: colors.status.closed,
   },
+  badgeStructural: {
+    backgroundColor: colors.status.structural,
+  },
+  badgeFauna: {
+    backgroundColor: colors.status.fauna,
+  },
   badgeWarning: {
     backgroundColor: colors.status.warning,
   },

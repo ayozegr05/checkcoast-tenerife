@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
-  Image,
   ImageBackground,
   Modal,
   Pressable,
   SectionList,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
@@ -28,7 +26,6 @@ import {
   summerEpisodes,
   yearEpisodes,
 } from '../lib/episodes';
-import { searchNorm } from '../lib/format';
 import {
   MAX_YEAR_CHIPS,
   MuniStats,
@@ -38,7 +35,6 @@ import {
   yearMuniCounts,
   yearScoreOf,
 } from '../lib/muniStats';
-import { colors } from '../lib/theme';
 import { CauseChips, SeasonFilter, YearChips } from './stats/Chips';
 import EpisodeRow from './stats/EpisodeRow';
 import ScrollChips from './ScrollChips';
@@ -126,8 +122,6 @@ export default function MunicipalityStats({
   // el ámbito del ranking; en cronología el de la lista de episodios.
   // Abre en el año vigente — lo que interesa es el ahora
   const [histMode, setHistMode] = useState(false);
-  // Buscador de municipio en el ranking (filtro por nombre)
-  const [muniQuery, setMuniQuery] = useState('');
   // Municipio seleccionado en la faceta (índice alfabético para
   // saltar a uno sin saber escribir su nombre)
   const [selMuni, setSelMuni] = useState<string | null>(null);
@@ -316,6 +310,17 @@ export default function MunicipalityStats({
   const canCollapseYears =
     years.length > MAX_YEAR_CHIPS &&
     years.slice(0, MAX_YEAR_CHIPS).includes(selYear);
+  // Ámbito compartido de las chips de año: cada faceta cuenta dentro
+  // de los OTROS filtros activos — municipio × causa en todas las
+  // vistas, y × tipo donde existe el selector (las cronologías; en
+  // ranking no hay control de tipo, aplicaría un filtro invisible)
+  const scopeForYear = useMemo(
+    () => (e: MunicipalityIncident) =>
+      (selMuni === null || (e.municipality ?? 'Sin municipio') === selMuni) &&
+      matchCause(e, cause) &&
+      (view === 'ranking' || matchTipo(e, tipoFilter)),
+    [selMuni, cause, view, tipoFilter],
+  );
   // Conteo de episodios por chip de año: en la pestaña «Verano»
   // cuenta los de jun-sep; en el resto los del año natural
   const chipCounts = useMemo(() => {
@@ -323,10 +328,20 @@ export default function MunicipalityStats({
     for (const y of years)
       m.set(
         y,
-        (view === 'verano' ? seasonEpisodes : yearEpisodes)(episodes, y).length,
+        (view === 'verano' ? seasonEpisodes : yearEpisodes)(episodes, y).filter(
+          scopeForYear,
+        ).length,
       );
     return m;
-  }, [episodes, years, view]);
+  }, [episodes, years, view, scopeForYear]);
+  // El total de la chip «Histórico» cuenta dentro del mismo ámbito
+  const histTotal = useMemo(
+    () =>
+      (view === 'verano' ? summerEpisodes(episodes) : episodes).filter(
+        scopeForYear,
+      ).length,
+    [episodes, view, scopeForYear],
+  );
   const curYear = new Date().getFullYear();
   // El detalle se acota al año salvo en histórico (muestra todo). Las
   // FILAS del ranking narran siempre episodios del ámbito activo —
@@ -389,15 +404,10 @@ export default function MunicipalityStats({
     [displayRows],
   );
 
-  // Buscador: filtra la vista activa (Histórico o año) por nombre;
-  // la faceta Municipio acota a uno concreto si hay selección
-  const muniQ = searchNorm(muniQuery);
+  // La faceta Municipio acota a uno concreto si hay selección
   const filteredRows = useMemo(
-    () =>
-      displayRows
-        .filter((m) => selMuni === null || m.name === selMuni)
-        .filter((m) => !muniQ || searchNorm(m.name).includes(muniQ)),
-    [displayRows, muniQ, selMuni],
+    () => displayRows.filter((m) => selMuni === null || m.name === selMuni),
+    [displayRows, selMuni],
   );
 
   // Titular insular del ámbito activo: la "noticia" de la pantalla
@@ -446,6 +456,17 @@ export default function MunicipalityStats({
   const causeList = view === 'ranking' ? yearCauses : scopeCauses;
   const causeRows =
     view === 'ranking' ? filteredRows.length : episodeRowsFiltered.length;
+  // ¿La faceta Causa puede cambiar la lista? Con una sola familia en
+  // el ámbito solo discrimina si hay filas FUERA de ella (avisos en
+  // cronología, municipios sin esa causa en ranking) — si cubre todo,
+  // elegirla da lo mismo que «Todos» y la faceta se esconde
+  const causaDiscrimina = useMemo(() => {
+    if (causeList.length !== 1) return causeList.length > 1;
+    const [fam, n] = causeList[0];
+    return view === 'ranking'
+      ? muniCauseCounts(causeScope, fam).size < filteredRows.length
+      : n < scopedNoCause.length;
+  }, [causeList, view, causeScope, filteredRows, scopedNoCause]);
   type FacetTab = {
     key: 'municipio' | 'año' | 'causa';
     label: string;
@@ -473,13 +494,13 @@ export default function MunicipalityStats({
         key: 'año',
         label: 'Año',
         value: histMode ? 'Histórico' : `${selYear}`,
-        count: histMode
-          ? view === 'ranking'
-            ? episodes.length
-            : winRows.length
-          : (chipCounts.get(selYear) ?? 0),
+        count: histMode ? histTotal : (chipCounts.get(selYear) ?? 0),
       },
-      causeList.length > 0 && {
+      // La faceta Causa solo aparece si puede discriminar algo:
+      // una única familia que cubre TODO el ámbito (p.ej. las 3
+      // vigentes son todas estructurales) filtraría la misma lista
+      // que «Todos» — misma regla que los segmentos sin sentido
+      causaDiscrimina && {
         key: 'causa',
         label: 'Causa',
         value: cause === 'all' ? 'Todos' : cause,
@@ -569,6 +590,12 @@ export default function MunicipalityStats({
                 </Pressable>
               ))}
             </View>
+
+            {/* Titular insular encima de los filtros: primero el
+                contexto global, luego los controles que lo acotan */}
+            {view === 'ranking' && scopeNote !== null && (
+              <Text style={styles.scopeNote}>{scopeNote}</Text>
+            )}
 
             {facetTabs.length > 0 && (
               <View style={styles.filterTabs}>
@@ -678,9 +705,7 @@ export default function MunicipalityStats({
                 selYear={selYear}
                 histMode={histMode}
                 chipCounts={chipCounts}
-                totalEpisodes={
-                  view === 'verano' ? veranoRows.length : episodes.length
-                }
+                totalEpisodes={histTotal}
                 showAllYears={showAllYears}
                 canCollapse={canCollapseYears}
                 onPickYear={(y) => {
@@ -713,7 +738,11 @@ export default function MunicipalityStats({
               <View style={styles.tipoSeg}>
                 {(
                   [
-                    ['all', 'Todos', 'Ver todos los episodios'],
+                    [
+                      'all',
+                      `Todos (${tipoCounts.closures + tipoCounts.warnings})`,
+                      'Ver todos los episodios',
+                    ],
                     [
                       'closure',
                       `${tipoCounts.closures} ${
@@ -739,62 +768,58 @@ export default function MunicipalityStats({
                     [
                       'active',
                       `${tipoCounts.active} ${
-                        tipoCounts.active === 1 ? 'activa' : 'activas'
+                        tipoCounts.active === 1 ? 'vigente' : 'vigentes'
                       }`,
                       `${
                         tipoFilter === 'active'
                           ? 'Quitar filtro de'
                           : 'Filtrar por'
-                      } ${tipoCounts.active === 1 ? 'activa' : 'activas'}`,
+                      } ${tipoCounts.active === 1 ? 'vigente' : 'vigentes'}`,
                     ],
                   ] as const
-                ).map(([k, label, a11y]) => (
-                  <Pressable
-                    key={k}
-                    style={({ pressed }) => [
-                      styles.tipoSegTab,
-                      tipoFilter === k && styles.tipoSegTabOn,
-                      pressed && styles.pressFx,
-                    ]}
-                    onPress={() =>
-                      setTipoFilter(k === 'all' || tipoFilter === k ? 'all' : k)
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={a11y}
-                  >
-                    <Text
-                      style={[
-                        styles.tipoSegText,
-                        tipoFilter === k && styles.tipoSegTextOn,
+                )
+                  // Un segmento que no discrimina nada (cuenta 0 o
+                  // cuenta TODO el ámbito — filtraría lo mismo que
+                  // «Todos») no informa: fuera; «Todos (N)» siempre
+                  // queda como reset con el total
+                  .filter(([k]) => {
+                    if (k === 'all') return true;
+                    const total = tipoCounts.closures + tipoCounts.warnings;
+                    const n =
+                      k === 'closure'
+                        ? tipoCounts.closures
+                        : k === 'warning'
+                          ? tipoCounts.warnings
+                          : tipoCounts.active;
+                    return n > 0 && n < total;
+                  })
+                  .map(([k, label, a11y]) => (
+                    <Pressable
+                      key={k}
+                      style={({ pressed }) => [
+                        styles.tipoSegTab,
+                        tipoFilter === k && styles.tipoSegTabOn,
+                        pressed && styles.pressFx,
                       ]}
+                      onPress={() =>
+                        setTipoFilter(
+                          k === 'all' || tipoFilter === k ? 'all' : k,
+                        )
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={a11y}
                     >
-                      {label}
-                    </Text>
-                  </Pressable>
-                ))}
+                      <Text
+                        style={[
+                          styles.tipoSegText,
+                          tipoFilter === k && styles.tipoSegTextOn,
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  ))}
               </View>
-            )}
-
-            {view === 'ranking' && (
-              <View style={styles.searchWrap}>
-                <Image
-                  source={require('../assets/icons/icon-search.png')}
-                  style={styles.searchIcon}
-                />
-                <TextInput
-                  style={styles.search}
-                  placeholder="Busca un municipio…"
-                  placeholderTextColor={colors.textFaint}
-                  value={muniQuery}
-                  onChangeText={setMuniQuery}
-                  autoCorrect={false}
-                  clearButtonMode="while-editing"
-                  accessibilityLabel="Buscar municipio por nombre"
-                />
-              </View>
-            )}
-            {view === 'ranking' && scopeNote !== null && (
-              <Text style={styles.scopeNote}>{scopeNote}</Text>
             )}
 
             {view !== 'ranking' ? (
@@ -862,11 +887,9 @@ export default function MunicipalityStats({
                 keyExtractor={(m) => m.name}
                 ListEmptyComponent={
                   <Text style={styles.empty}>
-                    {muniQ
-                      ? `Sin municipios que coincidan con “${muniQuery.trim()}”`
-                      : histMode
-                        ? 'Sin episodios registrados'
-                        : `Sin episodios en ${selYear}`}
+                    {histMode
+                      ? 'Sin episodios registrados'
+                      : `Sin episodios en ${selYear}`}
                   </Text>
                 }
                 style={styles.list}

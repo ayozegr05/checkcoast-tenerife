@@ -123,8 +123,9 @@ describe('<CauseChips />', () => {
         onChange={onChange}
       />,
     );
-    expect(screen.getByText('4 contaminación')).toBeTruthy();
-    expect(screen.getByText('2 mar agitado')).toBeTruthy();
+    // Etiqueta «familia · n» — nombre primero, conteo después
+    expect(screen.getByText('contaminación · 4')).toBeTruthy();
+    expect(screen.getByText('mar agitado · 2')).toBeTruthy();
     await fireEvent.press(
       screen.getByRole('button', { name: 'Filtrar por Contaminación' }),
     );
