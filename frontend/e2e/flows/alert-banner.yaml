@@ -84,10 +84,10 @@ name: Alertas — banner → playa alertada → episodios
 # Vista Temporada: el botón del banner abre los episodios del verano
 - tapOn: Ver todos los episodios del verano
 - extendedWaitUntil:
-    visible: Incidencias por municipio
+    visible: Incidencias de baño
     timeout: 15000
-- assertVisible: Este verano
+- assertVisible: ^Verano$
 
 # Atrás cierra el modal (onRequestClose) y queda el banner expandido
 - back
-- assertNotVisible: Incidencias por municipio
+- assertNotVisible: Incidencias de baño
