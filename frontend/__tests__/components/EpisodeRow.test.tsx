@@ -32,11 +32,12 @@ describe('<EpisodeRow />', () => {
         onPress={jest.fn()}
       />,
     );
-    // Sin nombre curado → "Zona 4", nunca la sigla "PM4"; un episodio
-    // que cruza de año lleva el año en los dos extremos
+    // PM4 tiene nombre curado (tramo del muelle) — nunca la sigla
+    // "PM4"; un episodio que cruza de año lleva el año en los dos
+    // extremos
     expect(
       screen.getByText(
-        /^Zona 4 · Puerto de la Cruz · 28 dic 2026 → 3 ene 2027/,
+        /^Playa de El Cabezo · Puerto de la Cruz · 28 dic 2026 → 3 ene 2027/,
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/PM4/)).toBeNull();

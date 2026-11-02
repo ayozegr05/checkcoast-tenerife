@@ -424,7 +424,10 @@ export default function MunicipalityStats({
     if (!quietRows) return {};
     const tint: Record<string, string> = {};
     for (const n of quietRows.watched) tint[n] = '#63b8af';
-    for (const n of quietRows.unwatched) tint[n] = '#e6ecee';
+    // "Sin puntos de Sanidad" = zona ciega: gris medio que contraste
+    // con la base de la isla (#c4d5dd) — antes #e6ecee casi se fundía
+    // con ella y parecía municipio vacío (Fasnia, Arafo…)
+    for (const n of quietRows.unwatched) tint[n] = '#8fa3ad';
     return tint;
   }, [quietRows]);
 

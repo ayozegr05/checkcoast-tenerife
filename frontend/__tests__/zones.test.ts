@@ -7,10 +7,16 @@ describe('zoneLabel — etiqueta de cala para filas', () => {
   it('nombre común si el complejo está mapeado', () => {
     expect(zoneLabel('PLAYA JARDIN', 'PM4')).toBe('Punta Brava');
   });
-  it('sin mapa: "Zona N", nunca la sigla PM', () => {
-    expect(zoneLabel('PLAYA CABEZO (EL)-PASEO DE LAS PALMERAS', 'PM4')).toBe(
-      'Zona 4',
+  it('las dos zonas de El Cabezo tienen nombre: canina y muelle', () => {
+    expect(zoneLabel('PLAYA CABEZO (EL)-PASEO DE LAS PALMERAS', 'PM1')).toBe(
+      'Playa de los Perros',
     );
+    expect(zoneLabel('PLAYA CABEZO (EL)-PASEO DE LAS PALMERAS', 'PM4')).toBe(
+      'Playa de El Cabezo',
+    );
+  });
+  it('sin mapa: "Zona N", nunca la sigla PM', () => {
+    expect(zoneLabel('PLAYA RISCO (EL)', 'PM4')).toBe('Zona 4');
   });
 });
 

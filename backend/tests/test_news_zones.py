@@ -103,9 +103,19 @@ def test_aliases_of_siblings():
 
 
 def test_unmapped_multi_pm_group_untouched():
-    """Un complejo multi-PM sin mapa de zonas no se altera."""
+    """Un titular genérico ("El Cabezo" = el complejo) no acota a una
+    zona: "Playa de El Cabezo" NO es alias de PM4 — fijaría cada
+    titular genérico en una sola zona."""
     hits = narrow_hits_by_zone(GUIMAR, "El Cabezo", "Cierre de El Cabezo")
     assert {b.id for b in hits} == {7, 8}
+
+
+def test_cabezo_perros_narrows_to_pm1():
+    """ "Playa de los Perros" sí es topónimo inequívoco: la zona PM1."""
+    hits = narrow_hits_by_zone(
+        GUIMAR, None, "Reabre la playa de los Perros en El Puertito"
+    )
+    assert [b.id for b in hits] == [7]
 
 
 def test_single_hit_untouched():
@@ -118,9 +128,9 @@ def test_zone_display_name():
     assert zone_display_name(JARDIN[1]) == "Punta Brava"
     assert zone_display_name(JARDIN[2]) == "El Charcón"
     # El Cabezo (Güímar): PM1 es el extremo de la playa canina; PM4
-    # (hacia el muelle) no tiene nombre propio mapeado
-    assert zone_display_name(GUIMAR[0]) == "Los Perros"
-    assert zone_display_name(GUIMAR[1]) is None
+    # es el tramo principal junto al muelle del Puertito
+    assert zone_display_name(GUIMAR[0]) == "Playa de los Perros"
+    assert zone_display_name(GUIMAR[1]) == "Playa de El Cabezo"
 
 
 VALLESECO = [
@@ -177,13 +187,13 @@ def test_push_display_name_uses_zone():
 
     assert _display_name(JARDIN[2]) == "Playa Jardin · El Charcón"
     assert _display_name(JARDIN[1]) == "Playa Jardin · Punta Brava"
-    # PM1 de El Cabezo tiene cala mapeada ("Los Perros"); PM4 no → el
-    # nombre censal va limpio: sin PM y con las preposiciones en
-    # minúscula
+    # Las dos zonas de El Cabezo tienen nombre: la canina (PM1) y el
+    # tramo principal junto al muelle (PM4)
     assert (
         _display_name(GUIMAR[0])
-        == "Playa Cabezo (El)-Paseo de las Palmeras · Los Perros"
+        == "Playa Cabezo (El)-Paseo de las Palmeras · Playa de los Perros"
     )
     assert (
-        _display_name(GUIMAR[1]) == "Playa Cabezo (El)-Paseo de las Palmeras"
+        _display_name(GUIMAR[1])
+        == "Playa Cabezo (El)-Paseo de las Palmeras · Playa de El Cabezo"
     )

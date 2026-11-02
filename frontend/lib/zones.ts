@@ -30,10 +30,11 @@ const ZONE_NAMES: Record<string, Record<string, string>> = {
     PM1: 'El Bloque',
   },
   // El Cabezo–Paseo de las Palmeras (Güímar): PM1 es el extremo de la
-  // playa canina; PM4 (hacia el muelle del Puertito) no tiene nombre
-  // propio conocido — sale como "Zona 4"
+  // playa canina; PM4 es el tramo principal junto al muelle del
+  // Puertito — el nombre del complejo, NO un alias de enrutado
   'PLAYA CABEZO (EL)-PASEO DE LAS PALMERAS': {
-    PM1: 'Los Perros',
+    PM1: 'Playa de los Perros',
+    PM4: 'Playa de El Cabezo',
   },
   // El Médano (Granadilla): tres zonas del mismo arenal — se indexan
   // por sufijo porque Chica y Leocadio Machado comparten el PM1
@@ -49,6 +50,10 @@ const ZONE_NAMES: Record<string, Record<string, string>> = {
 // dice "la playa Chica". Sin artículo: la frase aporta el suyo
 // ("En la {ref}", "La {ref} sigue cerrada")
 const ZONE_REFS: Record<string, Record<string, string>> = {
+  'PLAYA CABEZO (EL)-PASEO DE LAS PALMERAS': {
+    PM1: 'playa de los Perros',
+    PM4: 'playa de El Cabezo',
+  },
   'PLAYA MEDANO (EL)': {
     PM3: 'playa central',
     CHICA: 'playa Chica',

@@ -67,13 +67,20 @@ _ZONE_GROUPS: dict[tuple[str, str], dict[str, dict]] = {
         },
     },
     # El Cabezo–Paseo de las Palmeras (Güímar): PM1 es el extremo de la
-    # playa canina (Los Perros); PM4 queda hacia el muelle del Puertito
-    # sin nombre propio conocido. Sin aliases: "El Cabezo y la playa de
-    # Los Perros" en un titular significa todo el complejo — acotar a
-    # PM1 perdería la cobertura real de PM4
+    # playa canina; PM4 es el tramo principal junto al muelle del
+    # Puertito. "Playa de El Cabezo" NO es alias de PM4: en prensa es
+    # el nombre del complejo entero — como alias fijaría cada titular
+    # genérico en una sola zona. "Los Perros" sí es topónimo inequívoco
     ("PLAYA CABEZO (EL)-PASEO DE LAS PALMERAS", "GUIMAR"): {
         "PM1": {
-            "name": "Los Perros",
+            "name": "Playa de los Perros",
+            "ref": "playa de los Perros",
+            "aliases": ("PLAYA DE LOS PERROS", "PLAYA PARA PERROS"),
+            "weak_aliases": (),
+        },
+        "PM4": {
+            "name": "Playa de El Cabezo",
+            "ref": "playa de El Cabezo",
             "aliases": (),
             "weak_aliases": (),
         },

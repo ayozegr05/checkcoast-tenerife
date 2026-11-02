@@ -22,11 +22,17 @@ const overlapping = (
     (e) => e.opened_at <= end && (e.closed_at === null || e.closed_at >= start),
   );
 
-// Episodios que tocaron la temporada de baño (jun-sep) del año dado
+// Episodios DEL verano: los que EMPEZARON dentro de la temporada de
+// baño (1 jun – 30 sep). Un cierre viejo que sigue abierto no es un
+// episodio "del verano" — entraba antes por solape y mezclaba en la
+// lista de verano episodios que empezaron en otra estación
 export const seasonEpisodes = (
   eps: MunicipalityIncident[],
   year: number = seasonYear(),
-): MunicipalityIncident[] => overlapping(eps, `${year}-06-01`, `${year}-09-30`);
+): MunicipalityIncident[] =>
+  eps.filter(
+    (e) => e.opened_at >= `${year}-06-01` && e.opened_at <= `${year}-09-30`,
+  );
 
 // Episodios que tocaron ALGUNA temporada de baño (jun-sep de
 // cualquier año) — la ventana "Verano · Histórico" de la vista

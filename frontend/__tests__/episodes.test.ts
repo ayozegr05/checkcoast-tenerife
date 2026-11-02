@@ -23,15 +23,15 @@ const ep = (e: Partial<MunicipalityIncident>): MunicipalityIncident => ({
   ...e,
 });
 
-describe('seasonEpisodes — filtro por solape con el verano', () => {
+describe('seasonEpisodes — solo episodios nacidos en el verano', () => {
   it('episodio nacido dentro de jun-sep cuenta', () => {
     expect(seasonEpisodes([ep({})], 2026)).toHaveLength(1);
   });
 
-  it('episodio abierto de antes que sigue en verano cuenta (Benijo)', () => {
+  it('episodio abierto de antes NO cuenta aunque siga abierto (Benijo)', () => {
     expect(
       seasonEpisodes([ep({ opened_at: '2024-07-01', closed_at: null })], 2026),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
 
   it('episodio cerrado en primavera no cuenta en el verano', () => {
@@ -43,16 +43,25 @@ describe('seasonEpisodes — filtro por solape con el verano', () => {
     ).toHaveLength(0);
   });
 
-  it('episodio abierto en febrero y aún abierto sí cuenta', () => {
+  it('episodio abierto en febrero y aún abierto no es "del verano"', () => {
     expect(
       seasonEpisodes([ep({ opened_at: '2026-02-27', closed_at: null })], 2026),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
 
-  it('episodio que cerró a mediados de verano cuenta', () => {
+  it('episodio nacido en mayo aunque cerrara en julio no cuenta', () => {
     expect(
       seasonEpisodes(
         [ep({ opened_at: '2026-05-20', closed_at: '2026-07-02' })],
+        2026,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('episodio nacido en septiembre cuenta', () => {
+    expect(
+      seasonEpisodes(
+        [ep({ opened_at: '2026-09-30', closed_at: '2026-10-20' })],
         2026,
       ),
     ).toHaveLength(1);
@@ -70,14 +79,12 @@ describe('summerEpisodes — todos los veranos registrados', () => {
     expect(out.map((e) => e.id).sort()).toEqual([1, 2]);
   });
 
-  it('un cierre largo que cruza varios veranos sale una sola vez', () => {
+  it('un cierre largo nacido fuera de verano no entra en ninguno', () => {
     const eps = [
       ep({ id: 1, opened_at: '2023-05-01', closed_at: '2025-10-01' }),
       ep({ id: 2, opened_at: '2025-12-01', closed_at: '2026-01-01' }),
     ];
-    const out = summerEpisodes(eps);
-    expect(out.filter((e) => e.id === 1)).toHaveLength(1);
-    expect(out.map((e) => e.id)).toEqual([1]);
+    expect(summerEpisodes(eps)).toEqual([]);
   });
 
   it('lista vacía devuelve vacío', () => {
