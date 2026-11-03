@@ -234,7 +234,7 @@ def test_share_outfall_two_per_family(make_outfall):
     assert re.search(r"Ver\s+2\s+más", html)
     assert "Vertidos" in html
     # disclaimer editorial al pie de la card
-    assert "la proximidad es contexto" in html
+    assert "la proximidad no implica causalidad" in html
 
 
 def test_share_outfall_zone_news(make_outfall, seed_data):
