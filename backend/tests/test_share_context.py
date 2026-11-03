@@ -74,14 +74,61 @@ def test_display_state():
 
 
 def test_live_status_counts():
-    effs = {
-        1: {"status": "open"},
-        2: {"status": "closed"},
-        3: {"status": "closed"},
-        4: {"status": SimpleNamespace(value="warning")},
-    }
-    assert _live_status_counts(effs) == {
-        "open": 1,
-        "closed": 2,
-        "warning": 1,
-    }
+    # Ids fuera del censo → clave única por playa: cuentan por
+    # separado (los grupos reales se prueban en test_…_grouped)
+    from app.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        effs = {
+            -1: {"status": "open"},
+            -2: {"status": "closed"},
+            -3: {"status": "closed"},
+            -4: {"status": SimpleNamespace(value="warning")},
+        }
+        assert _live_status_counts(db, effs) == {
+            "open": 1,
+            "closed": 2,
+            "warning": 1,
+        }
+    finally:
+        db.close()
+
+
+def test_live_status_counts_grouped(seed_data):
+    """Dos PMs de la misma playa física cuentan UNA, como el banner
+    de la app — Punta Larga PM1+PM2 cerradas = 1 cerrada, no 2."""
+    from geoalchemy2.elements import WKTElement
+
+    from app.db import SessionLocal
+    from app.models import Beach
+
+    db = SessionLocal()
+    try:
+        pm1 = Beach(
+            external_id="ci-grp-pm1",
+            name="PLAYA TEST GRUPO PM1",
+            municipality="Test Muni",
+            monitored=True,
+            geom=WKTElement("POINT(-16.25 28.46)", srid=4326),
+        )
+        pm2 = Beach(
+            external_id="ci-grp-pm2",
+            name="PLAYA TEST GRUPO PM2",
+            municipality="Test Muni",
+            monitored=True,
+            geom=WKTElement("POINT(-16.25 28.46)", srid=4326),
+        )
+        db.add_all([pm1, pm2])
+        db.flush()
+        effs = {
+            pm1.id: {"status": "closed"},
+            pm2.id: {"status": "closed"},
+        }
+        assert _live_status_counts(db, effs) == {"closed": 1}
+        # El peor estado manda: cerrada + abierta = cerrada
+        effs[pm2.id] = {"status": "open"}
+        assert _live_status_counts(db, effs) == {"closed": 1}
+        db.rollback()
+    finally:
+        db.close()

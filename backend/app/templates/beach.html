@@ -147,8 +147,9 @@
           font-weight:800; color:#16323f; text-align:center;
           border-top:1px solid #d8e6ec; }
   /* Primera sección tras la pastilla de estado: el chip ya cierra
-     la cabecera, otra línea divisoria sobra */
-  .sec.nodiv { border-top:0; padding-top:0; margin-top:8px; }
+     la cabecera, otra línea divisoria sobra — pero el aire del
+     banner/estado a la sección iguala el de la app */
+  .sec.nodiv { border-top:0; padding-top:0; margin-top:16px; }
   .secico { width:20px; height:20px; vertical-align:-4px;
           margin-right:5px; }
   .qrow { display:flex; align-items:center; gap:10px;
@@ -161,9 +162,11 @@
           margin:4px 0 3px; overflow:hidden; }
   .qfill { height:100%; border-radius:3px; }
   .qcls { font-size:11px; font-weight:600; }
-  .qnote { margin-top:8px; font-size:11px; color:#8a9aa3;
-          font-style:italic; white-space:pre-line; }
-  .qnote.qwarn { color:#e65100; font-style:normal; }
+  /* Nota de huecos de muestreo — mismos colores que la app: ámbar
+     para el parón anual esperado, rojo cuando es anomalía real */
+  .qnote { margin-top:6px; font-size:11px; font-weight:600;
+          color:#e65100; white-space:pre-line; }
+  .qnote.qwarn { color:#d50000; }
   .ofsub { margin-top:7px; margin-bottom:8px; font-size:12px;
           color:#5c7a89; }
   .ofsub b { font-weight:600; color:#16323f; }
@@ -227,7 +230,8 @@
           padding:3px 8px; cursor:pointer; }
   .tbtn.ton { background:rgba(23,184,206,.18); border-color:#17b8ce;
           color:#075276; }
-  .irow { margin-top:8px; font-size:12px; color:#5a7684;
+  .irow { margin-top:8px; font-size:12px; line-height:1.3;
+          color:#5a7684;
           border-left:3px solid #cddfe8; padding:4px 0 4px 10px;
           background:#f4f9fb; border-radius:0 4px 4px 0;
           /* wrap: el bloque de titulares baja a una línea propia a
@@ -260,8 +264,10 @@
   .isum { margin-top:7px; margin-bottom:2px; font-size:12px;
           font-weight:600;
           color:#16323f; }
-  .isum span { font-size:11px; font-weight:400; color:#8fa3ad;
-          margin-top:2px; }
+  /* Sub-línea del resumen ("Este año: … · Últimos 5 años: …"):
+     en la app va en línea propia — inline quedaba pegada a la cifra */
+  .isum span { display:block; font-size:11px; font-weight:400;
+          color:#8fa3ad; margin-top:3px; }
   /* Cabecera de año: calendario + pastilla sutil + hairline; el
      details hace de acordeón (años viejos llegan colapsados) */
   .iyr { margin-top:12px; }
@@ -280,7 +286,7 @@
   .iyr[open] .ycount { display:none; }
   .isub { margin-top:6px; margin-bottom:2px; font-size:10px;
           font-weight:600; color:#8fa3ad; }
-  .itit { margin-top:4px; padding-right:8px;
+  .itit { margin-top:0; padding-right:8px;
           flex:0 0 100%; }
   .itit summary { font-size:12px; font-weight:600; color:#e65100;
           cursor:pointer; list-style:none; }
@@ -472,7 +478,7 @@
         alt="">Emisarios cercanos</div>
       <div class="ofsub">{{ outfalls|length }} a menos de 1 km · el más
         próximo a <b{% if outfalls[0].near %} class="near"{% endif %}>
-        {{- outfalls[0].dist }} m</b> · aleja el zoom si no los ves</div>
+        {{- outfalls[0].dist }} m</b></div>
       {%- for o in outfalls %}
       <a class="ofrow" style="border-color:{{ o.color }}"
         href="/o/{{ o.oid }}">
@@ -481,7 +487,7 @@
         <div class="ofright"><span class="ofdist"
           style="color:{{ o.color }}">
           {{- o.dist }} m</span>
-        <span class="ofchev" style="color:{{ o.color }}">›</span>
+        <span class="ofchev">›</span>
         </div></a>
       {%- endfor %}
       {%- endif %}
@@ -528,6 +534,12 @@
         </div>
       </div>
       {%- endfor %}
+      {%- if quality and quality.note %}
+      {#- La nota de huecos va ENCIMA de la leyenda, como en la app:
+          explica los tramos vacíos antes de que el ojo baje al pie #}
+      <div class="qnote{% if quality.note.warn %} qwarn{% endif %}">
+        {{- quality.note.text }}</div>
+      {%- endif %}
       <div class="radius">
         {%- for p in chart.panels %}
         <span id="foot-{{ p.param }}"{% if p.hidden %} class="hidden"{% endif %}
@@ -542,10 +554,6 @@
           <b style="color:rgba(249,168,37,.18)">■</b> franja = aviso</span>
         {%- endfor %}
       </div>
-      {%- if quality and quality.note %}
-      <div class="qnote{% if quality.note.warn %} qwarn{% endif %}">
-        {{- quality.note.text }}</div>
-      {%- endif %}
       {%- endif %}
       <div class="actrow">
         <a class="open" href="{{ deep }}" onclick="openApp(); return false;">

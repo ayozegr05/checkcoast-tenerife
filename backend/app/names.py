@@ -50,6 +50,21 @@ def arenal_base(name: str) -> str:
     return ARENAL_BASES.get(core, core)
 
 
+def beach_group_key(name: str) -> str:
+    """Clave de playa física para agrupar — espejo de
+    frontend/lib/format.ts:beachGroupKey: sin sufijo PM, sin el
+    numeral romano del censo (Troya I ≡ Troya II), con alias de
+    arenal, sin artículos ni el prefijo PLAYA. Solo para claves de
+    grupo (contadores, pines padre), nunca para mostrar."""
+    core = normalize_beach_name(name)
+    core = re.sub(r"\s+(?:I|II|III|IV)\s*(?=\))", "", core)
+    core = re.sub(r"\s+(?:I|II|III|IV)(?=\s*\(|\s*$)", "", core)
+    core = ARENAL_BASES.get(core, core)
+    core = re.sub(r"\b(DE LA|DE LOS|DE LAS|DEL|DE|EL|LA|LOS|LAS)\b", " ", core)
+    core = re.sub(r"^PLAYA\s+", "", core)
+    return re.sub(r"\s+", " ", core).strip()
+
+
 def zone_tag(name: str) -> str | None:
     """Token que distingue al punto dentro de su complejo: el sufijo
     de nombre propio si lo tiene ("CHICA"), si no la etiqueta PM

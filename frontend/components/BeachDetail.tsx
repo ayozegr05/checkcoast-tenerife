@@ -540,8 +540,8 @@ export default function BeachDetail({
       {/* Separador elástico: en la vista de detalle a pantalla
           completa (lista de playas) el contenedor estira y este
           espacio empuja el pie al fondo; en la card del mapa el
-          contenido manda y colapsa a 24 */}
-      <View style={{ flex: 1, minHeight: 24 }} />
+          contenido manda y colapsa a 12 */}
+      <View style={{ flex: 1, minHeight: 12 }} />
 
       {/* Atribución de fuentes + última comprobación: metadatos al pie,
           no contenido */}
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fonts.regular,
     color: colors.textFaint,
-    marginTop: 16,
+    marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: colors.border,

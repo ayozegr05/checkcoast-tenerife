@@ -28,6 +28,7 @@ from app.models import (
     Beach,
     BeachIncident,
     BeachMeasurement,
+    BeachStatus,
     JobRun,
     NewsItem,
     Outfall,
@@ -36,6 +37,7 @@ from app.names import (
     ARENAL_BASES,
     PM_SUFFIX,
     arenal_base,
+    beach_group_key,
     normalize_beach_name,
 )
 from app.news_episodes import (
@@ -146,16 +148,35 @@ _LOG_CAP = 100000  # los valores llegan a >24000
 _ISLAND = (-16.55, 28.30, 0.47, 0.33)
 
 
-def _live_status_counts(effs: dict) -> dict[str, int]:
-    """Recuento de estados efectivos AHORA (misma regla que el mapa de
-    la app) — antes se contaban todas las filas históricas de
-    beach_statuses y el contador mentía (5 cerradas cuando hay 3).
-    Recibe la matriz ya calculada: la portada/landing la usan además
-    para pintar playa y alertas — un solo barrido."""
-    counts: dict[str, int] = {}
-    for e in effs.values():
+def _live_status_counts(db: Session, effs: dict) -> dict[str, int]:
+    """Recuento de estados efectivos AHORA por PLAYA, no por punto de
+    muestreo — la app cuenta el grupo (Punta Larga PM1+PM2 cerradas =
+    1 cerrada, no 2). Misma clave de grupo que groupedBeaches
+    (municipio + beachGroupKey) y mismo representante: el peor estado
+    del arenal. Antes: contaba todas las filas históricas de
+    beach_statuses; después: contaba cada PM por separado."""
+    meta = {
+        r.id: (r.name, r.municipality)
+        for r in db.query(Beach.id, Beach.name, Beach.municipality)
+    }
+    # Orden del mapa de la app (lib/mapData.ts:rank) — el representante
+    # del grupo es el PM peor parado
+    _RANK = {"closed": 0, "warning": 1, "unknown": 2, "open": 3}
+    worst: dict[tuple[str, str], str] = {}
+    for bid, e in effs.items():
+        name, muni = meta.get(bid, ("", None))
         s = e["status"]
         s = s.value if hasattr(s, "value") else s
+        # Playa desconocida en el censo → clave única, nunca se fusiona
+        key = (
+            (_norm_muni(muni) or "", beach_group_key(name))
+            if name
+            else ("", f"#{bid}")
+        )
+        if _RANK.get(s, 5) < _RANK.get(worst.get(key, ""), 5):
+            worst[key] = s
+    counts: dict[str, int] = {}
+    for s in worst.values():
         counts[s] = counts.get(s, 0) + 1
     return counts
 
@@ -187,6 +208,21 @@ def _dot_visual(dstate: str, e: dict | None) -> tuple[str, str, str]:
         _PIN.get(dstate, _PIN["unknown"]),
         _STATUS.get(dstate, _STATUS["unknown"])[1],
     )
+
+
+def _fmt_check(dt) -> str:
+    """'hoy 14:32' / 'ayer 14:32' / '12/05/2026 14:32' — port de
+    fmtCheck de la app: cuándo el scraper consultó Náyade por última
+    vez (no cuándo cambió el estado)."""
+    now = datetime.now(UTC)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    hh = dt.strftime("%H:%M")
+    if dt.date() == now.date():
+        return f"hoy {hh}"
+    if dt.date() == (now - timedelta(days=1)).date():
+        return f"ayer {hh}"
+    return f"{dt.strftime('%d/%m/%Y')} {hh}"
 
 
 def _alert_entries(db: Session, effs: dict) -> list[tuple]:
@@ -1561,16 +1597,28 @@ def beach_context(
     if notice:
         desc = f"{notice['line']} — CheckCoast Tenerife"
 
+    # Pie de fuentes — mismo texto que la ficha de la app + el crédito
+    # de la foto aérea (obligatorio por la licencia de Esri)
     foot = (
-        "Playa sin controles sanitarios oficiales. Fuente: OpenStreetMap"
+        "Playa sin controles sanitarios oficiales. "
+        "Fuente: OpenStreetMap (© colaboradores OSM)"
         if not beach.monitored
-        else "Estado oficial: Náyade / Min. Sanidad · "
-        "Foto: © Esri, Maxar, Earthstar Geographics"
+        else "Fuentes: Censo Zonas de Baño 2025 (MITECO) · "
+        "Incidencias: Náyade (Min. Sanidad)"
     )
+    if beach.monitored:
+        last_check = (
+            db.query(func.max(BeachStatus.reported_at))
+            .filter(BeachStatus.beach_id == beach.id)
+            .scalar()
+        )
+        if last_check:
+            foot += f" · Consultado {_fmt_check(last_check)}"
+    foot += " · Foto: © Esri, Maxar, Earthstar Geographics"
 
     # Contadores + alertas del panel lateral sobre la MISMA matriz ya
     # calculada — antes eran dos barridos extra de effective_states
-    status_counts = _live_status_counts(effs)
+    status_counts = _live_status_counts(db, effs)
     total_beaches = db.query(func.count(Beach.id)).scalar()
     salerts = _alert_cards(_alert_entries(db, effs)[:4], datetime.now(UTC), db)
 
@@ -2245,7 +2293,7 @@ def outfall_context(
         }
     responsible = outfall.entity or outfall.manager
 
-    status_counts = _live_status_counts(effs)
+    status_counts = _live_status_counts(db, effs)
     total_beaches = db.query(func.count(Beach.id)).scalar()
     salerts = _alert_cards(_alert_entries(db, effs)[:4], datetime.now(UTC), db)
 
@@ -2434,7 +2482,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
     portada pintaba el estado oficial crudo y podía contradecir a la
     app (una playa reabierta según prensa salía roja en el mapa)."""
     effs = effective_states(db)
-    status_counts = _live_status_counts(effs)
+    status_counts = _live_status_counts(db, effs)
     total_beaches = db.query(func.count(Beach.id)).scalar()
     island_alerts = _alert_entries(db, effs)
 
@@ -2458,7 +2506,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
         now = datetime.now(UTC)
         for b, e in _demo_alerts(all_beaches, now):
             effs[b.id] = e
-        status_counts = _live_status_counts(effs)
+        status_counts = _live_status_counts(db, effs)
         island_alerts = _alert_entries(db, effs)
 
     clon, clat, dlon, dlat = _ISLAND
