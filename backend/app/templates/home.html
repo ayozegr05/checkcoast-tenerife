@@ -7,7 +7,7 @@
 <title>CheckCoast Tenerife — ¿Puedes bañarte hoy?</title>
 <link rel="icon" type="image/png" href="/icons/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/vendor/maplibre-gl.css">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="CheckCoast Tenerife">
@@ -16,7 +16,7 @@
 <meta property="og:image" content="{{ island_url }}">
 <meta name="twitter:card" content="summary_large_image">
 <style>
-  body { margin:0; font-family:'Inter',system-ui,sans-serif;
+  body { margin:0; font-family:'Nunito',system-ui,sans-serif;
          min-height:100vh; display:flex; justify-content:center;
          padding:24px 16px; }
   body::before { content:''; position:fixed; inset:-70px; z-index:-2;
@@ -40,7 +40,7 @@
           color:#dcebf2; }
   .stat .stxt { flex:1; min-width:180px; }
   .sbx { position:relative; flex:none; }
-  .sbx input { font:inherit; font-size:12px; color:#0d3a52;
+  .sbx input { font:inherit; font-size:12px; color:#16323f;
           width:200px; padding:6px 10px 6px 28px;
           border:1px solid #cddfe8; border-radius:999px;
           background:#fff url(/icons/icon-search.png) no-repeat
@@ -57,7 +57,7 @@
   .bres.hidden { display:none; }
   .brow { display:flex; align-items:center; gap:8px; width:100%;
           padding:7px 11px; border:0; background:none;
-          font:inherit; font-size:12px; color:#0d3a52;
+          font:inherit; font-size:12px; color:#16323f;
           text-align:left; cursor:pointer; }
   .brow:hover { background:#f2f8fb; }
   .bsec { font-size:10px; font-weight:700; color:#8fa3ad;
@@ -75,11 +75,15 @@
   .stat { display:flex; align-items:center; gap:8px;
           flex-wrap:wrap;
           background:rgba(255,255,255,.92); border-radius:12px;
-          padding:10px 14px; font-size:13px; color:#0d3a52;
+          padding:10px 14px; font-size:13px; color:#16323f;
           margin-bottom:14px; }
   .stat b { color:#075276; }
   .stat .sl { font-size:11px; color:#6d8b9a; font-weight:600;
           text-transform:uppercase; letter-spacing:.4px; }
+  .syear { flex:1 1 100%; font-size:11.5px; color:#5c7a89;
+          border-top:1px solid #e3edf3; padding-top:6px;
+          margin-top:2px; }
+  .syear .syn { font-weight:700; color:#075276; }
   .card { background:#fff; border-radius:16px; overflow:hidden;
           box-shadow:0 18px 60px rgba(7,43,62,.30); }
   .imap { position:relative; }
@@ -99,10 +103,10 @@
           transform:translate(-50%,-50%); display:block;
           box-shadow:0 1px 3px rgba(0,0,0,.35); }
   .zpop { min-width:170px; }
-  .zpop b { display:block; font-size:13px; color:#0d3a52;
+  .zpop b { display:block; font-size:13px; color:#16323f;
           margin-bottom:4px; }
   .zrow { display:flex; justify-content:space-between; gap:14px;
-          padding:4px 0; font-size:12px; color:#0d3a52;
+          padding:4px 0; font-size:12px; color:#16323f;
           text-decoration:none; border-top:1px solid #eef4f7; }
   .zrow em { font-style:normal; font-weight:700; font-size:11px; }
   .mk.cxmem[data-tip]:hover::after { margin-top:14px; }
@@ -110,7 +114,7 @@
           position:absolute; top:100%; left:50%;
           transform:translateX(-50%);
           margin-top:8px; padding:3px 8px;
-          background:#fff; color:#0d3a52; font-size:11px;
+          background:#fff; color:#16323f; font-size:11px;
           font-weight:600; white-space:nowrap;
           border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.25);
           pointer-events:none; }
@@ -270,7 +274,7 @@
               rgba(255,255,255,.55), rgba(255,255,255,0) 60%),
             linear-gradient(180deg,#e2eef6 0%,#d8e9f2 55%,#cfe2ec 100%); }
   .sec { margin-top:22px; font-size:15px; font-weight:700;
-          color:#0d3a52; }
+          color:#16323f; }
   .secsub { font-weight:400; color:#7a919c; font-size:11px; }
 
   .lower { margin-top:22px; border-top:1px solid #b9d3e2;
@@ -314,7 +318,7 @@
   .sal.sal-f:hover { background:#edf1fb; border-color:#4f6ab8; }
   .sal.sal-r:hover { background:#e6f4ee; border-color:#0d9488; }
   .sal i { flex:none; width:9px; height:9px; border-radius:50%; }
-  .sal b { display:block; font-size:12px; color:#0d3a52;
+  .sal b { display:block; font-size:12px; color:#16323f;
           font-weight:600; }
   .sal:hover b { color:#075276; }
   .sal span { font-size:10.5px; color:#7a919c; }
@@ -350,7 +354,7 @@
   .bcchip { position:absolute; left:8px; bottom:8px; color:#fff;
           font-size:10px; font-weight:700; border-radius:999px;
           padding:3px 9px; }
-  .bcname { font-size:12.5px; font-weight:700; color:#0d3a52;
+  .bcname { font-size:12.5px; font-weight:700; color:#16323f;
           padding:8px 10px 0; }
   .bcmuni { font-size:10.5px; color:#7a919c; padding:1px 10px 9px; }
   .bcvia { color:#8a6d1a; font-weight:600; }
@@ -364,7 +368,7 @@
           background:#075276; color:#fff; font-size:11px;
           font-weight:700; display:flex; align-items:center;
           justify-content:center; margin-top:1px; }
-  .step b { font-size:12.5px; color:#0d3a52; }
+  .step b { font-size:12.5px; color:#16323f; }
   .step span { display:block; font-size:11.5px; color:#5b7a8a;
           margin-top:1px; }
   .exnote { font-size:11.5px; color:#7a919c; margin-top:2px; }
@@ -374,7 +378,7 @@
           align-items:center; justify-content:center; }
   .gmain { align-items:flex-start; justify-content:flex-start;
           min-width:180px; flex:0 1 calc(50% - 5px); }
-  .gmain b { font-size:12.5px; color:#0d3a52; }
+  .gmain b { font-size:12.5px; color:#16323f; }
   .gtx { font-size:12px; color:#33566b; line-height:1.45; }
   .gdl { display:inline-block; background:#075276; color:#fff;
           font-size:13.5px; font-weight:700; padding:10px 16px;
@@ -445,7 +449,14 @@
     <b class="sw">{{ n_warning }}</b> con aviso</span>
     <div class="sbx"><input id="bq" type="search" autocomplete="off"
       placeholder="Buscar playa o emisario…" aria-label="Buscar playa">
-      <div id="bres" class="bres hidden"></div></div></div>
+      <div id="bres" class="bres hidden"></div></div>
+    {%- if year_stats %}
+    <div class="syear">En <span class="syn">{{ year_stats.year }}</span>:
+      <b>{{ year_stats.episodes }}</b> episodios de baño · afectan a
+      <b>{{ year_stats.munis }}</b> de los {{ year_stats.total_munis }}
+      municipios con playa{%- if year_stats.open %} ·
+      <b>{{ year_stats.open }}</b> siguen vigentes{% endif %}</div>
+    {%- endif %}</div>
   <div class="card">
     <div class="imap hide-unmon hide-olegal hide-oproc">
       <div class="imapcore">
@@ -650,7 +661,7 @@
           <b>El estado de tu playa al abrir el móvil.</b>
           <div class="gfeats">
             <span><i>✓</i> Aviso cuando tu playa cierra o reabre</span>
-            <span><i>✓</i> Las 192 playas — ordena por municipio,
+            <span><i>✓</i> Las {{ total_beaches }} playas — ordena por municipio,
               estado o calidad</span>
             <span><i>✓</i> Entérate de todos los<br>
               incidentes de este verano</span>
@@ -699,8 +710,9 @@
 window.MAP_DOTS = {{ map_dots | tojson }};
 window.IBOUNDS = {{ ibounds | tojson }};
 
-// count-up del strip de stats
-document.querySelectorAll('.stat b').forEach(function (el) {
+// count-up del strip de stats (solo los contadores vivos — el año
+// y las cifras del acumulado no se animan)
+document.querySelectorAll('.stat .stxt b').forEach(function (el) {
   var n = +el.textContent;
   if (!n) return;
   var t0 = performance.now();
@@ -845,7 +857,7 @@ if (window.maplibregl && lmapEl && imap) {
       'text-ignore-placement': false
     };
     var namePaint = {
-      'text-color': '#0d3a52',
+      'text-color': '#16323f',
       'text-halo-color': '#ffffff',
       'text-halo-width': 1.8
     };

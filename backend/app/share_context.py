@@ -16,7 +16,7 @@ from pathlib import Path
 import httpx
 from geoalchemy2 import Geography, Geometry
 from sqlalchemy import cast, func, literal
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
 from app.events import (
@@ -57,6 +57,7 @@ from app.queries import (
     clean_cause_text,
     effective_states,
 )
+from app.routers.beaches import _collect_episodes, _merged_episode_rows
 
 _MONTHS = [
     "ene",
@@ -2699,6 +2700,40 @@ def home_context(db: Session, demo: bool = False) -> dict:
         if len(reopened) >= 6:
             break
 
+    # Escala anual — la misma lectura que la cabecera de la app
+    # («N episodios en YYYY · afectan a M de los K municipios con
+    # playa · V siguen vigentes»): la instantánea de alertas dice
+    # poco en un día tranquilo; el acumulado cuenta la persistencia
+    ep_beaches = (
+        db.query(Beach)
+        .options(
+            selectinload(Beach.incidents),
+            selectinload(Beach.measurements),
+            selectinload(Beach.news_items),
+        )
+        .all()
+    )
+    today_d = now.date()
+    year_start = date(today_d.year, 1, 1)
+    ep_rows = _merged_episode_rows(
+        _collect_episodes(ep_beaches, today_d, include_measurement=False)
+    )
+    y_eps = [
+        r
+        for r in ep_rows
+        if r.opened_at <= today_d
+        and (r.closed_at is None or r.closed_at >= year_start)
+    ]
+    year_stats = {
+        "year": today_d.year,
+        "episodes": len(y_eps),
+        "munis": len({r.municipality for r in y_eps if r.municipality}),
+        "total_munis": len(
+            {b.municipality for b, *_ in all_beaches if b.municipality}
+        ),
+        "open": sum(1 for r in y_eps if r.closed_at is None),
+    }
+
     # Frescura de datos: última pasada ok del sync de Náyade —
     # "Ahora mismo" merece un "según datos de hace X min" debajo
     last_sync = (
@@ -2799,5 +2834,6 @@ def home_context(db: Session, demo: bool = False) -> dict:
         "n_reopened": len(reopened),
         "fresh": fresh,
         "cards": cards,
+        "year_stats": year_stats,
         "demo": demo,
     }

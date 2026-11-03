@@ -6,7 +6,7 @@
 <title>{{ title }} — CheckCoast Tenerife</title>
 <link rel="icon" type="image/png" href="/icons/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="CheckCoast Tenerife">
 <meta property="og:title" content="{{ title }}">
@@ -18,9 +18,9 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <style>
-  body { margin:0; font-family:'Inter',system-ui,sans-serif;
+  body { margin:0; font-family:'Nunito',system-ui,sans-serif;
          min-height:100vh;
-         background:linear-gradient(160deg,#0d3a52,#075276);
+         background:linear-gradient(160deg,#16323f,#075276);
          display:flex; justify-content:center; padding:24px 16px; }
   /* Fondo = la misma foto satélite de la card, difuminada: cero
      peticiones extra (la URL ya está cacheada) y cada playa
@@ -60,7 +60,7 @@
             box-shadow:0 2px 8px rgba(0,0,0,.3); }
     .sstat { margin-top:4px; background:rgba(255,255,255,.9);
             border:1px solid rgba(255,255,255,.25); border-radius:12px;
-            padding:10px 14px; font-size:13px; color:#0d3a52; }
+            padding:10px 14px; font-size:13px; color:#16323f; }
     .sstat b { color:#075276; }
     .sstat .sl { font-size:11px; color:#6d8b9a; font-weight:600;
             text-transform:uppercase; letter-spacing:.4px; }
@@ -75,7 +75,7 @@
     .salerts { margin-top:12px; background:rgba(255,255,255,.88);
             border:1px solid rgba(255,255,255,.25); border-radius:12px;
             padding:12px 14px; }
-    .salerts .sl { font-size:11px; color:#0d3a52; font-weight:800;
+    .salerts .sl { font-size:11px; color:#16323f; font-weight:800;
             text-transform:uppercase; letter-spacing:.4px;
             text-align:center; }
     .sal { display:flex; align-items:center; gap:9px; margin-top:9px;
@@ -88,7 +88,7 @@
     .sal.sal-w { background:#fdf1da; border:1px solid #eec27e; }
     .sal.sal-f { background:#edf1fb; border:1px solid #c3cfec; }
     .sal i { flex:none; width:9px; height:9px; border-radius:50%; }
-    .sal b { display:block; font-size:12px; color:#0d3a52;
+    .sal b { display:block; font-size:12px; color:#16323f;
             font-weight:600; }
     .sal:hover b { color:#075276; }
     .sal span { font-size:10.5px; color:#7a919c; }
@@ -116,12 +116,12 @@
           box-shadow:0 1px 3px rgba(0,0,0,.5); }
   .zdot b { position:absolute; top:12px; left:50%;
           transform:translateX(-50%); font-size:9px;
-          font-weight:700; color:#0d3a52; white-space:nowrap;
+          font-weight:700; color:#16323f; white-space:nowrap;
           text-shadow:0 0 3px #fff,0 0 3px #fff,0 1px 2px #fff; }
   .zoom { position:absolute; top:30px; right:8px; display:flex;
           flex-direction:column; border-radius:8px; overflow:hidden;
           box-shadow:0 1px 4px rgba(0,0,0,.35); }
-  .zbtn { border:0; background:rgba(255,255,255,.92); color:#0d3a52;
+  .zbtn { border:0; background:rgba(255,255,255,.92); color:#16323f;
           font-weight:700; font-size:16px; width:30px; height:28px;
           cursor:pointer; line-height:1; padding:0; }
   .zbtn + .zbtn { border-top:1px solid #cddfe8; }
@@ -142,9 +142,9 @@
   .row { display:flex; justify-content:space-between; gap:12px;
           margin-top:12px; font-size:13px; }
   .row span { color:#7a919c; white-space:nowrap; }
-  .row b { color:#0d3a52; font-weight:600; text-align:right; }
+  .row b { color:#16323f; font-weight:600; text-align:right; }
   .sec { margin-top:16px; padding-top:14px; font-size:15px;
-          font-weight:800; color:#0d3a52; text-align:center;
+          font-weight:800; color:#16323f; text-align:center;
           border-top:1px solid #d8e6ec; }
   /* Primera sección tras la pastilla de estado: el chip ya cierra
      la cabecera, otra línea divisoria sobra */
@@ -156,7 +156,7 @@
   .qlab { width:82px; flex-shrink:0; font-size:12px;
           font-weight:600; color:#5a7684; }
   .qright { flex:1; }
-  .qval { font-size:13px; font-weight:700; color:#0d3a52; }
+  .qval { font-size:13px; font-weight:700; color:#16323f; }
   .qbar { height:5px; background:#e3edf1; border-radius:3px;
           margin:4px 0 3px; overflow:hidden; }
   .qfill { height:100%; border-radius:3px; }
@@ -173,7 +173,7 @@
           display:flex; justify-content:space-between;
           align-items:center; gap:10px; text-decoration:none; }
   a.ofrow:hover { background:#e8f2f7; }
-  .ofname { font-size:13px; font-weight:600; color:#0d3a52; }
+  .ofname { font-size:13px; font-weight:600; color:#16323f; }
   .ofmeta { font-size:11px; color:#7a919c; margin-top:1px; }
   .ofright { display:flex; align-items:center; gap:4px;
           flex:none; }
@@ -259,7 +259,7 @@
           padding-right:8px; }
   .isum { margin-top:7px; margin-bottom:2px; font-size:12px;
           font-weight:600;
-          color:#0d3a52; }
+          color:#16323f; }
   .isum span { font-size:11px; font-weight:400; color:#8fa3ad;
           margin-top:2px; }
   /* Cabecera de año: calendario + pastilla sutil + hairline; el
@@ -289,7 +289,7 @@
   .igroup { margin:6px 0 2px; font-size:10px; font-weight:800;
           color:#d50000; letter-spacing:.3px; }
   .ititle { display:block; padding:3px 0; font-size:12px;
-          color:#0d3a52; text-decoration:none; }
+          color:#16323f; text-decoration:none; }
   .ititle span { font-size:11px; color:#8a9aa3; }
   .psum { font-size:13px; font-weight:600; color:#8a5a00; }
   .ptag { display:inline-block; margin-top:6px; font-size:10px;
@@ -297,7 +297,7 @@
           border-radius:999px; padding:2px 8px;
           text-transform:uppercase; }
   .ptitle { display:block; margin-top:6px; font-size:12px;
-          font-weight:500; color:#0d3a52; text-decoration:none; }
+          font-weight:500; color:#16323f; text-decoration:none; }
   .pmeta { font-size:11px; color:#7a919c; margin-top:3px; }
   .ptit { margin-top:6px; }
   .ptit summary { font-size:12px; font-weight:600; color:#8a5a00;

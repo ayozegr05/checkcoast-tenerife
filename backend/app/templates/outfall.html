@@ -6,7 +6,7 @@
 <title>{{ title }} — CheckCoast Tenerife</title>
 <link rel="icon" type="image/png" href="/icons/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="CheckCoast Tenerife">
 <meta property="og:title" content="{{ title }}">
@@ -18,9 +18,9 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 <style>
-  body { margin:0; font-family:'Inter',system-ui,sans-serif;
+  body { margin:0; font-family:'Nunito',system-ui,sans-serif;
          min-height:100vh;
-         background:linear-gradient(160deg,#0d3a52,#075276);
+         background:linear-gradient(160deg,#16323f,#075276);
          display:flex; justify-content:center; padding:24px 16px; }
   body::before { content:''; position:fixed; inset:-70px; z-index:-2;
          background:url("{{ bg_url | safe }}") center/cover no-repeat;
@@ -58,7 +58,7 @@
             box-shadow:0 2px 8px rgba(0,0,0,.3); }
     .sstat { margin-top:4px; background:rgba(255,255,255,.9);
             border:1px solid rgba(255,255,255,.25); border-radius:12px;
-            padding:10px 14px; font-size:13px; color:#0d3a52; }
+            padding:10px 14px; font-size:13px; color:#16323f; }
     .sstat b { color:#075276; }
     .sstat .sl { font-size:11px; color:#6d8b9a; font-weight:600;
             text-transform:uppercase; letter-spacing:.4px; }
@@ -82,7 +82,7 @@
     .sal.sal-s { background:#f2e6e4; border:1px solid #d8aba4; }
     .sal.sal-w { background:#fdf1da; border:1px solid #eec27e; }
     .sal i { flex:none; width:9px; height:9px; border-radius:50%; }
-    .sal b { display:block; font-size:12px; color:#0d3a52;
+    .sal b { display:block; font-size:12px; color:#16323f;
             font-weight:600; }
     .sal:hover b { color:#075276; }
     .sal span { font-size:10.5px; color:#7a919c;
@@ -106,7 +106,7 @@
   .zoom { position:absolute; top:30px; right:14px; display:flex;
           flex-direction:column; border-radius:8px; overflow:hidden;
           box-shadow:0 1px 4px rgba(0,0,0,.35); }
-  .zbtn { border:0; background:rgba(255,255,255,.92); color:#0d3a52;
+  .zbtn { border:0; background:rgba(255,255,255,.92); color:#16323f;
           font-weight:700; font-size:16px; width:30px; height:28px;
           cursor:pointer; line-height:1; padding:0; }
   .zbtn + .zbtn { border-top:1px solid #cddfe8; }
@@ -132,7 +132,7 @@
           padding:6px 10px; }
   .pbox .pt { font-size:11px; font-weight:700; color:#e65100;
           text-transform:uppercase; }
-  .pbox .pn { font-size:12px; font-weight:600; color:#0d3a52;
+  .pbox .pn { font-size:12px; font-weight:600; color:#16323f;
           margin-top:1px; }
   /* "Qué se vierte" — la respuesta protagonista. Las secciones
      descriptivas van PLANAS (hairline + fondo suave): el borde
@@ -145,18 +145,18 @@
           justify-content:center; margin-bottom:6px; }
   .sechead img { width:20px; height:20px; }
   .sechead span { font-size:15px; font-weight:700; color:#075276; }
-  .hlead { font-size:13.5px; color:#0d3a52; margin-top:2px;
+  .hlead { font-size:13.5px; color:#16323f; margin-top:2px;
           line-height:1.45; }
-  .hval { font-size:14px; font-weight:600; color:#0d3a52;
+  .hval { font-size:14px; font-weight:600; color:#16323f;
           text-align:center; margin-top:1px; }
   .hsub { font-size:13px; color:#7a919c; text-align:center;
           margin-top:2px; }
   .hnote { font-size:12.5px; color:#7a919c; line-height:1.5;
           margin-top:4px; }
-  .hnote b { color:#0d3a52; font-weight:600; }
+  .hnote b { color:#16323f; font-weight:600; }
   .hresp { font-size:13px; color:#7a919c; margin-top:6px;
           border-top:1px solid #dbe7ee; padding-top:6px; }
-  .hresp b { color:#0d3a52; font-weight:600; }
+  .hresp b { color:#16323f; font-weight:600; }
   .seccard { margin-top:10px; border:1px solid #e2e8f0;
           background:#f8fafc; border-radius:8px;
           padding:8px 10px; }
@@ -172,14 +172,14 @@
           letter-spacing:.3px; margin-top:1px; }
   .srow { font-size:13px; color:#33566b; margin-top:6px;
           line-height:1.5; }
-  .srow b { color:#0d3a52; font-weight:600; }
+  .srow b { color:#16323f; font-weight:600; }
   .nearsub { font-size:11px; color:#7a919c; margin-top:2px; }
   .nbrow { display:flex; align-items:center; gap:10px;
           margin-top:8px; padding:7px 10px;
           border-left:3px solid; background:#f4f9fb;
           border-radius:0 8px 8px 0; text-decoration:none; }
   .nbrow:hover { background:#e8f2f7; }
-  .nbname { font-size:13px; font-weight:600; color:#0d3a52; }
+  .nbname { font-size:13px; font-weight:600; color:#16323f; }
   .nbmeta { font-size:11px; color:#7a919c; margin-top:1px; }
   .nbdist { font-size:14px; font-weight:700; white-space:nowrap; }
   .nbchev { font-size:16px; font-weight:600; color:#a8c0cc; }
@@ -215,7 +215,7 @@
           line-height:1.4; }
   .nsrc:hover { background:#e8f2f7; border-left-color:#17b8ce; }
   .nslead { display:block; font-size:12px; font-weight:600;
-          color:#0d3a52; }
+          color:#16323f; }
   .nstitle { display:block; }
   .nsmeta { display:block; font-size:10px; color:#8fa3ad;
           margin-top:1px; }
@@ -230,7 +230,7 @@
   .nrow { display:block; margin-top:6px; padding:7px 10px;
           border-left:3px solid #17b8ce; background:#f4f9fb;
           border-radius:0 8px 8px 0; text-decoration:none; }  .nrow:hover { background:#e8f2f7; }
-  .ntitle { font-size:13px; font-weight:600; color:#0d3a52;
+  .ntitle { font-size:13px; font-weight:600; color:#16323f;
             line-height:1.45; }
   .src { margin-top:14px; font-size:11px; color:#7a919c; }
   .src a { color:#075276; text-decoration:none; }
