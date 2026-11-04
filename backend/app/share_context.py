@@ -937,6 +937,7 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             else i.press_items
         )
         return {
+            "id": i.id,
             "range": rng,
             "state_label": state_label,
             "state_color": state_color,

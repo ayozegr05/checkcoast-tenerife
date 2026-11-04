@@ -234,13 +234,16 @@
           padding:3px 8px; cursor:pointer; }
   .tbtn.ton { background:rgba(23,184,206,.18); border-color:#17b8ce;
           color:#075276; }
-  .irow { margin-top:8px; font-size:12px; line-height:1.3;
+  /* margin-bottom como incident.marginBottom en la app: con
+     margin-top el primer row de cada año sumaba 6+8px bajo la
+     cabecera de año en vez de 6 */
+  .irow { margin:0 0 8px; font-size:12px; line-height:1.3;
           color:#5a7684;
           border-left:3px solid #cddfe8; padding:4px 0 4px 10px;
           background:#f4f9fb; border-radius:0 4px 4px 0;
           /* wrap: el bloque de titulares baja a una línea propia a
              ancho completo, debajo de notas y badge */
-          display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+          display:flex; flex-wrap:wrap; gap:4px 8px; }
   .imain { flex:1; min-width:0; align-self:stretch;
           display:flex; flex-direction:column; }
   /* Las notas bajan al pie de la columna: quedan a la altura de la
@@ -254,7 +257,7 @@
           flex-direction:column; align-items:flex-end; gap:1px;
           /* Anclado arriba: al desplegar titulares la fila crece
              y un bloque centrado se desplazaba hacia abajo */
-          align-self:flex-start; padding-right:8px; }
+          align-self:flex-start; padding-right:6px; }
   .iside .ibadges { display:flex; gap:2px; }
   .iside .ibadges img { width:27px; height:27px;
           display:block; }
@@ -263,8 +266,14 @@
      no gris de metadato */
   .irow .icause { display:block; font-size:11.5px; font-weight:700;
           color:#16323f; padding-right:0; margin-top:2px; }
-  .irow span { display:block; color:#7a919c; font-size:12px;
-          padding-right:8px; }
+  .irow .inotes > span { display:block; color:#7a919c;
+          font-size:12px; padding-right:8px; }
+  /* El toggle de titulares vive dentro de las notas, al pie de la
+     columna izquierda — como el Pressable de la app; antes era una
+     línea flex propia a ancho completo que sumaba una fila y aire */
+  .itoggle { display:block; border:0; background:none; padding:0;
+          margin:0; font-family:inherit; font-size:12px;
+          font-weight:600; cursor:pointer; text-align:left; }
   .isum { margin-top:7px; margin-bottom:2px; font-size:12px;
           font-weight:600;
           color:#16323f; }
@@ -274,7 +283,7 @@
           color:#8fa3ad; margin-top:3px; }
   /* Cabecera de año: calendario + pastilla sutil + hairline; el
      details hace de acordeón (años viejos llegan colapsados) */
-  .iyr { margin-top:12px; }
+  .iyr { margin-top:10px; }
   .iyr > summary { display:flex; align-items:center; gap:8px;
           cursor:pointer; list-style:none; margin-bottom:6px; }
   .iyr > summary::-webkit-details-marker { display:none; }
@@ -290,17 +299,15 @@
   .iyr[open] .ycount { display:none; }
   .isub { margin-top:6px; margin-bottom:2px; font-size:10px;
           font-weight:600; color:#8fa3ad; }
-  .itit { margin-top:0; padding-right:8px;
-          flex:0 0 100%; }
-  .itit summary { font-size:12px; font-weight:600; color:#e65100;
-          cursor:pointer; list-style:none; }
-  .itit summary::-webkit-details-marker { display:none; }
-  .itit[open] summary { margin-bottom:4px; }
+  /* Titulares desplegados: línea propia a ancho completo bajo las
+     dos columnas — el incidentTitles de la app; oculto hasta que el
+     toggle de .inotes lo abre */
+  .itit { padding-right:8px; flex:0 0 100%; }
   .igroup { margin:6px 0 2px; font-size:10px; font-weight:800;
           color:#d50000; letter-spacing:.3px; }
   .ititle { display:block; padding:3px 0; font-size:12px;
           color:#16323f; text-decoration:none; }
-  .ititle span { font-size:11px; color:#8a9aa3; }
+  .ititle span { display:block; font-size:11px; color:#8a9aa3; }
   .psum { font-size:13px; font-weight:600; color:#8a5a00; }
   .ptag { display:inline-block; margin-top:6px; font-size:10px;
           font-weight:700; color:#8a6d1a; background:#f6e3b0;
@@ -378,6 +385,13 @@
         <b>{{ i.range }}</b>
         <div class="inotes">
         {%- for n in i.notes %}<span>{{ n }}</span>{% endfor %}
+        {%- if i.groups %}<button type="button" class="itoggle"
+          style="color:{{ i.accent }}" aria-expanded="false"
+          aria-controls="itit-{{ i.id }}"
+          data-c="Ver titulares ({{ i.n_press }}) ▾"
+          data-o="Ocultar titulares ▴"
+          onclick="togTits(this)">Ver titulares
+          ({{ i.n_press }}) ▾</button>{% endif %}
         </div>
         </div>
         <div class="iside">
@@ -392,9 +406,7 @@
             class="icause">{{ i.cause_text }}</span>{%- endif %}
         </div>
         {%- if i.groups %}
-        <details class="itit"><summary
-          style="color:{{ i.accent }}">Ver titulares
-          ({{ i.n_press }}) ▾</summary>
+        <div class="itit hidden" id="itit-{{ i.id }}">
           {%- for g in i.groups %}
           <div class="igroup" style="color:{{ g.color }}">{{ g.label }}</div>
           {%- for t in g.headlines %}
@@ -403,7 +415,7 @@
             <span>{{ t.source }} · {{ t.date }}</span></a>
           {%- endfor %}
           {%- endfor %}
-        </details>
+        </div>
         {%- endif %}
       </div>
 {% endmacro %}
@@ -671,6 +683,15 @@ function setChart(p) {
     p === 'ecoli' ? '' : 'hidden';
   document.getElementById('foot-enterococci').className =
     p === 'enterococci' ? '' : 'hidden';
+}
+// Toggle de titulares del episodio — replica el Pressable de la
+// app: el botón vive en las notas y despliega el bloque a ancho
+// completo bajo la fila; varias filas pueden ir abiertas a la vez
+function togTits(b) {
+  var l = document.getElementById(b.getAttribute('aria-controls'));
+  var h = l.classList.toggle('hidden');
+  b.textContent = h ? b.dataset.c : b.dataset.o;
+  b.setAttribute('aria-expanded', h ? 'false' : 'true');
 }
 var urls = {{ urls | tojson }};
 var z = {{ start }};
