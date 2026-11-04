@@ -146,10 +146,12 @@
   .sec { margin-top:16px; padding-top:14px; font-size:15px;
           font-weight:800; color:#16323f; text-align:center;
           border-top:1px solid #d8e6ec; }
-  /* Primera sección tras la pastilla de estado: el chip ya cierra
-     la cabecera, otra línea divisoria sobra — pero el aire del
-     banner/estado a la sección iguala el de la app */
-  .sec.nodiv { border-top:0; padding-top:0; margin-top:16px; }
+  /* Primera sección tras el chip/banner: sin divisoria (la píldora
+     ya cierra la cabecera). El aire va en padding, no en margin:
+     los márgenes verticales colapsan entre hermanos y el hueco a
+     Episodios salía 16px en vez de los 18 de la app
+     (history.marginTop 10 + paddingTop 8) */
+  .sec.nodiv { border-top:0; margin-top:0; padding-top:18px; }
   .secico { width:20px; height:20px; vertical-align:-4px;
           margin-right:5px; }
   .qrow { display:flex; align-items:center; gap:10px;
@@ -189,7 +191,10 @@
   .ofchev { font-size:16px; font-weight:600; color:#a8c0cc;
           flex:none; }
   .radius { font-size:11px; color:#7a919c; margin-top:10px; }
-  .press { margin:16px 0 6px; background:#fff7e8;
+  /* Márgenes como el pressBanner de la app: 12px sobre el chip
+     (su marginTop 8 + marginBottom del chip 4) y cero debajo — el
+     aire a Episodios lo aporta entero la sección */
+  .press { margin:12px 0 0; background:#fff7e8;
           border:1px solid #f0d9a8;
           border-radius:10px; padding:10px 12px; }
   /* El banner de aviso (arriba) se tiñe por estado; el de contexto
