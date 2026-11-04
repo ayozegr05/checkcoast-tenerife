@@ -38,8 +38,15 @@
   .hero h1 { margin:0; font-size:19px; line-height:1.3; }
   .hero p { margin:8px 0 0; font-size:14px; line-height:1.5;
           color:#dcebf2; }
-  .stat .stxt { flex:1; min-width:180px; }
-  .sbx { position:relative; flex:none; }
+  /* Fila 1 de la tira: etiqueta a la izquierda y la frase de
+     contadores centrada en el ancho entero — dos flex:1 (el propio
+     .sl y un bookend ::after) la flanquean */
+  .stop { display:flex; flex-wrap:wrap; flex:1 1 100%;
+          align-items:center; }
+  .stop .sl { flex:1; }
+  .stop .stxt { flex:none; }
+  .stop::after { content:''; flex:1; }
+  .sbx { position:relative; flex:none; margin-left:auto; }
   .sbx input { font:inherit; font-size:12px; color:#16323f;
           width:200px; padding:6px 10px 6px 28px;
           border:1px solid #cddfe8; border-radius:999px;
@@ -80,9 +87,13 @@
   .stat b { color:#075276; }
   .stat .sl { font-size:11px; color:#6d8b9a; font-weight:600;
           text-transform:uppercase; letter-spacing:.4px; }
-  .syear { flex:1 1 100%; font-size:11.5px; color:#5c7a89;
-          border-top:1px solid #e3edf3; padding-top:4px;
-          margin-top:0; }
+  /* Fila 2: el acumulado anual y el buscador comparten línea — el
+     separador lo pone el borde del contenedor, que sigue cruzando
+     todo el ancho bajo la fila 1 */
+  .srow2 { flex:1 1 100%; display:flex; flex-wrap:wrap;
+          align-items:center; gap:4px 8px;
+          border-top:1px solid #e3edf3; padding-top:4px; }
+  .syear { flex:1; min-width:0; font-size:11.5px; color:#5c7a89; }
   .syear .syn { font-weight:700; color:#075276; }
   .card { background:#fff; border-radius:16px; overflow:hidden;
           box-shadow:0 18px 60px rgba(7,43,62,.30); }
@@ -187,7 +198,14 @@
     .sec-a .sec-t { flex:1 1 100%; text-align:center; }
     /* Cabecera centrada: etiqueta, contador y buscador */
     .stat { justify-content:center; text-align:center; }
-    .stat .sl, .stat .stxt { flex:1 1 100%; min-width:0; }
+    .stop .sl, .stop .stxt { flex:1 1 100%; min-width:0; }
+    .stop::after { display:none; }
+    .srow2 { justify-content:center; }
+    /* En móvil el buscador no cabe junto a la línea anual sin
+       estrangularla (137px de texto en 4 líneas): cae a su propia
+       línea centrada — en desktop sí comparten fila */
+    .sbx { flex:1 1 100%; margin-left:0; margin-right:0;
+          text-align:center; }
     .sbx input { width:min(280px,78vw); }
   }
   .mleg .lrow { display:flex; align-items:center; gap:9px; }
@@ -444,19 +462,29 @@
     <p>El estado real de la costa de Tenerife: cierres, avisos y
       vertidos en un mapa.</p>
   </div>
-  <div class="stat"><div class="sl">Ahora mismo en Tenerife</div>
-    <span class="stxt"><b class="sc">{{ n_closed }}</b> cerradas ·
-    <b class="sw">{{ n_warning }}</b> con aviso</span>
-    <div class="sbx"><input id="bq" type="search" autocomplete="off"
-      placeholder="Buscar playa o emisario…" aria-label="Buscar playa">
-      <div id="bres" class="bres hidden"></div></div>
-    {%- if year_stats %}
-    <div class="syear">En <span class="syn">{{ year_stats.year }}</span>:
-      <b>{{ year_stats.episodes }}</b> episodios de baño · afectan a
-      <b>{{ year_stats.munis }}</b> de los {{ year_stats.total_munis }}
-      municipios con playa{%- if year_stats.open %} ·
-      <b>{{ year_stats.open }}</b> siguen vigentes{% endif %}</div>
-    {%- endif %}</div>
+  <div class="stat"><div class="stop"><div class="sl">Ahora mismo
+      en Tenerife</div>
+    <span class="stxt">
+      {%- if n_closed or n_warning %}
+        {%- if n_closed %}<b class="sc">{{ n_closed }}</b> cerrada
+          {{- 's' if n_closed != 1 }}{% endif -%}
+        {%- if n_closed and n_warning %} · {% endif -%}
+        {%- if n_warning %}<b class="sw">{{ n_warning }}</b> con
+          aviso{% endif %}
+      {%- else %}Todas las playas sin incidencias{% endif %}</span>
+    </div>
+    <div class="srow2">
+      {%- if year_stats %}
+      <div class="syear">En <span class="syn">{{ year_stats.year }}</span>:
+        <b>{{ year_stats.episodes }}</b> episodios de baño · afectan a
+        <b>{{ year_stats.munis }}</b> de los {{ year_stats.total_munis }}
+        municipios con playa{%- if year_stats.open %} ·
+        <b>{{ year_stats.open }}</b> siguen vigentes{% endif %}</div>
+      {%- endif %}
+      <div class="sbx"><input id="bq" type="search" autocomplete="off"
+        placeholder="Buscar playa o emisario…" aria-label="Buscar playa">
+        <div id="bres" class="bres hidden"></div></div>
+    </div></div>
   <div class="card">
     <div class="imap hide-unmon hide-olegal hide-oproc">
       <div class="imapcore">

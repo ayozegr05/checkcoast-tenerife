@@ -604,8 +604,12 @@
     <p class="stag">¿Puedes bañarte hoy? El estado oficial de cada
       playa de Tenerife — y el porqué cuando el parte no lo dice.</p>
     <div class="sstat"><div class="sl">Ahora mismo en Tenerife</div>
-      <b>{{ n_closed }}</b> cerradas ·
-      <b>{{ n_warning }}</b> con aviso</div>
+      {%- if n_closed or n_warning %}
+        {%- if n_closed %}<b>{{ n_closed }}</b> cerrada
+          {{- 's' if n_closed != 1 }}{% endif -%}
+        {%- if n_closed and n_warning %} · {% endif -%}
+        {%- if n_warning %}<b>{{ n_warning }}</b> con aviso{% endif %}
+      {%- else %}Todas las playas sin incidencias{% endif %}</div>
     {%- if salerts %}
     <div class="salerts"><div class="sl">Alertas activas
       en la isla</div>
