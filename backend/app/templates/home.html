@@ -38,14 +38,11 @@
   .hero h1 { margin:0; font-size:19px; line-height:1.3; }
   .hero p { margin:8px 0 0; font-size:14px; line-height:1.5;
           color:#dcebf2; }
-  /* Fila 1 de la tira: etiqueta a la izquierda y la frase de
-     contadores centrada en el ancho entero — dos flex:1 (el propio
-     .sl y un bookend ::after) la flanquean */
+  /* Fila 1 de la tira: etiqueta + contadores centrados como una
+     sola frase */
   .stop { display:flex; flex-wrap:wrap; flex:1 1 100%;
-          align-items:center; }
-  .stop .sl { flex:1; }
-  .stop .stxt { flex:none; }
-  .stop::after { content:''; flex:1; }
+          align-items:baseline; justify-content:center;
+          gap:2px 9px; }
   .sbx { position:relative; flex:none; margin-left:auto; }
   .sbx input { font:inherit; font-size:12px; color:#16323f;
           width:200px; padding:6px 10px 6px 28px;
@@ -199,7 +196,6 @@
     /* Cabecera centrada: etiqueta, contador y buscador */
     .stat { justify-content:center; text-align:center; }
     .stop .sl, .stop .stxt { flex:1 1 100%; min-width:0; }
-    .stop::after { display:none; }
     .srow2 { justify-content:center; }
     /* En móvil el buscador no cabe junto a la línea anual sin
        estrangularla (137px de texto en 4 líneas): cae a su propia
