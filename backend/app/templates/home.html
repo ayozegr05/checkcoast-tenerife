@@ -43,7 +43,7 @@
   .stop { display:flex; flex-wrap:wrap; flex:1 1 100%;
           align-items:baseline; justify-content:center;
           gap:2px 9px; }
-  .sbx { position:relative; flex:none; margin-left:auto; }
+  .sbx { position:relative; flex:none; }
   .sbx input { font:inherit; font-size:12px; color:#16323f;
           width:200px; padding:6px 10px 6px 28px;
           border:1px solid #cddfe8; border-radius:999px;
@@ -78,19 +78,19 @@
   .brow .bst { font-size:10px; font-weight:700; }
   .stat { display:flex; align-items:center; gap:4px 8px;
           flex-wrap:wrap;
-          background:rgba(255,255,255,.92); border-radius:10px;
+          background:rgba(255,255,255,.92); border-radius:6px;
           padding:8px 14px; font-size:13px; color:#16323f;
           margin-bottom:14px; }
   .stat b { color:#075276; }
   .stat .sl { font-size:11px; color:#6d8b9a; font-weight:600;
           text-transform:uppercase; letter-spacing:.4px; }
-  /* Fila 2: el acumulado anual y el buscador comparten línea — el
-     separador lo pone el borde del contenedor, que sigue cruzando
-     todo el ancho bajo la fila 1 */
+  /* Fila 2: acumulado anual + buscador como un conjunto centrado
+     con aire entre ellos; el separador lo pone el borde del
+     contenedor, que sigue cruzando todo el ancho bajo la fila 1 */
   .srow2 { flex:1 1 100%; display:flex; flex-wrap:wrap;
-          align-items:center; gap:4px 8px;
+          align-items:center; justify-content:center; gap:4px 10px;
           border-top:1px solid #e3edf3; padding-top:4px; }
-  .syear { flex:1; min-width:0; font-size:11.5px; color:#5c7a89; }
+  .syear { flex:none; min-width:0; font-size:11.5px; color:#5c7a89; }
   .syear .syn { font-weight:700; color:#075276; }
   .card { background:#fff; border-radius:16px; overflow:hidden;
           box-shadow:0 18px 60px rgba(7,43,62,.30); }
@@ -196,12 +196,10 @@
     /* Cabecera centrada: etiqueta, contador y buscador */
     .stat { justify-content:center; text-align:center; }
     .stop .sl, .stop .stxt { flex:1 1 100%; min-width:0; }
-    .srow2 { justify-content:center; }
     /* En móvil el buscador no cabe junto a la línea anual sin
        estrangularla (137px de texto en 4 líneas): cae a su propia
        línea centrada — en desktop sí comparten fila */
-    .sbx { flex:1 1 100%; margin-left:0; margin-right:0;
-          text-align:center; }
+    .sbx { flex:1 1 100%; margin:0; text-align:center; }
     .sbx input { width:min(280px,78vw); }
   }
   .mleg .lrow { display:flex; align-items:center; gap:9px; }
