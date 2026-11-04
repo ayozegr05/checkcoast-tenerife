@@ -20,7 +20,8 @@ describe('<QualityCard />', () => {
         beachKey="open"
       />,
     );
-    expect(screen.getByText('Calidad del agua · 01/07/2026')).toBeTruthy();
+    expect(screen.getByText('Calidad del agua')).toBeTruthy();
+    expect(screen.getByText('Última muestra: 01/07/2026')).toBeTruthy();
     expect(screen.getByText('E. coli')).toBeTruthy();
     expect(screen.getByText('Excelente · 20% del límite')).toBeTruthy();
     expect(screen.getByText('Enterococo')).toBeTruthy();

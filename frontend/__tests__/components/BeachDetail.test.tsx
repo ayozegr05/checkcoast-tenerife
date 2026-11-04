@@ -78,9 +78,7 @@ describe('<BeachDetail />', () => {
       expect(m).toHaveBeenCalledWith(10);
     }
     expect(screen.getByText('Sin alertas activas')).toBeTruthy();
-    expect(
-      await screen.findByText('Calidad del agua · 15/07/2026'),
-    ).toBeTruthy();
+    expect(await screen.findByText('Última muestra: 15/07/2026')).toBeTruthy();
     expect(screen.getByText('Evolución')).toBeTruthy();
     expect(screen.getByText(/^Fuentes: Censo Zonas de Baño 2025/)).toBeTruthy();
     // Sin prensa ni incidentes ni emisarios: esas tarjetas no aparecen

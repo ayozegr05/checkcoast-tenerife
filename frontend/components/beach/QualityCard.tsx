@@ -26,10 +26,13 @@ export default function QualityCard({ quality, beachKey }: QualityCardProps) {
           color="#00897b"
           style={[styles.secVectorIcon, { marginBottom: 2.8 }]}
         />
-        <Text style={styles.secCardTitle}>
-          Calidad del agua · {fmtDate(quality[0].sampled_at)}
-        </Text>
+        <Text style={styles.secCardTitle}>Calidad del agua</Text>
       </View>
+      {/* La fecha declara "última muestra": sin ella una medición
+          de hace semanas parece agua de hoy */}
+      <Text style={styles.sampleSub}>
+        Última muestra: {fmtDate(quality[0].sampled_at)}
+      </Text>
       {(['ecoli', 'enterococci'] as const).map((param) => {
         const raw = quality[0][param];
         const info = classifyValue(param, raw);
@@ -94,6 +97,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fonts.extrabold,
     color: colors.primaryDark,
+  },
+  // Mismo tono de metadato que nearSub (Emisarios cercanos)
+  sampleSub: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginBottom: 4,
   },
   paramRow: {
     flexDirection: 'row',

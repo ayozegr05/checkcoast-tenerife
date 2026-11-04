@@ -164,6 +164,10 @@
   .qcls { font-size:11px; font-weight:600; }
   /* Nota de huecos de muestreo — mismos colores que la app: ámbar
      para el parón anual esperado, rojo cuando es anomalía real */
+  /* Fecha de la última muestra bajo el título — declarada como
+     "última muestra" para que no parezca fecha de la sección */
+  .qsub { font-size:11px; color:#7a919c; margin-top:3px;
+          margin-bottom:4px; }
   .qnote { margin-top:6px; font-size:11px; font-weight:600;
           color:#e65100; white-space:pre-line; }
   .qnote.qwarn { color:#d50000; }
@@ -330,7 +334,7 @@
           margin-right:5px; }
   .qrtag { display:none; width:54px; height:54px; flex:none;
           border-radius:8px; border:1px solid #dfe9ee; }
-  .src { margin-top:14px; font-size:11px; color:#7a919c; }
+  .src { margin-top:20px; font-size:11px; color:#7a919c; }
   .chiprow { position:relative; display:flex; align-items:center;
           justify-content:center; margin-bottom:4px; }
   .chiprow .shr { position:absolute; right:0; }
@@ -492,8 +496,8 @@
       {%- endfor %}
       {%- endif %}
       {%- if quality %}
-      <div class="sec"><img class="secico" src="/icons/icon-flask.png" alt="">Calidad del agua
-        <span class="secsub">· {{ quality.date }}</span></div>
+      <div class="sec"><img class="secico" src="/icons/icon-flask.png" alt="">Calidad del agua</div>
+      <div class="qsub">Última muestra: {{ quality.date }}</div>
       {%- for p in quality.params %}
       <div class="qrow"><div class="qlab">{{ p.label }}</div>
         <div class="qright"><div class="qval">{{ p.value }}</div>

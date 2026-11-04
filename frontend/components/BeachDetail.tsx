@@ -638,9 +638,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     color: colors.textFaint,
     marginTop: 10,
-    paddingTop: 8,
+    paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    textAlign: 'center',
+    textAlign: 'left',
   },
 });
