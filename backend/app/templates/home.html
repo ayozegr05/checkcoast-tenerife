@@ -198,10 +198,15 @@
     .mleg .lchip[data-k="olegal"] { margin-left:13px; }
     .sec-a { justify-content:center; flex-wrap:wrap; }
     .sec-a .sec-t { flex:1 1 100%; text-align:center; }
-    /* Cabecera centrada: etiqueta, contador y buscador */
+  }
+  /* Cabecera apilada hasta 899px: bajo 900 la página queda en
+     ~520px y los 210px de reserva para el buscador flotante
+     exprimirían la etiqueta; a partir de 900 (página 880px)
+     vuelve a la esquina superior-derecha */
+  @media (max-width:899px) {
     .stat { justify-content:center; text-align:center; }
     .stop .sl, .stop .stxt { flex:1 1 100%; min-width:0; }
-    /* En móvil el buscador deja la esquina y vuelve al flujo:
+    /* El buscador deja la esquina y vuelve al flujo:
        su propia línea centrada bajo la frase anual */
     .stop { padding:0; }
     .sbx { position:static; transform:none; flex:1 1 100%;
@@ -809,9 +814,9 @@ document.querySelectorAll('.lchip,.ld,.ldlab').forEach(function (b) {
 // sin JS la foto y los pins siguen funcionando igual que antes
 var lmapEl = document.getElementById('lmap');
 // En táctil amplio (tablet) el gesto cooperativo deja el mapa
-// "de escritorio": a un dedo no responde. Ahí sobra margen para
-// hacer scroll fuera del mapa, así que se liberan los gestos;
-// en móvil estrecho se mantienen para no atrapar el scroll
+// "de escritorio": a un dedo no responde. Con >=640px el mapa no
+// llena el ancho y sobra margen para el scroll, así que se liberan
+// los gestos; en móvil estrecho se mantienen para no atrapar el scroll
 var coarsePtr = window.matchMedia &&
     window.matchMedia('(pointer: coarse)').matches;
 if (window.maplibregl && lmapEl && imap) {
@@ -846,7 +851,7 @@ if (window.maplibregl && lmapEl && imap) {
         { id: 'esri-labels', type: 'raster', source: 'esri-labels' }
       ]
     },
-    cooperativeGestures: !(coarsePtr && window.innerWidth >= 900),
+    cooperativeGestures: !(coarsePtr && window.innerWidth >= 640),
     dragRotate: false,
     pitchWithRotate: false,
     touchPitch: false,
