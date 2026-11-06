@@ -619,7 +619,9 @@
         {%- if a.thumb %}<img class="salthumb" src="{{ a.thumb }}"
           alt="" loading="lazy">{%- endif %}<div>
         <b>{{ a.name }}</b>
-        <span>{{ a.meta }}</span>
+        <span><span
+            style="white-space:nowrap">{{ a.meta_head }}</span>{%
+            if a.muni %} ·&nbsp;{{ a.muni }}{% endif %}</span>
         </div></a>
       {%- endfor %}
     </div>

@@ -574,6 +574,23 @@ def _alert_cards(
                     } · {'según prensa' if e['via'] == 'press' else 'oficial'}"
                     f" · {beach.municipality or ''}"
                 ),
+                # Meta partido: el tramo «estado · vía» va con
+                # nowrap en las plantillas para que "según prensa"
+                # nunca quede colgado en una línea aparte
+                "sub_head": (
+                    f"{_alert_when('', e['reported_at'], now).lstrip(' ·')}"
+                    f" · {'según prensa' if e['via'] == 'press' else 'oficial'}"
+                ),
+                "meta_head": (
+                    f"{
+                        _alert_when(
+                            'cerrada' if e['status'] == 'closed' else 'aviso',
+                            e['reported_at'],
+                            now,
+                        )
+                    } · {'según prensa' if e['via'] == 'press' else 'oficial'}"
+                ),
+                "muni": beach.municipality or "",
             }
         )
     return cards
