@@ -808,6 +808,12 @@ document.querySelectorAll('.lchip,.ld,.ldlab').forEach(function (b) {
 // por el mapa real (misma vista, mismos pines, mismos enlaces);
 // sin JS la foto y los pins siguen funcionando igual que antes
 var lmapEl = document.getElementById('lmap');
+// En táctil amplio (tablet) el gesto cooperativo deja el mapa
+// "de escritorio": a un dedo no responde. Ahí sobra margen para
+// hacer scroll fuera del mapa, así que se liberan los gestos;
+// en móvil estrecho se mantienen para no atrapar el scroll
+var coarsePtr = window.matchMedia &&
+    window.matchMedia('(pointer: coarse)').matches;
 if (window.maplibregl && lmapEl && imap) {
   imap.classList.add('lmap-on');
   var lmap = new maplibregl.Map({
@@ -840,7 +846,7 @@ if (window.maplibregl && lmapEl && imap) {
         { id: 'esri-labels', type: 'raster', source: 'esri-labels' }
       ]
     },
-    cooperativeGestures: true,
+    cooperativeGestures: !(coarsePtr && window.innerWidth >= 900),
     dragRotate: false,
     pitchWithRotate: false,
     touchPitch: false,
