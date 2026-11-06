@@ -174,14 +174,24 @@ def share_outfall(
 
 
 @router.get("/", response_class=HTMLResponse)
-def home(db: Session = Depends(get_db), demo: bool = False) -> HTMLResponse:
+def home(
+    db: Session = Depends(get_db),
+    demo: bool = False,
+    noopen: bool = False,
+) -> HTMLResponse:
     """Portada del proyecto: la puerta de entrada pública.
 
     Hero + mapa vivo de la isla + alertas reales + playas de ejemplo
     enlazables a su /b/{id} — la demo completa sin instalar nada.
     ?demo=1 fabrica alertas de todas las causas para previsualizar
-    las secciones del banner (solo presentación, no toca datos)."""
-    return _page("home.html", **home_context(db, demo=demo))
+    las secciones del banner (solo presentación, no toca datos).
+    ?noopen=1 oculta las reaperturas para previsualizar la home en
+    un día sin noticias verdes (la sección se colapsa sola)."""
+    ctx = home_context(db, demo=demo)
+    if noopen:
+        ctx["reopened"] = []
+        ctx["n_reopened"] = 0
+    return _page("home.html", **ctx)
 
 
 @router.get("/robots.txt", response_class=PlainTextResponse)
