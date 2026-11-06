@@ -366,6 +366,74 @@ def test_home_legend_closure_causes():
     assert "Solo alertas por defecto" in html
 
 
+def test_home_structure():
+    # L7 — smoke estructural de la home: anclas estables (ids,
+    # textos de sección, vars JS) que un ajuste visual no rompe
+    html = client.get("/").text
+    # La tira de estado: frase + buscador con su desplegable
+    assert 'class="stat"' in html and 'class="stxt"' in html
+    assert 'id="bq"' in html and 'id="bres"' in html
+    # Mapa interactivo y sus datos de pines
+    assert 'id="lmap"' in html and "window.MAP_DOTS" in html
+    # Secciones siempre presentes + CTA de descarga
+    for sec in (
+        "Cómo funciona",
+        "Llévala en el bolsillo",
+        "Descargar para Android",
+    ):
+        assert sec in html
+    assert "/img/qr-github.png" in html
+
+
+def test_home_stat_strip_never_zero():
+    # La frase de estado filtra los segmentos a cero — nunca pinta
+    # un «0» como contador, haya o no haya incidencias ambientales
+    html = client.get("/").text
+    stxt = re.search(r'class="stxt">(.*?)</span>', html, re.S)
+    assert stxt, "falta la frase de estado"
+    assert not re.search(r">\s*0\s*<", stxt.group(1))
+
+
+def test_home_stat_strip_counts_closure(seed_data):
+    # Un cierre oficial se refleja en la frase («N cerradas») —
+    # vale en CI (BD vacía + seed) y en local (datos reales: ya
+    # habrá cerradas, el assert sigue cumpliéndose)
+    from app.db import SessionLocal
+    from app.models import BeachState, BeachStatus
+
+    with SessionLocal() as db:
+        db.add(
+            BeachStatus(
+                beach_id=seed_data["beach_id"], status=BeachState.closed
+            )
+        )
+        db.commit()
+        try:
+            html = client.get("/").text
+        finally:
+            db.query(BeachStatus).filter(
+                BeachStatus.beach_id == seed_data["beach_id"],
+                BeachStatus.status == BeachState.closed,
+            ).delete()
+            db.commit()
+    stxt = re.search(r'class="stxt">(.*?)</span>', html, re.S)
+    assert "cerrada" in stxt.group(1)
+
+
+def test_robots_and_sitemap(seed_data):
+    # Indexación: rastreo libre + sitemap con portada y las fichas
+    r = client.get("/robots.txt")
+    assert r.status_code == 200
+    assert "Allow: /" in r.text and "sitemap.xml" in r.text
+
+    r = client.get("/sitemap.xml")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/xml")
+    assert "<urlset" in r.text
+    assert f"/b/{seed_data['beach_id']}" in r.text
+    assert f"/o/{seed_data['outfall_id']}" in r.text
+
+
 def test_beach_sheet_satellite_starts_mid(seed_data):
     # La ficha abre en el nivel medio de zoom — ni el más lejano
     # ni el más pegado; los otros dos niveles van ocultos
