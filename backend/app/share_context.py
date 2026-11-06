@@ -1684,6 +1684,16 @@ _RISK_COLOR = {"alto": "#d84315", "medio": "#f9a825", "bajo": "#0d9488"}
 
 _NEARBY_BEACH_RADIUS_M = 1500  # mismo radio que /outfalls/{id}/nearby-beaches
 
+# Punto + etiqueta de estado por zona en el selector de playas
+# cercanas (mismos colores que la ficha/la app)
+_ZONE_STATE = {
+    "open": ("#2e9e6b", "Apta"),
+    "warning": ("#e65100", "Con aviso"),
+    "closed": ("#c62828", "Cerrada"),
+    "structural": ("#7a1f1f", "Cerrada"),
+    "unknown": ("#8fa3ad", None),
+}
+
 
 def _cap1(s: str) -> str:
     return s[0].upper() + s[1:] if s else s
@@ -2177,14 +2187,13 @@ def outfall_context(
 
     dots_levels = [_level(*d) for d in _SHOT_LEVELS]
 
-    # Playas cercanas <=1.5 km, dedup por arenal (PM1/PM2 cuentan una
-    # vez — port de nearbyUniqueBeaches)
+    # Playas cercanas <=1.5 km, agrupadas por arenal (los PMs del mismo
+    # complejo en una fila — port de nearbyUniqueBeaches); las
+    # multipunto llevan sus zonas para el selector tipo ZonePicker
     outfall_geog = cast(literal(outfall.geom, type_=Geometry), Geography)
     nearby_rows = (
         db.query(
-            Beach.id,
-            Beach.name,
-            Beach.municipality,
+            Beach,
             func.ST_Distance(Beach.geom.cast(Geography), outfall_geog).label(
                 "distance_m"
             ),
@@ -2199,28 +2208,44 @@ def outfall_context(
         .order_by("distance_m")
         .all()
     )
-    nearby = []
-    seen_base: set[str] = set()
-    for bid, bname, bmuni, dist in nearby_rows:
-        base = _beach_base_name(bname)
-        if base in seen_base:
-            continue
-        seen_base.add(base)
-        nearby.append(
+    groups: dict[str, dict] = {}
+    order: list[str] = []
+    for b, dist in nearby_rows:
+        base = _beach_base_name(b.name)
+        g = groups.get(base)
+        if g is None:
+            g = groups[base] = {
+                "name": _display_name(base),
+                "muni": b.municipality or "",
+                "zones": [],
+            }
+            order.append(base)
+        ds = _display_state(effs.get(b.id))
+        scol, slabel = _ZONE_STATE.get(ds, _ZONE_STATE["unknown"])
+        g["zones"].append(
             {
-                "beach_id": bid,
-                "name": _display_name(_beach_base_name(bname)),
-                "muni": bmuni or "",
+                "beach_id": b.id,
+                "tag": _zone_suffix(db, b).lstrip(" ·") or "Zona",
                 "dist": round(dist),
-                # Barra de exposicion por distancia (misma escala que
-                # la app): <500 pegado, <1000 alcance, resto diluido
-                "dcol": "#c62828"
-                if dist < 500
-                else "#e65100"
-                if dist < 1000
-                else "#f9a825",
+                "scol": scol,
+                "slabel": slabel,
             }
         )
+    nearby = []
+    for base in order:
+        g = groups[base]
+        dist = min(z["dist"] for z in g["zones"])
+        g["dist"] = dist
+        # Barra de exposicion por distancia (misma escala que la app):
+        # <500 pegado, <1000 alcance, resto diluido
+        g["dcol"] = (
+            "#c62828"
+            if dist < 500
+            else "#e65100"
+            if dist < 1000
+            else "#f9a825"
+        )
+        nearby.append(g)
         if len(nearby) >= 5:
             break
 

@@ -183,6 +183,38 @@
   .nbmeta { font-size:11px; color:#7a919c; margin-top:1px; }
   .nbdist { font-size:14px; font-weight:700; white-space:nowrap; }
   .nbchev { font-size:16px; font-weight:600; color:#a8c0cc; }
+  /* Fila multipunto: abre el selector de zonas en vez de navegar */
+  button.nbrow { border:0; border-left:3px solid;
+          font:inherit; text-align:left; cursor:pointer;
+          width:100%; }
+  .nbzn { font-weight:600; color:#075276; }
+  /* Hoja del selector de zonas — réplica del ZonePicker de la
+     app: scrim + tarjeta desde abajo con una fila por zona */
+  .zsheet { position:fixed; inset:0; z-index:60; }
+  .zscrim { position:absolute; inset:0;
+          background:rgba(7,32,44,.45); }
+  .zcard { position:absolute; left:50%; bottom:0;
+          transform:translateX(-50%);
+          width:min(420px,100%); max-height:70vh; overflow-y:auto;
+          background:#fff; border-radius:16px 16px 0 0;
+          padding:10px 12px 14px;
+          box-shadow:0 -8px 40px rgba(0,0,0,.25); }
+  .zhead { display:flex; align-items:center; gap:8px;
+          padding:2px 4px 8px; }
+  .ztitle { font-size:15px; font-weight:800; color:#16323f; }
+  .zsub { font-size:11px; color:#7a919c; margin-top:1px; }
+  .zx { margin-left:auto; flex:none; border:0; background:#eef4f7;
+          width:28px; height:28px; border-radius:50%;
+          font-size:12px; color:#5c7a89; cursor:pointer; }
+  .zrow { display:flex; align-items:center; gap:10px;
+          padding:9px 8px; border-radius:10px;
+          text-decoration:none; }
+  .zrow:hover { background:#f4f9fb; }
+  .zdot { width:10px; height:10px; border-radius:50%; flex:none; }
+  .zname { font-size:13px; font-weight:600; color:#16323f; }
+  .zst { font-size:10.5px; font-weight:600; margin-top:1px; }
+  .zdist { font-size:12px; font-weight:700; color:#7a919c;
+          white-space:nowrap; }
   .ngroup { font-size:11px; font-weight:700; color:#075276;
             text-transform:uppercase; letter-spacing:.4px;
             margin-top:10px; }
@@ -382,8 +414,19 @@
           <span>Playas cercanas</span>
         </div>
         {%- for n in nearby %}
+        {%- if n.zones|length > 1 %}
+        <button type="button" class="nbrow" data-zopen="zp{{ loop.index }}"
+          style="border-left-color:{{ n.dcol }}">
+          <div style="flex:1;min-width:0"><div class="nbname">{{ n.name }}</div>
+          <div class="nbmeta">{% if n.muni %}{{ n.muni }} · {% endif %}<span
+            class="nbzn">{{ n.zones|length }} zonas</span></div></div>
+          <span class="nbdist" style="color:{{ n.dcol }}">{{ n.dist
+            }} m</span>
+          <span class="nbchev" style="color:{{ n.dcol }}">›</span>
+        </button>
+        {%- else %}
         <a class="nbrow" style="border-left-color:{{ n.dcol }}"
-          href="/b/{{ n.beach_id }}">
+          href="/b/{{ n.zones[0].beach_id }}">
           <div style="flex:1"><div class="nbname">{{ n.name }}</div>
           {%- if n.muni %}<div class="nbmeta">{{ n.muni }}</div>
           {%- endif %}</div>
@@ -391,8 +434,37 @@
             }} m</span>
           <span class="nbchev" style="color:{{ n.dcol }}">›</span>
         </a>
+        {%- endif %}
         {%- endfor %}
       </div>
+      {%- for n in nearby %}
+      {%- if n.zones|length > 1 %}
+      <div class="zsheet" id="zp{{ loop.index }}" hidden>
+        <div class="zscrim" data-zclose></div>
+        <div class="zcard">
+          <div class="zhead">
+            <div style="min-width:0"><div class="ztitle">{{ n.name }}</div>
+            <div class="zsub">{{ n.zones|length }} zonas de baño{%
+              if n.muni %} · {{ n.muni }}{% endif %}</div></div>
+            <button type="button" class="zx" data-zclose
+              aria-label="Cerrar">✕</button>
+          </div>
+          {%- for z in n.zones %}
+          <a class="zrow" href="/b/{{ z.beach_id }}">
+            <span class="zdot" style="background:{{ z.scol }}"></span>
+            <div style="flex:1;min-width:0"><div class="zname">{{ z.tag
+              }}</div>
+              {%- if z.slabel %}<div class="zst"
+                style="color:{{ z.scol }}">{{ z.slabel }}</div>
+              {%- endif %}</div>
+            <span class="zdist">{{ z.dist }} m</span>
+            <span class="nbchev">›</span>
+          </a>
+          {%- endfor %}
+        </div>
+      </div>
+      {%- endif %}
+      {%- endfor %}
       {%- endif %}
       {%- macro news_src(n) %}
         <a class="nsrc" href="{{ n.url }}" target="_blank"
@@ -571,5 +643,31 @@ document.getElementById('shrbtn').onclick = async function () {
     window.prompt('Copia el enlace:', u);
   }
 };
+// Selector de zonas de playas multipunto (réplica del ZonePicker de
+// la app): la fila abre su hoja en vez de navegar; cierra con ✕,
+// scrim o Esc, bloqueando el scroll del fondo mientras tanto
+document.querySelectorAll('[data-zopen]').forEach(function (btn) {
+  btn.onclick = function () {
+    var s = document.getElementById(btn.dataset.zopen);
+    if (s) {
+      s.hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+  };
+});
+document.querySelectorAll('.zsheet [data-zclose]').forEach(function (c) {
+  c.onclick = function () {
+    c.closest('.zsheet').hidden = true;
+    document.body.style.overflow = '';
+  };
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  document.querySelectorAll('.zsheet:not([hidden])')
+    .forEach(function (s) {
+      s.hidden = true;
+      document.body.style.overflow = '';
+    });
+});
 </script>
 </html>
