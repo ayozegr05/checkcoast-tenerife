@@ -60,10 +60,12 @@
             box-shadow:0 2px 8px rgba(0,0,0,.3); }
     .sstat { margin-top:4px; background:rgba(255,255,255,.9);
             border:1px solid rgba(255,255,255,.25); border-radius:12px;
-            padding:10px 14px; font-size:13px; color:#16323f; }
+            padding:10px 14px; font-size:13px; color:#16323f;
+            text-align:center; line-height:1.45; }
     .sstat b { color:#075276; }
     .sstat .sl { font-size:11px; color:#6d8b9a; font-weight:600;
-            text-transform:uppercase; letter-spacing:.4px; }
+            text-transform:uppercase; letter-spacing:.4px;
+            margin-bottom:2px; }
     .stag { font-size:14px; line-height:1.55; color:#dcebf2;
             margin:16px 0; text-shadow:0 1px 3px rgba(0,0,0,.35); }
     .sleg { margin-top:12px; background:rgba(255,255,255,.88);
@@ -95,9 +97,10 @@
     .sfoot { margin-top:14px; font-size:11px; color:#a8c4d2; }
   }
   .head { background:{{ head_bg }};
-          color:#fff; padding:18px 20px 14px; text-align:center; }
+          color:#fff; padding:18px 20px 12px; text-align:center; }
   .head h1 { margin:0; font-size:20px; }
-  .head p { margin:4px 0 0; font-size:13px; opacity:.9; }
+  .head p { margin:3px 0 0; font-size:14px; font-weight:600;
+          opacity:.92; }
   .shotwrap { position:relative; }
   /* Ola divisoria: la cabecera teñida "cae" sobre la foto con curva
      en vez de corte recto — el fill sigue el color final del header */
@@ -620,8 +623,11 @@
           alt="" loading="lazy">{%- endif %}<div>
         <b>{{ a.name }}</b>
         <span><span
-            style="white-space:nowrap">{{ a.meta_head }}</span>{%
-            if a.muni %} ·&nbsp;{{ a.muni }}{% endif %}</span>
+            style="white-space:nowrap">{{ a.meta_when }}</span>
+          <span style="white-space:nowrap">·&nbsp;{{ a.via }}</span>{%
+            if a.muni %} <span
+            style="white-space:nowrap">·&nbsp;{{ a.muni }}</span>{%
+            endif %}</span>
         </div></a>
       {%- endfor %}
     </div>

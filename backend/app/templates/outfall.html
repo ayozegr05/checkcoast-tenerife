@@ -58,10 +58,12 @@
             box-shadow:0 2px 8px rgba(0,0,0,.3); }
     .sstat { margin-top:4px; background:rgba(255,255,255,.9);
             border:1px solid rgba(255,255,255,.25); border-radius:12px;
-            padding:10px 14px; font-size:13px; color:#16323f; }
+            padding:10px 14px; font-size:13px; color:#16323f;
+            text-align:center; line-height:1.45; }
     .sstat b { color:#075276; }
     .sstat .sl { font-size:11px; color:#6d8b9a; font-weight:600;
-            text-transform:uppercase; letter-spacing:.4px; }
+            text-transform:uppercase; letter-spacing:.4px;
+            margin-bottom:2px; }
     .stag { font-size:14px; line-height:1.55; color:#dcebf2;
             margin:16px 0; text-shadow:0 1px 3px rgba(0,0,0,.35); }
     .sleg { margin-top:12px; background:rgba(255,255,255,.95);
@@ -575,8 +577,11 @@
         <i style="background:{{ a.color }}"></i><div>
         <b>{{ a.name }}</b>
         <span><span
-            style="white-space:nowrap">{{ a.meta_head }}</span>{%
-            if a.muni %} ·&nbsp;{{ a.muni }}{% endif %}</span>
+            style="white-space:nowrap">{{ a.meta_when }}</span>
+          <span style="white-space:nowrap">·&nbsp;{{ a.via }}</span>{%
+            if a.muni %} <span
+            style="white-space:nowrap">·&nbsp;{{ a.muni }}</span>{%
+            endif %}</span>
         </div></a>
       {%- endfor %}
     </div>
