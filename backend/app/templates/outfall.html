@@ -92,9 +92,12 @@
     .sfoot { margin-top:14px; font-size:11px; color:#a8c4d2; }
   }
   .head { background:{{ head_bg }}; color:#fff;
-          padding:18px 20px 14px; text-align:center; }
-  .head h1 { margin:0; font-size:20px; }
-  .head p { margin:4px 0 0; font-size:13px; opacity:.9; }
+          padding:18px 20px 14px; text-align:center;
+          position:relative; }
+  /* Margen derecho generoso: la píldora Compartir flota en la
+     esquina y un nombre largo no debe pasar por debajo */
+  .head h1 { margin:0 86px 0 24px; font-size:20px; }
+  .head p { margin:4px 86px 0 24px; font-size:13px; opacity:.9; }
   .shotwrap { position:relative; }
   .wave { position:absolute; top:0; left:0; width:100%; height:22px;
           z-index:2; display:block; }
@@ -167,14 +170,14 @@
   /* Matiz operativo bajo el triaje: frase apagada sin caja —
      el dato apoya al triaje, no compite con él */
   .opline { font-size:12.5px; color:#33566b; line-height:17px;
-          margin:8px 0 4px; }
+          margin:12px 0 6px; }
   /* ZEC en ámbar — verter en zona protegida es contexto de máxima
      prioridad, no un mérito */
-  .pbox { margin:8px 0 4px; border-left:3px solid #e65100;
+  .pbox { margin:12px 0 6px; border-left:3px solid #e65100;
           background:#e6510014; border-radius:4px;
-          padding:6px 10px; }
+          padding:7px 10px; }
   .pbox .pt { font-size:11px; font-weight:700; color:#e65100;
-          text-transform:uppercase; }
+          text-transform:uppercase; text-align:center; }
   .pbox .pn { font-size:12px; font-weight:600; color:#16323f;
           margin-top:1px; }
   /* "Qué se vierte" — la respuesta protagonista. Las secciones
@@ -218,8 +221,8 @@
   /* "Dónde y cómo": lead narrativo del censo en gris y debajo
      filas etiqueta+dato con icono — ficha técnica sobria */
   .wlead { font-size:13.5px; color:#5c7a89; line-height:19px;
-          margin-top:4px; }
-  .wrow { display:flex; gap:7px; margin-top:6px; }
+          margin-top:6px; }
+  .wrow { display:flex; gap:7px; margin-top:9px; }
   .wico { width:22px; flex:none; display:flex;
           justify-content:center; margin-top:-1px; }
   .wico img { width:16px; height:16px; margin-top:2px; }
@@ -229,7 +232,7 @@
   .wtxt .wlab { font-weight:800; }
   /* Tiles numéricos del punto de vertido (orilla/profundidad/
      longitud): solo cifras — los adjetivos son filas */
-  .kts { display:flex; gap:10px; margin-top:8px; }
+  .kts { display:flex; gap:10px; margin-top:10px; }
   .kt { flex:1; background:#fff; border:1px solid #dfeef1;
           border-radius:8px; padding:6px 10px; text-align:center; }
   .ktv { font-size:16px; font-weight:700; color:#075276; }
@@ -338,19 +341,19 @@
   .src { margin-top:14px; font-size:11px; color:#7a919c; }
   .src a { color:#075276; text-decoration:none; }
   .src a:hover { text-decoration:underline; }
-  .chiprow { position:relative; display:flex; align-items:center;
-          justify-content:center; margin-bottom:4px; }
-  .chiprow .shr { position:absolute; right:0; }
   .actrow { display:flex; align-items:center; gap:8px;
           margin-top:16px; }
-  .shr { display:flex; align-items:center; gap:5px;
-          border:1px solid rgba(26,127,150,.45); background:#fff;
-          color:#1a7f96; font-family:inherit; font-size:11px;
-          font-weight:700; border-radius:6px; padding:5px 8px;
-          cursor:pointer; }
+  /* Compartir en la cabecera (esquina superior): píldora clara sobre
+     la banda de estado, misma posición que en la hoja de la app */
+  .shr { position:absolute; top:14px; right:14px;
+          display:flex; align-items:center; gap:5px;
+          border:0; background:rgba(255,255,255,.92);
+          color:#16323f; font-family:inherit; font-size:11px;
+          font-weight:700; border-radius:8px; padding:6px 9px;
+          cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.2); }
   .shr img { width:12px; height:12px; }
-  .shr:hover { background:#eef6fa; }
-  .shr:active { opacity:.6; }
+  .shr:hover { background:#fff; }
+  .shr:active { opacity:.75; }
   .open { flex:1; display:block; text-align:center;
           background:linear-gradient(90deg,#075276,#17b8ce); color:#fff;
           font-weight:700; padding:12px 10px; border-radius:12px;
@@ -378,7 +381,9 @@
     <span class="tfe">Tenerife</span>
   </div>
   <div class="card">
-    <div class="head"><h1>{{ name }}</h1><p>{{ muni }}</p></div>
+    <div class="head"><h1>{{ name }}</h1><p>{{ muni }}</p>
+      <button class="shr" id="shrbtn" type="button"><img
+        src="/icons/icon-share-outline.png" alt="">Compartir</button></div>
     <div class="shotwrap">
       <svg class="wave" viewBox="0 0 420 24" preserveAspectRatio="none"
         aria-hidden="true"><path fill="{{ wave_c }}"
@@ -403,9 +408,6 @@
       </div>
     </div>
     <div class="body">
-      <div class="chiprow">
-        <button class="shr" id="shrbtn" type="button"><img
-          src="/icons/icon-share-outline.png" alt="">Compartir</button></div>
       <div class="triage" style="border-color:{{ color }}66;
         background:{{ color }}0d">
         <div class="tcell">
@@ -450,7 +452,7 @@
       {%- endif %}
       {%- if protected %}
       <div class="pbox">
-        <div class="pt">Emisario en espacio protegido</div>
+        <div class="pt">🛡 Emisario en espacio protegido</div>
         <div class="pn">Está dentro de la
           {{ protected.name }}, una <b>Zona Especial de
           Conservación</b> de la red Natura 2000{{ protected.note }}.

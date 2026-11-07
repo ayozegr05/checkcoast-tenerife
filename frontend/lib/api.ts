@@ -356,6 +356,8 @@ export const fetchEpisodes = () => getJson<MunicipalityIncident[]>('/episodes');
 const SHARE_BASE_URL = 'https://checkcoast.duckdns.org';
 export const beachShareUrl = (beachId: number) =>
   `${SHARE_BASE_URL}/b/${beachId}`;
+export const outfallShareUrl = (outfallId: number) =>
+  `${SHARE_BASE_URL}/o/${outfallId}`;
 
 // Registro del Expo push token en el backend (idempotente)
 export const registerDevice = async (token: string, platform: string) => {

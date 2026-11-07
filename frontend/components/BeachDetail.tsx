@@ -88,6 +88,8 @@ export default function BeachDetail({
   onFocusConsumed,
   onViewOnMap,
   onSelectOutfall,
+  hideShare,
+  onShareReady,
 }: {
   feature: GeoFeature;
   hasAlert: boolean;
@@ -111,6 +113,11 @@ export default function BeachDetail({
   onViewOnMap?: () => void;
   // Tap en un emisario cercano → verlo en el mapa (pin seleccionado)
   onSelectOutfall?: (feature: GeoFeature) => void;
+  // FeatureSheet muestra el share en su cabecera: oculta el inline
+  // y registra el handler para que el botón de la hoja comparta este
+  // mismo mensaje (estado + último análisis + enlace OG)
+  hideShare?: boolean;
+  onShareReady?: (fn: (() => void) | null) => void;
 }) {
   const p = feature.properties;
   const unmonitored = p.monitored === false;
@@ -337,6 +344,13 @@ export default function BeachDetail({
     Share.share({ message: lines.join('\n') }).catch(() => {});
   };
 
+  // Sin deps: re-registra la closure fresca en cada render — el mensaje
+  // cambia con statusText/quality y el coste es asignar una ref
+  useEffect(() => {
+    onShareReady?.(share);
+    return () => onShareReady?.(null);
+  });
+
   // El banner de prensa solo narra episodios VIVOS (playa cerrada,
   // hermana con episodio abierto, reapertura ≤7 d) o cobertura
   // reciente (≤90 d). Un titular viejo de un episodio resuelto ya
@@ -461,19 +475,24 @@ export default function BeachDetail({
             </View>
           )}
         </View>
-        <Pressable
-          onPress={share}
-          style={({ pressed }) => [styles.shareBtn, pressed && styles.pressFx]}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Compartir estado de la playa"
-        >
-          <Image
-            source={require('../assets/icons/icon-share-outline.png')}
-            style={styles.shareIcon}
-          />
-          <Text style={styles.shareText}>Compartir</Text>
-        </Pressable>
+        {!hideShare && (
+          <Pressable
+            onPress={share}
+            style={({ pressed }) => [
+              styles.shareBtn,
+              pressed && styles.pressFx,
+            ]}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Compartir estado de la playa"
+          >
+            <Image
+              source={require('../assets/icons/icon-share-outline.png')}
+              style={styles.shareIcon}
+            />
+            <Text style={styles.shareText}>Compartir</Text>
+          </Pressable>
+        )}
       </View>
 
       {press !== null && (

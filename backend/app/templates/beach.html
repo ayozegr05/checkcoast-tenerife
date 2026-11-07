@@ -97,9 +97,12 @@
     .sfoot { margin-top:14px; font-size:11px; color:#a8c4d2; }
   }
   .head { background:{{ head_bg }};
-          color:#fff; padding:18px 20px 12px; text-align:center; }
-  .head h1 { margin:0; font-size:20px; }
-  .head p { margin:3px 0 0; font-size:14px; font-weight:600;
+          color:#fff; padding:18px 20px 12px; text-align:center;
+          position:relative; }
+  /* Margen derecho generoso: la píldora Compartir flota en la
+     esquina y un nombre largo no debe pasar por debajo */
+  .head h1 { margin:0 86px 0 24px; font-size:20px; }
+  .head p { margin:3px 86px 0 24px; font-size:14px; font-weight:600;
           opacity:.92; }
   .shotwrap { position:relative; }
   /* Ola divisoria: la cabecera teñida "cae" sobre la foto con curva
@@ -350,23 +353,19 @@
   .qrtag { display:none; width:54px; height:54px; flex:none;
           border-radius:8px; border:1px solid #dfe9ee; }
   .src { margin-top:20px; font-size:11px; color:#7a919c; }
-  .chiprow { position:relative; display:flex; align-items:center;
+  .chiprow { display:flex; align-items:center;
           justify-content:center; margin-bottom:4px; }
-  .chiprow .shr { position:absolute; right:0; }
-  /* Móvil: chips largos ("Cierre estructural") + Compartir absoluto
-     se montan — el botón pasa al flujo y envuelve a otra línea */
-  @media (max-width:520px) {
-    .chiprow { flex-wrap:wrap; gap:6px; }
-    .chiprow .shr { position:static; }
-  }
-  .shr { display:flex; align-items:center; gap:5px;
-          border:1px solid rgba(26,127,150,.45); background:#fff;
-          color:#1a7f96; font-family:inherit; font-size:11px;
-          font-weight:700; border-radius:6px; padding:5px 8px;
-          cursor:pointer; }
+  /* Compartir en la cabecera (esquina superior): píldora clara sobre
+     la banda de estado, misma posición que en la hoja de la app */
+  .shr { position:absolute; top:14px; right:14px;
+          display:flex; align-items:center; gap:5px;
+          border:0; background:rgba(255,255,255,.92);
+          color:#16323f; font-family:inherit; font-size:11px;
+          font-weight:700; border-radius:8px; padding:6px 9px;
+          cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.2); }
   .shr img { width:12px; height:12px; }
-  .shr:hover { background:#eef6fa; }
-  .shr:active { opacity:.6; }
+  .shr:hover { background:#fff; }
+  .shr:active { opacity:.75; }
 </style>
 </head>
 <body>
@@ -434,7 +433,9 @@
     <span class="tfe">Tenerife</span>
   </div>
   <div class="card">
-    <div class="head"><h1>{{ name }}</h1><p>{{ muni }}</p></div>
+    <div class="head"><h1>{{ name }}</h1><p>{{ muni }}</p>
+      <button class="shr" id="shrbtn" type="button"><img
+        src="/icons/icon-share-outline.png" alt="">Compartir</button></div>
     <div class="shotwrap">
       <svg class="wave" viewBox="0 0 420 24" preserveAspectRatio="none"
         aria-hidden="true"><path fill="{{ wave_c }}"
@@ -469,9 +470,7 @@
         ctr{% endif %}">{{ label }}
         {%- if chip_art %}<span class="chipbadge"><img
           src="/icons/{{ chip_art }}.png" alt=""></span>
-        {%- endif %}</span>
-        <button class="shr" id="shrbtn" type="button"><img
-          src="/icons/icon-share-outline.png" alt="">Compartir</button></div>
+        {%- endif %}</span></div>
       {%- if notice %}{{ banner(notice) }}{% endif %}
       {%- if press %}{{ banner(press) }}{% endif %}
       {%- if incidents %}

@@ -2,9 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   BackHandler,
+  Image,
   ImageBackground,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -17,6 +19,8 @@ import ZonePicker from './sheet/ZonePicker';
 import { useSheetDrag } from './sheet/useSheetDrag';
 import type { Selection } from './CoastMap';
 import type { EpisodeFocus, GeoFeature } from '../lib/api';
+import { outfallShareUrl } from '../lib/api';
+import { OUTFALL_STATUS_LABELS } from '../lib/outfallSheet';
 import {
   beachBaseName,
   displayBeachName,
@@ -209,6 +213,26 @@ export default function FeatureSheet({
     ? (colors.status[beachStatusKey(feature)] ?? colors.status.unknown)
     : (colors.outfall[statusKey] ?? colors.status.unknown);
 
+  // Compartir vive en la cabecera de la hoja, igual para playa y
+  // emisario: playa delega en el mensaje rico de BeachDetail (estado +
+  // último análisis + enlace OG), que se registra vía onShareReady;
+  // emisario se monta aquí (nombre + estado legal + enlace /o/).
+  // En el selector de zonas no hay un /b/{id} concreto que compartir
+  const shareRef = useRef<(() => void) | null>(null);
+  const showShare = !showPmPicker;
+  const doShare = () => {
+    if (isBeach) {
+      shareRef.current?.();
+      return;
+    }
+    const lines = [
+      `🚰 ${title}${p.municipality ? ` (${p.municipality})` : ''}`,
+      `Estado: ${OUTFALL_STATUS_LABELS[statusKey] ?? 'En trámite'}`,
+      outfallShareUrl(feature.id),
+    ];
+    Share.share({ message: lines.join('\n') }).catch(() => {});
+  };
+
   return (
     <Animated.View style={[styles.sheet, { bottom: b, height: h }]}>
       {/* Zona de agarre: asa + cabecera responden al arrastre */}
@@ -226,6 +250,24 @@ export default function FeatureSheet({
           </Text>
           {muni ? <Text style={styles.subtitle}>{muni}</Text> : null}
         </View>
+        {showShare && (
+          <Pressable
+            onPress={doShare}
+            hitSlop={12}
+            style={({ pressed }) => [
+              styles.shareBtn,
+              { backgroundColor: accent },
+              pressed && styles.pressFx,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Compartir ficha"
+          >
+            <Image
+              source={require('../assets/icons/icon-share-outline.png')}
+              style={[styles.shareIcon, { tintColor: colors.onColor }]}
+            />
+          </Pressable>
+        )}
         <Pressable
           onPress={requestClose}
           hitSlop={12}
@@ -284,6 +326,10 @@ export default function FeatureSheet({
                     ? (f) => onSelectOutfall(f, beachFeature)
                     : undefined
                 }
+                hideShare
+                onShareReady={(fn) => {
+                  shareRef.current = fn;
+                }}
               />
             </View>
           )
@@ -379,9 +425,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     color: colors.text,
     textAlign: 'center',
-    // margen simétrico: la ✕ va absoluta a la esquina y el título
-    // queda centrado sin chocar con ella aunque ocupe 2 líneas
-    marginHorizontal: 54,
+    // margen simétrico: los botones absolutos de la esquina (share + ✕)
+    // no pisan el título aunque ocupe 2 líneas — la derecha reserva más
+    // porque apila dos botones
+    marginLeft: 54,
+    marginRight: 88,
   },
   // Municipio como subtítulo: contexto geográfico, no identidad
   subtitle: {
@@ -409,6 +457,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
+  },
+  // Share a la izquierda del ✕: mismo botón de estado, icono blanco
+  shareBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 46,
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  shareIcon: {
+    width: 14,
+    height: 14,
   },
   body: {
     flex: 1,
