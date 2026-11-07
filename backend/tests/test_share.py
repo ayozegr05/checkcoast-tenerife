@@ -161,21 +161,23 @@ def test_share_outfall_kpi_tiles(make_outfall):
         kind="Emisario submarino", shore_m=922, outfall_depth=-41
     )
     html = client.get(f"/o/{oid}").text
-    assert "vierte a:" in html
-    assert "922" in html and "de la orilla" in html
-    assert "41" in html and "de profundidad" in html
-    # la frase espejo no se renderiza en modo KPI
+    # tiles estilo app: lead "vierte a" por tile, "bajo el mar" como
+    # etiqueta de la sumergida
+    assert "vierte a" in html
+    assert "922 m" in html and "de la orilla" in html
+    assert "41 m" in html and "bajo el mar" in html
+    # la frase espejo no se renderiza en modo tiles
     assert "que vierte a" not in html
 
 
-def test_share_outfall_kpi_fallback_surface(make_outfall):
-    """Vertido a ras de mar (depth=0): una tile de 0 m sería ruido →
-    se conserva la frase narrativa y no hay KPI."""
+def test_share_outfall_kpi_surface_tile(make_outfall):
+    """Vertido a ras de mar (depth=0): lleva tile '0 m / a ras de
+    mar' — la gramática numérica se mantiene sin fingir una
+    profundidad (misma regla que la app)."""
     oid = make_outfall(kind="Emisario submarino", shore_m=100, outfall_depth=0)
     html = client.get(f"/o/{oid}").text
-    assert "que vierte a" in html
-    assert "sale a ras de mar" in html
-    assert 'class="srow kpirow"' not in html
+    assert "0 m" in html and "a ras de mar" in html
+    assert "que vierte a" not in html
 
 
 def test_share_outfall_kpi_height(make_outfall):
@@ -183,8 +185,8 @@ def test_share_outfall_kpi_height(make_outfall):
     '20 m sobre el mar', no una profundidad inventada."""
     oid = make_outfall(kind="Conducción", shore_m=300, outfall_depth=20)
     html = client.get(f"/o/{oid}").text
-    assert "vierte a:" in html
-    assert "20" in html and "sobre el mar" in html
+    assert "vierte a" in html
+    assert "20 m" in html and "sobre el mar" in html
     assert "cae sobre la superficie" not in html
 
 

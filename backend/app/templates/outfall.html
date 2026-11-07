@@ -115,18 +115,59 @@
   .zbtn:disabled { opacity:.45; cursor:default; }
   .hidden { display:none !important; }
   .body { padding:16px 20px 20px; }
-  .chip { display:table; margin:0 auto; background:{{ color }};
-          color:#fff; font-weight:700; font-size:13px;
-          border-radius:10px; padding:6px 14px; }
-  /* Caja de funcionamiento + riesgo: barra y tinte del nivel de
-     riesgo — la conclusión, como en la app */
-  .opbox { margin:10px 0 8px; border-left:3px solid {{ risk.color }};
-          background:{{ risk.color }}14; border-radius:4px;
-          padding:7px 10px; }
-  .opbox p { margin:0; font-size:12px; color:#33566b;
-          line-height:1.45; font-weight:600; }
-  .opbox p + p { margin-top:4px; }
-  .opbox b { font-weight:700; }
+  /* Triaje de una mirada (port del strip de la app): las tres
+     preguntas del bañista — ¿es legal? ¿vierte? ¿me importa? —
+     en tres celdas con filetes. La fila entera es el veredicto:
+     borde + fondo suave del color de legalidad */
+  .triage { display:flex; margin-top:8px; border:1px solid;
+          border-radius:8px; padding:8px 0; }
+  .tcell { flex:1; display:flex; flex-direction:column;
+          align-items:center; padding:4px; }
+  .tcell.mid { flex:1.35; }
+  .tdiv { width:1px; background:#dfeef1; margin:2px 0; }
+  .tlabel { font-size:9px; color:#5c7a89;
+          text-transform:uppercase; letter-spacing:.3px; }
+  .ticon { width:26px; height:26px; object-fit:contain;
+          margin-top:5px; }
+  .tbadge { width:26px; height:26px; border-radius:50%;
+          display:flex; align-items:center; justify-content:center;
+          margin-top:5px; color:#fff; font-weight:700;
+          font-size:13px; }
+  .tclip { width:26px; height:26px; border-radius:50%;
+          overflow:hidden; margin-top:4px; }
+  .tclip img { width:117%; height:117%; object-fit:cover; }
+  /* Signo de prohibido: anillo + barra rojos sobre el grifo navy —
+     "vertido sin permiso" en una sola pieza, sin asset nuevo */
+  .tproh { position:relative; width:24px; height:24px;
+          margin-top:4px; display:flex; align-items:center;
+          justify-content:center; }
+  .tproh img { width:14px; height:14px; }
+  .tproh .tring { position:absolute; inset:0; border-radius:50%;
+          border:2.5px solid #d50000; }
+  .tproh .tslash { position:absolute; width:25px; height:2.5px;
+          border-radius:2px; background:#d50000;
+          transform:rotate(-45deg); }
+  .tstamp { border:1.5px solid #d50000; border-radius:4px;
+          padding:2px 6px; margin-top:8px; font-size:13px;
+          font-weight:700; color:#d50000; letter-spacing:.8px; }
+  /* Pin pulsado para el riesgo: halo animado + núcleo; el ritmo
+     varía por nivel (--pd: alto latido rápido, bajo relajado) */
+  .tpulse { position:relative; width:26px; height:26px;
+          margin-top:5px; }
+  .tpulse .phalo { position:absolute; inset:0; border-radius:50%;
+          animation:tpulse var(--pd,1.5s) ease-out infinite; }
+  .tpulse .pcore { position:absolute; left:7px; top:7px;
+          width:12px; height:12px; border-radius:50%; }
+  @keyframes tpulse {
+          from { transform:scale(.4); opacity:.55; }
+          60% { opacity:.25; }
+          to { transform:scale(1); opacity:0; } }
+  .tval { font-size:15px; font-weight:700; color:#16323f;
+          margin-top:7px; text-align:center; }
+  /* Matiz operativo bajo el triaje: frase apagada sin caja —
+     el dato apoya al triaje, no compite con él */
+  .opline { font-size:12.5px; color:#33566b; line-height:17px;
+          margin:8px 0 4px; }
   /* ZEC en ámbar — verter en zona protegida es contexto de máxima
      prioridad, no un mérito */
   .pbox { margin:8px 0 4px; border-left:3px solid #e65100;
@@ -138,15 +179,26 @@
           margin-top:1px; }
   /* "Qué se vierte" — la respuesta protagonista. Las secciones
      descriptivas van PLANAS (hairline + fondo suave): el borde
-     lateral de color se reserva para lo semántico — estado/riesgo
-     (opbox), ZEC (pbox) y fuentes enlazables (nsrc/nbrow) */
-  .herobox { margin-top:8px; border:1px solid #e2e8f0;
-          background:#f8fafc; border-radius:8px;
+     lateral de color se reserva para lo semántico — ZEC (pbox) y
+     fuentes enlazables (nsrc) */
+  .herobox { margin-top:8px; border:1px solid #dfeef1;
+          background:#f2f7f8; border-radius:8px;
           padding:8px 10px; }
   .sechead { display:flex; align-items:center; gap:7px;
           justify-content:center; margin-bottom:6px; }
   .sechead img { width:20px; height:20px; }
   .sechead span { font-size:15px; font-weight:700; color:#075276; }
+  /* Gota de ubicación dibujada: cuadrado de tres esquinas redondas
+     girado 45° — la esquina viva cae abajo y dibuja la punta (el
+     LocPin de la app, sin asset nuevo) */
+  .locpin { width:22px; height:22px; display:inline-flex;
+          align-items:center; justify-content:center; flex:none; }
+  .lpd { width:13px; height:13px; border:2.2px solid #075276;
+          border-radius:7px; border-bottom-right-radius:1.5px;
+          transform:rotate(45deg); display:flex;
+          align-items:center; justify-content:center; }
+  .lpt { width:4px; height:4px; border-radius:50%;
+          background:#075276; }
   .hlead { font-size:13.5px; color:#16323f; margin-top:2px;
           line-height:1.45; }
   .hval { font-size:14px; font-weight:600; color:#16323f;
@@ -156,39 +208,55 @@
   .hnote { font-size:12.5px; color:#7a919c; line-height:1.5;
           margin-top:4px; }
   .hnote b { color:#16323f; font-weight:600; }
-  .hresp { font-size:13px; color:#7a919c; margin-top:6px;
-          border-top:1px solid #dbe7ee; padding-top:6px; }
-  .hresp b { color:#16323f; font-weight:600; }
-  .seccard { margin-top:10px; border:1px solid #e2e8f0;
-          background:#f8fafc; border-radius:8px;
+  /* El veredicto del vertido en línea propia ("el agua sale sin
+     depurar"): la conclusión del hero en extrabold coloreada */
+  .hverd { font-size:13.5px; font-weight:800; line-height:19px;
+          margin-top:4px; }
+  .seccard { margin-top:10px; border:1px solid #dfeef1;
+          background:#f2f7f8; border-radius:8px;
           padding:8px 10px; }
-  /* KPI tiles: los números hero del emisario (orilla/profundidad)
-     como métricas escaneables, no enterradas en la frase */
-  .kpirow { display:flex; align-items:center; gap:10px;
-          margin-top:8px; }
-  .kpilead { flex:1; }
-  .kpi { background:#fff; border:1px solid #e2e8f0;
-          border-radius:8px; padding:6px 10px; }
-  .kv { font-size:17px; font-weight:700; color:#075276; }
-  .kl { font-size:10px; color:#7a919c; text-transform:uppercase;
+  /* "Dónde y cómo": lead narrativo del censo en gris y debajo
+     filas etiqueta+dato con icono — ficha técnica sobria */
+  .wlead { font-size:13.5px; color:#5c7a89; line-height:19px;
+          margin-top:4px; }
+  .wrow { display:flex; gap:7px; margin-top:6px; }
+  .wico { width:22px; flex:none; display:flex;
+          justify-content:center; margin-top:-1px; }
+  .wico img { width:16px; height:16px; margin-top:2px; }
+  .wico img.big { width:18px; height:18px; margin-top:1px; }
+  .wtxt { flex:1; font-size:13.5px; color:#16323f;
+          line-height:19px; }
+  .wtxt .wlab { font-weight:800; }
+  /* Tiles numéricos del punto de vertido (orilla/profundidad/
+     longitud): solo cifras — los adjetivos son filas */
+  .kts { display:flex; gap:10px; margin-top:8px; }
+  .kt { flex:1; background:#fff; border:1px solid #dfeef1;
+          border-radius:8px; padding:6px 10px; text-align:center; }
+  .ktv { font-size:16px; font-weight:700; color:#075276; }
+  .ktl { font-size:10px; color:#5c7a89; text-transform:uppercase;
           letter-spacing:.3px; margin-top:1px; }
-  .srow { font-size:13px; color:#33566b; margin-top:6px;
-          line-height:1.5; }
-  .srow b { color:#16323f; font-weight:600; }
   .nearsub { font-size:11px; color:#7a919c; margin-top:2px; }
+  /* Playas cercanas: miniatura Esri + nombre + píldora de
+     distancia (roja solo <500 m), separadas por hairlines */
   .nbrow { display:flex; align-items:center; gap:10px;
-          margin-top:8px; padding:7px 10px;
-          border-left:3px solid; background:#f4f9fb;
-          border-radius:0 8px 8px 0; text-decoration:none; }
+          padding:4px 4px 8px; margin-top:8px; border:0;
+          border-bottom:1px solid rgba(143,163,173,.4);
+          background:none; text-decoration:none; width:100%;
+          font:inherit; text-align:left; cursor:pointer; }
+  .nbrow.nblast { border-bottom:0; padding-bottom:4px;
+          margin-bottom:2px; }
   .nbrow:hover { background:#e8f2f7; }
+  .nbth { width:52px; height:52px; border-radius:8px;
+          flex:none; background:#dfeef1; }
   .nbname { font-size:13px; font-weight:600; color:#16323f; }
   .nbmeta { font-size:11px; color:#7a919c; margin-top:1px; }
-  .nbdist { font-size:14px; font-weight:700; white-space:nowrap; }
-  .nbchev { font-size:16px; font-weight:600; color:#a8c0cc; }
-  /* Fila multipunto: abre el selector de zonas en vez de navegar */
-  button.nbrow { border:0; border-left:3px solid;
-          font:inherit; text-align:left; cursor:pointer;
-          width:100%; }
+  .nbpill { border:1px solid #075276; border-radius:8px;
+          padding:4px 10px; font-size:12px; font-weight:700;
+          color:#16323f; white-space:nowrap; }
+  .nbpill.hot { border-color:transparent;
+          background:rgba(213,0,0,.12); color:#d50000; }
+  .nbchev { font-size:16px; font-weight:600; color:#075276;
+          padding-right:2px; }
   .nbzn { font-weight:600; color:#075276; }
   /* Hoja del selector de zonas — réplica del ZonePicker de la
      app: scrim + tarjeta desde abajo con una fila por zona */
@@ -335,107 +403,168 @@
       </div>
     </div>
     <div class="body">
-      <div class="chiprow"><span class="chip">{{ label }}</span>
+      <div class="chiprow">
         <button class="shr" id="shrbtn" type="button"><img
           src="/icons/icon-share-outline.png" alt="">Compartir</button></div>
-      <div class="opbox">
-        {%- if operation %}<p>{{ operation }}</p>{% endif %}
-        <p><b style="color:{{ risk.color }}">{{ risk.label }}</b>
-          {%- if risk.reasons %} — {{ risk.reasons | join(', ') }}.{%
-          endif %}</p>
+      <div class="triage" style="border-color:{{ color }}66;
+        background:{{ color }}0d">
+        <div class="tcell">
+          <div class="tlabel">Estado legal</div>
+          {%- if status_key == 'illegal' %}
+          <div class="tproh"><img src="/icons/icon-faucet.png" alt="">
+            <span class="tring"></span><span class="tslash"></span></div>
+          <div class="tstamp">ILEGAL</div>
+          {%- else %}
+            {%- if status_key == 'legal' %}
+            <div class="tbadge" style="background:{{ color }}">✓</div>
+            {%- else %}
+            <div class="tclip"><img src="/icons/icon-tramite.png"
+              alt=""></div>
+            {%- endif %}
+          <div class="tval" style="color:{{ color }}">{{ label }}</div>
+          {%- endif %}
+        </div>
+        <div class="tdiv"></div>
+        <div class="tcell mid">
+          <div class="tlabel">Funcionamiento</div>
+          <img class="ticon" src="/icons/icon-waves2.png" alt="">
+          <div class="tval"{% if funcionamiento == 'Sin datos'
+            %} style="color:#8fa3ad"{% endif %}>{{ funcionamiento
+            }}</div>
+        </div>
+        <div class="tdiv"></div>
+        <div class="tcell">
+          <div class="tlabel">Riesgo</div>
+          <div class="tpulse" style="--pd:{{ {'alto':'0.9s',
+            'medio':'1.5s','bajo':'2.6s'}[risk.level] }}">
+            <span class="phalo" style="background:{{ risk.color
+              }}"></span>
+            <span class="pcore" style="background:{{ risk.color
+              }}"></span>
+          </div>
+          <div class="tval" style="color:{{ risk.color }}">
+            {{- risk.level | capitalize }}</div>
+        </div>
       </div>
+      {%- if op_detail %}<p class="opline">{{ op_detail }}</p>
+      {%- endif %}
       {%- if protected %}
       <div class="pbox">
         <div class="pt">Emisario en espacio protegido</div>
-        <div class="pn">Este emisario está dentro de la
-          {{ protected.name }}, una Zona Especial de Conservación de
-          la red Natura 2000{{ protected.note }}.</div>
+        <div class="pn">Está dentro de la
+          {{ protected.name }}, una <b>Zona Especial de
+          Conservación</b> de la red Natura 2000{{ protected.note }}.
+        </div>
       </div>
       {%- endif %}
-      {%- if nature or responsible %}
+      {%- if nature %}
       <div class="herobox">
         <div class="sechead">
           <img src="/icons/icon-faucet.png" alt="">
           <span>Qué se vierte</span>
         </div>
-        {%- if nature %}
         {%- if parts|length == 1 %}
         <div class="hlead"><b>{{ origin_label or parts[0].label
           }}</b>: vierte <b>{{ nature | lower }}{% if parts[0].desc %}
           ({{ parts[0].desc }}){% endif %}</b></div>
+        {%- if parts[0].note %}
         <div class="hnote">{{ parts[0].note | capitalize }}</div>
+        {%- endif %}
+        {%- if parts[0].verdict %}
+        <div class="hverd" style="color:{{ '#c62828'
+          if parts[0].verdict_bad else '#0d9488' }}">{{ parts[0].verdict
+          }}</div>
+        {%- endif %}
         {%- else %}
         <div class="hval">{{ nature }}</div>
         {%- if origin_label %}<div class="hsub">{{ origin_label }}</div>
         {%- endif %}
         {%- for pt in parts %}
-        <div class="hnote"><b>{{ pt.label | capitalize
-          }}{% if pt.colon %}:{% endif %}{% if pt.desc %}
-          {{ pt.desc }}{% endif %}</b>{% if pt.colon %}
-          {% else %} —{% endif %} {{ pt.note }}</div>
+        {%- set dup = origin_label and pt.label | lower
+          == origin_label | lower %}
+        <div class="hnote">{%- if not dup %}<b>{{ pt.label
+          | capitalize }}{% if pt.colon %}:{% endif %}</b>{% endif -%}
+          {%- if pt.desc %}<b>{% if dup %}{{ pt.desc | capitalize
+            }}{% else %} {{ pt.desc }}{% endif %}</b>{% endif -%}
+          {%- if pt.note %}{% if dup and not pt.desc %}{{ pt.note
+            | capitalize }}{% elif pt.colon %} {{ pt.note }}{% else %}
+            — {{ pt.note }}{% endif %}{% endif -%}
+          {%- if pt.verdict %} <b style="color:{{ '#c62828'
+            if pt.verdict_bad else '#0d9488' }}">{{ pt.verdict }}</b>
+          {%- endif %}</div>
         {%- endfor %}
-        {%- endif %}
-        {%- endif %}
-        {%- if responsible %}
-        <div class="hresp">Responsable: <b>{{ responsible }}</b></div>
         {%- endif %}
       </div>
       {%- endif %}
-      {%- if place_text or conduit or condition or kpis %}
+      {%- if zone_lead or where_rows or tiles %}
       <div class="seccard">
         <div class="sechead">
           <img src="/icons/icon-map.png" alt="">
           <span>Dónde y cómo</span>
         </div>
-        {%- if place_text %}<div class="srow">{{ place_text }}</div>
+        {%- if zone_lead %}<div class="wlead">{{ zone_lead }}</div>
         {%- endif %}
-        {%- if kpis %}
-        <div class="srow kpirow">
-          <span class="kpilead">{{ kpi_lead }}</span>
-          {%- for k in kpis %}
-          <div class="kpi"><div class="kv">{{ k.v }}</div>
-            <div class="kl">{{ k.l }}</div></div>
+        {%- for r in where_rows %}
+        <div class="wrow">
+          <span class="wico">
+            {%- if r.icon == 'pin' %}<span class="locpin"><span
+              class="lpd"><span class="lpt"></span></span></span>
+            {%- else %}<img src="/icons/{{ r.icon }}.png" alt=""
+              {% if r.icon == 'icon-townhall' %} class="big"
+              {% endif %}>{% endif %}
+          </span>
+          <div class="wtxt"><b class="wlab">{{ r.label }}:</b>
+            {%- if r.segs %} {% for s in r.segs %}{% if s.b %}<b>{{ s.t
+              }}</b>{% else %}{{ s.t }}{% endif %}{% endfor %}
+            {%- elif r.color %} <b style="color:{{ r.color }}">{{
+              r.value }}</b>
+            {%- else %} {{ r.value }}{% endif %}
+          </div>
+        </div>
+        {%- endfor %}
+        {%- if tiles %}
+        <div class="kts">
+          {%- for t in tiles %}
+          <div class="kt"><div class="ktl">{{ t.lead }}</div>
+            <div class="ktv">{{ t.v }}</div>
+            <div class="ktl">{{ t.l }}</div></div>
           {%- endfor %}
         </div>
-        {%- elif conduit %}
-        <div class="srow">
-          {%- for s in conduit %}
-          {%- if s.b %}<b>{{ s.t }}</b>{% else %}{{ s.t }}{% endif -%}
-          {%- endfor %}
-        </div>
-        {%- endif %}
-        {%- if condition %}
-        <div class="srow">Su estado es <b style="color:
-          {{ condition.color }}">{{ condition.text }}</b>.</div>
         {%- endif %}
       </div>
       {%- endif %}
       {%- if nearby %}
       <div class="seccard">
         <div class="sechead">
-          <img src="/icons/icon-wave.png" alt="">
+          <span class="locpin"><span class="lpd"><span
+            class="lpt"></span></span></span>
           <span>Playas cercanas</span>
         </div>
         {%- for n in nearby %}
         {%- if n.zones|length > 1 %}
-        <button type="button" class="nbrow" data-zopen="zp{{ loop.index }}"
-          style="border-left-color:{{ n.dcol }}">
-          <div style="flex:1;min-width:0"><div class="nbname">{{ n.name }}</div>
-          <div class="nbmeta">{% if n.muni %}{{ n.muni }} · {% endif %}<span
-            class="nbzn">{{ n.zones|length }} zonas</span></div></div>
-          <span class="nbdist" style="color:{{ n.dcol }}">{{ n.dist
-            }} m</span>
-          <span class="nbchev" style="color:{{ n.dcol }}">›</span>
+        <button type="button" class="nbrow{% if loop.last %} nblast
+          {%- endif %}" data-zopen="zp{{ loop.index }}">
+          <img class="nbth" src="{{ n.thumb }}" alt="">
+          <div style="flex:1;min-width:0"><div class="nbname">{{ n.name
+            }}</div>
+          <div class="nbmeta">{% if n.muni %}{{ n.muni }} · {% endif %}
+            <span class="nbzn">{{ n.zones|length }} zonas</span></div>
+          </div>
+          <span class="nbpill{% if n.hot %} hot{% endif %}">{{ n.dist_s
+            }}</span>
+          <span class="nbchev">›</span>
         </button>
         {%- else %}
-        <a class="nbrow" style="border-left-color:{{ n.dcol }}"
+        <a class="nbrow{% if loop.last %} nblast{% endif %}"
           href="/b/{{ n.zones[0].beach_id }}">
-          <div style="flex:1"><div class="nbname">{{ n.name }}</div>
+          <img class="nbth" src="{{ n.thumb }}" alt="">
+          <div style="flex:1;min-width:0"><div class="nbname">{{ n.name
+            }}</div>
           {%- if n.muni %}<div class="nbmeta">{{ n.muni }}</div>
           {%- endif %}</div>
-          <span class="nbdist" style="color:{{ n.dcol }}">{{ n.dist
-            }} m</span>
-          <span class="nbchev" style="color:{{ n.dcol }}">›</span>
+          <span class="nbpill{% if n.hot %} hot{% endif %}">{{ n.dist_s
+            }}</span>
+          <span class="nbchev">›</span>
         </a>
         {%- endif %}
         {%- endfor %}
@@ -460,7 +589,7 @@
               {%- if z.slabel %}<div class="zst"
                 style="color:{{ z.scol }}">{{ z.slabel }}</div>
               {%- endif %}</div>
-            <span class="zdist">{{ z.dist }} m</span>
+            <span class="zdist">{{ z.dist_s }}</span>
             <span class="nbchev">›</span>
           </a>
           {%- endfor %}
@@ -526,15 +655,14 @@
         <div class="ngroup">En la zona</div>
         {{ news_years(news.zone_groups) }}
         {%- endif %}
-        <div class="nearsub" style="margin-top:10px">Según prensa:
-          la proximidad no implica causalidad</div>
       </div>
       {%- endif %}
       {%- if source_url %}
       <p class="src">Fuente: <a href="{{ source_url }}">Censo Vertidos
         Tierra-Mar 2025 ↗</a></p>
       {%- endif %}
-      <p class="src">El riesgo es una estimación del censo</p>
+      <p class="src">Según prensa: la proximidad no implica causalidad
+        · El riesgo es una estimación del censo</p>
       <div class="actrow">
         <a class="open" href="{{ deep }}" onclick="openApp(); return false;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"

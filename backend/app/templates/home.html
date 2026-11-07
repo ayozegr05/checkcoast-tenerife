@@ -46,7 +46,10 @@
   /* El buscador vive anclado a la esquina superior-derecha de
      la tira (alineado con la fila 1), fuera del flujo: las dos
      frases quedan centradas respecto a todo el ancho */
-  .sbx { position:absolute; right:14px; top:18px;
+  /* translateY crea un contexto de apilado: el z-index de .bres
+     solo compite DENTRO de .sbx. Hay que subir .sbx entero por
+     encima de la card del mapa (que viene después en el DOM) */
+  .sbx { position:absolute; right:14px; top:18px; z-index:30;
           transform:translateY(-50%); }
   .sbx input { font:inherit; font-size:12px; color:#16323f;
           width:200px; padding:6px 10px 6px 28px;

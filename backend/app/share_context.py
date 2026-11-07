@@ -1694,7 +1694,10 @@ _RISK_LABEL = {
     "medio": "Riesgo medio",
     "bajo": "Riesgo bajo",
 }
-_RISK_COLOR = {"alto": "#d84315", "medio": "#f9a825", "bajo": "#0d9488"}
+# Mismos colores que colors.risk de la app: el alto comparte el
+# rojo del censo ilegal — en el triaje conviven y dos rojos
+# distintos leían como error
+_RISK_COLOR = {"alto": "#d50000", "medio": "#f9a825", "bajo": "#0d9488"}
 
 _NEARBY_BEACH_RADIUS_M = 1500  # mismo radio que /outfalls/{id}/nearby-beaches
 
@@ -1707,6 +1710,23 @@ _ZONE_STATE = {
     "structural": ("#7a1f1f", "Cerrada"),
     "unknown": ("#8fa3ad", None),
 }
+
+
+def _fmt_dist(m: float) -> str:
+    """Port de fmtDistance: '296 m' / '1.0 km'."""
+    return f"{round(m)} m" if m < 1000 else f"{m / 1000:.1f} km"
+
+
+def _esri_thumb(lon: float, lat: float) -> str:
+    """Miniatura cuadrada Esri (port de thumbUrl): scale 0.2 ≈ 146 m
+    de encuadre — el máximo zoom antes de que la imagen se pixelice."""
+    d = 0.0033 * 0.2
+    return (
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        f"World_Imagery/MapServer/export?bbox={lon - d},{lat - d},"
+        f"{lon + d},{lat + d}&bboxSR=4326&imageSR=4326&size=160,160"
+        "&format=png&f=image"
+    )
 
 
 def _cap1(s: str) -> str:
@@ -1746,12 +1766,12 @@ def _protected_area_name(s: str) -> str:
 def _protected_area_note(s: str) -> str:
     if re.search(r"Teno\s*-\s*Rasca", s, re.I):
         return (
-            " — hogar de calderones tropicales y delfines mulares,"
+            ", hogar de calderones tropicales y delfines mulares,"
             " con cachalotes y tortugas de paso"
         )
     if re.search(r"Sebadales", s, re.I):
         return (
-            " — protege praderas de sebada, fanerógamas marinas"
+            ", que protege praderas de sebada, fanerógamas marinas"
             " que sirven de criadero de peces"
         )
     return ""
@@ -1857,6 +1877,18 @@ def _nature_parts(
     pretreated = "pretratamiento" in o or "pretratamiento" in zd
     parts = []
     industrial_only = "industrial" in n and "urbana" not in n
+    # El veredicto de tratamiento va en línea propia coloreada — es
+    # la conclusión, no una nota gris. EDAR/ETAR/depuradora → sale
+    # depurada; red/bombeo/aliviadero → en bruto. Sin origen claro
+    # no se inventa el veredicto (port de natureParts)
+    treated = (
+        not pretreated
+        and re.search(r"e[dt]a[rs]|depuradora|tratamiento", o) is not None
+        and not re.search(r"ebar|bombeo|aliviadero|saneamiento|red", o)
+    )
+    raw = not pretreated and re.search(
+        r"ebar|bombeo|aliviadero|saneamiento|red", o
+    )
     if "residual" in n:
         src = (
             "Estación de pretratamiento"
@@ -1886,12 +1918,25 @@ def _nature_parts(
                     "restos de la actividad de la planta — el impacto"
                     " depende de la industria y su tratamiento."
                     if industrial_only
-                    else "solo filtra lo grueso (sólidos, arenas y"
-                    " grasas) — el agua sale sin depurar."
+                    else "solo filtra lo grueso (sólidos, arenas y grasas)."
                     if pretreated
+                    else None
+                    if treated or raw
                     else "el riesgo depende del tratamiento: depurada"
                     " es leve, en bruto es contaminación fecal."
                 ),
+                "verdict": (
+                    None
+                    if industrial_only
+                    else "El agua sale sin depurar."
+                    if pretreated
+                    else "Sale depurada: impacto leve sobre el agua."
+                    if treated
+                    else "Vierte en bruto: puede llevar contaminación fecal."
+                    if raw
+                    else None
+                ),
+                "verdict_bad": bool(pretreated or raw),
             }
         )
     if "salmuera" in n:
@@ -1922,6 +1967,8 @@ def _nature_parts(
                 "name": "salmuera",
                 "desc": "concentrado de sal",
                 "note": note,
+                "verdict": None,
+                "verdict_bad": False,
             }
         )
     if "piscina" in n:
@@ -1935,6 +1982,8 @@ def _nature_parts(
                 "name": "agua de piscinas",
                 "desc": "con cloro y sal",
                 "note": "impacto leve y puntual.",
+                "verdict": None,
+                "verdict_bad": False,
             }
         )
     if "refrigeración" in n:
@@ -1944,6 +1993,8 @@ def _nature_parts(
                 "name": "agua de refrigeración",
                 "desc": "sale más caliente que el mar",
                 "note": "impacto leve y puntual.",
+                "verdict": None,
+                "verdict_bad": False,
             }
         )
     if "pluvial" in n:
@@ -1953,6 +2004,8 @@ def _nature_parts(
                 "name": "agua de lluvia",
                 "desc": "arrastra aceites, metales y suciedad de las calles",
                 "note": "no es fecal, pero tras la sequía sale cargada.",
+                "verdict": None,
+                "verdict_bad": False,
             }
         )
     multi = len(parts) > 1
@@ -1965,6 +2018,8 @@ def _nature_parts(
             ),
             "desc": pt["desc"],
             "note": pt["note"],
+            "verdict": pt["verdict"],
+            "verdict_bad": pt["verdict_bad"],
             "colon": multi or bool(pt["desc"]),
         }
         for pt in parts
@@ -1975,9 +2030,12 @@ def _operation_text(active: bool | None, continuity: str | None) -> str | None:
     """EstadoFunc + ContinVert en una frase legible — evita la aparente
     contradiccion 'no activo pero vertido habitual'."""
     habitual = continuity == "Habitual"
+    # "De excedencia-emergencia" del censo = válvula de escape que
+    # solo abre cuando el sistema se desborda — no "emergencia" en
+    # sentido de catástrofe
     overflow = (
-        "cuando el sistema se desborda (lluvia fuerte, avería o más"
-        " caudal del que la depuradora puede tratar)"
+        "cuando el sistema se desborda: lluvia fuerte, avería o más"
+        " caudal del que la depuradora puede tratar"
     )
     if active is True:
         if continuity is None:
@@ -2002,6 +2060,62 @@ def _operation_text(active: bool | None, continuity: str | None) -> str | None:
         "Pensado para vertido habitual."
         if habitual
         else f"Pensado para abrir solo {overflow}."
+    )
+
+
+def _operation_short(active: bool | None, continuity: str | None) -> str:
+    """Celda "Funcionamiento" del triaje (port de operationShort):
+    operationText comprimido a su titular — el matiz completo va
+    en la frase de detalle."""
+    habitual = continuity == "Habitual"
+    if active is True:
+        if continuity is None:
+            return "En funcionamiento"
+        return "Vierte a diario" if habitual else "Solo al desbordarse"
+    if active is False:
+        return "Ahora no vierte"
+    if continuity is None:
+        return "Sin datos"
+    return "Vertido habitual" if habitual else "Solo al desbordarse"
+
+
+def _smart_title(s: str) -> str:
+    """Responsables del censo en mayúsculas ('CLUB NAUTICO DE
+    BAJAMAR' → 'Club Nautico de Bajamar') — port de smartTitle:
+    solo reescribe si TODO viene en mayúsculas; conectores en
+    minúscula y siglas conocidas se conservan."""
+    if not re.search(r"[A-ZÁÉÍÓÚÑ]", s) or re.search(r"[a-záéíóúñ]", s):
+        return s
+    small = {
+        "de",
+        "del",
+        "la",
+        "el",
+        "los",
+        "las",
+        "y",
+        "en",
+        "a",
+        "al",
+        "con",
+        "por",
+        "para",
+    }
+    acronym = re.compile(
+        r"^(CEPSA|E[DTBA]A[RMS]I?|PM\d*|[IVXLCDM]+|S\.?A\.?|S\.?L\.?)$", re.I
+    )
+
+    def _w(w: str, i: int) -> str:
+        if acronym.match(w):
+            return w.upper()
+        if i > 0 and w in small:
+            return w
+        return w[0].upper() + w[1:]
+
+    return re.sub(
+        r"-([a-záéíóúñ])",
+        lambda m: f"-{m.group(1).upper()}",
+        " ".join(_w(w, i) for i, w in enumerate(s.lower().split(" "))),
     )
 
 
@@ -2208,6 +2322,8 @@ def outfall_context(
     nearby_rows = (
         db.query(
             Beach,
+            func.ST_X(Beach.geom).label("blon"),
+            func.ST_Y(Beach.geom).label("blat"),
             func.ST_Distance(Beach.geom.cast(Geography), outfall_geog).label(
                 "distance_m"
             ),
@@ -2224,7 +2340,7 @@ def outfall_context(
     )
     groups: dict[str, dict] = {}
     order: list[str] = []
-    for b, dist in nearby_rows:
+    for b, blon, blat, dist in nearby_rows:
         base = _beach_base_name(b.name)
         g = groups.get(base)
         if g is None:
@@ -2241,24 +2357,28 @@ def outfall_context(
                 "beach_id": b.id,
                 "tag": _zone_suffix(db, b).lstrip(" ·") or "Zona",
                 "dist": round(dist),
+                "dist_s": _fmt_dist(dist),
                 "scol": scol,
                 "slabel": slabel,
+                "coords": (blon, blat),
             }
         )
     nearby = []
     for base in order:
         g = groups[base]
         dist = min(z["dist"] for z in g["zones"])
-        g["dist"] = dist
-        # Barra de exposicion por distancia (misma escala que la app):
-        # <500 pegado, <1000 alcance, resto diluido
-        g["dcol"] = (
-            "#c62828"
-            if dist < 500
-            else "#e65100"
-            if dist < 1000
-            else "#f9a825"
-        )
+        g["dist_s"] = _fmt_dist(dist)
+        # Solo <500 m se enciende en la píldora (misma regla que la
+        # app): en campo cercano la dilución aún no ha hecho su
+        # trabajo — "pegada" es un umbral honesto, no un semáforo
+        # de precisión inventado
+        g["hot"] = dist < 500
+        # Miniatura Esri del arenal (thumbUrl de la app): reconocer
+        # la playa de un vistazo vende mejor que el nombre
+        lon, lat = min(g["zones"], key=lambda z: z["dist"])["coords"]
+        g["thumb"] = _esri_thumb(lon, lat)
+        for z in g["zones"]:
+            del z["coords"]
         nearby.append(g)
         if len(nearby) >= 5:
             break
@@ -2270,17 +2390,18 @@ def outfall_context(
         if v and (not zone_line or v.lower() not in zone_line.lower())
     ]
     where_extra = list(dict.fromkeys(where_extra))
-    place_text = (
-        f"{zone_line[:-1]}, {', '.join(where_extra)}."
-        if zone_line and where_extra
-        else zone_line
-        if zone_line
-        else f"Está en {', '.join(where_extra)}."
-        if where_extra
-        else None
-    )
 
     operation = _operation_text(outfall.is_active, outfall.continuity)
+    # Detalle bajo el triaje (port de operationDetail): la frase
+    # completa solo cuando añade algo que la celda no dice —
+    # "Vierte a diario"/"En funcionamiento" ya la cuentan; los
+    # desbordes, las paradas y el régimen sin estado sí aportan
+    op_detail = (
+        None
+        if outfall.is_active is True
+        and outfall.continuity in (None, "Habitual")
+        else operation
+    )
     risk = _outfall_risk(outfall)
     parts = (
         _nature_parts(
@@ -2292,46 +2413,114 @@ def outfall_context(
         if outfall.nature
         else []
     )
-    conduit = _conduit_segs(
-        outfall.kind,
-        outfall.shore_m,
-        outfall.length_m,
-        outfall.outfall_depth,
-    )
-    # KPI tiles del dato hero: distancia a orilla y profundidad del
-    # vertido — los números que el ciudadano escanea primero, en
-    # sustitución de la frase (no el dato dos veces). Si el vertido
-    # sale a ras de mar la frase cuenta algo que la tile no cubre —
-    # entonces se conserva el texto
-    kpis = []
+    # Tiles numéricos del dato hero (port de kpiSegs + tile de
+    # longitud): "vierte a / 4 m / de la orilla · mide / 100 m / de
+    # longitud". Con tiles la fila Conducción se reduce al tipo; el
+    # vertido a ras de mar lleva tile "0 m" — la gramática numérica
+    # se mantiene sin fingir profundidad
+    tiles = []
     if outfall.shore_m is not None:
-        kpis.append({"v": f"{round(outfall.shore_m)} m", "l": "de la orilla"})
-    if outfall.outfall_depth is not None and outfall.outfall_depth < 0:
-        kpis.append(
+        tiles.append(
             {
+                "lead": "vierte a",
+                "v": f"{round(outfall.shore_m)} m",
+                "l": "de la orilla",
+            }
+        )
+    if outfall.outfall_depth == 0:
+        tiles.append({"lead": "vierte a", "v": "0 m", "l": "a ras de mar"})
+    elif outfall.outfall_depth is not None:
+        tiles.append(
+            {
+                "lead": "vierte a",
                 "v": f"{abs(outfall.outfall_depth):g} m",
-                "l": "de profundidad",
+                "l": (
+                    "bajo el mar"
+                    if outfall.outfall_depth < 0
+                    else "sobre el mar"
+                ),
             }
         )
-    elif outfall.outfall_depth is not None and outfall.outfall_depth > 0:
-        # Elevado: el tubo desemboca sobre la lámina — la altura es el
-        # dato honesto, no hay profundidad que ocultar
-        kpis.append(
+    if outfall.length_m is not None:
+        tiles.append(
             {
-                "v": f"{outfall.outfall_depth:g} m",
-                "l": "sobre el mar",
+                "lead": "mide",
+                "v": (
+                    f"{outfall.length_m / 1000:.1f} km"
+                    if outfall.length_m >= 1000
+                    else f"{round(outfall.length_m)} m"
+                ),
+                "l": "de longitud",
             }
         )
-    # depth == 0 ("a ras de mar") se queda en frase: una tile de 0 m
-    # sería ruido, no información
-    kpi_mode = bool(kpis) and (outfall.outfall_depth != 0)
+    # Conducción como frase solo cuando no hay tiles — si no, el
+    # número ya lo cuenta el tile y la fila basta con el tipo
+    conduit = (
+        None
+        if tiles
+        else _conduit_segs(
+            outfall.kind,
+            outfall.shore_m,
+            outfall.length_m,
+            outfall.outfall_depth,
+        )
+    )
+    conduit_row = (
+        [s for s in conduit if s["t"] != "."]
+        if conduit
+        else [{"t": _cap1(outfall.kind)}]
+        if outfall.kind
+        else None
+    )
+    condition = (
+        {
+            "text": _cap1(outfall.condition.lower()),
+            "color": _CONDITION_COLOR.get(outfall.condition, "#16323f"),
+            "icon": "icon-ok" if outfall.condition == "Bueno" else "icon-warn",
+        }
+        if outfall.condition
+        else None
+    )
+    # "Dónde y cómo" como ficha técnica: filas etiqueta+dato con
+    # icono — el responsable vive aquí (es administrativo, igual que
+    # en la app), no en "Qué se vierte"
+    where_rows: list[dict] = []
+    if where_extra:
+        where_rows.append(
+            {
+                "icon": "pin",
+                "label": "Ubicación",
+                "value": ", ".join(where_extra),
+            }
+        )
+    if conduit_row:
+        where_rows.append(
+            {"icon": "icon-waves2", "label": "Conducción", "segs": conduit_row}
+        )
+    if condition:
+        where_rows.append(
+            {
+                "icon": condition["icon"],
+                "label": "Estado de la conducción",
+                "value": condition["text"],
+                "color": condition["color"],
+            }
+        )
+    responsible = _smart_title(outfall.entity or outfall.manager or "")
+    if responsible:
+        where_rows.append(
+            {
+                "icon": "icon-townhall",
+                "label": "Responsable",
+                "value": responsible,
+            }
+        )
     protected = None
     if outfall.protected_area:
         protected = {
             "name": _protected_area_name(outfall.protected_area),
             "note": _protected_area_note(outfall.protected_area),
         }
-    responsible = outfall.entity or outfall.manager
 
     status_counts = _live_status_counts(db, effs)
     total_beaches = db.query(func.count(Beach.id)).scalar()
@@ -2425,9 +2614,13 @@ def outfall_context(
         "start": start,
         "dots_levels": dots_levels,
         "pin": _OUTFALL_PIN.get(status, _OUTFALL_PIN["unknown"]),
+        "status_key": status,
         "label": label,
         "color": color,
-        "operation": operation,
+        "funcionamiento": _operation_short(
+            outfall.is_active, outfall.continuity
+        ),
+        "op_detail": op_detail,
         "risk": risk,
         "protected": protected,
         "nature": outfall.nature,
@@ -2435,21 +2628,9 @@ def outfall_context(
             _origin_label(outfall.origin) if outfall.origin else None
         ),
         "parts": parts,
-        "responsible": responsible,
-        "place_text": place_text,
-        "conduit": None if kpi_mode else conduit,
-        "kpi_lead": (
-            f"{conduit[0]['t']} vierte a:" if kpi_mode and conduit else None
-        ),
-        "kpis": kpis if kpi_mode else [],
-        "condition": (
-            {
-                "text": outfall.condition.lower(),
-                "color": _CONDITION_COLOR.get(outfall.condition, "#0d3a52"),
-            }
-            if outfall.condition
-            else None
-        ),
+        "zone_lead": zone_line,
+        "where_rows": where_rows,
+        "tiles": tiles,
         "nearby": nearby,
         "news": news,
         "source_url": outfall.source_url,
