@@ -90,10 +90,16 @@ export function useMapCamera({
   // con outfallSheetTop abajo; aquí solo evitamos que el pin
   // arranque dentro de la ficha
   const outfallSheetOcc = Math.min(Math.round(winH * 0.5) + 44, winH - 220);
-  // El nombre del vertido se dibuja BAJO el pin (~16px/línea a 13px,
-  // ~15 caracteres por línea con wrap por palabra, sobre la etiqueta
-  // ya acortada sin "Valle de…"): cada línea pide su reserva bajo el
-  // punto o la card se la come — el +12 es aire entre label y ficha
+  // El pin se aparca JUSTO SOBRE el borde de la ficha (misma lectura
+  // que las playas), no centrado en la franja libre: con fichas
+  // bajas el centro quedaba a media pantalla. El nombre del vertido
+  // se dibuja BAJO el pin (~16px/línea a 13px, ~15 caracteres por
+  // línea con wrap por palabra, sobre la etiqueta ya acortada sin
+  // "Valle de…") — la reserva es etiqueta + ~10px de aire. Dado el
+  // objetivo de altura en pantalla (sheetTop - etiqueta - aire), el
+  // padding inferior sale de bottom = winH - 2·target + top
+  const outfallBottomFor = (sheetTop: number, lines: number) =>
+    Math.min(winH - 2 * (sheetTop - (lines * 16 + 10)) + 120, winH - 180);
   const outfallPadFor = (name?: string | null) => {
     const lines = Math.max(
       1,
@@ -101,13 +107,13 @@ export function useMapCamera({
     );
     return {
       top: 120,
-      bottom: Math.min(outfallSheetOcc + lines * 16 + 12, winH - 180),
+      bottom: outfallBottomFor(winH - outfallSheetOcc, lines),
     };
   };
   // Foco externo sin nombre a la mano: peor caso de etiqueta (2 líneas)
   const outfallPad = {
     top: 120,
-    bottom: Math.min(outfallSheetOcc + 44, winH - 180),
+    bottom: outfallBottomFor(winH - outfallSheetOcc, 2),
   };
 
   // Vista actual + vista guardada antes de volar a un pin (para
@@ -312,10 +318,7 @@ export function useMapCamera({
       zoom: lastView.current.zoom,
       padding: {
         top: 120,
-        bottom: Math.min(
-          Math.round(winH - outfallSheetTop) + lines * 16 + 8,
-          winH - 180,
-        ),
+        bottom: outfallBottomFor(outfallSheetTop, lines),
       },
       duration: 450,
     });

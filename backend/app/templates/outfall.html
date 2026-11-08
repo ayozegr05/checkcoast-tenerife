@@ -94,10 +94,11 @@
   .head { background:{{ head_bg }}; color:#fff;
           padding:18px 20px 14px; text-align:center;
           position:relative; }
-  /* Margen derecho generoso: la píldora Compartir flota en la
-     esquina y un nombre largo no debe pasar por debajo */
-  .head h1 { margin:0 86px 0 24px; font-size:20px; }
-  .head p { margin:4px 86px 0 24px; font-size:13px; opacity:.9; }
+  /* Márgenes simétricos: el icono Compartir flota en la esquina y
+     un nombre largo no pasa por debajo — y el título queda centrado
+     de verdad (margen asimétrico lo desplazaba a la izquierda) */
+  .head h1 { margin:0 56px; font-size:20px; }
+  .head p { margin:4px 56px 0; font-size:13px; opacity:.9; }
   .shotwrap { position:relative; }
   .wave { position:absolute; top:0; left:0; width:100%; height:22px;
           z-index:2; display:block; }
@@ -343,17 +344,20 @@
   .src a:hover { text-decoration:underline; }
   .actrow { display:flex; align-items:center; gap:8px;
           margin-top:16px; }
-  /* Compartir en la cabecera (esquina superior): píldora clara sobre
-     la banda de estado, misma posición que en la hoja de la app */
+  /* Compartir en la cabecera (esquina superior): cuadrado claro
+     solo-icono sobre la banda de estado, como en la hoja de la app */
   .shr { position:absolute; top:14px; right:14px;
-          display:flex; align-items:center; gap:5px;
+          display:flex; align-items:center; justify-content:center;
           border:0; background:rgba(255,255,255,.92);
-          color:#16323f; font-family:inherit; font-size:11px;
-          font-weight:700; border-radius:8px; padding:6px 9px;
+          color:#16323f; font-family:inherit; font-size:12px;
+          font-weight:700; border-radius:8px; padding:7px;
           cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.2); }
-  .shr img { width:12px; height:12px; }
+  .shr img { width:13px; height:13px; display:block; }
   .shr:hover { background:#fff; }
   .shr:active { opacity:.75; }
+  /* Feedback de copia sin texto en el botón: un ✓ asoma a la
+     derecha del icono un momento */
+  .shr.ok::after { content:'✓'; margin-left:4px; }
   .open { flex:1; display:block; text-align:center;
           background:linear-gradient(90deg,#075276,#17b8ce); color:#fff;
           font-weight:700; padding:12px 10px; border-radius:12px;
@@ -382,8 +386,9 @@
   </div>
   <div class="card">
     <div class="head"><h1>{{ name }}</h1><p>{{ muni }}</p>
-      <button class="shr" id="shrbtn" type="button"><img
-        src="/icons/icon-share-outline.png" alt="">Compartir</button></div>
+      <button class="shr" id="shrbtn" type="button"
+        aria-label="Compartir ficha" title="Compartir"><img
+        src="/icons/icon-share-outline.png" alt=""></button></div>
     <div class="shotwrap">
       <svg class="wave" viewBox="0 0 420 24" preserveAspectRatio="none"
         aria-hidden="true"><path fill="{{ wave_c }}"
@@ -774,9 +779,8 @@ document.getElementById('shrbtn').onclick = async function () {
   var b = this;
   try {
     await navigator.clipboard.writeText(u);
-    b.lastChild.textContent = '¡Copiado!';
-    setTimeout(function () { b.lastChild.textContent = 'Compartir'; },
-      1600);
+    b.classList.add('ok');
+    setTimeout(function () { b.classList.remove('ok'); }, 1600);
   } catch (e) {
     window.prompt('Copia el enlace:', u);
   }

@@ -333,54 +333,6 @@ export default function MapLayers({
               'icon-ignore-placement': true,
             }}
           />
-          {/* El vertido seleccionado se repinta en capa propia con
-              tamaño fijo grande — data-driven icon-size con * se
-              lo tragaba en silencio */}
-          <Layer
-            id="outfall-icon-selected"
-            type="symbol"
-            filter={['==', ['get', 'sel'], true]}
-            layout={{
-              'icon-image': [
-                'match',
-                ['get', 'status'],
-                'legal',
-                'pin-outfall-legal',
-                'illegal',
-                'pin-outfall-illegal',
-                'pin-outfall-processing',
-              ],
-              'icon-size': 0.45,
-              'icon-anchor': 'bottom',
-              'icon-allow-overlap': true,
-              'icon-ignore-placement': true,
-            }}
-          />
-          {/* Nombre del vertido seleccionado bajo el pin — mismo
-              estilo que las etiquetas de playa; solo una feature
-              (sel) así que no compite por espacio */}
-          <Layer
-            id="outfall-label-selected"
-            type="symbol"
-            filter={['==', ['get', 'sel'], true]}
-            layout={{
-              'text-field': ['coalesce', ['get', 'label'], ['get', 'name']],
-              'text-size': 13,
-              'text-font': ['Noto Sans Bold'],
-              'text-offset': [0, 1.0],
-              'text-anchor': 'top',
-              'text-allow-overlap': true,
-              // false = SÍ registra su caja de colisión: se pinta
-              // antes que las etiquetas de playa y solo se apagan
-              // las que le solapan de verdad (el resto sigue)
-              'text-ignore-placement': false,
-            }}
-            paint={{
-              'text-color': colors.text,
-              'text-halo-color': colors.surface,
-              'text-halo-width': 2.2,
-            }}
-          />
         </GeoJSONSource>
       )}
 
@@ -814,6 +766,61 @@ export default function MapLayers({
               'text-color': colors.text,
               'text-halo-color': colors.surface,
               'text-halo-width': 2,
+            }}
+          />
+        </GeoJSONSource>
+      )}
+
+      {/* El vertido seleccionado se repinta en fuente y capas propias
+          AL FINAL del stack: declarado tras las playas gana el z-order
+          y ningún pin/etiqueta lo tapa (antes vivía dentro de la
+          fuente de emisarios, que pinta antes que todas las de playa)
+          — tamaño fijo grande, igual que el pin de playa seleccionada */}
+      {showOutfalls && (
+        <GeoJSONSource id="outfall-selected" data={visibleOutfalls}>
+          <Layer
+            id="outfall-icon-selected"
+            type="symbol"
+            filter={['==', ['get', 'sel'], true]}
+            layout={{
+              'icon-image': [
+                'match',
+                ['get', 'status'],
+                'legal',
+                'pin-outfall-legal',
+                'illegal',
+                'pin-outfall-illegal',
+                'pin-outfall-processing',
+              ],
+              'icon-size': 0.45,
+              'icon-anchor': 'bottom',
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
+            }}
+          />
+          {/* Nombre del vertido seleccionado bajo el pin — mismo
+              estilo que las etiquetas de playa; solo una feature
+              (sel) así que no compite por espacio */}
+          <Layer
+            id="outfall-label-selected"
+            type="symbol"
+            filter={['==', ['get', 'sel'], true]}
+            layout={{
+              'text-field': ['coalesce', ['get', 'label'], ['get', 'name']],
+              'text-size': 13,
+              'text-font': ['Noto Sans Bold'],
+              'text-offset': [0, 1.0],
+              'text-anchor': 'top',
+              'text-allow-overlap': true,
+              // false = SÍ registra su caja de colisión: se pinta
+              // antes que las etiquetas de playa y solo se apagan
+              // las que le solapan de verdad (el resto sigue)
+              'text-ignore-placement': false,
+            }}
+            paint={{
+              'text-color': colors.text,
+              'text-halo-color': colors.surface,
+              'text-halo-width': 2.2,
             }}
           />
         </GeoJSONSource>

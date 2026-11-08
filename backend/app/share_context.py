@@ -1491,14 +1491,12 @@ def beach_context(
         # episodio viejo aunque el actual esté listado debajo. Sin
         # corroboración el acta sigue siendo la del ancla: una pieza
         # suelta en día de reapertura es cobertura del mismo episodio
-        boundary_drop = False
         if (
             reopening_grp
             and since
             and reopening_grp[-1].closed_at == since
             and anchor_is_new_closure_wave(list(news_items), since)
         ):
-            boundary_drop = True
             reopening_grp = next(
                 (
                     g
@@ -1508,10 +1506,13 @@ def beach_context(
                 None,
             )
         press_reopen = None
-        if boundary_drop and reopening_grp is None and dom == "closure":
+        if reopening_grp is None and dom == "closure":
             # El episodio del ancla solo existe en prensa: su cierre
             # también lo documentan los medios — sin él el banner
-            # perdería el "reabrió el X" de un episodio ya resuelto
+            # perdería el "reabrió el X" de un episodio ya resuelto.
+            # Corre con cualquier episodio sin acta, no solo tras un
+            # día-frontera: Jardín 07→09/10 nunca tuvo incidencia
+            # oficial, el corte anterior dejaba el banner mudo
             press_ep = next(
                 (
                     ev

@@ -459,7 +459,15 @@ export default function BeachDetail({
         onPress={onViewOnMap}
       />
 
-      <View style={styles.topRow}>
+      <View
+        style={[
+          styles.topRow,
+          // La reserva derecha solo existe para dejar sitio al
+          // Compartir inline — sin botón empuja el chip fuera del
+          // centro (caso de la ficha dentro de la hoja)
+          hideShare && { paddingRight: 0 },
+        ]}
+      >
         <View style={[styles.chip, { backgroundColor: statusColor }]}>
           <Text style={styles.chipText}>{statusText}</Text>
           {/* Circulito de causa dentro de la píldora — mismo gesto

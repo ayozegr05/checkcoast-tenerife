@@ -426,10 +426,9 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     // margen simétrico: los botones absolutos de la esquina (share + ✕)
-    // no pisan el título aunque ocupe 2 líneas — la derecha reserva más
-    // porque apila dos botones
-    marginLeft: 54,
-    marginRight: 88,
+    // no pisan el título aunque ocupe 2 líneas, y al reservar lo mismo
+    // a ambos lados el texto queda centrado de verdad en la ficha
+    marginHorizontal: 88,
   },
   // Municipio como subtítulo: contexto geográfico, no identidad
   subtitle: {
