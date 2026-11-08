@@ -931,6 +931,31 @@ if (window.maplibregl && lmapEl && imap) {
       duration: 0
     });
     var parentEls = [], memberEls = [];
+    // ZonePicker web: lista de zonas del arenal, cada una con su
+    // estado y enlace directo a su ficha (como el sheet de la app).
+    // Lo abre el pin padre y también la sugerencia del buscador
+    function zonePop(d) {
+      var pop = document.createElement('div');
+      pop.className = 'zpop';
+      var bt = document.createElement('b');
+      bt.textContent = d.name;
+      pop.appendChild(bt);
+      d.complex.forEach(function (z) {
+        var r = document.createElement('a');
+        r.className = 'zrow';
+        r.href = '/b/' + z.bid;
+        var zn = document.createElement('span');
+        zn.textContent = z.zone;
+        var zs = document.createElement('em');
+        zs.textContent = z.label;
+        zs.style.color = z.color;
+        r.appendChild(zn); r.appendChild(zs);
+        pop.appendChild(r);
+      });
+      new maplibregl.Popup({ closeButton: true, offset: 16 })
+        .setLngLat([d.lon, d.lat]).setDOMContent(pop)
+        .addTo(lmap);
+    }
     (window.MAP_DOTS || []).forEach(function (d, i) {
       var els = [];
       if (d.alert) {
@@ -956,29 +981,7 @@ if (window.maplibregl && lmapEl && imap) {
           a.addEventListener('click', function () {
             lmap.flyTo({ center: [dd.lon, dd.lat], zoom: 14.5,
               duration: 800 });
-            // ZonePicker web: el pin padre no navega — muestra la
-            // lista de zonas del arenal, cada una con su estado y
-            // enlace directo a su ficha (como el sheet de la app)
-            var pop = document.createElement('div');
-            pop.className = 'zpop';
-            var bt = document.createElement('b');
-            bt.textContent = dd.name;
-            pop.appendChild(bt);
-            dd.complex.forEach(function (z) {
-              var r = document.createElement('a');
-              r.className = 'zrow';
-              r.href = '/b/' + z.bid;
-              var zn = document.createElement('span');
-              zn.textContent = z.zone;
-              var zs = document.createElement('em');
-              zs.textContent = z.label;
-              zs.style.color = z.color;
-              r.appendChild(zn); r.appendChild(zs);
-              pop.appendChild(r);
-            });
-            new maplibregl.Popup({ closeButton: true, offset: 16 })
-              .setLngLat([dd.lon, dd.lat]).setDOMContent(pop)
-              .addTo(lmap);
+            zonePop(dd);
           });
         })(d);
         parentEls.push.apply(parentEls, els);
@@ -1046,10 +1049,17 @@ if (window.maplibregl && lmapEl && imap) {
     var bq = document.getElementById('bq');
     var bres = document.getElementById('bres');
     function hideRes() { bres.classList.add('hidden'); }
+    // La sugerencia es intención directa: emisario o playa de una
+    // zona abren su ficha de una; solo el arenal multipunto vuela
+    // al mapa y abre el selector de zonas (como su pin padre)
     function fly(d) {
       hideRes(); bq.blur();
-      lmap.flyTo({ center: [d.lon, d.lat],
-        zoom: d.outfall ? 14 : 14.5, duration: 900 });
+      if (d.outfall) { location.href = '/o/' + d.oid; return; }
+      if (!d.complex && d.bid) {
+        location.href = '/b/' + d.bid; return;
+      }
+      lmap.flyTo({ center: [d.lon, d.lat], zoom: 14.5, duration: 900 });
+      if (d.complex) zonePop(d);
     }
     bq.addEventListener('input', function () {
       var q = norm(bq.value).trim();
@@ -1103,8 +1113,12 @@ if (window.maplibregl && lmapEl && imap) {
       bres.classList.remove('hidden');
     });
     bq.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && bres.firstChild) {
-        bres.firstChild.click();
+      if (e.key === 'Enter') {
+        // firstChild es la cabecera de grupo ("Playas"/"Emisarios"),
+        // no una fila clickable — Enter debe abrir la primera
+        // sugerencia real
+        var first = bres.querySelector('.brow');
+        if (first) first.click();
       }
       if (e.key === 'Escape') { bq.value = ''; hideRes(); }
     });
