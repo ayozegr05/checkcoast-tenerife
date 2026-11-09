@@ -4,7 +4,7 @@ import type { CameraRef } from '@maplibre/maplibre-react-native';
 
 import type { FeatureCollection, GeoFeature } from '../lib/api';
 import type { MapBeachGroup } from '../lib/mapData';
-import { shortOutfallName } from '../lib/format';
+import { outfallLabelLines } from '../lib/format';
 
 // Vista inicial: la isla entera encuadrada con margen (fitBounds se
 // adapta al tamaño de pantalla, a diferencia de un zoom fijo)
@@ -90,27 +90,23 @@ export function useMapCamera({
   // con outfallSheetTop abajo; aquí solo evitamos que el pin
   // arranque dentro de la ficha
   const outfallSheetOcc = Math.min(Math.round(winH * 0.5) + 44, winH - 220);
-  // La punta del pin se CENTRA en la franja libre [120, sheetTop]
-  // sea cual sea el largo del nombre — la etiqueta crece hacia abajo
-  // desde ahí (~13px de offset + ~16px/línea a 13px) y solo obliga
-  // a subir el pin cuando no cabe entre él y la ficha (reserva =
-  // etiqueta + ~10px de aire). Antes la reserva era fija por líneas
-  // y el pin saltaba arriba/abajo según el nombre
-  const outfallBottomFor = (sheetTop: number, lines: number) => {
-    const labelReserve = lines * 16 + 23;
-    const targetY = Math.min((120 + sheetTop) / 2, sheetTop - labelReserve);
-    return Math.min(winH - 2 * targetY + 120, winH - 180);
-  };
-  const outfallPadFor = (name?: string | null) => {
-    const lines = Math.max(
-      1,
-      Math.ceil(shortOutfallName(name ?? '').length / 15),
-    );
-    return {
-      top: 120,
-      bottom: outfallBottomFor(winH - outfallSheetOcc, lines),
-    };
-  };
+  // Misma lógica que las playas (cardPad): el pin va LO MÁS BAJO
+  // posible — aparcado sobre el borde de la ficha con la etiqueta
+  // llenando el hueco. La etiqueta del vertido se dibuja BAJO el pin
+  // (offset ~13px + ~16px/línea a 13px, wrap ~15 caracteres/línea
+  // sobre el nombre ya acortado sin "Valle de…") y deja ~26px de
+  // aire antes de la ficha, igual que la etiqueta de playa. La
+  // reserva crece con las líneas del nombre — sin ella una etiqueta
+  // de 3 líneas se comería la ficha
+  const outfallBottomFor = (sheetTop: number, lines: number) =>
+    Math.min(winH - 2 * (sheetTop - (lines * 16 + 39)) + 120, winH - 180);
+  const outfallPadFor = (name?: string | null) => ({
+    top: 120,
+    bottom: outfallBottomFor(
+      winH - outfallSheetOcc,
+      outfallLabelLines(name ?? ''),
+    ),
+  });
   // Foco externo sin nombre a la mano: peor caso de etiqueta (2 líneas)
   const outfallPad = {
     top: 120,
@@ -308,12 +304,7 @@ export function useMapCamera({
   useEffect(() => {
     if (outfallSheetTop == null || !selectedOutfall) return;
     const [lon, lat] = selectedOutfall.geometry.coordinates as [number, number];
-    const lines = Math.max(
-      1,
-      Math.ceil(
-        shortOutfallName(selectedOutfall.properties.name ?? '').length / 15,
-      ),
-    );
+    const lines = outfallLabelLines(selectedOutfall.properties.name ?? '');
     cameraRef.current?.easeTo({
       center: [lon, lat],
       zoom: lastView.current.zoom,

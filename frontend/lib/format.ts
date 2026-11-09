@@ -324,3 +324,11 @@ export const shortOutfallName = (name: string) =>
     .replace(/\bpalm-?mar\b/i, 'El Palmar')
     .replace(/\bvalle de\s+(la|los|las)\s+/i, '$1 ')
     .replace(/\bvalle de\s+/i, '');
+
+// Líneas estimadas de la etiqueta del pin: MapLibre envuelve a
+// text-max-width por defecto = 10em ≈ 130px a 13px bold ≈ 17
+// caracteres/línea sobre el nombre corto. La reserva de cámara la
+// usa para aparcar el pin sobre la ficha sin que la etiqueta la
+// pise — con /15 se sobreestimaban líneas y el pin quedaba alto
+export const outfallLabelLines = (name: string) =>
+  Math.max(1, Math.ceil(shortOutfallName(name).length / 17));
