@@ -1546,29 +1546,43 @@ def beach_context(
                 if reopening_grp
                 else f" · reabrió el {closed_after.strftime('%d/%m/%Y')}"
             )
-        press = {
-            "cls": press_cls,
-            "line": line,
-            "tag": (
-                f"según prensa · {outlets} medio{'s' if outlets != 1 else ''}"
-            ),
-            "titles": [
-                {
-                    "url": n.url,
-                    "title": n.title,
-                    "meta": (n.source or "")
-                    + (
-                        f" · {n.published_at.strftime('%d/%m/%Y')}"
-                        if n.published_at
-                        else ""
-                    ),
-                }
-                # Todos los titulares del episodio — el <details> va
-                # plegado, así que no ocupa sitio; la app enseña
-                # episode_items completo
-                for n in banner_items
-            ],
-        }
+        # Espejo de la app: un CIERRE ya resuelto no se narra arriba
+        # cuando la reapertura tiene >7 d — el episodio vive en
+        # Episodios y enseñarlo en caja repetía la tarjeta y leía
+        # como alerta viva. Solo narran cierres vivos, avisos/vertidos
+        # recientes y reaperturas frescas
+        resolved_stale = (
+            dom == "closure"
+            and state not in ("closed", "structural")
+            and not (closed_after and (date.today() - closed_after).days <= 7)
+        )
+        press = (
+            None
+            if resolved_stale
+            else {
+                "cls": press_cls,
+                "line": line,
+                "tag": (
+                    f"según prensa · {outlets} medio{'s' if outlets != 1 else ''}"
+                ),
+                "titles": [
+                    {
+                        "url": n.url,
+                        "title": n.title,
+                        "meta": (n.source or "")
+                        + (
+                            f" · {n.published_at.strftime('%d/%m/%Y')}"
+                            if n.published_at
+                            else ""
+                        ),
+                    }
+                    # Todos los titulares del episodio — el <details> va
+                    # plegado, así que no ocupa sitio; la app enseña
+                    # episode_items completo
+                    for n in banner_items
+                ],
+            }
+        )
 
     # Con cierre/aviso activo el motivo es lo primero que importa:
     # si el estado lo decide la prensa, su banner sube arriba del todo;

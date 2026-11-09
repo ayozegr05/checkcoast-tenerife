@@ -339,41 +339,56 @@ def test_share_beach_escapes_html(hostile_beach):
 
 
 @pytest.fixture
-def beach_press_only_episode(seed_data):
-    """Episodio de cierre SOLO documentado por prensa (caso Jardín
-    07→09/10): dos medios anuncian el cierre con closed_since el mismo
-    día y una reapertura lo cierra dos días después — sin acta oficial
-    alguna."""
-    from datetime import date, timedelta
+def make_beach_press_episode(seed_data):
+    """Episodio de cierre SOLO documentado por prensa parametrizable
+    (caso Jardín 07→09/10): dos medios anuncian el cierre con
+    closed_since el mismo día y una reapertura lo cierra dos días
+    después — sin acta oficial alguna. `days_ago` ancla el cierre."""
+    created = 0
 
+    def _make(days_ago):
+        nonlocal created
+        from datetime import date, timedelta
+
+        from app.db import SessionLocal
+        from app.models import NewsItem
+
+        created += 1
+        d0 = date.today() - timedelta(days=days_ago)
+        d2 = d0 + timedelta(days=2)
+        with SessionLocal() as db:
+            for i, (et, src, d, cs) in enumerate(
+                [
+                    ("closure", "Medio Uno", d0, d0.isoformat()),
+                    ("closure", "Medio Dos", d0, d0.isoformat()),
+                    ("reopening", "Medio Tres", d2, None),
+                ]
+            ):
+                db.add(
+                    NewsItem(
+                        url=(
+                            f"https://news.example/pytest-share-ep-"
+                            f"{created}-{i}"
+                        ),
+                        title=f"Pieza {i}",
+                        source=src,
+                        published_at=datetime(d.year, d.month, d.day, 12, 0),
+                        relevant=True,
+                        beach_id=seed_data["beach_id"],
+                        event_type=et,
+                        cause=(
+                            "contaminación fecal" if et == "closure" else None
+                        ),
+                        closed_since=cs,
+                    )
+                )
+            db.commit()
+        return seed_data["beach_id"], d0, d2
+
+    yield _make
     from app.db import SessionLocal
     from app.models import NewsItem
 
-    d0 = date.today() - timedelta(days=10)
-    d2 = d0 + timedelta(days=2)
-    with SessionLocal() as db:
-        for i, (et, src, d, cs) in enumerate(
-            [
-                ("closure", "Medio Uno", d0, d0.isoformat()),
-                ("closure", "Medio Dos", d0, d0.isoformat()),
-                ("reopening", "Medio Tres", d2, None),
-            ]
-        ):
-            db.add(
-                NewsItem(
-                    url=(f"https://news.example/pytest-share-ep-{i}"),
-                    title=f"Pieza {i}",
-                    source=src,
-                    published_at=datetime(d.year, d.month, d.day, 12, 0),
-                    relevant=True,
-                    beach_id=seed_data["beach_id"],
-                    event_type=et,
-                    cause="contaminación fecal" if et == "closure" else None,
-                    closed_since=cs,
-                )
-            )
-        db.commit()
-    yield (seed_data["beach_id"], d0, d2)
     with SessionLocal() as db:
         db.query(NewsItem).filter(
             NewsItem.url.like("%pytest-share-ep-%")
@@ -381,16 +396,28 @@ def beach_press_only_episode(seed_data):
         db.commit()
 
 
-def test_share_beach_press_only_reopening(beach_press_only_episode):
+def test_share_beach_press_only_reopening(make_beach_press_episode):
     """El banner narra el episodio solo-prensa COMPLETO: si ninguna
     incidencia oficial documenta su fin, la reapertura la busca en el
     episodio sintetizado de prensa (antes exigía un acta en día-
     frontera y Jardín quedaba 'desde el 07/10' sin reapertura)."""
-    beach_id, d0, d2 = beach_press_only_episode
+    beach_id, d0, d2 = make_beach_press_episode(days_ago=4)
     html = client.get(f"/b/{beach_id}").text
     assert "Estuvo cerrada" in html
     assert f"desde el {d0.strftime('%d/%m/%Y')}" in html
     assert f"reabrió el {d2.strftime('%d/%m/%Y')}" in html
+
+
+def test_share_beach_resolved_closure_box_suppressed(
+    make_beach_press_episode,
+):
+    """Espejo de la app: un cierre resuelto cuya reapertura tiene
+    >7 d no se narra en caja — el episodio vive en Episodios, no se
+    repite arriba leyendo como alerta viva."""
+    beach_id, _d0, _d2 = make_beach_press_episode(days_ago=20)
+    html = client.get(f"/b/{beach_id}").text
+    assert "Estuvo cerrada" not in html
+    assert 'class="press"' not in html
 
 
 def test_share_og_image_without_network(seed_data, monkeypatch):
