@@ -278,6 +278,22 @@ export default function MapLayers({
   const pmShown = !!(pmPoints && pmPoints.features.length > 0);
   const pulsing = alertPulse.features.length > 0;
   const pulsingStructural = structuralPulse.features.length > 0;
+  // Las fuentes condicionales (pulsos, dots, calas) se montan TARDE:
+  // el estilo nativo apila cada capa nueva encima de todo — el orden
+  // del JSX solo manda al montar. La fuente del vertido seleccionado
+  // lleva esta key para remontarse justo cuando cualquiera de esas
+  // capas aparece, y volver a la cima (los halos estructurales/de
+  // alerta lo tapaban aunque la fuente iba declarada la última)
+  const selMountKey = [
+    showBeaches,
+    pulsingStructural,
+    pulsing,
+    expandableBeaches.features.length > 0,
+    zoneDots.features.length > 0,
+    zoneAlertPulse.features.length > 0,
+    zoneStructuralPulse.features.length > 0,
+    pmShown,
+  ].join('-');
 
   return (
     <>
@@ -777,7 +793,11 @@ export default function MapLayers({
           fuente de emisarios, que pinta antes que todas las de playa)
           — tamaño fijo grande, igual que el pin de playa seleccionada */}
       {showOutfalls && (
-        <GeoJSONSource id="outfall-selected" data={visibleOutfalls}>
+        <GeoJSONSource
+          id="outfall-selected"
+          key={selMountKey}
+          data={visibleOutfalls}
+        >
           <Layer
             id="outfall-icon-selected"
             type="symbol"

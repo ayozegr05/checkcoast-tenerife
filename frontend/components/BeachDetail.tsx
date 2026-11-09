@@ -459,15 +459,7 @@ export default function BeachDetail({
         onPress={onViewOnMap}
       />
 
-      <View
-        style={[
-          styles.topRow,
-          // La reserva derecha solo existe para dejar sitio al
-          // Compartir inline — sin botón empuja el chip fuera del
-          // centro (caso de la ficha dentro de la hoja)
-          hideShare && { paddingRight: 0 },
-        ]}
-      >
+      <View style={styles.topRow}>
         <View style={[styles.chip, { backgroundColor: statusColor }]}>
           <Text style={styles.chipText}>{statusText}</Text>
           {/* Circulito de causa dentro de la píldora — mismo gesto
@@ -498,7 +490,6 @@ export default function BeachDetail({
               source={require('../assets/icons/icon-share-outline.png')}
               style={styles.shareIcon}
             />
-            <Text style={styles.shareText}>Compartir</Text>
           </Pressable>
         )}
       </View>
@@ -598,9 +589,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
     minHeight: 30,
-    // Pequeña reserva a la derecha: el chip queda casi centrado y
-    // solo deja un margen de respiro junto al Compartir
-    paddingRight: 40,
   },
   chip: {
     flexDirection: 'row',
@@ -635,9 +623,8 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0, // estira a toda la fila para centrar su contenido
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    justifyContent: 'center',
     backgroundColor: colors.surface, // outline: el chip de estado es el único relleno
     borderRadius: 6,
     borderWidth: 1,
@@ -646,13 +633,8 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   shareIcon: {
-    width: 12,
-    height: 12,
-  },
-  shareText: {
-    color: colors.link,
-    fontSize: 11,
-    fontFamily: fonts.bold,
+    width: 13,
+    height: 13,
   },
   qualityCard: {
     marginTop: 10,
