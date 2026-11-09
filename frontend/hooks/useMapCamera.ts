@@ -90,17 +90,17 @@ export function useMapCamera({
   // con outfallSheetTop abajo; aquí solo evitamos que el pin
   // arranque dentro de la ficha
   const outfallSheetOcc = Math.min(Math.round(winH * 0.5) + 44, winH - 220);
-  // El pin se aparca SOBRE el borde de la ficha (misma lectura que
-  // las playas, ~55px de hueco total), no centrado en la franja
-  // libre: con fichas bajas el centro quedaba a media pantalla. El
-  // nombre del vertido se dibuja BAJO el pin (~16px/línea a 13px,
-  // ~15 caracteres por línea con wrap por palabra, sobre la etiqueta
-  // ya acortada sin "Valle de…") — la reserva es etiqueta + ~26px
-  // de aire. Dado el objetivo de altura en pantalla (sheetTop -
-  // etiqueta - aire), el padding inferior sale de
-  // bottom = winH - 2·target + top
-  const outfallBottomFor = (sheetTop: number, lines: number) =>
-    Math.min(winH - 2 * (sheetTop - (lines * 16 + 26)) + 120, winH - 180);
+  // La punta del pin se CENTRA en la franja libre [120, sheetTop]
+  // sea cual sea el largo del nombre — la etiqueta crece hacia abajo
+  // desde ahí (~13px de offset + ~16px/línea a 13px) y solo obliga
+  // a subir el pin cuando no cabe entre él y la ficha (reserva =
+  // etiqueta + ~10px de aire). Antes la reserva era fija por líneas
+  // y el pin saltaba arriba/abajo según el nombre
+  const outfallBottomFor = (sheetTop: number, lines: number) => {
+    const labelReserve = lines * 16 + 23;
+    const targetY = Math.min((120 + sheetTop) / 2, sheetTop - labelReserve);
+    return Math.min(winH - 2 * targetY + 120, winH - 180);
+  };
   const outfallPadFor = (name?: string | null) => {
     const lines = Math.max(
       1,
