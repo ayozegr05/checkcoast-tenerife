@@ -412,8 +412,11 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 3,
     backgroundColor: colors.shadow,
-    marginTop: 8,
-    marginBottom: 2,
+    // Centrada en la mitad de la altura de los botones de la esquina
+    // (share + ✕: top 6 → 36, centro ~24): antes quedaba pegada al
+    // borde y el título subía demasiado
+    marginTop: 18,
+    marginBottom: 4,
   },
   header: {
     // Un pelín de aire bajo el asa para que el título respire
