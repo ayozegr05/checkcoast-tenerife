@@ -245,7 +245,7 @@ export default function FeatureSheet({
       >
         <View style={[styles.handle, { backgroundColor: accent }]} />
         <View style={styles.header}>
-          <Text style={styles.title} numberOfLines={2}>
+          <Text style={styles.title} numberOfLines={3}>
             {title}
           </Text>
           {muni ? <Text style={styles.subtitle}>{muni}</Text> : null}
@@ -429,9 +429,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     // margen simétrico: los botones absolutos de la esquina (share + ✕)
-    // no pisan el título aunque ocupe 2 líneas, y al reservar lo mismo
-    // a ambos lados el texto queda centrado de verdad en la ficha
-    marginHorizontal: 88,
+    // no pisan el título aunque ocupe varias líneas, y al reservar lo
+    // mismo a ambos lados el texto queda centrado de verdad en la
+    // ficha — ~20px de aire junto a los botones (~76px que ocupan)
+    marginHorizontal: 96,
   },
   // Municipio como subtítulo: contexto geográfico, no identidad
   subtitle: {
