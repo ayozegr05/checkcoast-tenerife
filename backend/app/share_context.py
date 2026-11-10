@@ -1159,14 +1159,14 @@ def beach_context(
         "closed": "linear-gradient(180deg,#7a1f1f,#c62828)",
         "structural": "linear-gradient(180deg,#5e2320,#8c322a)",
         "warning": "linear-gradient(180deg,#8a3c00,#e65100)",
-    }.get(state, "linear-gradient(180deg,#075276,#17b8ce)")
+    }.get(state, "linear-gradient(180deg,#0f766e,#0d9488)")
     # La ola que separa cabecera y foto sigue el color final del
     # degradado del header
     wave_c = {
         "closed": "#c62828",
         "structural": "#8c322a",
         "warning": "#e65100",
-    }.get(state, "#17b8ce")
+    }.get(state, "#0d9488")
     title = f"{name} · {muni}"
     # Zonas hermanas del complejo multipunto (misma clave base +
     # municipio que groupKeyOf de la app): dots coloreados por

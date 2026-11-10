@@ -254,7 +254,8 @@ export default function FeatureSheet({
             hitSlop={12}
             style={({ pressed }) => [
               styles.shareBtn,
-              { backgroundColor: accent },
+              styles.headerBtn,
+              { borderColor: accent },
               pressed && styles.pressFx,
             ]}
             accessibilityRole="button"
@@ -262,7 +263,7 @@ export default function FeatureSheet({
           >
             <Image
               source={require('../assets/icons/icon-share-outline.png')}
-              style={[styles.shareIcon, { tintColor: colors.onColor }]}
+              style={[styles.shareIcon, { tintColor: accent }]}
             />
           </Pressable>
         )}
@@ -271,13 +272,14 @@ export default function FeatureSheet({
           hitSlop={12}
           style={({ pressed }) => [
             styles.closeBtn,
-            { backgroundColor: accent },
+            styles.headerBtn,
+            { borderColor: accent },
             pressed && styles.pressFx,
           ]}
           accessibilityRole="button"
           accessibilityLabel="Cerrar ficha"
         >
-          <Text style={styles.close}>✕</Text>
+          <Text style={[styles.close, { color: accent }]}>✕</Text>
         </Pressable>
       </View>
 
@@ -460,7 +462,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 2,
   },
-  // Share a la izquierda del ✕: mismo botón de estado, icono blanco
+  // Share a la izquierda del ✕: cuadrado blanco con el borde/icono
+  // del color de estado — misma lectura que la landing, donde el
+  // botón va sobre la banda sólida
   shareBtn: {
     position: 'absolute',
     top: 6,
@@ -471,6 +475,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
+  },
+  // Botones de la esquina: fondo blanco y glifo del color de estado
+  // (en la landing el botón va blanco sobre la banda de color; aquí
+  // cabecera es un tinte suave y el blanco contrasta igual de bien)
+  headerBtn: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
   },
   shareIcon: {
     width: 14,

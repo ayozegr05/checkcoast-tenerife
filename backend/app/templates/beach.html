@@ -203,8 +203,14 @@
   .ofmeta { font-size:11px; color:#7a919c; margin-top:1px; }
   .ofright { display:flex; align-items:center; gap:4px;
           flex:none; }
-  .ofdist { font-size:15px; font-weight:700;
-          white-space:nowrap; }
+  /* Píldora de distancia como nbpill en /o/ y la app: roja solo
+     cuando el emisario está <500 m (amenaza real); si no, neutra
+     con borde — antes todas iban en el color legal del emisario */
+  .ofdist { border:1px solid #075276; border-radius:8px;
+          padding:4px 10px; font-size:12px; font-weight:700;
+          color:#16323f; white-space:nowrap; }
+  .ofdist.hot { border-color:transparent;
+          background:rgba(213,0,0,.12); color:#d50000; }
   .ofchev { font-size:16px; font-weight:600; color:#a8c0cc;
           flex:none; }
   .radius { font-size:11px; color:#7a919c; margin-top:10px; }
@@ -374,7 +380,7 @@
           color:#16323f; font-family:inherit; font-size:12px;
           font-weight:700; border-radius:8px; padding:7px;
           cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.2); }
-  .shr img { width:13px; height:13px; display:block; }
+  .shr svg { width:14px; height:14px; display:block; }
   .shr:hover { background:#fff; }
   .shr:active { opacity:.75; }
   /* Feedback de copia sin texto en el botón: un ✓ asoma a la
@@ -450,8 +456,13 @@
     <div class="head"><span class="hsp l"></span><span
       class="hsp r"></span><h1>{{ name }}</h1><p>{{ muni }}</p>
       <button class="shr" id="shrbtn" type="button"
-        aria-label="Compartir ficha" title="Compartir"><img
-        src="/icons/icon-share-outline.png" alt=""></button></div>
+        aria-label="Compartir ficha" title="Compartir"><svg
+        viewBox="0 0 24 24" fill="none" stroke="{{ wave_c }}"
+        stroke-width="2.2" stroke-linecap="round"
+        stroke-linejoin="round" aria-hidden="true"><path
+        d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0
+        2-2v-3"/><path d="M14 3h7v7"/><path d="M19 3L10.5 11.5"/>
+        </svg></button></div>
     <div class="shotwrap">
       <svg class="wave" viewBox="0 0 420 24" preserveAspectRatio="none"
         aria-hidden="true"><path fill="{{ wave_c }}"
@@ -523,8 +534,8 @@
         href="/o/{{ o.oid }}">
         <div><div class="ofname">{{ o.name }}</div>
         <div class="ofmeta">{{ o.status_label }}</div></div>
-        <div class="ofright"><span class="ofdist"
-          style="color:{{ o.color }}">
+        <div class="ofright"><span class="ofdist{% if o.near %}
+          hot{% endif %}">
           {{- o.dist }} m</span>
         <span class="ofchev">›</span>
         </div></a>

@@ -111,7 +111,11 @@ export function useMapCamera({
   // sobre el alto medido del mapa
   const viewH = mapHeight ?? winH;
   const outfallBottomFor = (sheetOccupied: number, lines: number) => {
-    const target = viewH - sheetOccupied - (lines * 16 + 39);
+    // Aire bajo la etiqueta: 39px para 1-2 líneas; los nombres de 3+
+    // aprietan un pelín (quedaban ~13px altos — la etiqueta larga
+    // llena el hueco sola y no necesita el mismo margen)
+    const reserve = lines * 16 + (lines <= 2 ? 39 : 26);
+    const target = viewH - sheetOccupied - reserve;
     return Math.min(viewH - 2 * target + 120, viewH - 180);
   };
   const outfallPadFor = (name?: string | null) => ({
