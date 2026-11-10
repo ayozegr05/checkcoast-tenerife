@@ -362,7 +362,14 @@
           color:#16323f; font-family:inherit; font-size:12px;
           font-weight:700; border-radius:8px; padding:7px;
           cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.2); }
-  .shr svg { width:14px; height:14px; display:block; }
+  /* Glifo = el MISMO PNG de la app enmascarado con el color sólido
+     de la banda — paridad exacta app↔landing sin assets extra */
+  .shrico { display:block; width:14px; height:14px;
+          background:{{ wave_c }};
+          -webkit-mask:url('/icons/icon-share-outline.png')
+            center/contain no-repeat;
+          mask:url('/icons/icon-share-outline.png')
+            center/contain no-repeat; }
   .shr:hover { background:#fff; }
   .shr:active { opacity:.75; }
   /* Feedback de copia sin texto en el botón: un ✓ asoma a la
@@ -398,13 +405,8 @@
     <div class="head"><span class="hsp l"></span><span
       class="hsp r"></span><h1>{{ name }}</h1><p>{{ muni }}</p>
       <button class="shr" id="shrbtn" type="button"
-        aria-label="Compartir ficha" title="Compartir"><svg
-        viewBox="0 0 24 24" fill="none" stroke="{{ wave_c }}"
-        stroke-width="2.2" stroke-linecap="round"
-        stroke-linejoin="round" aria-hidden="true"><path
-        d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0
-        2-2v-3"/><path d="M14 3h7v7"/><path d="M19 3L10.5 11.5"/>
-        </svg></button></div>
+        aria-label="Compartir ficha" title="Compartir"><span
+        class="shrico" aria-hidden="true"></span></button></div>
     <div class="shotwrap">
       <svg class="wave" viewBox="0 0 420 24" preserveAspectRatio="none"
         aria-hidden="true"><path fill="{{ wave_c }}"

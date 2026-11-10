@@ -485,8 +485,13 @@ export default function CoastMap({
   const visibleBeaches = useMemo<FeatureCollection>(
     () => ({
       type: 'FeatureCollection',
-      features: groupedBeaches.features.filter((f) =>
-        beachSel.has(beachCategory(f)),
+      features: groupedBeaches.features.filter(
+        // El seleccionado se pinta siempre, aunque su categoría esté
+        // oculta en Capas: elegirlo ES una petición explícita de
+        // verlo — las capas normales excluyen sel, no duplica
+        (f) =>
+          beachSel.has(beachCategory(f)) ||
+          (f.properties as { sel?: boolean }).sel === true,
       ),
     }),
     [groupedBeaches, beachSel],
@@ -572,8 +577,12 @@ export default function CoastMap({
   const visibleOutfalls = useMemo<FeatureCollection>(
     () => ({
       ...outfallsMarked,
-      features: outfallsMarked.features.filter((f) =>
-        outfallSel.has(outfallCategory(f)),
+      features: outfallsMarked.features.filter(
+        // Igual que las playas: el vertido elegido se ve aunque su
+        // categoría (p.ej. "en trámite") esté apagada en Capas
+        (f) =>
+          outfallSel.has(outfallCategory(f)) ||
+          (f.properties as { sel?: boolean }).sel === true,
       ),
     }),
     [outfallsMarked, outfallSel],
@@ -924,8 +933,11 @@ export default function CoastMap({
           zoneAlertPulse={zonePulses.alert}
           zoneStructuralPulse={zonePulses.structural}
           visibleOutfalls={visibleOutfalls}
-          showBeaches={beachSel.size > 0}
-          showOutfalls={outfallSel.size > 0}
+          // Gated por contenido, no por el estado del filtro: con
+          // todas las categorías apagadas el seleccionado sigue en
+          // la colección y debe pintar su pin
+          showBeaches={visibleBeaches.features.length > 0}
+          showOutfalls={visibleOutfalls.features.length > 0}
           alertPulse={alertPulse}
           structuralPulse={structuralPulse}
           pulse={pulse}

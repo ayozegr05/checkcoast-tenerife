@@ -108,7 +108,6 @@ export default function App() {
   // La ficha tapa los botones flotantes del mapa (satélite, brújula,
   // capas) — se desactivan para que la ✕ no pulse el botón de
   // satélite que queda debajo
-  const [sheetCoversControls, setSheetCoversControls] = useState(false);
   // Borde superior real de la ficha de emisario (lo reporta
   // FeatureSheet tras medir el contenido): la cámara corrige el
   // encuadre del pin para que la etiqueta no quede bajo la ficha
@@ -539,7 +538,10 @@ export default function App() {
         }
         pmPoints={pmPointsFC}
         zoneFocus={zoneShown}
-        controlsCovered={sheetCoversControls && !!selection && !sheetHidden}
+        // Con ficha abierta TODOS los controles flotantes se atenúan
+        // y dejan de pulsar (geo/brújula/capas no sirven de fondo —
+        // y capas llegaba a cerrar la ficha)
+        controlsCovered={!!selection && !sheetHidden}
         outfallSheetTop={
           selection?.type === 'outfall' && !sheetHidden ? sheetTopY : null
         }
@@ -731,7 +733,6 @@ export default function App() {
           }
           onFocusConsumed={() => setFocusIncident(null)}
           onZoneShown={setZoneShown}
-          onCoverageChange={setSheetCoversControls}
           onSheetTopChange={setSheetTopY}
           onViewOnMap={() => {
             // Ocultar la card pero mantener la selección: el pin sigue
