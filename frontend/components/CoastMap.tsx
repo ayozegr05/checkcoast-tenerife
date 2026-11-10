@@ -1332,7 +1332,9 @@ const styles = StyleSheet.create({
   },
   // Cubiertos por la ficha expandida: invisibles y sin toques — un
   // tap sobre la card no debe llegar al botón oculto debajo
+  // Fantasma, no desaparecido: se lee que el control existe pero
+  // está inactivo mientras la ficha manda (pointerEvents ya off)
   ctrlHidden: {
-    opacity: 0,
+    opacity: 0.28,
   },
 });
