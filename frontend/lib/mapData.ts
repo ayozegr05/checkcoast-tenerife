@@ -19,6 +19,7 @@ import {
   STRUCTURAL_CAUSES,
 } from './structural';
 import { colors } from './theme';
+import { zoneName } from './zones';
 
 export const STRUCTURAL_SECTION = 'Cierre estructural';
 export const FAUNA_SECTION = 'Fauna marina';
@@ -181,6 +182,9 @@ export type SearchItem = {
   feature?: GeoFeature;
   members?: GeoFeature[];
   center?: [number, number];
+  // Zona concreta del arenal (cala con nombre propio): la ficha se
+  // abre en ella, no en el selector del complejo
+  pm?: GeoFeature;
 };
 
 // Resultados del buscador: playas, vertidos y municipios que
@@ -213,6 +217,27 @@ export function searchMap(
         members: g.members,
         center: g.center,
       });
+    }
+    // Calas con nombre propio de un arenal multipunto ("El Castillo"
+    // = Jardín PM1): también resuelven a su zona, como en la landing
+    // — "castillo" debe encontrar Playa Jardín · El Castillo, no solo
+    // la Playa Castillo de Bajamar
+    if (g.members.length > 1) {
+      for (const m of g.members) {
+        const zone = zoneName(m.properties.name);
+        if (zone && searchNorm(zone).includes(q)) {
+          items.push({
+            key: `z${m.id}`,
+            kind: 'beach',
+            label: `${label} · ${zone}`,
+            sub: g.rep.properties.municipality ?? 'Playa',
+            feature: m,
+            members: g.members,
+            center: g.center,
+            pm: m,
+          });
+        }
+      }
     }
   }
   for (const f of outfalls) {

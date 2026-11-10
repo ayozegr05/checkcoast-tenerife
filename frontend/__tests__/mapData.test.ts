@@ -232,6 +232,19 @@ describe('searchMap', () => {
     expect(muni.center![1]).toBeCloseTo(28.09);
   });
 
+  it('una cala con nombre propio resuelve a su zona (Jardín · El Castillo)', () => {
+    const jardin = [
+      feat('PLAYA JARDIN PM1', { municipality: 'Puerto de la Cruz' }),
+      feat('PLAYA JARDIN PM4', { municipality: 'Puerto de la Cruz' }),
+      feat('PLAYA JARDIN PM5', { municipality: 'Puerto de la Cruz' }),
+    ];
+    const res = searchMap('castillo', buildBeachGroups(jardin), [], jardin);
+    expect(res).toHaveLength(1);
+    expect(res[0].label).toMatch(/Jard[ií]n · El Castillo/);
+    expect(res[0].pm?.properties.name).toBe('PLAYA JARDIN PM1');
+    expect(res[0].members).toHaveLength(3);
+  });
+
   it('corta a 8 resultados', () => {
     const many = Array.from({ length: 12 }, (_, i) =>
       feat(`CALA ${String.fromCharCode(65 + i)}`, { municipality: `M${i}` }),

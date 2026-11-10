@@ -97,9 +97,19 @@
   /* Márgenes simétricos: el icono Compartir flota en la esquina y
      un nombre largo no pasa por debajo — y el título queda centrado
      de verdad (margen asimétrico lo desplazaba a la izquierda) */
-  .head h1 { margin:0 56px; font-size:20px; }
-  .head p { margin:4px 56px 0; font-size:13px; opacity:.9; }
-  .shotwrap { position:relative; }
+  /* Dos espaciadores flotantes del alto del botón Compartir: solo la
+     PRIMERA línea del título (la que comparte franja con el botón) se
+     aparta — simétrica, así sigue centrada — y las siguientes usan
+     el ancho entero (antes margin:0 56px estrechaba todas) */
+  .head .hsp { width:30px; height:26px; }
+  .head .hsp.l { float:left; }
+  .head .hsp.r { float:right; }
+  .head h1 { margin:0; font-size:20px; }
+  .head p { clear:both; margin:4px 0 0; font-size:13px; opacity:.9; }
+  /* overflow:hidden — los dots se anclan por la punta y uno en el
+     borde superior de la foto dibujaba su pin HACIA ARRIBA, encima
+     de la cabecera de color: recortados aquí se esconden bajo la ola */
+  .shotwrap { position:relative; overflow:hidden; }
   .wave { position:absolute; top:0; left:0; width:100%; height:22px;
           z-index:2; display:block; }
   .shot { display:block; width:100%; height:auto; }
@@ -385,7 +395,8 @@
     <span class="tfe">Tenerife</span>
   </div>
   <div class="card">
-    <div class="head"><h1>{{ name }}</h1><p>{{ muni }}</p>
+    <div class="head"><span class="hsp l"></span><span
+      class="hsp r"></span><h1>{{ name }}</h1><p>{{ muni }}</p>
       <button class="shr" id="shrbtn" type="button"
         aria-label="Compartir ficha" title="Compartir"><img
         src="/icons/icon-share-outline.png" alt=""></button></div>

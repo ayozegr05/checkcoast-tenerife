@@ -46,6 +46,9 @@ type UseMapCameraArgs = {
   outfallSheetTop?: number | null;
   // Emisario seleccionado (para el re-encuadre fino de arriba)
   selectedOutfall?: GeoFeature | null;
+  // Alto real de la vista del mapa (onLayout) — puede diferir de
+  // winH en Android edge-to-edge
+  mapHeight?: number | null;
 };
 
 // Coreografía de cámara del mapa: guarda la vista antes de un vuelo,
@@ -62,6 +65,7 @@ export function useMapCamera({
   beachGroups,
   outfallSheetTop = null,
   selectedOutfall = null,
+  mapHeight = null,
 }: UseMapCameraArgs) {
   const cameraRef = useRef<CameraRef>(null);
   const { height: winH } = useWindowDimensions();
@@ -98,19 +102,45 @@ export function useMapCamera({
   // aire antes de la ficha, igual que la etiqueta de playa. La
   // reserva crece con las líneas del nombre — sin ella una etiqueta
   // de 3 líneas se comería la ficha
-  const outfallBottomFor = (sheetTop: number, lines: number) =>
-    Math.min(winH - 2 * (sheetTop - (lines * 16 + 39)) + 120, winH - 180);
+  // OJO coordenadas: la ficha se ancla abajo y publica su borde con
+  // winH (useWindowDimensions), pero el padding de cámara se mide
+  // sobre la vista REAL del mapa — en Android edge-to-edge el mapa
+  // ocupa la pantalla entera y es más alto que winH. Mezclarlas
+  // subía el pin ~Δ/2 sobre la ficha. Lo invariante es lo que la
+  // ficha ocupa desde abajo (restBottom + peek): se trabaja con eso
+  // sobre el alto medido del mapa
+  const viewH = mapHeight ?? winH;
+  const outfallBottomFor = (sheetOccupied: number, lines: number) => {
+    const target = viewH - sheetOccupied - (lines * 16 + 39);
+    return Math.min(viewH - 2 * target + 120, viewH - 180);
+  };
   const outfallPadFor = (name?: string | null) => ({
     top: 120,
-    bottom: outfallBottomFor(
-      winH - outfallSheetOcc,
-      outfallLabelLines(name ?? ''),
-    ),
+    bottom: outfallBottomFor(outfallSheetOcc, outfallLabelLines(name ?? '')),
   });
   // Foco externo sin nombre a la mano: peor caso de etiqueta (2 líneas)
   const outfallPad = {
     top: 120,
-    bottom: outfallBottomFor(winH - outfallSheetOcc, 2),
+    bottom: outfallBottomFor(outfallSheetOcc, 2),
+  };
+  // Zoom de destino del último vuelo a un vertido: el re-encuadre
+  // fino llega cuando la ficha se mide (~200ms, a MITAD del vuelo) —
+  // con lastView.zoom (aún el zoom previo) cortaba el vuelo y dejaba
+  // la cámara alejada a zoom de isla
+  const outfallZoom = useRef<number | null>(null);
+  const flyToOutfall = (
+    center: [number, number],
+    zoom: number,
+    name: string | null | undefined,
+    duration: number,
+  ) => {
+    outfallZoom.current = zoom;
+    cameraRef.current?.flyTo({
+      center,
+      zoom,
+      padding: outfallPadFor(name),
+      duration,
+    });
   };
 
   // Vista actual + vista guardada antes de volar a un pin (para
@@ -278,6 +308,7 @@ export function useMapCamera({
         fitBeachBounds(grp.members, 1500);
         return;
       }
+      if (focus[3] === 'outfall') outfallZoom.current = focus[2] ?? 15.5;
       cameraRef.current?.flyTo({
         center: [cx, cy],
         zoom: focus[2] ?? 15.5,
@@ -307,15 +338,17 @@ export function useMapCamera({
     const lines = outfallLabelLines(selectedOutfall.properties.name ?? '');
     cameraRef.current?.easeTo({
       center: [lon, lat],
-      zoom: lastView.current.zoom,
+      zoom: outfallZoom.current ?? lastView.current.zoom,
       padding: {
         top: 120,
-        bottom: outfallBottomFor(outfallSheetTop, lines),
+        // outfallSheetTop viene en coordenadas winH: lo que ocupa
+        // desde abajo es winH - top, invariante al alto real
+        bottom: outfallBottomFor(winH - outfallSheetTop, lines),
       },
       duration: 450,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outfallSheetTop, selectedOutfall]);
+  }, [outfallSheetTop, selectedOutfall, mapHeight]);
 
   // onRegionDidChange del Map: actualiza la vista actual y marca el
   // paneo/zoom manual (al cerrar la card no se restaura la vista
@@ -349,6 +382,7 @@ export function useMapCamera({
     cardPad,
     outfallPad,
     outfallPadFor,
+    flyToOutfall,
     saveView,
     discardSavedView,
     fitBeachBounds,

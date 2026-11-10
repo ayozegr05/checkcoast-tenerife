@@ -258,18 +258,22 @@ export default function CoastMap({
     [beachGroups],
   );
 
+  // Alto real del mapa: el padding de cámara se mide sobre él (en
+  // Android edge-to-edge no coincide con useWindowDimensions)
+  const [mapHeight, setMapHeight] = useState<number | null>(null);
   // Cámara: refs de vista, restauración al cerrar la ficha, paddings
   // de card y vuelos a pins — la coreografía vive en el hook
   const {
     cameraRef,
     cardPad,
-    outfallPadFor,
+    flyToOutfall,
     saveView,
     discardSavedView,
     fitBeachBounds,
     onRegionDidChange,
     northUp,
   } = useMapCamera({
+    mapHeight,
     selectionActive,
     selectionMembers,
     focus,
@@ -705,14 +709,13 @@ export default function CoastMap({
       const [lon, lat] = item.center ?? item.feature.geometry.coordinates;
       if (item.kind === 'beach' && (item.members?.length ?? 0) > 1) {
         fitBeachBounds(item.members ?? [], 1200);
+      } else if (item.kind === 'outfall') {
+        flyToOutfall([lon, lat], 13.5, item.feature.properties.name, 1200);
       } else {
         cameraRef.current?.flyTo({
           center: [lon, lat],
-          zoom: item.kind === 'beach' ? 15.5 : 13.5,
-          padding:
-            item.kind === 'outfall'
-              ? outfallPadFor(item.feature.properties.name)
-              : cardPad,
+          zoom: 15.5,
+          padding: cardPad,
           duration: 1200,
         });
       }
@@ -723,6 +726,7 @@ export default function CoastMap({
               feature: item.feature,
               hasAlert: item.feature.properties.alert === true,
               members: pmMembersOf(item.members),
+              ...(item.pm ? { pm: item.pm } : {}),
             }
           : { type: 'outfall', feature: item.feature },
       );
@@ -820,16 +824,15 @@ export default function CoastMap({
     const rep = g?.rep ?? feature;
     if (type === 'beach' && g && g.members.length > 1) {
       fitBeachBounds(g.members, 900);
+    } else if (type === 'outfall') {
+      flyToOutfall([lon, lat], 15, feature.properties?.name, 900);
     } else {
       cameraRef.current?.flyTo({
         center: [lon, lat],
         // Playa: zoom 15.5 — el de la ficha abierta desde un emisario,
         // que enseña el entorno de la playa de cerca
-        zoom: type === 'beach' ? 15.5 : 15,
-        padding:
-          type === 'outfall'
-            ? outfallPadFor(feature.properties?.name)
-            : cardPad,
+        zoom: 15.5,
+        padding: cardPad,
         duration: 900,
       });
     }
@@ -894,7 +897,10 @@ export default function CoastMap({
   };
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onLayout={(e) => setMapHeight(Math.round(e.nativeEvent.layout.height))}
+    >
       <Map
         style={styles.map}
         mapStyle={satellite ? SATELLITE_STYLE : SEA_STYLE}

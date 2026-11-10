@@ -245,9 +245,7 @@ export default function FeatureSheet({
       >
         <View style={[styles.handle, { backgroundColor: accent }]} />
         <View style={styles.header}>
-          <Text style={styles.title} numberOfLines={3}>
-            {title}
-          </Text>
+          <Text style={styles.title}>{title}</Text>
           {muni ? <Text style={styles.subtitle}>{muni}</Text> : null}
         </View>
         {showShare && (
@@ -419,8 +417,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   header: {
-    // Un pelín de aire bajo el asa para que el título respire
-    paddingTop: 5,
+    // Asa + botones forman la fila superior (hasta y≈36): el título
+    // arranca DEBAJO de ella y así usa el ancho entero de la ficha —
+    // antes compartía franja con los botones y sus márgenes de 96px
+    // estrechaban TODAS sus líneas (nombres largos cortados con "…")
+    paddingTop: 13,
     paddingBottom: 6,
   },
   title: {
@@ -428,11 +429,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     color: colors.text,
     textAlign: 'center',
-    // margen simétrico: los botones absolutos de la esquina (share + ✕)
-    // no pisan el título aunque ocupe varias líneas, y al reservar lo
-    // mismo a ambos lados el texto queda centrado de verdad en la
-    // ficha — ~20px de aire junto a los botones (~76px que ocupan)
-    marginHorizontal: 96,
+    // Margen simétrico: centrado de verdad, sin cortes — los botones
+    // quedan arriba, en la fila del asa
+    marginHorizontal: 20,
   },
   // Municipio como subtítulo: contexto geográfico, no identidad
   subtitle: {

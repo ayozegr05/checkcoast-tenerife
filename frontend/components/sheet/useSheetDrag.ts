@@ -54,7 +54,8 @@ export function useSheetDrag({
   // ficha queda por encima, los tapa
   const CONTROLS_BOTTOM = Platform.OS === 'android' ? 230 : 214;
   const CARD_MAX = Math.round(winH - CARD_BOTTOM - TOP_MARGIN);
-  const HEADER_H = 64; // asa + titulo aprox
+  // asa/botones + titulo aprox (el título va bajo la fila de botones)
+  const HEADER_H = 74;
   // Peek tope ~52% de pantalla: fichas con mucha info abren a media
   // altura y el resto (informe de calidad, histórico…) se descubre
   // con "Ver más" o arrastrando el asa
