@@ -1335,6 +1335,6 @@ const styles = StyleSheet.create({
   // Fantasma, no desaparecido: se lee que el control existe pero
   // está inactivo mientras la ficha manda (pointerEvents ya off)
   ctrlHidden: {
-    opacity: 0.28,
+    opacity: 0.4,
   },
 });
