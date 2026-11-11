@@ -353,6 +353,12 @@
   .sal .salthumb { flex:none; align-self:center; width:46px;
           height:40px; border-radius:6px; object-fit:cover; }
   .salmid { flex:1; min-width:0; }
+  .salx { align-items:center; }
+  .saltop { display:flex; align-items:flex-start; gap:8px;
+          justify-content:space-between; }
+  .saltop b { min-width:0; line-height:1.3; }
+  .salln { display:block; line-height:1.45; }
+  .salln em { font-style:normal; font-weight:700; }
   .salright { flex:none; margin-left:auto; text-align:right;
           display:flex; flex-direction:column; align-items:flex-end;
           gap:1px; }
@@ -567,6 +573,27 @@
       </div>
     </div>
     <div class="ibody">
+      {#- Fila de alerta: foto · nombre+badge / causa · municipio /
+          cuándo · fuente — una línea corta por dato, sin columna
+          derecha que estreche el texto en móvil #}
+      {%- macro alert_row(a, i, extra='') %}
+        <a class="sal sal-{{ a.cls }} salx {{ extra }}"
+          href="/b/{{ a.beach_id }}{{ '?demo=1' if demo }}"
+          style="animation-delay:{{ i * 45 }}ms">
+          {%- if a.thumb %}<img class="salthumb" src="{{ a.thumb }}"
+            alt="" loading="lazy">{%- endif %}
+          <div class="salmid">
+            <div class="saltop"><b>{{ a.name }}</b>
+              {%- if a.show_badge %}<span class="salbadge"
+                style="border-color:{{ a.color }}"><img
+                src="/icons/{{ a.art }}.png" alt=""></span>{%- endif %}
+            </div>
+            <span class="salln"><em style="color:{{ a.color }}">{{
+              a.cause or a.estado }}</em>{%- if a.muni %} ·
+              {{ a.muni }}{%- endif %}</span>
+            <span class="salln">{{ a.sub_when }} · {{ a.via }}</span>
+          </div></a>
+      {%- endmacro %}
       {%- if alerts %}
       <div class="sec sec-a{% if alert_groups|length > 1 %} multi{% endif %}"><span
         class="sec-t">Alertas activas en&nbsp;la&nbsp;isla</span>
@@ -582,54 +609,10 @@
         <div class="asec asec-{{ g.sec }}">{{ g.title }} ·
           {{ g.rows|length }}</div>
         {%- endif %}
-        {%- for a in g.rows[:4] %}
-        <a class="sal sal-{{ a.cls }}" href="/b/{{ a.beach_id }}{{ '?demo=1' if demo }}"
-          style="animation-delay:{{ loop.index * 45 }}ms">
-          <i style="background:{{ a.color }}"></i>
-          {%- if a.thumb %}<img class="salthumb" src="{{ a.thumb }}"
-            alt="" loading="lazy">{%- endif %}
-          <div class="salmid">
-          <b>{{ a.name }}</b>
-          <span><span
-            style="white-space:nowrap">{{ a.sub_when }}</span>
-          <span style="white-space:nowrap">·&nbsp;{{ a.via }}</span>{%
-            if a.muni %} <span
-            style="white-space:nowrap">·&nbsp;{{ a.muni }}</span>{%
-            endif %}</span></div>
-          <div class="salright"><div class="salstrow"><b
-            style="color:{{ a.color }}">{{ a.estado }}</b>
-            {%- if a.show_badge %}<span class="salbadge"
-              style="border-color:{{ a.color }}"><img
-              src="/icons/{{ a.art }}.png" alt=""></span>{%- endif %}
-          </div>
-            {%- if a.cause %}<span>{{ a.cause }}</span>{%- endif %}
-          </div></a>
-        {%- endfor %}
+        {%- for a in g.rows[:4] %}{{ alert_row(a, loop.index) }}{%- endfor %}
         {%- if g.rows|length > 4 %}
         <input type="checkbox" id="amore{{ loop.index }}" class="amorechk">
-        {%- for a in g.rows[4:] %}
-        <a class="sal sal-{{ a.cls }} xmore" href="/b/{{ a.beach_id }}{{ '?demo=1' if demo }}"
-          style="animation-delay:{{ loop.index * 45 }}ms">
-          <i style="background:{{ a.color }}"></i>
-          {%- if a.thumb %}<img class="salthumb" src="{{ a.thumb }}"
-            alt="" loading="lazy">{%- endif %}
-          <div class="salmid">
-          <b>{{ a.name }}</b>
-          <span><span
-            style="white-space:nowrap">{{ a.sub_when }}</span>
-          <span style="white-space:nowrap">·&nbsp;{{ a.via }}</span>{%
-            if a.muni %} <span
-            style="white-space:nowrap">·&nbsp;{{ a.muni }}</span>{%
-            endif %}</span></div>
-          <div class="salright"><div class="salstrow"><b
-            style="color:{{ a.color }}">{{ a.estado }}</b>
-            {%- if a.show_badge %}<span class="salbadge"
-              style="border-color:{{ a.color }}"><img
-              src="/icons/{{ a.art }}.png" alt=""></span>{%- endif %}
-          </div>
-            {%- if a.cause %}<span>{{ a.cause }}</span>{%- endif %}
-          </div></a>
-        {%- endfor %}
+        {%- for a in g.rows[4:] %}{{ alert_row(a, loop.index, 'xmore') }}{%- endfor %}
         <label class="smore-btn" for="amore{{ loop.index }}"><span
           class="more">…y {{ g.rows|length - 4 }} más</span><span
           class="less">Ver menos</span></label>
