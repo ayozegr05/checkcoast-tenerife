@@ -519,20 +519,20 @@ def test_robots_and_sitemap(seed_data):
 
 
 def test_beach_sheet_satellite_starts_mid(seed_data):
-    # La ficha abre en el nivel medio de zoom — ni el más lejano
-    # ni el más pegado; los otros dos niveles van ocultos
+    # La ficha abre en el nivel "cerca" (~1,2 km) — con 4 encuadres
+    # es el índice 2, ni el más lejano ni el más pegado
     html = client.get(f"/b/{seed_data['beach_id']}").text
-    assert "var z = 1;" in html
-    assert 'id="dots-1" class=""' in html
+    assert "var z = 2;" in html
+    assert 'id="dots-2" class=""' in html
     assert 'id="dots-0" class="hidden"' in html
-    assert 'id="dots-2" class="hidden"' in html
+    assert 'id="dots-3" class="hidden"' in html
 
 
 def test_outfall_sheet_satellite_starts_far(seed_data):
     # El emisario sigue abriendo en el nivel más lejano — el cambio
     # de nivel inicial fue solo para playas
     html = client.get(f"/o/{seed_data['outfall_id']}").text
-    assert "var z = 2;" in html
+    assert "var z = 3;" in html
 
 
 def test_privacy_page():

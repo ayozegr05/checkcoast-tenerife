@@ -93,6 +93,8 @@ _MONTHS_FULL = [
 
 # Encuadres satélite de más cerca a más lejos (dlon, dlat en grados)
 _SHOT_LEVELS = [
+    (0.0018, 0.00085),  # detalle — mismo tope que la app (~170 m de
+    # encuadre ≈ 0,3-0,5 m/px, el límite útil de Esri: más pixela)
     (0.003, 0.0017),  # muy cerca
     (0.006, 0.0033),  # cerca
     (0.015, 0.0083),  # lejos
