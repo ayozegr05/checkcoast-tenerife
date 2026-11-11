@@ -375,7 +375,7 @@
   .bcchip { position:absolute; left:8px; bottom:8px; color:#fff;
           font-size:10px; font-weight:700; border-radius:999px;
           padding:3px 9px; }
-  .bimg .salbadge { position:absolute; top:7px; right:7px; }
+  .bimg .salbadge { position:absolute; bottom:8px; right:8px; }
   .bcname { font-size:12.5px; font-weight:700; color:#16323f;
           padding:8px 10px 0; }
   .bcmuni { font-size:10.5px; color:#7a919c; padding:1px 10px 9px; }
@@ -407,12 +407,19 @@
             border-color .12s ease; }
   .orow:hover { transform:translateY(-1px); border-color:#17b8ce;
           box-shadow:0 4px 12px rgba(7,43,62,.16); }
-  .orow i { flex:none; width:9px; height:9px; border-radius:50%; }
   .omid { flex:1; min-width:0; }
   .omid b { display:block; font-size:12px; color:#16323f;
           font-weight:600; }
   .orow:hover .omid b { color:#075276; }
   .omid span { font-size:10.5px; color:#7a919c; }
+  .ochips { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+  .oest, .orisk, .ozec { font-style:normal; font-size:9.5px;
+          font-weight:700; border-radius:999px; padding:1px 7px;
+          white-space:nowrap; }
+  .oest { color:#fff; }
+  .orisk { border:1px solid; background:#fff; }
+  .ozec { color:#075276; border:1px solid #9fc3d4;
+          background:#eef6fa; }
   .onews { flex:none; font-size:10px; font-weight:700;
           color:#075276; background:rgba(7,82,118,.09);
           border-radius:999px; padding:2px 9px; white-space:nowrap; }
@@ -676,10 +683,16 @@
       {%- for o in orows %}
       <a class="orow" href="/o/{{ o.id }}{{ '?demo=1' if demo }}"
         style="animation-delay:{{ loop.index * 45 }}ms">
-        <i style="background:{{ o.color }}"></i>
         <div class="omid">
           <b>{{ o.name }}</b>
-          <span>{{ o.muni }}{% if o.muni %} · {% endif %}{{ o.label }}</span>
+          <span>{{ o.muni }}</span>
+          <div class="ochips">
+            <em class="oest" style="background:{{ o.color }}">{{
+              o.label }}</em>
+            <em class="orisk" style="color:{{ o.risk_color }};
+              border-color:{{ o.risk_color }}">{{ o.risk_label }}</em>
+            {%- if o.zec %}<em class="ozec">ZEC</em>{%- endif %}
+          </div>
         </div>
         {%- if o.news %}<span class="onews">{{ o.news }}
           noticia{{ 's' if o.news != 1 }}</span>{%- endif %}

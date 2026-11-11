@@ -3068,6 +3068,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
     orows = []
     for o, sv in ocands[:4]:
         lbl, col = _OUTFALL_STATUS.get(sv, _OUTFALL_STATUS["unknown"])
+        risk = _outfall_risk(o)
         orows.append(
             {
                 "id": o.id,
@@ -3075,6 +3076,9 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 "muni": o.municipality or "",
                 "label": lbl,
                 "color": col,
+                "risk_label": risk["label"],
+                "risk_color": risk["color"],
+                "zec": bool(o.protected_area),
                 "news": onews.get(o.id, 0),
             }
         )
