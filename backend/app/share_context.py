@@ -240,10 +240,14 @@ def _alert_entries(db: Session, effs: dict) -> list[tuple]:
     return [(beaches[bid], effs[bid]) for bid in alert_ids if bid in beaches]
 
 
-def _alert_when(aword: str, rep: datetime | None, now: datetime) -> str:
+def _alert_when(
+    aword: str, rep: datetime | None, now: datetime, full: bool = False
+) -> str:
     """'cerrada · hace 3 días' si es reciente; 'cerrada desde feb 2026'
     cuando el cierre lleva >30 d — 'hace 212 días' en una alerta viva
-    se lee como dato rancio, no como cierre en curso."""
+    se lee como dato rancio, no como cierre en curso. `full` escribe
+    el mes entero para pantallas anchas."""
+    months = _MONTHS_FULL if full else _MONTHS
     if rep is None:
         return f"{aword} · hoy"
     if rep.tzinfo is None:
@@ -258,7 +262,7 @@ def _alert_when(aword: str, rep: datetime | None, now: datetime) -> str:
             else f"hace {days} días"
         )
         return f"{aword} · {ago}"
-    return f"{aword} desde {_MONTHS[rep.month - 1]} {rep.year}"
+    return f"{aword} desde {months[rep.month - 1]} {rep.year}"
 
 
 def _num(raw: str | None) -> float | None:
@@ -582,6 +586,15 @@ def _alert_cards(
                 # sale de la celda en anchos estrechos
                 "sub_when": _alert_when("", e["reported_at"], now).lstrip(
                     " ·"
+                ),
+                # Variante ancha: 'cerrada desde mayo 2026' — el mes
+                # entero + el estado, que 'desde may 2026' a secas
+                # puede leerse ambiguo
+                "sub_full": _alert_when(
+                    "cerrada" if e["status"] == "closed" else "aviso",
+                    e["reported_at"],
+                    now,
+                    full=True,
                 ),
                 "meta_when": _alert_when(
                     "cerrada" if e["status"] == "closed" else "aviso",
@@ -3057,18 +3070,38 @@ def home_context(db: Session, demo: bool = False) -> dict:
     )
     _OSEV = {"illegal": 0, "unknown": 1, "legal": 2}
     ostats = {"legal": 0, "illegal": 0, "unknown": 0}
-    ocands: list[tuple[Outfall, str]] = []
+    ocands: list[tuple[Outfall, str, float | None, float | None]] = []
     for o, _lon, _lat in outfall_dots:
         sv = o.status.value if hasattr(o.status, "value") else o.status
         ostats[sv] = ostats.get(sv, 0) + 1
-        ocands.append((o, sv))
+        ocands.append((o, sv, _lon, _lat))
     ocands.sort(
         key=lambda t: (-onews.get(t[0].id, 0), _OSEV.get(t[1], 3), t[0].id)
     )
+    # Frase 'Vierte X · a diario' para la card: el nature del censo
+    # con el ritmo de funcionamiento como cola
+    _OP_TAIL = {
+        "Vierte a diario": "a diario",
+        "Vertido habitual": "a diario",
+        "Solo al desbordarse": "solo al desbordarse",
+        "En funcionamiento": "en funcionamiento",
+    }
     orows = []
-    for o, sv in ocands[:4]:
+    for o, sv, _lon, _lat in ocands[:4]:
         lbl, col = _OUTFALL_STATUS.get(sv, _OUTFALL_STATUS["unknown"])
         risk = _outfall_risk(o)
+        op = _operation_short(o.is_active, o.continuity)
+        nat = (o.nature or "").strip()
+        if op == "Ahora no vierte":
+            vert = f"{_cap1(nat.lower()) if nat else 'La conducción'} · ahora no vierte"
+        elif nat:
+            vert = f"Vierte {nat.lower()}"
+            tail = _OP_TAIL.get(op, "")
+            if tail:
+                vert += f" · {tail}"
+        else:
+            vert = ""
+        depth = o.outfall_depth
         orows.append(
             {
                 "id": o.id,
@@ -3076,13 +3109,23 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 "muni": o.municipality or "",
                 "label": lbl,
                 "color": col,
+                "shot": _shot_url(_lon, _lat, *_SHOT_LEVELS[1])
+                if _lon is not None and _lat is not None
+                else None,
                 # Mismo triaje KPI de la ficha /o/: pin de estado,
-                # funcionamiento y nivel de riesgo
+                # funcionamiento, nivel de riesgo y cotas del censo
                 "pin": _OUTFALL_PIN.get(sv, _OUTFALL_PIN["unknown"]),
-                "op": _operation_short(o.is_active, o.continuity),
                 "risk_level": risk["level"].capitalize(),
                 "risk_color": risk["color"],
-                "nature": o.nature,
+                "shore": (
+                    f"{round(o.shore_m)} m" if o.shore_m is not None else None
+                ),
+                "depth": (
+                    f"{abs(depth):g} m"
+                    if depth is not None and depth < 0
+                    else None
+                ),
+                "vert": vert,
                 "zec": bool(o.protected_area),
                 "news": onews.get(o.id, 0),
             }

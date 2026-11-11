@@ -397,46 +397,31 @@
   .step span { display:block; font-size:11.5px; color:#5b7a8a;
           margin-top:1px; }
   .exnote { font-size:11.5px; color:#7a919c; margin-top:2px; }
-  /* Cards de emisario: nombre+municipio, triaje KPI como el de la
-     ficha /o/ (estado · funcionamiento · riesgo), qué vierte y ZEC
-     + contador de prensa — sin foto, el mar no reconoce nada */
-  .ocard { display:block; margin-top:9px; text-decoration:none;
-          border-radius:10px; background:#fff;
-          border:1px solid #c9dfea; padding:9px 11px;
-          animation:rowin .32s ease backwards;
-          transition:transform .12s ease, box-shadow .12s ease,
-            border-color .12s ease; }
-  .ocard:hover { transform:translateY(-1px); border-color:#17b8ce;
-          box-shadow:0 4px 12px rgba(7,43,62,.16); }
-  .ohead { display:flex; align-items:flex-start; gap:9px; }
-  .omid { flex:1; min-width:0; }
-  .omid b { display:block; font-size:12px; color:#16323f;
-          font-weight:600; }
-  .ocard:hover .omid b { color:#075276; }
-  .omid span { font-size:10.5px; color:#7a919c; }
-  .otriage { display:grid; grid-template-columns:1fr 1.2fr 1fr;
-          gap:7px; margin-top:7px; padding:7px 9px;
-          border:1px solid; border-radius:8px; }
-  .otcell { min-width:0; }
-  .otlab { display:block; font-size:8px; font-weight:700;
-          letter-spacing:.5px; text-transform:uppercase;
-          color:#7a919c; margin-bottom:2px; }
-  .otrow { display:flex; align-items:center; gap:4px; }
-  .otrow img { width:15px; height:15px; object-fit:contain;
-          flex:none; }
-  .otrow b { font-size:10px; color:#16323f; min-width:0;
-          line-height:1.25; }
-  .odot { flex:none; width:9px; height:9px; border-radius:50%; }
-  .ofoot { display:flex; align-items:center; gap:7px;
-          margin-top:6px; font-size:10.5px; color:#5b7a8a;
-          flex-wrap:wrap; }
+  /* Card de emisario — mismo formato que las de alertas: foto con
+     el pin del triaje, pills (estado + noticias), KPIs del censo
+     (riesgo / metros a la orilla / fondo) y 'vierte X' destacado */
+  .bimg .opin { position:absolute; left:50%; top:50%; width:30px;
+          transform:translate(-50%,-96%); }
+  .okpis { display:grid; grid-template-columns:1fr 1fr;
+          gap:3px 8px; padding:2px 10px 4px; }
+  .okpi { min-width:0; }
+  .okpi span { display:block; font-size:8px; font-weight:700;
+          letter-spacing:.4px; text-transform:uppercase;
+          color:#7a919c; }
+  .okpi b { font-size:10.5px; color:#16323f; }
+  .onat { font-size:11px; font-weight:700; color:#16323f;
+          padding:3px 10px 9px; }
+  .ozecrow { padding:0 10px 9px; margin-top:-3px; }
   .ozec { font-style:normal; font-size:9.5px; font-weight:700;
           color:#075276; border:1px solid #9fc3d4;
           background:#eef6fa; border-radius:999px;
           padding:1px 7px; white-space:nowrap; }
-  .onews { flex:none; font-size:10px; font-weight:700;
-          color:#075276; background:rgba(7,82,118,.09);
-          border-radius:999px; padding:2px 9px; white-space:nowrap; }
+  /* 'Cerrada desde mayo 2026' completo solo cuando hay ancho */
+  .aw-l { display:none; }
+  @media (min-width:700px) {
+    .aw-s { display:none; }
+    .aw-l { display:inline; }
+  }
   .gcard { background:#fff; border:1px solid #c9dfea;
           border-radius:12px; padding:14px 20px; flex:1;
           display:flex; flex-direction:column; gap:8px;
@@ -623,7 +608,9 @@
           <div class="bcmuni">{%- if a.cause %}<b
             style="color:{{ a.color }}">{{ a.cause }}</b>{%-
             if a.muni %} · {% endif %}{%- endif %}{{ a.muni }}</div>
-          <div class="bcmuni acwhen">{{ a.sub_when }}</div>
+          <div class="bcmuni acwhen"><span class="aw-s">{{ a.sub_when
+            }}</span><span class="aw-l">{{ a.sub_full | capitalize
+            }}</span></div>
         </a>
       {%- endmacro %}
       {%- if alerts %}
@@ -696,47 +683,39 @@
       <div class="exnote">Los más mencionados en prensa — los
         {{ n_outfalls }} puntos del censo, con filtros, están en la
         app</div>
+      <div class="bgrid">
       {%- for o in orows %}
-      <a class="ocard" href="/o/{{ o.id }}{{ '?demo=1' if demo }}"
+      <a class="bc" href="/o/{{ o.id }}{{ '?demo=1' if demo }}"
         style="animation-delay:{{ loop.index * 45 }}ms">
-        <div class="ohead">
-          <div class="omid">
-            <b>{{ o.name }}</b>
-            <span>{{ o.muni }}</span>
+        {%- if o.shot %}
+        <div class="bimg" style="background-image:url('{{ o.shot }}')">
+          <img class="opin" src="/icons/{{ o.pin }}.png" alt="">
+          <div class="btags">
+            <span class="bcchip" style="background:{{ o.color }}">{{
+              o.label }}</span>
+            {%- if o.news %}<span class="bcchip" style="background:
+              #075276">{{ o.news }} noticia{{ 's' if o.news != 1
+              }}</span>{%- endif %}
           </div>
-          {%- if o.news %}<span class="onews">{{ o.news }}
-            noticia{{ 's' if o.news != 1 }}</span>{%- endif %}
-        </div>
-        <div class="otriage" style="border-color:{{ o.color }}55;
-          background:{{ o.color }}0a">
-          <div class="otcell">
-            <span class="otlab">Estado</span>
-            <div class="otrow"><img src="/icons/{{ o.pin }}.png"
-              alt=""><b style="color:{{ o.color }}">{{ o.label
-              }}</b></div>
-          </div>
-          <div class="otcell">
-            <span class="otlab">Funcionamiento</span>
-            <div class="otrow"><img src="/icons/icon-waves2.png"
-              alt=""><b>{{ o.op }}</b></div>
-          </div>
-          <div class="otcell">
-            <span class="otlab">Riesgo</span>
-            <div class="otrow"><span class="odot"
-              style="background:{{ o.risk_color }}"></span><b
-              style="color:{{ o.risk_color }}">{{ o.risk_level
-              }}</b></div>
-          </div>
-        </div>
-        {%- if o.nature or o.zec %}
-        <div class="ofoot">
-          {%- if o.nature %}<span>Vierte {{ o.nature | lower }}</span>
-          {%- endif %}
-          {%- if o.zec %}<em class="ozec">🛡 ZEC</em>{%- endif %}
         </div>
         {%- endif %}
+        <div class="bcname">{{ o.name }}</div>
+        <div class="bcmuni">{{ o.muni }}</div>
+        <div class="okpis">
+          <div class="okpi"><span>Riesgo</span><b
+            style="color:{{ o.risk_color }}">{{ o.risk_level }}</b>
+          </div>
+          {%- if o.shore %}<div class="okpi"><span>A orilla</span><b>{{
+            o.shore }}</b></div>{%- endif %}
+          {%- if o.depth %}<div class="okpi"><span>Fondo</span><b>{{
+            o.depth }}</b></div>{%- endif %}
+        </div>
+        {%- if o.vert %}<div class="onat">{{ o.vert }}</div>{%- endif %}
+        {%- if o.zec %}<div class="ozecrow"><em class="ozec">🛡 ZEC —
+          zona protegida</em></div>{%- endif %}
       </a>
       {%- endfor %}
+      </div>
       {%- endif %}
       <div class="lower">
       <div class="lcol">
