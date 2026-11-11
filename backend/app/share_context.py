@@ -3042,64 +3042,43 @@ def home_context(db: Session, demo: bool = False) -> dict:
             else f"actualizado hace {mins // 60} h"
         )
 
-    # Playas de ejemplo: las alertas actuales + las monitorizadas con
-    # más analíticas (su landing enseña la gráfica histórica).
-    # Dedup por nombre visible: sin él, dos PMs de la misma playa
-    # (Punta Larga PM1/PM2) salían como dos cards "iguales" — bug
-    # visual que parecía una lista corrupta
-    example_ids = []
-    seen_names: set[str] = set()
-    names_by_id = {b.id: _display_name(b.name) for b, *_ in all_beaches}
-    for b, _ in island_alerts:
-        dname = names_by_id.get(b.id) or ""
-        if not dname or dname in seen_names:
-            continue
-        seen_names.add(dname)
-        example_ids.append(b.id)
-        if len(example_ids) >= 3:
-            break
-    fillers = (
-        db.query(BeachMeasurement.beach_id, func.count().label("n"))
-        .group_by(BeachMeasurement.beach_id)
-        .order_by(func.count().desc())
-        .limit(6)
+    # Emisarios: la otra mitad del relato — los puntos de vertido con
+    # más recorrido en prensa (vía infra), ordenados por titulares y
+    # desempatados por gravedad del triaje. Sin foto: el mar no
+    # reconoce nada; el dato que importa es "N noticias"
+    onews = dict(
+        db.query(NewsItem.infra_outfall_id, func.count())
+        .filter(
+            NewsItem.infra_outfall_id.isnot(None),
+            NewsItem.relevant.is_(True),
+        )
+        .group_by(NewsItem.infra_outfall_id)
         .all()
     )
-    for f in fillers:
-        if len(example_ids) >= 4:
-            break
-        if f.beach_id in example_ids:
-            continue
-        fname = names_by_id.get(f.beach_id) or ""
-        if not fname or fname in seen_names:
-            continue
-        seen_names.add(fname)
-        example_ids.append(f.beach_id)
-
-    ex_rows = {
-        b.id: (b, st, lon, lat)
-        for b, st, lon, lat in all_beaches
-        if b.id in example_ids
-    }
-    cards = []
-    for bid in example_ids:
-        row = ex_rows.get(bid)
-        if not row:
-            continue
-        b, st, lon, lat = row
-        eff = effs.get(bid)
-        lbl, col = _STATUS.get(_display_state(eff), _STATUS["unknown"])
-        cards.append(
+    _OSEV = {"illegal": 0, "unknown": 1, "legal": 2}
+    ostats = {"legal": 0, "illegal": 0, "unknown": 0}
+    ocands: list[tuple[Outfall, str]] = []
+    for o, _lon, _lat in outfall_dots:
+        sv = o.status.value if hasattr(o.status, "value") else o.status
+        ostats[sv] = ostats.get(sv, 0) + 1
+        ocands.append((o, sv))
+    ocands.sort(
+        key=lambda t: (-onews.get(t[0].id, 0), _OSEV.get(t[1], 3), t[0].id)
+    )
+    orows = []
+    for o, sv in ocands[:4]:
+        lbl, col = _OUTFALL_STATUS.get(sv, _OUTFALL_STATUS["unknown"])
+        orows.append(
             {
-                "beach_id": bid,
-                "thumb": _shot_url(lon, lat, 0.006, 0.0033),
+                "id": o.id,
+                "name": o.name or "Emisario",
+                "muni": o.municipality or "",
                 "label": lbl,
                 "color": col,
-                "name": _display_name(b.name) + _zone_suffix(db, b),
-                "muni": b.municipality or "",
-                "via_press": bool(eff and eff["via"] == "press"),
+                "news": onews.get(o.id, 0),
             }
         )
+    n_outfalls = len(ocands)
 
     island_url = _shot_url_fit(clon, clat, dlon, dlat, 920)
     # bbox real del mapa para el MapLibre interactivo (fitBounds)
@@ -3119,7 +3098,9 @@ def home_context(db: Session, demo: bool = False) -> dict:
         "reopened": reopened,
         "n_reopened": len(reopened),
         "fresh": fresh,
-        "cards": cards,
+        "orows": orows,
+        "ostats": ostats,
+        "n_outfalls": n_outfalls,
         "year_stats": year_stats,
         "demo": demo,
     }

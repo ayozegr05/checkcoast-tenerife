@@ -397,6 +397,25 @@
   .step span { display:block; font-size:11.5px; color:#5b7a8a;
           margin-top:1px; }
   .exnote { font-size:11.5px; color:#7a919c; margin-top:2px; }
+  /* Filas de emisario: punto del triaje + nombre + municipio/estado
+     + contador de prensa — sin foto, el mar no reconoce nada */
+  .orow { display:flex; align-items:center; gap:9px; margin-top:9px;
+          text-decoration:none; border-radius:10px; background:#fff;
+          border:1px solid #c9dfea; padding:8px 11px;
+          animation:rowin .32s ease backwards;
+          transition:transform .12s ease, box-shadow .12s ease,
+            border-color .12s ease; }
+  .orow:hover { transform:translateY(-1px); border-color:#17b8ce;
+          box-shadow:0 4px 12px rgba(7,43,62,.16); }
+  .orow i { flex:none; width:9px; height:9px; border-radius:50%; }
+  .omid { flex:1; min-width:0; }
+  .omid b { display:block; font-size:12px; color:#16323f;
+          font-weight:600; }
+  .orow:hover .omid b { color:#075276; }
+  .omid span { font-size:10.5px; color:#7a919c; }
+  .onews { flex:none; font-size:10px; font-weight:700;
+          color:#075276; background:rgba(7,82,118,.09);
+          border-radius:999px; padding:2px 9px; white-space:nowrap; }
   .gcard { background:#fff; border:1px solid #c9dfea;
           border-radius:12px; padding:14px 20px; flex:1;
           display:flex; flex-direction:column; gap:8px;
@@ -641,22 +660,31 @@
         {%- endif %}
       </div>
       {%- endif %}
-      {%- if cards %}
-      <div class="sec">Explora una playa</div>
-      <div class="exnote">Ejemplos destacados — la lista completa,
-        con filtros por municipio y estado, está en la app</div>
-      <div class="bgrid">
-        {%- for c in cards %}
-        <a class="bc" href="/b/{{ c.beach_id }}">
-          <div class="bimg" style="background-image:url('{{ c.thumb }}')">
-            <span class="bcchip" style="background:{{ c.color }}">
-              {{- c.label }}</span>
-          </div>
-          <div class="bcname">{{ c.name }}</div>
-          <div class="bcmuni">{{ c.muni }}</div>
-        </a>
-        {%- endfor %}
+      {%- if orows %}
+      <div class="sec"><span class="sec-t">Emisarios en
+          la&nbsp;costa</span>
+        <span class="secn" style="background:#c62828">No autorizados
+          · {{ ostats.illegal }}</span>
+        <span class="secn" style="background:#f9a825">En trámite ·
+          {{ ostats.unknown }}</span>
+        <span class="secn" style="background:#2e9e6b">Autorizados ·
+          {{ ostats.legal }}</span>
       </div>
+      <div class="exnote">Los más mencionados en prensa — los
+        {{ n_outfalls }} puntos del censo, con filtros, están en la
+        app</div>
+      {%- for o in orows %}
+      <a class="orow" href="/o/{{ o.id }}{{ '?demo=1' if demo }}"
+        style="animation-delay:{{ loop.index * 45 }}ms">
+        <i style="background:{{ o.color }}"></i>
+        <div class="omid">
+          <b>{{ o.name }}</b>
+          <span>{{ o.muni }}{% if o.muni %} · {% endif %}{{ o.label }}</span>
+        </div>
+        {%- if o.news %}<span class="onews">{{ o.news }}
+          noticia{{ 's' if o.news != 1 }}</span>{%- endif %}
+      </a>
+      {%- endfor %}
       {%- endif %}
       <div class="lower">
       <div class="lcol">
