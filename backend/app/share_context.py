@@ -3076,8 +3076,13 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 "muni": o.municipality or "",
                 "label": lbl,
                 "color": col,
-                "risk_label": risk["label"],
+                # Mismo triaje KPI de la ficha /o/: pin de estado,
+                # funcionamiento y nivel de riesgo
+                "pin": _OUTFALL_PIN.get(sv, _OUTFALL_PIN["unknown"]),
+                "op": _operation_short(o.is_active, o.continuity),
+                "risk_level": risk["level"].capitalize(),
                 "risk_color": risk["color"],
+                "nature": o.nature,
                 "zec": bool(o.protected_area),
                 "news": onews.get(o.id, 0),
             }
