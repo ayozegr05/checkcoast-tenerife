@@ -348,6 +348,10 @@
           font-weight:600; }
   .sal:hover b { color:#075276; }
   .sal span { font-size:10.5px; color:#7a919c; }
+  /* Miniatura Esri al zoom máximo (~160 m, como la barra lateral de
+     /b/): ver la playa real cerrada antes de entrar a la ficha */
+  .sal .salthumb { flex:none; align-self:stretch; width:64px;
+          min-height:46px; border-radius:6px; object-fit:cover; }
   .salmid { flex:1; min-width:0; }
   .salright { flex:none; margin-left:auto; text-align:right;
           display:flex; flex-direction:column; align-items:flex-end;
@@ -582,6 +586,8 @@
         <a class="sal sal-{{ a.cls }}" href="/b/{{ a.beach_id }}{{ '?demo=1' if demo }}"
           style="animation-delay:{{ loop.index * 45 }}ms">
           <i style="background:{{ a.color }}"></i>
+          {%- if a.thumb %}<img class="salthumb" src="{{ a.thumb }}"
+            alt="" loading="lazy">{%- endif %}
           <div class="salmid">
           <b>{{ a.name }}</b>
           <span><span
@@ -605,6 +611,8 @@
         <a class="sal sal-{{ a.cls }} xmore" href="/b/{{ a.beach_id }}{{ '?demo=1' if demo }}"
           style="animation-delay:{{ loop.index * 45 }}ms">
           <i style="background:{{ a.color }}"></i>
+          {%- if a.thumb %}<img class="salthumb" src="{{ a.thumb }}"
+            alt="" loading="lazy">{%- endif %}
           <div class="salmid">
           <b>{{ a.name }}</b>
           <span><span

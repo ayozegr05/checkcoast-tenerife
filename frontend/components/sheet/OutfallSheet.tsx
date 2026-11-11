@@ -870,7 +870,7 @@ export default function OutfallSheet({
             : undefined
         }
         onPress={onViewOnMap}
-        startLevel={1}
+        startLevel={2}
         biasTo={
           p.start_lon != null && p.start_lat != null
             ? [p.start_lon, p.start_lat]

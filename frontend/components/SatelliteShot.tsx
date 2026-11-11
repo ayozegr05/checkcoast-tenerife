@@ -41,7 +41,9 @@ const BASE_DLAT = 0.0033;
 // 2.133): si difiere, Esri expande el encuadre devuelto para casarlo
 // y los marcadores proyectados quedan comprimidos hacia el centro
 const BASE_DLON = BASE_DLAT * (640 / 300); // ≈ 0.00704
-const LEVELS = [0.25, 1, 2.5];
+// 0.45 ≈ el "muy cerca" de la landing (~600 m): peldaño intermedio
+// — del detalle al nivel 1 había un salto de x4
+const LEVELS = [0.25, 0.45, 1, 2.5];
 // Encuadre multipunto: además de los niveles estándar hay uno
 // intermedio y uno muy ancho — un arenal largo (Jardín: sus zonas
 // separadas ~800 m) no cabe con los encuadres de playa simple

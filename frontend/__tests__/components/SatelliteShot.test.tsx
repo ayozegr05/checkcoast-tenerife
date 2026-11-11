@@ -28,8 +28,8 @@ describe('<SatelliteShot />', () => {
     );
     await fireEvent(photo(), 'load');
     expect(screen.queryByText(LOADING)).toBeNull();
-    // 3 niveles estándar: se prefetchan los 2 que no se ven
-    expect(Image.prefetch).toHaveBeenCalledTimes(2);
+    // 4 niveles estándar: se prefetchan los 3 que no se ven
+    expect(Image.prefetch).toHaveBeenCalledTimes(3);
     expect(
       screen.getByText('© Esri, Maxar, Earthstar Geographics'),
     ).toBeTruthy();
@@ -46,6 +46,7 @@ describe('<SatelliteShot />', () => {
     await fireEvent.press(zoomOut());
     expect(photo().props.source.uri).not.toBe(first);
     expect(zoomIn()).toBeEnabled();
+    await fireEvent.press(zoomOut());
     await fireEvent.press(zoomOut());
     expect(zoomOut()).toBeDisabled();
   });
