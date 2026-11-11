@@ -538,10 +538,10 @@ export default function App() {
         }
         pmPoints={pmPointsFC}
         zoneFocus={zoneShown}
-        // Con ficha abierta TODOS los controles flotantes se atenúan
-        // y dejan de pulsar (geo/brújula/capas no sirven de fondo —
-        // y capas llegaba a cerrar la ficha)
-        controlsCovered={!!selection && !sheetHidden}
+        // Con ficha o intro abiertas TODOS los controles flotantes se
+        // atenúan y dejan de pulsar (geo/brújula/capas no sirven de
+        // fondo — y capas llegaba a cerrar la ficha)
+        controlsCovered={(!!selection && !sheetHidden) || introVisible}
         outfallSheetTop={
           selection?.type === 'outfall' && !sheetHidden ? sheetTopY : null
         }

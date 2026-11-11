@@ -209,6 +209,13 @@ export default function CoastMap({
   const [alertsOpen, setAlertsOpen] = useState(false);
   // Panel de capas por estado (botón flotante junto a la brújula)
   const [layersOpen, setLayersOpen] = useState(false);
+  // Regla única de la columna flotante: cualquier overlay la apaga
+  // a fantasma (ficha vía controlsCovered; búsqueda, banner de
+  // alertas y panel de capas son estados locales). El botón Capas
+  // se excluye a sí mismo: con su panel abierto es la vía de
+  // cerrarlo — se mantiene despierto
+  const ctrlDim = controlsCovered || searchOpen || alertsOpen || layersOpen;
+  const ctrlDimNoLayers = controlsCovered || searchOpen || alertsOpen;
   // Bocadillo de primer uso sobre la leyenda: enseña una vez que hay
   // capas ocultas y que la leyenda/botón las abre
   const [layersHint, setLayersHint] = useState(false);
@@ -1018,16 +1025,17 @@ export default function CoastMap({
 
       {/* Basemap mapa/satélite: cuadradito flotante arriba-derecha,
           debajo de la topbar — gesto de "capas" tipo Google Maps,
-          icono fijo (el propio mapa ya muestra el estado) */}
+          icono fijo (el propio mapa ya muestra el estado).
+          Regla única: CUALQUIER overlay (ficha, búsqueda, alertas,
+          panel de capas, intro) apaga la columna a fantasma */}
       <Pressable
-        pointerEvents={controlsCovered ? 'none' : 'auto'}
+        pointerEvents={ctrlDim ? 'none' : 'auto'}
         style={({ pressed }) => [
           styles.satBtn,
-          (alertsOpen || layersOpen) && styles.ctrlBtnDisabled,
-          controlsCovered && styles.ctrlHidden,
+          ctrlDim && styles.ctrlHidden,
           pressed && styles.pressFx,
         ]}
-        disabled={alertsOpen || layersOpen || controlsCovered}
+        disabled={ctrlDim}
         onPress={() => setSatellite((v) => !v)}
         accessibilityRole="button"
         accessibilityLabel={
@@ -1043,14 +1051,13 @@ export default function CoastMap({
 
       {/* Brujula: reorienta el mapa al norte (como en Google Maps) */}
       <Pressable
-        pointerEvents={controlsCovered ? 'none' : 'auto'}
+        pointerEvents={ctrlDim ? 'none' : 'auto'}
         style={({ pressed }) => [
           styles.compassBtn,
-          (alertsOpen || layersOpen) && styles.ctrlBtnDisabled,
-          controlsCovered && styles.ctrlHidden,
+          ctrlDim && styles.ctrlHidden,
           pressed && styles.pressFx,
         ]}
-        disabled={alertsOpen || layersOpen || controlsCovered}
+        disabled={ctrlDim}
         onPress={northUp}
         accessibilityRole="button"
         accessibilityLabel="Orientar el mapa al norte"
@@ -1063,13 +1070,13 @@ export default function CoastMap({
 
       {/* Capas: abre el panel de checkboxes por estado */}
       <Pressable
-        pointerEvents={controlsCovered ? 'none' : 'auto'}
+        pointerEvents={ctrlDimNoLayers ? 'none' : 'auto'}
         style={({ pressed }) => [
           styles.layersBtn,
-          controlsCovered && styles.ctrlHidden,
+          ctrlDimNoLayers && styles.ctrlHidden,
           pressed && styles.pressFx,
         ]}
-        disabled={controlsCovered}
+        disabled={ctrlDimNoLayers}
         onPress={() => {
           if (!layersOpen) {
             openLayers();
@@ -1092,14 +1099,13 @@ export default function CoastMap({
           este binario — dev-clients viejos / APK e2e lo omiten */}
       {locOk && (
         <Pressable
-          pointerEvents={controlsCovered ? 'none' : 'auto'}
+          pointerEvents={ctrlDim ? 'none' : 'auto'}
           style={({ pressed }) => [
             styles.locateBtn,
-            (alertsOpen || layersOpen) && styles.ctrlBtnDisabled,
-            controlsCovered && styles.ctrlHidden,
+            ctrlDim && styles.ctrlHidden,
             pressed && styles.pressFx,
           ]}
-          disabled={alertsOpen || layersOpen || controlsCovered || locating}
+          disabled={ctrlDim || locating}
           onPress={locateMe}
           accessibilityRole="button"
           accessibilityLabel="Centrar el mapa en mi ubicación"
@@ -1327,11 +1333,8 @@ const styles = StyleSheet.create({
   },
   // Botones flotantes atenuados mientras hay un panel abierto
   // (alertas/capas) — se ven muertos, no se pueden pulsar
-  ctrlBtnDisabled: {
-    opacity: 0.4,
-  },
-  // Cubiertos por la ficha expandida: invisibles y sin toques — un
-  // tap sobre la card no debe llegar al botón oculto debajo
+  // Fantasma, no desaparecido: se lee que el control existe pero
+  // está inactivo mientras un overlay manda (pointerEvents ya off)
   // Fantasma, no desaparecido: se lee que el control existe pero
   // está inactivo mientras la ficha manda (pointerEvents ya off)
   ctrlHidden: {
