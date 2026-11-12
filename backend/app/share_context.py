@@ -3112,19 +3112,58 @@ def home_context(db: Session, demo: bool = False) -> dict:
             _OSEV.get(t[1], 3),
             0 if t[0].protected_area else 1,
             -onews.get(t[0].id, 0),
+            len(t[0].name or ""),
             t[0].id,
         )
     )
-    osel = ocands[:3]
-    if not any(t[1] == "legal" for t in osel):
-        legal = [t for t in ocands[3:] if t[1] == "legal"]
-        osel.append(
-            max(legal, key=lambda t: onews.get(t[0].id, 0))
-            if legal
-            else ocands[3]
-        )
-    else:
-        osel.append(ocands[3])
+    # Muestra variada: 2 no autorizados de mayor riesgo + 1 en
+    # trámite + 1 autorizado — se ven los tres estados del triaje.
+    # Municipios distintos si se puede; se rellena con lo mejor.
+    osel: list[tuple[Outfall, str, float | None, float | None]] = []
+
+    def _otake(pred, low: bool = False) -> None:
+        rest = [t for t in ocands if t not in osel and pred(t)]
+        if low:
+            # contraste de menor riesgo: bajo/medio primero,
+            # desempate por prensa
+            rest.sort(
+                key=lambda t: (
+                    -_RLEV[_outfall_risk(t[0])["level"]],
+                    -onews.get(t[0].id, 0),
+                    len(t[0].name or ""),
+                    t[0].id,
+                )
+            )
+        for t in rest:
+            if t[0].municipality not in {x[0].municipality for x in osel}:
+                osel.append(t)
+                return
+        if rest:
+            osel.append(rest[0])
+
+    _otake(lambda t: t[1] == "illegal")
+    _otake(lambda t: t[1] == "illegal")
+    _otake(lambda t: t[1] == "unknown", low=True)
+    _otake(lambda t: t[1] == "legal", low=True)
+    for t in ocands:
+        if len(osel) >= 4:
+            break
+        if t not in osel:
+            osel.append(t)
+    osel = osel[:4]
+    # El grid va 2×2: empareja las cards por longitud de nombre para
+    # que cada fila tenga altura pareja (la diferencia de líneas del
+    # título es lo que deja hueco muerto en la vecina)
+    _on = [len(t[0].name or "") for t in osel]
+    (i0, i1), (i2, i3) = min(
+        ((0, 1), (2, 3)),
+        ((0, 2), (1, 3)),
+        ((0, 3), (1, 2)),
+        key=lambda p: (
+            abs(_on[p[0][0]] - _on[p[0][1]]) + abs(_on[p[1][0]] - _on[p[1][1]])
+        ),
+    )
+    osel = [osel[i0], osel[i1], osel[i2], osel[i3]]
     # Frase 'Vierte X · a diario' para la card: el nature del censo
     # con el ritmo de funcionamiento como cola
     _OP_TAIL = {
@@ -3187,7 +3226,13 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 ),
                 "vert_main": vert_main,
                 "vert_sub": vert_sub,
-                "zec": bool(o.protected_area),
+                # 'ZEC Sebadales del Sur de Tenerife. nº ZEC 73_TF…'
+                # → tile 'espacio protegido' con solo el nombre
+                "zec_name": (
+                    o.protected_area.split(".")[0].strip()
+                    if o.protected_area
+                    else None
+                ),
                 "news": onews.get(o.id, 0),
             }
         )
