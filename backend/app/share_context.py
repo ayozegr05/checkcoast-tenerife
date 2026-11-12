@@ -3084,10 +3084,11 @@ def home_context(db: Session, demo: bool = False) -> dict:
             else f"actualizado hace {mins // 60} h"
         )
 
-    # Emisarios: la otra mitad del relato — los puntos de vertido con
-    # más recorrido en prensa (vía infra), ordenados por titulares y
-    # desempatados por gravedad del triaje. Sin foto: el mar no
-    # reconoce nada; el dato que importa es "N noticias"
+    # Emisarios: la otra mitad del relato — muestra del censo por
+    # riesgo, no por ruido mediático: top 3 de mayor riesgo
+    # (desempate: triaje → ZEC → prensa) + 1 autorizado como
+    # contraste — la sección enseña la escala del problema, no solo
+    # sus peores casos
     onews = dict(
         db.query(NewsItem.infra_outfall_id, func.count())
         .filter(
@@ -3098,6 +3099,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
         .all()
     )
     _OSEV = {"illegal": 0, "unknown": 1, "legal": 2}
+    _RLEV = {"alto": 0, "medio": 1, "bajo": 2}
     ostats = {"legal": 0, "illegal": 0, "unknown": 0}
     ocands: list[tuple[Outfall, str, float | None, float | None]] = []
     for o, _lon, _lat in outfall_dots:
@@ -3105,8 +3107,24 @@ def home_context(db: Session, demo: bool = False) -> dict:
         ostats[sv] = ostats.get(sv, 0) + 1
         ocands.append((o, sv, _lon, _lat))
     ocands.sort(
-        key=lambda t: (-onews.get(t[0].id, 0), _OSEV.get(t[1], 3), t[0].id)
+        key=lambda t: (
+            _RLEV[_outfall_risk(t[0])["level"]],
+            _OSEV.get(t[1], 3),
+            0 if t[0].protected_area else 1,
+            -onews.get(t[0].id, 0),
+            t[0].id,
+        )
     )
+    osel = ocands[:3]
+    if not any(t[1] == "legal" for t in osel):
+        legal = [t for t in ocands[3:] if t[1] == "legal"]
+        osel.append(
+            max(legal, key=lambda t: onews.get(t[0].id, 0))
+            if legal
+            else ocands[3]
+        )
+    else:
+        osel.append(ocands[3])
     # Frase 'Vierte X · a diario' para la card: el nature del censo
     # con el ritmo de funcionamiento como cola
     _OP_TAIL = {
@@ -3116,7 +3134,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
         "En funcionamiento": "en funcionamiento",
     }
     orows = []
-    for o, sv, _lon, _lat in ocands[:4]:
+    for o, sv, _lon, _lat in osel:
         lbl, col = _OUTFALL_STATUS.get(sv, _OUTFALL_STATUS["unknown"])
         risk = _outfall_risk(o)
         op = _operation_short(o.is_active, o.continuity)
