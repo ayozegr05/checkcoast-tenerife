@@ -408,8 +408,25 @@
           border-radius:8px; padding:5px 6px; text-align:center; }
   .okpi span { display:block; font-size:8px; font-weight:700;
           letter-spacing:.4px; text-transform:uppercase;
-          color:#7a919c; }
-  .okpi b { font-size:10.5px; color:#16323f; line-height:1.15; }
+          color:#7a919c; line-height:1.15; }
+  .okpi b { font-size:10.5px; color:#16323f; line-height:1.1; }
+  /* Interlineado igual arriba y abajo en los tiles de 3 líneas:
+     'vierte a' / valor / 'de la orilla' */
+  .okpi { line-height:1.15; }
+  .okpis { padding-top:0; }
+  .okrow { display:flex; align-items:center; justify-content:center;
+          gap:5px; }
+  /* Halo semáforo del riesgo — mismo gesto que el triaje de /o/ */
+  .orpulse { position:relative; width:14px; height:14px;
+          flex:none; }
+  .orpulse .oph { position:absolute; inset:0; border-radius:50%;
+          animation:orpulse var(--pd,1.5s) ease-out infinite; }
+  .orpulse .opc { position:absolute; left:4px; top:4px;
+          width:6px; height:6px; border-radius:50%; }
+  @keyframes orpulse {
+          from { transform:scale(.4); opacity:.55; }
+          60% { opacity:.25; }
+          to { transform:scale(1); opacity:0; } }
   .onat { font-size:11px; font-weight:700; color:#16323f;
           padding:3px 10px 9px; }
   .ozecrow { padding:0 10px 9px; margin-top:-3px; }
@@ -702,9 +719,12 @@
         <div class="okpis">
           <div class="okpi"><span>Estado</span><b
             style="color:{{ o.color }}">{{ o.label }}</b></div>
-          <div class="okpi"><span>Riesgo</span><b
-            style="color:{{ o.risk_color }}">{{ o.risk_level }}</b>
-          </div>
+          <div class="okpi"><span>Riesgo</span><div class="okrow"><span
+            class="orpulse" style="--pd:{{ o.risk_pd }}"><span
+            class="oph" style="background:{{ o.risk_color }}"></span><span
+            class="opc" style="background:{{ o.risk_color }}"></span></span>
+            <b style="color:{{ o.risk_color }}">{{ o.risk_level }}</b>
+            </div></div>
           {%- if o.shore %}<div class="okpi"><span>vierte a</span><b>{{
             o.shore }}</b><span>de la orilla</span></div>{%- endif %}
           {%- if o.depth %}<div class="okpi"><span>vierte a</span><b>{{

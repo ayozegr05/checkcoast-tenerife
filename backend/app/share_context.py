@@ -3146,6 +3146,10 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 "pin": _OUTFALL_PIN.get(sv, _OUTFALL_PIN["unknown"]),
                 "risk_level": risk["level"].capitalize(),
                 "risk_color": risk["color"],
+                # Cadencia del halo como la ficha /o/
+                "risk_pd": {"alto": "0.9s", "medio": "1.5s", "bajo": "2.6s"}[
+                    risk["level"]
+                ],
                 "shore": (
                     f"{round(o.shore_m)} m" if o.shore_m is not None else None
                 ),
