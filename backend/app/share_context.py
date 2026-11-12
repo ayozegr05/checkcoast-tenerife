@@ -3122,14 +3122,14 @@ def home_context(db: Session, demo: bool = False) -> dict:
         op = _operation_short(o.is_active, o.continuity)
         nat = (o.nature or "").strip()
         if op == "Ahora no vierte":
-            vert = f"{_cap1(nat.lower()) if nat else 'La conducción'} · ahora no vierte"
+            vert_main = _cap1(nat.lower()) if nat else "La conducción"
+            vert_sub = "ahora no vierte"
         elif nat:
-            vert = f"Vierte {nat.lower()}"
-            tail = _OP_TAIL.get(op, "")
-            if tail:
-                vert += f" · {tail}"
+            vert_main = _cap1(nat.lower())
+            vert_sub = _OP_TAIL.get(op, "")
         else:
-            vert = ""
+            vert_main = ""
+            vert_sub = ""
         depth = o.outfall_depth
         orows.append(
             {
@@ -3167,7 +3167,8 @@ def home_context(db: Session, demo: bool = False) -> dict:
                     if depth is not None
                     else None
                 ),
-                "vert": vert,
+                "vert_main": vert_main,
+                "vert_sub": vert_sub,
                 "zec": bool(o.protected_area),
                 "news": onews.get(o.id, 0),
             }

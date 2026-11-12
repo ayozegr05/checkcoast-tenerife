@@ -428,8 +428,11 @@
           from { transform:scale(.4); opacity:.55; }
           60% { opacity:.25; }
           to { transform:scale(1); opacity:0; } }
-  .onat { font-size:11px; font-weight:700; color:#16323f;
-          padding:3px 10px 9px; }
+  /* 'Qué vierte' va en tile a ancho completo: sustancia destacada,
+     ritmo ('solo al desbordarse') en línea secundaria */
+  .okwide { grid-column:1/-1; }
+  .okpi .osub { text-transform:none; letter-spacing:0;
+          font-size:8.5px; font-weight:600; color:#7a919c; }
   .ozecrow { padding:0 10px 9px; margin-top:-3px; }
   /* Cabeceras de sección con pills: título centrado en su fila y
      los chips envuelven juntos debajo (también en escritorio) */
@@ -730,8 +733,12 @@
             o.shore }}</b><span>de la orilla</span></div>{%- endif %}
           {%- if o.depth %}<div class="okpi"><span>vierte a</span><b>{{
             o.depth.v }}</b><span>{{ o.depth.l }}</span></div>{%- endif %}
+          {%- if o.vert_main %}<div class="okpi okwide"><span>vierte</span><b>{{
+            o.vert_main }}</b>
+            {%- if o.vert_sub %}<span class="osub">{{ o.vert_sub
+              }}</span>{%- endif %}
+          </div>{%- endif %}
         </div>
-        {%- if o.vert %}<div class="onat">{{ o.vert }}</div>{%- endif %}
         {%- if o.zec %}<div class="ozecrow"><em class="ozec">🛡 ZEC —
           zona protegida</em></div>{%- endif %}
       </a>
