@@ -2947,9 +2947,38 @@ def home_context(db: Session, demo: bool = False) -> dict:
             )
     map_dots.extend(beach_dots)
 
-    # Alertas vivas (misma lista que el panel lateral de /b/)
+    # Alertas vivas — un cierre por arenal (misma clave que
+    # _live_status_counts y los pins del mapa): Punta Larga Z1+Z2 es
+    # UN episodio, no dos. Solo se fusionan PMs con el mismo estado
+    # de matriz — buckets distintos son episodios distintos. La card
+    # fusionada enseña el nombre base + '· N zonas'
     now = datetime.now(UTC)
+    gmap: dict[tuple, list] = {}
+    for pair in island_alerts:
+        b, e = pair
+        gmap.setdefault(
+            (
+                _norm_muni(b.municipality) or "",
+                beach_group_key(b.name),
+                _display_state(e),
+            ),
+            [],
+        ).append(pair)
+    zone_counts: dict[int, tuple[int, str]] = {}
+    island_alerts = []
+    for g in gmap.values():
+        rep = min(g, key=lambda p: p[0].id)
+        island_alerts.append(rep)
+        if len(g) > 1:
+            zone_counts[rep[0].id] = (
+                len(g),
+                _display_name(arenal_base(rep[0].name)),
+            )
     alerts = _alert_cards(island_alerts, now, db)
+    for a in alerts:
+        if a["beach_id"] in zone_counts:
+            nz, base = zone_counts[a["beach_id"]]
+            a["name"] = f"{base} · {nz} zonas"
     # Agrupadas por sección — mismo patrón que el banner de la app
     alert_groups = [
         {
@@ -3107,7 +3136,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 "id": o.id,
                 "name": o.name or "Emisario",
                 "muni": o.municipality or "",
-                "label": lbl.replace(" ", " "),
+                "label": lbl,
                 "color": col,
                 "shot": _shot_url(_lon, _lat, *_SHOT_LEVELS[1])
                 if _lon is not None and _lat is not None
