@@ -2235,6 +2235,17 @@ def _outfall_risk(o: Outfall) -> dict:
     }
 
 
+def _zec_bits(protected_area: str | None) -> dict:
+    """'ZEC Sebadales del Sur de Tenerife. nº ZEC 73_TF…' →
+    {'zec_kind': 'ZEC', 'zec_name': 'Sebadales del Sur de Tenerife'}"""
+    seg = (protected_area or "").split(".")[0].strip()
+    m = re.match(r"^([A-ZÁÉÍÓÚÑ]{2,6})\s+(.+)$", seg) if seg else None
+    return {
+        "zec_kind": (m.group(1) if m else seg) or None,
+        "zec_name": m.group(2) if m else None,
+    }
+
+
 def _beach_base_name(name: str) -> str:
     """Clave de agrupacion (port de beachBaseName): PMs, romanos y
     calas del mismo arenal cuentan una vez en 'playas cercanas'."""
@@ -3227,12 +3238,9 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 "vert_main": vert_main,
                 "vert_sub": vert_sub,
                 # 'ZEC Sebadales del Sur de Tenerife. nº ZEC 73_TF…'
-                # → tile 'espacio protegido' con solo el nombre
-                "zec_name": (
-                    o.protected_area.split(".")[0].strip()
-                    if o.protected_area
-                    else None
-                ),
+                # → tile 'espacio protegido': 🛡 ZEC + nombre de la
+                # zona en línea secundaria
+                **_zec_bits(o.protected_area),
                 "news": onews.get(o.id, 0),
             }
         )

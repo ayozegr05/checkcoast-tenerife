@@ -728,14 +728,18 @@
             o.shore }}</b><span>de la orilla</span></div>{%- endif %}
           {%- if o.depth %}<div class="okpi"><span>vierte a</span><b>{{
             o.depth.v }}</b><span>{{ o.depth.l }}</span></div>{%- endif %}
-          {%- if o.vert_main %}<div class="okpi okwide"><span>vierte</span><b>{{
+          {%- if o.vert_main %}<div class="okpi{% if not o.zec_kind
+            %} okwide{% endif %}"><span>vierte</span><b>{{
             o.vert_main }}</b>
             {%- if o.vert_sub %}<span class="osub">{{ o.vert_sub
               }}</span>{%- endif %}
           </div>{%- endif %}
-          {%- if o.zec_name %}<div class="okpi okwide"><span>espacio
-            protegido</span><b style="color:#075276">🛡 {{ o.zec_name
-            }}</b></div>{%- endif %}
+          {%- if o.zec_kind %}<div class="okpi"><span>espacio
+            protegido</span><b style="color:#075276">🛡 {{
+            o.zec_kind }}</b>
+            {%- if o.zec_name %}<span class="osub">{{ o.zec_name
+              }}</span>{%- endif %}
+          </div>{%- endif %}
         </div>
       </a>
       {%- endfor %}
