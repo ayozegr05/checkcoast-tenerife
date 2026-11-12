@@ -3164,17 +3164,20 @@ def home_context(db: Session, demo: bool = False) -> dict:
     osel = osel[:4]
     # El grid va 2×2: empareja las cards por longitud de nombre para
     # que cada fila tenga altura pareja (la diferencia de líneas del
-    # título es lo que deja hueco muerto en la vecina)
-    _on = [len(t[0].name or "") for t in osel]
-    (i0, i1), (i2, i3) = min(
-        ((0, 1), (2, 3)),
-        ((0, 2), (1, 3)),
-        ((0, 3), (1, 2)),
-        key=lambda p: (
-            abs(_on[p[0][0]] - _on[p[0][1]]) + abs(_on[p[1][0]] - _on[p[1][1]])
-        ),
-    )
-    osel = [osel[i0], osel[i1], osel[i2], osel[i3]]
+    # título es lo que deja hueco muerto en la vecina). Con menos de
+    # 4 candidatos (fixtures/tests) no hay nada que emparejar
+    if len(osel) == 4:
+        _on = [len(t[0].name or "") for t in osel]
+        (i0, i1), (i2, i3) = min(
+            ((0, 1), (2, 3)),
+            ((0, 2), (1, 3)),
+            ((0, 3), (1, 2)),
+            key=lambda p: (
+                abs(_on[p[0][0]] - _on[p[0][1]])
+                + abs(_on[p[1][0]] - _on[p[1][1]])
+            ),
+        )
+        osel = [osel[i0], osel[i1], osel[i2], osel[i3]]
     # Frase 'Vierte X · a diario' para la card: el nature del censo
     # con el ritmo de funcionamiento como cola
     _OP_TAIL = {
