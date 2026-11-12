@@ -3107,13 +3107,13 @@ def home_context(db: Session, demo: bool = False) -> dict:
                 "id": o.id,
                 "name": o.name or "Emisario",
                 "muni": o.municipality or "",
-                "label": lbl,
+                "label": lbl.replace(" ", " "),
                 "color": col,
                 "shot": _shot_url(_lon, _lat, *_SHOT_LEVELS[1])
                 if _lon is not None and _lat is not None
                 else None,
-                # Mismo triaje KPI de la ficha /o/: pin de estado,
-                # funcionamiento, nivel de riesgo y cotas del censo
+                # Cotas del censo con la gramática de los tiles de la
+                # ficha: "vierte a / 646 m / de la orilla"
                 "pin": _OUTFALL_PIN.get(sv, _OUTFALL_PIN["unknown"]),
                 "risk_level": risk["level"].capitalize(),
                 "risk_color": risk["color"],
@@ -3121,8 +3121,17 @@ def home_context(db: Session, demo: bool = False) -> dict:
                     f"{round(o.shore_m)} m" if o.shore_m is not None else None
                 ),
                 "depth": (
-                    f"{abs(depth):g} m"
-                    if depth is not None and depth < 0
+                    {
+                        "v": (f"{abs(depth):g} m" if depth else "0 m"),
+                        "l": (
+                            "bajo el mar"
+                            if depth < 0
+                            else "a ras de mar"
+                            if depth == 0
+                            else "sobre el mar"
+                        ),
+                    }
+                    if depth is not None
                     else None
                 ),
                 "vert": vert,
