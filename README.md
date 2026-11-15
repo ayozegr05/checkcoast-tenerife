@@ -81,8 +81,8 @@ live map.
   water"** mode (no bad samples and no official or press-reported
   pollution); groups sampling points by beach
 - 🔗 **Shareable web pages** — every beach and outfall has a public
-  page (`/b/{id}`, `/o/{id}`) with social cards; the landing shows the
-  live map and current closures
+  page (`/b/{id}`, `/o/{id}`) with social cards; the public site shows
+  the live map and current closures — the app's future download point
 
 > The app UI is in Spanish — it targets beachgoers in Tenerife.
 

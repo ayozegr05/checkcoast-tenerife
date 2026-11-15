@@ -82,8 +82,9 @@ landing con el mapa en vivo.
   apta"** (sin muestras malas ni contaminación oficial o de prensa);
   agrupa puntos de muestreo por playa
 - 🔗 **Páginas web compartibles** — cada playa y emisario tiene página
-  pública (`/b/{id}`, `/o/{id}`) con tarjeta social; la landing muestra
-  el mapa en vivo y los cierres actuales
+  pública (`/b/{id}`, `/o/{id}`) con tarjeta social; la web pública
+  muestra el mapa y los cierres en vivo — futuro punto de descarga
+  de la app
 
 ## Arquitectura
 
