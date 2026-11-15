@@ -21,7 +21,7 @@ landing con el mapa en vivo.
 
 | Mapa de la isla — estado en vivo | Cierres que Náyade no explica | Emisario: ilegal, sin depurar, zona protegida | Emisarios sin permiso vs calidad del agua |
 |:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/01-mapa.jpg" width="200"> | <img src="docs/screenshots/03-benijo-prensa.jpg" width="200"> | <img src="docs/screenshots/04-emisario-puntablanca.jpg" width="200"> | <img src="docs/screenshots/06-jardin-emisarios-calidad.jpg" width="200"> |
+| <img src="docs/screenshots/01-mapa.jpg" width="200" height="446"> | <img src="docs/screenshots/03-benijo-prensa.jpg" width="200" height="446"> | <img src="docs/screenshots/04-emisario-puntablanca.jpg" width="200" height="446"> | <img src="docs/screenshots/06-jardin-emisarios-calidad.jpg" width="200" height="446"> |
 
 <details>
 <summary><b>Más capturas</b></summary>
@@ -29,7 +29,7 @@ landing con el mapa en vivo.
 
 | Alertas activas | Emisario precario, a 23 m de la orilla | Ranking por municipio | Los ~180 puntos de vertido |
 |:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/02-alertas.jpg" width="200"> | <img src="docs/screenshots/05-emisario-sanjuan.jpg" width="200"> | <img src="docs/screenshots/07-municipios.jpg" width="200"> | <img src="docs/screenshots/08-mapa-emisarios.jpg" width="200"> |
+| <img src="docs/screenshots/02-alertas.jpg" width="200" height="446"> | <img src="docs/screenshots/05-emisario-sanjuan.jpg" width="200" height="446"> | <img src="docs/screenshots/07-municipios.jpg" width="200" height="446"> | <img src="docs/screenshots/08-mapa-emisarios.jpg" width="200" height="446"> |
 
 </details>
 

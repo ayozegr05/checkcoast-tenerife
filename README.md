@@ -23,7 +23,7 @@ live map.
 
 | Island map — live status | Closures Náyade doesn't explain | Outfall: illegal, unfiltered, protected zone | Unauthorized outfalls vs water quality |
 |:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/01-mapa.jpg" width="200"> | <img src="docs/screenshots/03-benijo-prensa.jpg" width="200"> | <img src="docs/screenshots/04-emisario-puntablanca.jpg" width="200"> | <img src="docs/screenshots/06-jardin-emisarios-calidad.jpg" width="200"> |
+| <img src="docs/screenshots/01-mapa.jpg" width="200" height="446"> | <img src="docs/screenshots/03-benijo-prensa.jpg" width="200" height="446"> | <img src="docs/screenshots/04-emisario-puntablanca.jpg" width="200" height="446"> | <img src="docs/screenshots/06-jardin-emisarios-calidad.jpg" width="200" height="446"> |
 
 <details>
 <summary><b>More screenshots</b></summary>
@@ -31,7 +31,7 @@ live map.
 
 | Active alerts | Precarious outfall, 23 m offshore | Municipality ranking | All ~180 discharge points |
 |:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/02-alertas.jpg" width="200"> | <img src="docs/screenshots/05-emisario-sanjuan.jpg" width="200"> | <img src="docs/screenshots/07-municipios.jpg" width="200"> | <img src="docs/screenshots/08-mapa-emisarios.jpg" width="200"> |
+| <img src="docs/screenshots/02-alertas.jpg" width="200" height="446"> | <img src="docs/screenshots/05-emisario-sanjuan.jpg" width="200" height="446"> | <img src="docs/screenshots/07-municipios.jpg" width="200" height="446"> | <img src="docs/screenshots/08-mapa-emisarios.jpg" width="200" height="446"> |
 
 </details>
 
