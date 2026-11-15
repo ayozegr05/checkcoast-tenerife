@@ -428,6 +428,8 @@
           from { transform:scale(.4); opacity:.55; }
           60% { opacity:.25; }
           to { transform:scale(1); opacity:0; } }
+  /* Cards de emisario: nombre y municipio centrados */
+  .oc .bcname, .oc .bcmuni { text-align:center; }
   /* 'Qué vierte' va en tile a ancho completo: sustancia destacada,
      ritmo ('solo al desbordarse') en línea secundaria */
   .okwide { grid-column:1/-1; }
@@ -437,6 +439,9 @@
      los chips envuelven juntos debajo (también en escritorio) */
   .sec-a, .sec-o { justify-content:center; }
   .sec-a .sec-t, .sec-o .sec-t { flex:1 1 100%; text-align:center; }
+  /* Subtitulo entre titulo y chips, con aire arriba y abajo */
+  .sec-o .exnote { flex:1 1 100%; text-align:center;
+          margin:4px 0 8px; }
   /* 'Cerrada desde mayo 2026' completo solo cuando hay ancho */
   .aw-l { display:none; }
   @media (min-width:700px) {
@@ -694,6 +699,9 @@
       {%- if orows %}
       <div class="sec sec-o"><span class="sec-t">Emisarios en
           la&nbsp;costa</span>
+        <span class="exnote">Muestra del censo — los
+          {{ n_outfalls }} puntos de vertido, con filtros, están en la
+          app</span>
         <span class="secn" style="background:#c62828">No autorizados
           · {{ ostats.illegal }}</span>
         <span class="secn" style="background:#f9a825">En trámite ·
@@ -701,12 +709,9 @@
         <span class="secn" style="background:#2e9e6b">Autorizados ·
           {{ ostats.legal }}</span>
       </div>
-      <div class="exnote">Muestra del censo — los
-        {{ n_outfalls }} puntos de vertido, con filtros, están en la
-        app</div>
       <div class="bgrid">
       {%- for o in orows %}
-      <a class="bc" href="/o/{{ o.id }}{{ '?demo=1' if demo }}"
+      <a class="bc oc" href="/o/{{ o.id }}{{ '?demo=1' if demo }}"
         style="animation-delay:{{ loop.index * 45 }}ms">
         {%- if o.shot %}
         <div class="bimg" style="background-image:url('{{ o.shot }}')">
@@ -736,10 +741,7 @@
           </div>{%- endif %}
           {%- if o.zec_kind %}<div class="okpi"><span>espacio
             protegido</span><b style="color:#075276">🛡 {{
-            o.zec_kind }}</b>
-            {%- if o.zec_name %}<span class="osub">{{ o.zec_name
-              }}</span>{%- endif %}
-          </div>{%- endif %}
+            o.zec_kind }}</b></div>{%- endif %}
         </div>
       </a>
       {%- endfor %}

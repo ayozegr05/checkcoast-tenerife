@@ -3117,11 +3117,20 @@ def home_context(db: Session, demo: bool = False) -> dict:
         sv = o.status.value if hasattr(o.status, "value") else o.status
         ostats[sv] = ostats.get(sv, 0) + 1
         ocands.append((o, sv, _lon, _lat))
+
+    # 'card completa' = tiene los 4 tiles de arriba: sin orilla o
+    # sin fondo la card sale coja, se penaliza en el ranking
+    def _ocomplete(o: Outfall) -> int:
+        return (
+            0 if (o.shore_m is not None and o.outfall_depth is not None) else 1
+        )
+
     ocands.sort(
         key=lambda t: (
             _RLEV[_outfall_risk(t[0])["level"]],
             _OSEV.get(t[1], 3),
             0 if t[0].protected_area else 1,
+            _ocomplete(t[0]),
             -onews.get(t[0].id, 0),
             len(t[0].name or ""),
             t[0].id,
@@ -3136,10 +3145,11 @@ def home_context(db: Session, demo: bool = False) -> dict:
         rest = [t for t in ocands if t not in osel and pred(t)]
         if low:
             # contraste de menor riesgo: bajo/medio primero,
-            # desempate por prensa
+            # con los 4 tiles si se puede, desempate por prensa
             rest.sort(
                 key=lambda t: (
                     -_RLEV[_outfall_risk(t[0])["level"]],
+                    _ocomplete(t[0]),
                     -onews.get(t[0].id, 0),
                     len(t[0].name or ""),
                     t[0].id,
