@@ -3188,14 +3188,8 @@ def home_context(db: Session, demo: bool = False) -> dict:
             ),
         )
         osel = [osel[i0], osel[i1], osel[i2], osel[i3]]
-    # Frase 'Vierte X · a diario' para la card: el nature del censo
-    # con el ritmo de funcionamiento como cola
-    _OP_TAIL = {
-        "Vierte a diario": "a diario",
-        "Vertido habitual": "a diario",
-        "Solo al desbordarse": "solo al desbordarse",
-        "En funcionamiento": "en funcionamiento",
-    }
+    # Tile 'vierte': la sustancia del censo; sin línea de ritmo — la
+    # portada enseña qué se vierte, la ficha /o/ cuenta el detalle
     orows = []
     for o, sv, _lon, _lat in osel:
         lbl, col = _OUTFALL_STATUS.get(sv, _OUTFALL_STATUS["unknown"])
@@ -3203,14 +3197,11 @@ def home_context(db: Session, demo: bool = False) -> dict:
         op = _operation_short(o.is_active, o.continuity)
         nat = (o.nature or "").strip()
         if op == "Ahora no vierte":
-            vert_main = _cap1(nat.lower()) if nat else "La conducción"
-            vert_sub = "ahora no vierte"
+            vert_main = "Ahora no vierte"
         elif nat:
             vert_main = _cap1(nat.lower())
-            vert_sub = _OP_TAIL.get(op, "")
         else:
             vert_main = ""
-            vert_sub = ""
         depth = o.outfall_depth
         orows.append(
             {
@@ -3249,7 +3240,6 @@ def home_context(db: Session, demo: bool = False) -> dict:
                     else None
                 ),
                 "vert_main": vert_main,
-                "vert_sub": vert_sub,
                 # 'ZEC Sebadales del Sur de Tenerife. nº ZEC 73_TF…'
                 # → tile 'espacio protegido': 🛡 ZEC + nombre de la
                 # zona en línea secundaria
