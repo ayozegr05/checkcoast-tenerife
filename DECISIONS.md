@@ -252,3 +252,32 @@ Alternativas evaluadas y descartadas:
 Trade-off aceptado: ser nuestro propio sysadmin (unattended-upgrades,
 restart policies, rotación de logs) a cambio de $0 real, siempre
 despierto y sin hacks.
+
+### CORS: sin middleware — cerrado por defecto es lo correcto
+
+La API no configura `CORSMiddleware`: CORS solo aplica a navegadores y
+aquí nadie lo necesita — la app móvil es nativa (fetch directo, el
+navegador no participa) y la landing/fichas `/b/` `/o/` se sirven
+desde el mismo origen. Sin cabeceras CORS, ningún dominio externo
+puede leer la API desde un navegador. Si aparece una web app en otro
+dominio, se abrirá con orígenes concretos — nunca `*`.
+
+### Rate limiting en los endpoints write-only
+
+`POST /devices` y `POST /client-events` aceptan escrituras sin auth:
+sin tope, cualquiera podía inflar la tabla de tokens o la telemetría
+que alimenta `errors_24h` en `/health`. Ventana deslizante por IP en
+memoria (`app/rate_limit.py`) — 30/min y 20/min respectivamente.
+Uvicorn corre con `--proxy-headers` y `--forwarded-allow-ips` acotado
+a las redes internas de compose: Caddy pasa la IP real por
+`X-Forwarded-For`, pero un acceso directo al puerto publicado no puede
+falsearla. Estado en proceso: basta con un solo worker hoy; con varios
+haría falta Redis.
+
+### Deploy con rollback automático
+
+`deploy.sh` retaguea la imagen en producción como `:previous` antes
+de construir. Si el health check post-deploy falla (~60 s), restaura
+la versión anterior solo; también manual con `--rollback`. Antes el
+plan B era "recompilar la anterior y rezar" — ahora la vuelta atrás
+son segundos.

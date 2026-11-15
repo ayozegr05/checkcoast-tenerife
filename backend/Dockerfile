@@ -21,5 +21,10 @@ USER appuser
 
 EXPOSE 8000
 
-# Migra la BD antes de servir: el contenedor es autosuficiente
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Migra la BD antes de servir: el contenedor es autosuficiente.
+# --proxy-headers + forwarded-allow-ips: Caddy (red interna de
+# compose) puede pasar la IP real por X-Forwarded-For — la usa el
+# rate limiting de /devices y /client-events. Accesos directos al
+# 8001 publicado no están en ese rango → su XFF se ignora y su IP
+# real queda limitada igualmente.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips '172.16.0.0/12,10.0.0.0/8'"]
