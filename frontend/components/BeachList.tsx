@@ -68,9 +68,9 @@ export default function BeachList({
   const [episodes, setEpisodes] = useState<MunicipalityIncident[]>([]);
   // undefined = sin tocar (permite la auto-expansión por búsqueda de
   // cala); null = colapsado a mano; key = expandido a mano
-  const [expandedKey, setExpandedKey] = useState<
-    string | null | undefined
-  >(undefined);
+  const [expandedKey, setExpandedKey] = useState<string | null | undefined>(
+    undefined,
+  );
   const [detail, setDetail] = useState<GeoFeature | null>(null);
 
   // Abrir ficha: el teclado del buscador podía quedar sobre el overlay

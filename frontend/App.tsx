@@ -27,11 +27,7 @@ import HelpHub from './components/HelpHub';
 import IntroCard from './components/IntroCard';
 import MunicipalityStats from './components/MunicipalityStats';
 import OutfallList from './components/OutfallList';
-import {
-  EpisodeFocus,
-  FeatureCollection,
-  GeoFeature,
-} from './lib/api';
+import { EpisodeFocus, FeatureCollection, GeoFeature } from './lib/api';
 import { beachPointLabel, pointLongLabel } from './lib/format';
 import { groupKeyOf } from './lib/beachGroups';
 import { useBeachData } from './lib/useBeachData';
