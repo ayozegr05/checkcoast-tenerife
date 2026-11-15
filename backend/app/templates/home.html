@@ -364,6 +364,11 @@
     .lcol { grid-column:1/3; }
     .rcol { grid-column:3/5; margin-top:0; }
     .rcards { flex-wrap:nowrap; }
+    .omore-btn { display:none; }
+  }
+  @media (max-width:899px) {
+    .bc.omore { display:none; }
+    .omorechk:checked ~ .bgrid .bc.omore { display:block; }
   }
   .bgrid { display:grid; grid-template-columns:1fr 1fr; gap:10px;
           margin-top:10px; }
@@ -731,9 +736,13 @@
         <span class="secn" style="background:#2e9e6b">Autorizados ·
           {{ ostats.legal }}</span>
       </div>
+      {%- if orows|length > 2 %}
+      <input type="checkbox" id="omore" class="amorechk omorechk">
+      {%- endif %}
       <div class="bgrid">
       {%- for o in orows %}
-      <a class="bc oc" href="/o/{{ o.id }}{{ '?demo=1' if demo }}"
+      <a class="bc oc{% if loop.index > 2 %} omore{% endif %}"
+        href="/o/{{ o.id }}{{ '?demo=1' if demo }}"
         style="animation-delay:{{ loop.index * 45 }}ms">
         {%- if o.shot %}
         <div class="bimg" style="background-image:url('{{ o.shot }}')">
@@ -764,6 +773,11 @@
       </a>
       {%- endfor %}
       </div>
+      {%- if orows|length > 2 %}
+      <label class="smore-btn omore-btn" for="omore"><span
+        class="more">Ver más</span><span
+        class="less">Ver menos</span></label>
+      {%- endif %}
       {%- endif %}
       <div class="lower">
       <div class="lcol">
