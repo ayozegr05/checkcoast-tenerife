@@ -3176,15 +3176,21 @@ def home_context(db: Session, demo: bool = False) -> dict:
     # que cada fila tenga altura pareja (la diferencia de líneas del
     # título es lo que deja hueco muerto en la vecina). Con menos de
     # 4 candidatos (fixtures/tests) no hay nada que emparejar
+    # Lo que más cambia la altura es tener tile ZEC o no: se emparejan
+    # primero por esa forma y después por longitud de nombre
     if len(osel) == 4:
         _on = [len(t[0].name or "") for t in osel]
+        _oz = [1 if t[0].protected_area else 0 for t in osel]
+
+        def _pair_cost(i: int, j: int) -> tuple[int, int]:
+            return (abs(_oz[i] - _oz[j]), abs(_on[i] - _on[j]))
+
         (i0, i1), (i2, i3) = min(
             ((0, 1), (2, 3)),
             ((0, 2), (1, 3)),
             ((0, 3), (1, 2)),
-            key=lambda p: (
-                abs(_on[p[0][0]] - _on[p[0][1]])
-                + abs(_on[p[1][0]] - _on[p[1][1]])
+            key=lambda p: tuple(
+                a + b for a, b in zip(_pair_cost(*p[0]), _pair_cost(*p[1]))
             ),
         )
         osel = [osel[i0], osel[i1], osel[i2], osel[i3]]

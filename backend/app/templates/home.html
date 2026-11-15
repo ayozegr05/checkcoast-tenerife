@@ -416,7 +416,17 @@
   .okpi { line-height:1.15; }
   .okpis { padding-top:0; }
   .okrow { display:flex; align-items:center; justify-content:center;
-          gap:7px; margin:3px 0; }
+          gap:7px; margin:3px 0; height:14px; }
+  /* El valor dentro de la fila del dot no suma su propio margen:
+     así 'Alto' queda a la misma altura que 'No autorizado' */
+  .okrow b { margin:0; }
+  /* Los tiles llenan la card y centran su contenido: si una vecina
+     es más alta, el sobrante se reparte en vez de quedar como
+     hueco al final */
+  .oc { display:flex; flex-direction:column; }
+  .oc .okpis { flex:1; align-content:stretch; padding-bottom:10px; }
+  .oc .okpi { display:flex; flex-direction:column;
+          justify-content:center; }
   /* Halo semáforo del riesgo — mismo gesto que el triaje de /o/ */
   .orpulse { position:relative; width:14px; height:14px;
           flex:none; }
@@ -736,8 +746,7 @@
           {%- if o.vert_main %}<div class="okpi{% if not o.zec_kind
             %} okwide{% endif %}"><span>vierte</span><b>{{
             o.vert_main }}</b></div>{%- endif %}
-          {%- if o.zec_kind %}<div class="okpi"><span>espacio
-            protegido</span><b style="color:#075276">🛡 {{
+          {%- if o.zec_kind %}<div class="okpi"><span>protegido</span><b style="color:#075276">🛡 {{
             o.zec_kind }}</b></div>{%- endif %}
         </div>
       </a>
