@@ -19,8 +19,10 @@ interactivas en `/docs`, página web pública por playa en `/b/{id}` y
 por emisario en `/o/{id}` (los enlaces que comparte la app), más una
 landing con el mapa en vivo.
 
-<!-- TODO: screenshots/GIF de la app cuando esté el build EAS instalado
-     Sugeridas: mapa isla, ficha con "En la prensa", banner de alerta, lista -->
+| Mapa y alertas | Cierres activos | Playa — "según prensa" | Ficha de emisario |
+|:-:|:-:|:-:|:-:|
+| <img src="docs/screenshots/01-mapa.jpg" width="200"> | <img src="docs/screenshots/02-alertas.jpg" width="200"> | <img src="docs/screenshots/03-benijo-prensa.jpg" width="200"> | <img src="docs/screenshots/04-emisario-puntablanca.jpg" width="200"> |
+| <img src="docs/screenshots/05-emisario-sanjuan.jpg" width="200"> | <img src="docs/screenshots/06-jardin-emisarios-calidad.jpg" width="200"> | <img src="docs/screenshots/07-municipios.jpg" width="200"> | <img src="docs/screenshots/08-mapa-emisarios.jpg" width="200"> |
 
 ## Qué hace
 

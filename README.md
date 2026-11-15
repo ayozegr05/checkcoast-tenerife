@@ -21,8 +21,10 @@ at `/docs`, a public web page per beach at `/b/{id}` and per outfall
 at `/o/{id}` (the links the app shares), plus a landing page with the
 live map.
 
-<!-- TODO: app screenshots/GIF once the EAS build is installed
-     Suggested: island map, beach sheet with "In the press", alert banner, list -->
+| Map & alerts | Active closures | Beach — "in the press" | Outfall sheet |
+|:-:|:-:|:-:|:-:|
+| <img src="docs/screenshots/01-mapa.jpg" width="200"> | <img src="docs/screenshots/02-alertas.jpg" width="200"> | <img src="docs/screenshots/03-benijo-prensa.jpg" width="200"> | <img src="docs/screenshots/04-emisario-puntablanca.jpg" width="200"> |
+| <img src="docs/screenshots/05-emisario-sanjuan.jpg" width="200"> | <img src="docs/screenshots/06-jardin-emisarios-calidad.jpg" width="200"> | <img src="docs/screenshots/07-municipios.jpg" width="200"> | <img src="docs/screenshots/08-mapa-emisarios.jpg" width="200"> |
 
 ## Features
 
