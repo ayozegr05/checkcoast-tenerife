@@ -8,10 +8,11 @@
 
 App cívica para bañistas de Tenerife: **¿puedo bañarme hoy en esta playa?**
 
-El portal oficial (Náyade, Ministerio de Sanidad) dice *qué* playa está
-cerrada — pero no *por qué*. CheckCoast combina el estado oficial con
-prensa local analizada por LLM para responder la pregunta que Náyade no
-contesta, manteniendo ambas fuentes siempre separadas y etiquetadas.
+El portal oficial (Náyade, Ministerio de Sanidad) no recoge todos los
+cierres — y cuando lo hace, no dice *por qué*. CheckCoast combina el
+estado oficial con prensa local analizada por LLM: cierres que Sanidad
+no captura (desprendimientos, obras, vertidos) más el motivo detrás de
+los que sí, manteniendo ambas fuentes siempre separadas y etiquetadas.
 
 **API en producción**: https://checkcoast.duckdns.org — docs
 interactivas en `/docs`, página web pública por playa en `/b/{id}` y

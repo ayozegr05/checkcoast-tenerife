@@ -9,11 +9,12 @@
 A civic app for beachgoers in Tenerife (Canary Islands, Spain):
 **can I swim at this beach today?**
 
-The official portal (Náyade, Spanish Ministry of Health) tells you
-*which* beach is closed — but not *why*. CheckCoast combines the
-official status with local news analysed by an LLM to answer the
-question Náyade doesn't, while always keeping both sources separate and
-labelled.
+The official portal (Náyade, Spanish Ministry of Health) doesn't catch
+every closure — and when it does, it doesn't say *why*. CheckCoast
+combines the official status with local news analysed by an LLM:
+closures the portal misses (rockfalls, works, sewage spills) plus the
+reason behind the ones it reports — always keeping both sources
+separate and labelled.
 
 **Production API**: https://checkcoast.duckdns.org — interactive docs
 at `/docs`, a public web page per beach at `/b/{id}` and per outfall

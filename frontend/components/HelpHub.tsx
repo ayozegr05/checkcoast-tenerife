@@ -17,7 +17,7 @@ type Topic = {
   icon: ImageSourcePropType;
   title: string;
   subtitle: string;
-  rows: [ImageSourcePropType, string][];
+  rows: [ImageSourcePropType | React.ReactElement, string][];
 };
 
 const TOPICS: Topic[] = [
@@ -29,7 +29,7 @@ const TOPICS: Topic[] = [
     rows: [
       [
         require('../assets/icons/icon-layers.png'),
-        'El botón de capas abre un panel para filtrar los estados: solo las cerradas, solo los vertidos sin permiso…',
+        'El botón de capas abre un panel para filtrar los estados: solo playas cerradas, solo emisarios no autorizados…',
       ],
       [
         require('../assets/icons/icon-map.png'),
@@ -47,6 +47,10 @@ const TOPICS: Topic[] = [
         require('../assets/icons/icon-compass.png'),
         'Si giras el mapa, la brújula te devuelve el norte',
       ],
+      [
+        require('../assets/icons/icon-locate.png'),
+        'El botón de ubicación centra el mapa donde estás',
+      ],
     ],
   },
   {
@@ -57,7 +61,11 @@ const TOPICS: Topic[] = [
     rows: [
       [
         require('../assets/icons/beach.png'),
-        'Azul apta, naranja aviso, gris sin vigilancia. Cerrada: roja por contaminación, granate por obra o desprendimiento — el circulito sobre el pin dibuja la causa',
+        'El color del pin indica su estado: apta, con aviso, cerrada o sin vigilancia',
+      ],
+      [
+        require('../assets/icons/icon-alert.png'),
+        'Un cierre puede tener muchas causas — el dibujo sobre el pin te cuenta cuál',
       ],
       [
         require('../assets/icons/icon-satellite.png'),
@@ -84,12 +92,16 @@ const TOPICS: Topic[] = [
         'Tres colores según su estado legal: verde autorizado, ámbar en trámite, rojo sin permiso',
       ],
       [
-        require('../assets/icons/icon-satellite.png'),
-        'Toca un emisario y verás su foto aérea con las playas que tiene alrededor',
+        require('../assets/icons/icon-layers.png'),
+        'La lista de emisarios filtra por estado, riesgo, municipio, tipo de vertido, conducción y entorno',
+      ],
+      [
+        require('../assets/icons/icon-news.png'),
+        'Su ficha también recoge titulares de prensa del emisario y de su zona',
       ],
       [
         require('../assets/icons/beach.png'),
-        '"Playa más cercana" te dice a qué playa afecta y te lleva a ella',
+        '"Playa más cercana" te dice qué playa tiene al lado y te lleva a ella',
       ],
     ],
   },
@@ -101,19 +113,24 @@ const TOPICS: Topic[] = [
     rows: [
       [
         require('../assets/icons/icon-townhall.png'),
-        'Tres vistas: el ranking por municipio, lo de este verano y lo de este año',
+        'Tres vistas: ranking por municipio, lo de este verano y lo de este año',
       ],
       [
         require('../assets/icons/icon-alert.png'),
-        'La barra de color te dice cómo está cada uno: roja si hay cierres ahora, naranja avisos, azul solo pasado; cuanto más larga, peor estado',
+        'La barra de cada municipio dice cómo está: cuanto más larga y más roja, peor',
       ],
       [
         require('../assets/icons/icon-layers.png'),
-        'Los chips de arriba filtran por año y por causa: solo contaminación, solo desprendimientos… también dentro del ranking',
+        'Los chips filtran por año y por causa: solo contaminación, solo desprendimientos…',
       ],
       [
-        require('../assets/icons/beach.png'),
-        'Toca un municipio y verás su historial de incidencias: qué playa, cuándo y por qué — con el filtro que tengas activo',
+        <Image
+          key="munimap"
+          source={require('../assets/muni-maps/arona.png')}
+          style={{ width: 44, height: 37, marginRight: 6 }}
+          resizeMode="contain"
+        />,
+        'Toca un municipio y verás su ficha: su minimapa, su historial de incidencias y sus playas',
       ],
     ],
   },
@@ -134,6 +151,10 @@ const TOPICS: Topic[] = [
       [
         require('../assets/icons/beach.png'),
         'En la ficha de playa, toca "Ver titulares" para leer las noticias',
+      ],
+      [
+        require('../assets/icons/icon-faucet.png'),
+        'También hay titulares en las fichas de emisario: los suyos y los de su zona',
       ],
     ],
   },
@@ -216,7 +237,14 @@ export default function HelpHub({
           {topic ? (
             topic.rows.map(([icon, text], i) => (
               <View key={i} style={styles.hintRow}>
-                <Image source={icon} style={styles.hintIcon} />
+                {React.isValidElement(icon) ? (
+                  icon
+                ) : (
+                  <Image
+                    source={icon as ImageSourcePropType}
+                    style={styles.hintIcon}
+                  />
+                )}
                 <Text style={styles.hintText}>{text}</Text>
               </View>
             ))
@@ -404,6 +432,9 @@ const styles = StyleSheet.create({
     height: 26,
     marginRight: 12,
   },
+  // Visual grande en una fila de guía (minimapa de municipio) va
+  // inline: TOPICS se declara antes que styles
+
   hintText: {
     flex: 1,
     fontSize: 13,
