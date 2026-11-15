@@ -14,15 +14,16 @@ prensa local analizada por LLM para responder la pregunta que Náyade no
 contesta, manteniendo ambas fuentes siempre separadas y etiquetadas.
 
 **API en producción**: https://checkcoast.duckdns.org — docs
-interactivas en `/docs` y página web pública por playa en
-`/b/{id}` (los enlaces que comparte la app).
+interactivas en `/docs`, página web pública por playa en `/b/{id}` y
+por emisario en `/o/{id}` (los enlaces que comparte la app), más una
+landing con el mapa en vivo.
 
 <!-- TODO: screenshots/GIF de la app cuando esté el build EAS instalado
      Sugeridas: mapa isla, ficha con "En la prensa", banner de alerta, lista -->
 
 ## Qué hace
 
-- 🗺️ **Mapa de la isla** — 192 puntos de baño (62 monitorizados
+- 🗺️ **Mapa de la isla** — ~200 puntos de baño (62 monitorizados
   oficialmente + ~130 de OpenStreetMap) y ~180 puntos de vertido
   (emisarios submarinos), con alertas pulsantes sobre las playas
   cerradas
@@ -37,10 +38,20 @@ interactivas en `/docs` y página web pública por playa en
 - 🧪 **Calidad del agua** — histórico de mediciones (E. coli /
   enterococo, umbrales RD 1341/2007) con evolución y ranking por
   municipio
+- 📊 **Vista Temporada** — episodios insulares (junio-septiembre)
+  reconstruidos desde evidencia oficial + prensa, agrupados por playa
+  base y municipio
+- 🏭 **Índice de riesgo de emisarios** — estado legal de cada punto de
+  vertido, estimación de riesgo propia y prensa casada al emisario o a
+  su zona; los episodios cercanos llevan siempre disclaimer de
+  no-causalidad
 - 🔍 **Lista completa** — buscador, filtros por municipio y por estado,
   ordenación por estado/cierres/calidad del agua y modo **"Agua siempre
   apta"** (sin muestras malas ni contaminación oficial o de prensa);
   agrupa puntos de muestreo por playa
+- 🔗 **Páginas web compartibles** — cada playa y emisario tiene página
+  pública (`/b/{id}`, `/o/{id}`) con tarjeta social; la landing muestra
+  el mapa en vivo y los cierres actuales
 
 ## Arquitectura
 
@@ -63,6 +74,9 @@ flowchart LR
         LI["Lista + fichas"]
         PU["Push notifications"]
     end
+    subgraph Web["Web — FastAPI + Jinja"]
+        W["Landing + fichas /b/ /o/"]
+    end
     N --> S
     C --> S
     O --> S
@@ -73,6 +87,7 @@ flowchart LR
     API --> M
     API --> LI
     API --> PU
+    API --> W
 ```
 
 - **Backend**: FastAPI · SQLAlchemy 2 + GeoAlchemy2 · Alembic ·
@@ -142,16 +157,19 @@ npx expo start --dev-client --port 8082
 | `GET /beaches/{id}/news` | Noticias relacionadas (extracción LLM) |
 | `GET /beaches/{id}/nearby-outfalls` | Emisarios cercanos a la playa |
 | `GET /beaches/stats` | Agregados por municipio (ranking) |
+| `GET /episodes` | Episodios insulares (oficiales + reconstruidos), por playa base |
 | `GET /outfalls` | GeoJSON de vertidos (`?status=legal\|illegal\|unknown`) |
+| `GET /outfalls/{id}/news` | Prensa casada al emisario o a su zona |
 | `GET /alerts` | Alertas activas — campo `via`: `official` / `press` |
+| `GET /health` | Salud de jobs + contadores de error (monitorización) |
 | `POST /beaches/{id}/status` | Cambio manual de estado (respaldo del scraper) — requiere cabecera `X-Admin-Key` |
 | `POST /devices` | Registro de Expo push tokens |
 
 ## Testing y CI
 
 ```bash
-cd backend && .venv\Scripts\python -m pytest tests/ -q   # 134 tests
-cd frontend && npx tsc --noEmit && npm test              # typecheck + 86 tests
+cd backend && .venv\Scripts\python -m pytest tests/ -q   # ~290 tests
+cd frontend && npx tsc --noEmit && npm test              # typecheck + ~300 tests
 cd backend && ruff check . && ruff format --check .      # lint + formato Python
 cd frontend && npm run format:check                      # formato Prettier
 ```

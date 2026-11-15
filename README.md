@@ -16,15 +16,16 @@ question Náyade doesn't, while always keeping both sources separate and
 labelled.
 
 **Production API**: https://checkcoast.duckdns.org — interactive docs
-at `/docs` and a public web page per beach at `/b/{id}` (the links the
-app shares).
+at `/docs`, a public web page per beach at `/b/{id}` and per outfall
+at `/o/{id}` (the links the app shares), plus a landing page with the
+live map.
 
 <!-- TODO: app screenshots/GIF once the EAS build is installed
      Suggested: island map, beach sheet with "In the press", alert banner, list -->
 
 ## Features
 
-- 🗺️ **Island map** — 192 bathing spots (62 officially monitored +
+- 🗺️ **Island map** — ~200 bathing spots (62 officially monitored +
   ~130 from OpenStreetMap) and ~180 wastewater discharge points
   (submarine outfalls), with pulsing alerts on closed beaches
 - 🚩 **Real-time official status** — scraper for the Náyade portal with
@@ -38,10 +39,18 @@ app shares).
 - 🧪 **Water quality** — measurement history (E. coli / enterococci,
   thresholds from Spanish Royal Decree 1341/2007) with trends and a
   ranking by municipality
+- 📊 **Season view** — island episodes (June–September) rebuilt from
+  official + press evidence, grouped by base beach and municipality
+- 🏭 **Outfall risk index** — legal status per discharge point, an own
+  risk estimate and press matched to the outfall or its zone; nearby
+  pollution episodes always carry a non-causality disclaimer
 - 🔍 **Full list** — search, filters by municipality and status,
   sorting by status/closures/water quality and an **"Always clean
   water"** mode (no bad samples and no official or press-reported
   pollution); groups sampling points by beach
+- 🔗 **Shareable web pages** — every beach and outfall has a public
+  page (`/b/{id}`, `/o/{id}`) with social cards; the landing shows the
+  live map and current closures
 
 > The app UI is in Spanish — it targets beachgoers in Tenerife.
 
@@ -66,6 +75,9 @@ flowchart LR
         LI["List + beach sheets"]
         PU["Push notifications"]
     end
+    subgraph Web["Web — FastAPI + Jinja"]
+        W["Landing + /b/ /o/ pages"]
+    end
     N --> S
     C --> S
     O --> S
@@ -76,6 +88,7 @@ flowchart LR
     API --> M
     API --> LI
     API --> PU
+    API --> W
 ```
 
 - **Backend**: FastAPI · SQLAlchemy 2 + GeoAlchemy2 · Alembic ·
@@ -145,16 +158,19 @@ npx expo start --dev-client --port 8082
 | `GET /beaches/{id}/news` | Related news (LLM extraction) |
 | `GET /beaches/{id}/nearby-outfalls` | Outfalls near the beach |
 | `GET /beaches/stats` | Aggregates by municipality (ranking) |
+| `GET /episodes` | Island episodes (official + reconstructed), grouped by base beach |
 | `GET /outfalls` | GeoJSON of discharge points (`?status=legal\|illegal\|unknown`) |
+| `GET /outfalls/{id}/news` | Press items matched to an outfall or its zone |
 | `GET /alerts` | Active alerts — `via` field: `official` / `press` |
+| `GET /health` | Job health + error counters (monitoring) |
 | `POST /beaches/{id}/status` | Manual status change (scraper fallback) — requires `X-Admin-Key` header |
 | `POST /devices` | Expo push token registration |
 
 ## Testing and CI
 
 ```bash
-cd backend && .venv\Scripts\python -m pytest tests/ -q   # 243 tests
-cd frontend && npx tsc --noEmit && npm test              # typecheck + 243 tests
+cd backend && .venv\Scripts\python -m pytest tests/ -q   # ~290 tests
+cd frontend && npx tsc --noEmit && npm test              # typecheck + ~300 tests
 cd backend && ruff check . && ruff format --check .      # Python lint + format
 cd frontend && npm run format:check                      # Prettier format
 ```
