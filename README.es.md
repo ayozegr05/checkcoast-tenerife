@@ -42,7 +42,7 @@ landing con el mapa en vivo.
 <td width="25%"><b>Alertas activas</b></td>
 <td width="25%"><b>Emisario en estado precario</b></td>
 <td width="25%"><b>Ranking por municipio</b></td>
-<td width="25%"><b>180 puntos de vertido</b></td>
+<td width="25%"><b>180 puntos de descarga en la isla</b></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/02-alertas.jpg"></td>

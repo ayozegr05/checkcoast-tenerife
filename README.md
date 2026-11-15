@@ -44,7 +44,7 @@ live map.
 <td width="25%"><b>Active alerts</b></td>
 <td width="25%"><b>Precarious outfall</b></td>
 <td width="25%"><b>Municipality ranking</b></td>
-<td width="25%"><b>180 discharge points</b></td>
+<td width="25%"><b>180 discharge points across the island</b></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/02-alertas.jpg"></td>
