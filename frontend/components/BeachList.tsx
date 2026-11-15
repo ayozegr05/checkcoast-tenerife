@@ -22,7 +22,9 @@ import {
   fetchBeachStats,
   fetchEpisodes,
 } from '../lib/api';
+import { searchNorm } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
+import { zoneName } from '../lib/zones';
 import {
   STATUS_ORDER,
   SortMode,
@@ -64,7 +66,11 @@ export default function BeachList({
   );
   const [stats, setStats] = useState<Map<number, BeachStats>>(new Map());
   const [episodes, setEpisodes] = useState<MunicipalityIncident[]>([]);
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  // undefined = sin tocar (permite la auto-expansión por búsqueda de
+  // cala); null = colapsado a mano; key = expandido a mano
+  const [expandedKey, setExpandedKey] = useState<
+    string | null | undefined
+  >(undefined);
   const [detail, setDetail] = useState<GeoFeature | null>(null);
 
   // Abrir ficha: el teclado del buscador podía quedar sobre el overlay
@@ -232,6 +238,30 @@ export default function BeachList({
     return m;
   }, [noMuni]);
 
+  // Búsqueda por cala: si la query casa el alias de una zona pero no
+  // el nombre del grupo, la fila se abre sola — si no, "Punta Brava"
+  // aparecería dentro de "Jardín" sin que se adivine dónde está
+  const autoExpandKey = useMemo(() => {
+    const q = searchNorm(query);
+    if (!q) return null;
+    const hit = groups.find(
+      (g) =>
+        g.members.length > 1 &&
+        !searchNorm(g.name).includes(q) &&
+        g.members.some((m) =>
+          searchNorm(
+            `${m.properties.name} ${zoneName(m.properties.name) ?? ''}`,
+          ).includes(q),
+        ),
+    );
+    return hit?.key ?? null;
+  }, [groups, query]);
+
+  // Expansión efectiva: el usuario manda si ha tocado la fila
+  // (expandir/colapsar); si no, decide la búsqueda por cala
+  const isExpanded = (key: string) =>
+    expandedKey === undefined ? autoExpandKey === key : expandedKey === key;
+
   // PMs del complejo de la ficha abierta (los hermanos de `detail`)
   const detailMembers = useMemo(
     () =>
@@ -320,11 +350,11 @@ export default function BeachList({
             renderItem={({ item: g }) => (
               <BeachRow
                 group={g}
-                expanded={expandedKey === g.key}
+                expanded={isExpanded(g.key)}
                 stats={stats}
                 sortMode={sortMode}
                 onToggle={() =>
-                  setExpandedKey(expandedKey === g.key ? null : g.key)
+                  setExpandedKey(isExpanded(g.key) ? null : g.key)
                 }
                 onOpenDetail={openDetail}
               />

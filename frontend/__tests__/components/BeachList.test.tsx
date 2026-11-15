@@ -140,6 +140,22 @@ describe('<BeachList />', () => {
     expect(screen.getByText('Sin resultados')).toBeTruthy();
   });
 
+  it('buscar por cala despliega el grupo solo (Punta Brava ⊂ Jardín)', async () => {
+    await render(<BeachList {...props()} />);
+    const row = screen.getByRole('button', { name: /^Playa Jardín,/ });
+    expect(row).not.toBeExpanded();
+    const search = screen.getByLabelText('Buscar playa por nombre');
+    await fireEvent.changeText(search, 'punta brava');
+    // La fila se abre sola y muestra la cala que casó — sin tap
+    expect(row).toBeExpanded();
+    expect(
+      screen.getByRole('button', { name: 'Punta Brava, Apta' }),
+    ).toBeTruthy();
+    // Colapsar a mano sigue mandando sobre la auto-expansión
+    await fireEvent.press(row);
+    expect(row).not.toBeExpanded();
+  });
+
   it('filtra por municipio, por «sin municipio» y por estado', async () => {
     await render(<BeachList {...props()} />);
     await fireEvent.press(
