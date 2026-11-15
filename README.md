@@ -21,10 +21,19 @@ at `/docs`, a public web page per beach at `/b/{id}` and per outfall
 at `/o/{id}` (the links the app shares), plus a landing page with the
 live map.
 
-| Map & alerts | Active closures | Beach — "in the press" | Outfall sheet |
+| | | | |
 |:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/01-mapa.jpg" width="200"> | <img src="docs/screenshots/02-alertas.jpg" width="200"> | <img src="docs/screenshots/03-benijo-prensa.jpg" width="200"> | <img src="docs/screenshots/04-emisario-puntablanca.jpg" width="200"> |
-| <img src="docs/screenshots/05-emisario-sanjuan.jpg" width="200"> | <img src="docs/screenshots/06-jardin-emisarios-calidad.jpg" width="200"> | <img src="docs/screenshots/07-municipios.jpg" width="200"> | <img src="docs/screenshots/08-mapa-emisarios.jpg" width="200"> |
+| <img src="docs/screenshots/01-mapa.jpg" width="200"><br><sub>Island map — live status</sub> | <img src="docs/screenshots/03-benijo-prensa.jpg" width="200"><br><sub>Closures Náyade doesn't explain</sub> | <img src="docs/screenshots/04-emisario-puntablanca.jpg" width="200"><br><sub>Outfall: illegal, unfiltered, protected zone</sub> | <img src="docs/screenshots/06-jardin-emisarios-calidad.jpg" width="200"><br><sub>Unauthorized outfalls vs water quality</sub> |
+
+<details>
+<summary><b>More screenshots</b></summary>
+<br>
+
+| | | | |
+|:-:|:-:|:-:|:-:|
+| <img src="docs/screenshots/02-alertas.jpg" width="200"><br><sub>Active alerts</sub> | <img src="docs/screenshots/05-emisario-sanjuan.jpg" width="200"><br><sub>Precarious outfall, 23 m offshore</sub> | <img src="docs/screenshots/07-municipios.jpg" width="200"><br><sub>Municipality ranking</sub> | <img src="docs/screenshots/08-mapa-emisarios.jpg" width="200"><br><sub>All ~180 discharge points</sub> |
+
+</details>
 
 ## Features
 
