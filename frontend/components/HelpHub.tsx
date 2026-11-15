@@ -64,10 +64,6 @@ const TOPICS: Topic[] = [
         'El color del pin indica su estado: apta, con aviso, cerrada o sin vigilancia',
       ],
       [
-        require('../assets/icons/icon-alert.png'),
-        'Un cierre puede tener muchas causas — el dibujo sobre el pin te cuenta cuál',
-      ],
-      [
         require('../assets/icons/icon-satellite.png'),
         'Toca una playa y verás su foto aérea, cómo está el agua y su historial de cierres',
       ],
@@ -127,7 +123,7 @@ const TOPICS: Topic[] = [
         <Image
           key="munimap"
           source={require('../assets/muni-maps/arona.png')}
-          style={{ width: 44, height: 37, marginRight: 6 }}
+          style={{ width: 26, height: 22, marginRight: 12 }}
           resizeMode="contain"
         />,
         'Toca un municipio y verás su ficha: su minimapa, su historial de incidencias y sus playas',
