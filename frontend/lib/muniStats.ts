@@ -2,7 +2,6 @@ import { BeachStats, GeoFeature, MunicipalityIncident } from './api';
 import { causeFamily, episodeDays } from './episodes';
 import { beachGroupKey, displayBeachName, fmtDate } from './format';
 import { PM_SUFFIX } from './pm';
-import { colors } from './theme';
 
 export { fmtDate };
 
@@ -35,13 +34,6 @@ export const baseName = (name: string) => name.replace(PM_SUFFIX, '');
 // el histórico de incidentes y muestras no aptas desempata
 export const scoreOf = (m: MuniStats) =>
   m.closedNow * 100 + m.warningNow * 20 + m.incidents + m.badSamples;
-
-export const barColorOf = (m: MuniStats) =>
-  m.closedNow > 0
-    ? colors.status.closed
-    : m.warningNow > 0
-      ? colors.status.warning
-      : colors.status.open;
 
 // Modo-año: un cierre pesa el triple que un aviso — ordena el
 // ranking y llena su barra (misma métrica)

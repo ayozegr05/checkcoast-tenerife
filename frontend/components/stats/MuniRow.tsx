@@ -3,12 +3,7 @@ import { Image, Pressable, Text, View } from 'react-native';
 
 import { displayCause } from '../../lib/format';
 import { muniMapImage } from '../../lib/muniMap';
-import {
-  MuniStats,
-  barColorOf,
-  scoreOf,
-  yearScoreOf,
-} from '../../lib/muniStats';
+import { MuniStats, scoreOf, yearScoreOf } from '../../lib/muniStats';
 import { colors } from '../../lib/theme';
 import { styles } from './statsStyles';
 
@@ -43,12 +38,12 @@ export default function MuniRow({
   onPress: () => void;
 }) {
   const score = isYearMode ? yearScoreOf(m) : scoreOf(m);
-  // Modo-episodio: la barra mide lo MISMO que ordena el ranking
-  // (episodios del ámbito frente al municipio que más tiene) — se
-  // llena de arriba abajo con el orden. Color de marca, no de alarma:
-  // es volumen histórico; el rojo queda para lo vigente. La fracción
-  // de playas afectadas va en texto debajo
-  const barColor = isYearMode ? colors.primary : barColorOf(m);
+  // La barra mide lo MISMO que ordena el ranking (episodios del
+  // ámbito frente al municipio que más tiene) — se llena de arriba
+  // abajo con el orden. Color de marca, no de alarma: es volumen
+  // histórico; el rojo queda para lo vigente. La fracción de playas
+  // afectadas va en texto debajo
+  const barColor = colors.primary;
   const affected = m.yearBeaches?.length ?? 0;
   const beachWord = m.beaches === 1 ? 'playa' : 'playas';
   const barRatio = score / maxScore;
