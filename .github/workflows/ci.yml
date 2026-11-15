@@ -187,12 +187,14 @@ jobs:
             -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
             -memory 6144 -cores 4
           disable-animations: true
-          script: adb install /tmp/dev-client.apk
+          script: |
+            adb uninstall com.checkcoast.tenerife || true
+            adb install /tmp/dev-client.apk
       # OJO: el action ejecuta cada línea del script en un sh -c propio
       # — no persisten cd ni variables; usar rutas absolutas y el retry
-      # en una sola línea. El `adb install -r` es intencionado: el AVD
-      # se relanza entre pasos y el userdata con la app instalada no
-      # sobrevivía (openLink fallaba con "Invalid packageName")
+      # en una sola línea. El uninstall es intencionado: el AVD cacheado
+      # conserva la app instalada entre pasos/runs y una APK firmada con
+      # otro keystore (local vs EAS) da INSTALL_FAILED_UPDATE_INCOMPATIBLE
       - name: Run Maestro flows on emulator
         uses: reactivecircus/android-emulator-runner@v2
         # En el emulador frío de GitHub el server UIAutomator de Maestro
@@ -213,7 +215,8 @@ jobs:
           script: |
             adb wait-for-device
             timeout 120 bash -c 'until curl -sf http://localhost:8082/status >/dev/null; do sleep 3; done'
-            adb install -r /tmp/dev-client.apk
+            adb uninstall com.checkcoast.tenerife || true
+            adb install /tmp/dev-client.apk
             maestro test "$GITHUB_WORKSPACE/frontend/e2e/flows/" || maestro test "$GITHUB_WORKSPACE/frontend/e2e/flows/"
       - name: Upload Maestro artifacts
         if: failure()
