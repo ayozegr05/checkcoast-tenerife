@@ -134,6 +134,19 @@ describe('orden por estado', () => {
     const hit = buildGroups(list(), { query: 'cerrada' });
     expect(hit.map((g) => g.name)).toEqual(['PLAYA CERRADA']);
   });
+
+  it('búsqueda por cala: «punta brava» encuentra Playa Jardín entera', () => {
+    const jardin = [
+      beach(1, 'PLAYA JARDIN PM1', { municipality: 'Puerto de la Cruz' }),
+      beach(2, 'PLAYA JARDIN PM4', { municipality: 'Puerto de la Cruz' }),
+      beach(3, 'PLAYA JARDIN PM5', { municipality: 'Puerto de la Cruz' }),
+      beach(4, 'PLAYA CERRADA'),
+    ];
+    const hit = buildGroups(jardin, { query: 'punta brava' });
+    expect(hit).toHaveLength(1);
+    expect(hit[0].name).toBe('PLAYA JARDIN');
+    expect(hit[0].members).toHaveLength(3);
+  });
 });
 
 describe('orden por cierres y calidad', () => {

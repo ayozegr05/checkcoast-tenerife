@@ -4,6 +4,7 @@
 import type { BeachStats, GeoFeature } from './api';
 import { beachBaseName, beachGroupKey, searchNorm } from './format';
 import { beachStateKey } from './structural';
+import { zoneName } from './zones';
 
 // Orden de prioridad: lo que necesita atención del bañista primero.
 // "Sin datos" (vigilada pero Náyade no dice nada) va la última de
@@ -131,11 +132,10 @@ export const buildGroups = (
   const q = searchNorm(opts.query ?? '');
   const filtered = beaches.filter(
     (f) =>
-      (!q || searchNorm(f.properties.name).includes(q)) &&
-      (opts.municipality === undefined ||
-        (opts.municipality === null
-          ? f.properties.municipality == null
-          : f.properties.municipality === opts.municipality)),
+      opts.municipality === undefined ||
+      (opts.municipality === null
+        ? f.properties.municipality == null
+        : f.properties.municipality === opts.municipality),
   );
   const map = new Map<string, BeachGroup>();
   for (const f of filtered) {
@@ -149,7 +149,19 @@ export const buildGroups = (
     g.members.push(f);
     map.set(key, g);
   }
-  const arr = [...map.values()];
+  let arr = [...map.values()];
+  // La query casa por nombre oficial o por cala ("punta brava" →
+  // Jardín PM4): si toca a un miembro se queda el grupo entero,
+  // como hace el buscador del mapa
+  if (q) {
+    arr = arr.filter((g) =>
+      g.members.some((m) =>
+        searchNorm(
+          `${m.properties.name} ${zoneName(m.properties.name) ?? ''}`,
+        ).includes(q),
+      ),
+    );
+  }
   for (const g of arr) {
     g.members.sort(
       (a, b) =>
