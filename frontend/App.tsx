@@ -449,6 +449,20 @@ export default function App() {
     return () => sub.remove();
   }, []);
 
+  // Las fuentes Nunito deben estar registradas ANTES de montar la
+  // UI: si un Text se mide con la fuente de reserva y después se
+  // dibuja con Nunito (más ancha), la caja queda corta y recorta
+  // letras — bug upstream de RN en Android, visible en leyenda y
+  // topbar del primer arranque tras instalar. Sin montar el árbol
+  // hasta fontsLoaded la carrera desaparece por diseño
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.overlay}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <CoastMap
@@ -513,7 +527,7 @@ export default function App() {
         }}
       />
 
-      {(loading || !fontsLoaded) && (
+      {loading && (
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -541,7 +555,7 @@ export default function App() {
           HelpHub: la topbar (elev 40) queda por encima y cualquier
           navegación la cierra vía closeAllOverlays, como el resto
           de secciones de la guía */}
-      {introVisible && !loading && !error && fontsLoaded ? (
+      {introVisible && !loading && !error ? (
         introRevisit ? (
           <IntroCard
             revisit
