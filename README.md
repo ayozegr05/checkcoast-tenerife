@@ -23,9 +23,9 @@ live map.
 
 <table>
 <tr>
-<td width="25%"><b>Island map</b></td>
-<td width="25%"><b>Closures, with the why</b></td>
-<td width="25%"><b>Illegal outfall, unfiltered</b></td>
+<td width="25%"><b>The whole island, one map</b></td>
+<td width="25%"><b>Closures — and the why Sanidad doesn't tell</b></td>
+<td width="25%"><b>Illegal outfall, unfiltered, in a protected zone</b></td>
 <td width="25%"><b>Outfalls near the beach</b></td>
 </tr>
 <tr>
@@ -44,7 +44,7 @@ live map.
 <td width="25%"><b>Active alerts</b></td>
 <td width="25%"><b>Precarious outfall</b></td>
 <td width="25%"><b>Municipality ranking</b></td>
-<td width="25%"><b>~180 discharge points</b></td>
+<td width="25%"><b>180 discharge points</b></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/02-alertas.jpg"></td>

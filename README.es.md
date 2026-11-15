@@ -21,10 +21,10 @@ landing con el mapa en vivo.
 
 <table>
 <tr>
-<td width="25%"><b>Mapa de la isla</b></td>
-<td width="25%"><b>Cierres que Náyade no explica</b></td>
-<td width="25%"><b>Ilegal, sin depurar, en ZEC</b></td>
-<td width="25%"><b>Emisarios junto a la playa</b></td>
+<td width="25%"><b>Toda la isla en un mapa</b></td>
+<td width="25%"><b>Cierres — y el porqué que Sanidad no cuenta</b></td>
+<td width="25%"><b>Emisario ilegal, sin depurar, en zona protegida</b></td>
+<td width="25%"><b>Emisarios cerca de la playa</b></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/01-mapa.jpg"></td>
@@ -40,9 +40,9 @@ landing con el mapa en vivo.
 <table>
 <tr>
 <td width="25%"><b>Alertas activas</b></td>
-<td width="25%"><b>Emisario precario</b></td>
+<td width="25%"><b>Emisario en estado precario</b></td>
 <td width="25%"><b>Ranking por municipio</b></td>
-<td width="25%"><b>~180 vertidos</b></td>
+<td width="25%"><b>180 puntos de vertido</b></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/02-alertas.jpg"></td>
