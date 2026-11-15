@@ -3263,6 +3263,8 @@ def home_context(db: Session, demo: bool = False) -> dict:
             vert_label, vert_main = "ahora", "No vierte"
         elif nat:
             vert_main = _cap1(nat.lower())
+            if nat.lower() == "refrigeración":
+                vert_main = "Agua de refrigeración"
         else:
             vert_main = ""
         depth = o.outfall_depth

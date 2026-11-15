@@ -765,10 +765,10 @@
           {%- if o.zec_kind %}<div class="okpi"><span>zona
             protegida</span><b style="color:#075276">🛡 {{ o.zec_kind
             }}</b></div>
-          {%- elif o.depth %}<div class="okpi"><span>vierte a</span><b>{{
-            o.depth.v }}</b><span>{{ o.depth.l }}</span></div>
           {%- elif o.vert_main %}<div class="okpi"><span>{{ o.vert_label
-            }}</span><b>{{ o.vert_main }}</b></div>{%- endif %}
+            }}</span><b>{{ o.vert_main }}</b></div>
+          {%- elif o.depth %}<div class="okpi"><span>vierte a</span><b>{{
+            o.depth.v }}</b><span>{{ o.depth.l }}</span></div>{%- endif %}
         </div>
       </a>
       {%- endfor %}
