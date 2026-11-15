@@ -3141,10 +3141,9 @@ def home_context(db: Session, demo: bool = False) -> dict:
     #   2. no autorizado · riesgo alto · ZEC · vierte cerca de la orilla
     #   3. en trámite · el de menor riesgo
     #   4. autorizado · el de menor riesgo
-    # Los dos de arriba comparten fila: nombres de 31-44 caracteres,
-    # que ocupan 2 líneas reales — las dos cards quedan parejas sin
-    # reservar hueco. Los de abajo, nombres cortos de una línea.
-    # Municipios distintos si se puede.
+    # Los 4 con nombres de 31-44 caracteres, que ocupan 2 líneas
+    # reales en móvil y en escritorio: las cards quedan parejas sin
+    # reservar hueco. Municipios distintos si se puede.
     osel: list[tuple[Outfall, str, float | None, float | None]] = []
     _rk = {t[0].id: _outfall_risk(t[0])["level"] for t in ocands}
 
@@ -3177,10 +3176,15 @@ def home_context(db: Session, demo: bool = False) -> dict:
     _otake(lambda t: _top(t, near=False), lambda t: (-(t[0].shore_m or 0),))
     _otake(lambda t: _top(t, near=True), lambda t: (t[0].shore_m or 0,))
     # Contraste de menor riesgo: bajo primero, sin ZEC (la fila de
-    # abajo junta dos cards sin tile 'protegido'), desempate por prensa
+    # abajo junta dos cards sin tile 'protegido'), nombre de 2 líneas
+    # como los de arriba (en escritorio van los 4 en una fila), y un
+    # vertido de otra naturaleza que los ya elegidos (piscinas,
+    # refrigeración…) — desempate por prensa
     _low = lambda t: (  # noqa: E731
         -_RLEV[_rk[t[0].id]],
         1 if t[0].protected_area else 0,
+        0 if _two_lines(t) else 1,
+        1 if t[0].nature in {x[0].nature for x in osel} else 0,
         -onews.get(t[0].id, 0),
         len(t[0].name or ""),
     )
