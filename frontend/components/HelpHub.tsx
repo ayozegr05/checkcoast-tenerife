@@ -112,7 +112,25 @@ const TOPICS: Topic[] = [
         'Tres vistas: ranking por municipio, lo de este verano y lo de este año',
       ],
       [
-        require('../assets/icons/icon-alert.png'),
+        <View
+          key="sevbar"
+          style={{
+            width: 26,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: '#dbe7ec',
+            marginRight: 12,
+            overflow: 'hidden',
+          }}
+        >
+          <View
+            style={{
+              width: '70%',
+              height: '100%',
+              backgroundColor: colors.status.closed,
+            }}
+          />
+        </View>,
         'La barra de cada municipio dice cómo está: cuanto más larga y más roja, peor',
       ],
       [
