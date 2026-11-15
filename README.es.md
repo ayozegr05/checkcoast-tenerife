@@ -21,10 +21,16 @@ landing con el mapa en vivo.
 
 <table>
 <tr>
-<td width="25%"><img src="docs/screenshots/01-mapa.jpg"><br><sub>Mapa — estado en vivo</sub></td>
-<td width="25%"><img src="docs/screenshots/03-benijo-prensa.jpg"><br><sub>Cierres que Náyade no explica</sub></td>
-<td width="25%"><img src="docs/screenshots/04-emisario-puntablanca.jpg"><br><sub>Ilegal, sin depurar, en ZEC</sub></td>
-<td width="25%"><img src="docs/screenshots/06-jardin-emisarios-calidad.jpg"><br><sub>Emisarios vs calidad del agua</sub></td>
+<td width="25%"><b>Mapa de la isla</b></td>
+<td width="25%"><b>Cierres que Náyade no explica</b></td>
+<td width="25%"><b>Ilegal, sin depurar, en ZEC</b></td>
+<td width="25%"><b>Emisarios junto a la playa</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/01-mapa.jpg"></td>
+<td><img src="docs/screenshots/03-benijo-prensa.jpg"></td>
+<td><img src="docs/screenshots/04-emisario-puntablanca.jpg"></td>
+<td><img src="docs/screenshots/06-jardin-emisarios-calidad.jpg"></td>
 </tr>
 </table>
 
@@ -33,10 +39,16 @@ landing con el mapa en vivo.
 <br>
 <table>
 <tr>
-<td width="25%"><img src="docs/screenshots/02-alertas.jpg"><br><sub>Alertas activas</sub></td>
-<td width="25%"><img src="docs/screenshots/05-emisario-sanjuan.jpg"><br><sub>Precario, a 23 m de la orilla</sub></td>
-<td width="25%"><img src="docs/screenshots/07-municipios.jpg"><br><sub>Ranking por municipio</sub></td>
-<td width="25%"><img src="docs/screenshots/08-mapa-emisarios.jpg"><br><sub>Los ~180 vertidos</sub></td>
+<td width="25%"><b>Alertas activas</b></td>
+<td width="25%"><b>Emisario precario</b></td>
+<td width="25%"><b>Ranking por municipio</b></td>
+<td width="25%"><b>~180 vertidos</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/02-alertas.jpg"></td>
+<td><img src="docs/screenshots/05-emisario-sanjuan.jpg"></td>
+<td><img src="docs/screenshots/07-municipios.jpg"></td>
+<td><img src="docs/screenshots/08-mapa-emisarios.jpg"></td>
 </tr>
 </table>
 </details>

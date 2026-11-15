@@ -23,10 +23,16 @@ live map.
 
 <table>
 <tr>
-<td width="25%"><img src="docs/screenshots/01-mapa.jpg"><br><sub>Island map — live status</sub></td>
-<td width="25%"><img src="docs/screenshots/03-benijo-prensa.jpg"><br><sub>Closures Náyade doesn't explain</sub></td>
-<td width="25%"><img src="docs/screenshots/04-emisario-puntablanca.jpg"><br><sub>Illegal outfall, unfiltered</sub></td>
-<td width="25%"><img src="docs/screenshots/06-jardin-emisarios-calidad.jpg"><br><sub>Outfalls vs water quality</sub></td>
+<td width="25%"><b>Island map</b></td>
+<td width="25%"><b>Closures, with the why</b></td>
+<td width="25%"><b>Illegal outfall, unfiltered</b></td>
+<td width="25%"><b>Outfalls near the beach</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/01-mapa.jpg"></td>
+<td><img src="docs/screenshots/03-benijo-prensa.jpg"></td>
+<td><img src="docs/screenshots/04-emisario-puntablanca.jpg"></td>
+<td><img src="docs/screenshots/06-jardin-emisarios-calidad.jpg"></td>
 </tr>
 </table>
 
@@ -35,10 +41,16 @@ live map.
 <br>
 <table>
 <tr>
-<td width="25%"><img src="docs/screenshots/02-alertas.jpg"><br><sub>Active alerts</sub></td>
-<td width="25%"><img src="docs/screenshots/05-emisario-sanjuan.jpg"><br><sub>Precarious outfall, 23 m out</sub></td>
-<td width="25%"><img src="docs/screenshots/07-municipios.jpg"><br><sub>Municipality ranking</sub></td>
-<td width="25%"><img src="docs/screenshots/08-mapa-emisarios.jpg"><br><sub>All ~180 discharge points</sub></td>
+<td width="25%"><b>Active alerts</b></td>
+<td width="25%"><b>Precarious outfall</b></td>
+<td width="25%"><b>Municipality ranking</b></td>
+<td width="25%"><b>~180 discharge points</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/02-alertas.jpg"></td>
+<td><img src="docs/screenshots/05-emisario-sanjuan.jpg"></td>
+<td><img src="docs/screenshots/07-municipios.jpg"></td>
+<td><img src="docs/screenshots/08-mapa-emisarios.jpg"></td>
 </tr>
 </table>
 </details>
