@@ -317,8 +317,8 @@ export const pointLongLabel = (name: string) => {
 // el censo anida la comarca en el topónimo ("Emisario Submarino del
 // Valle de La Orotava") y a 13px la etiqueta salta a 4 líneas —
 // "Valle de X" se lee siempre como X ("La Orotava", "Güímar").
-// "Palm-Mar" es el nombre comercial de la urbanización; los de la
-// zona dicen "El Palmar" — alias de display, el censo no se toca
+// "Palm-Mar" → "El Palmar": el backend ya guarda el topónimo local;
+// el alias queda como red por si llega un nombre sin normalizar
 export const shortOutfallName = (name: string) =>
   name
     .replace(/\bpalm-?mar\b/i, 'El Palmar')

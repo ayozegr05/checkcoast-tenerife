@@ -440,10 +440,10 @@
           to { transform:scale(1); opacity:0; } }
   /* Cards de emisario: nombre y municipio centrados */
   .oc .bcname, .oc .bcmuni { text-align:center; }
-  /* En móvil y en escritorio (4 columnas) el nombre reserva 2
-     líneas: los tiles de una fila arrancan a la misma altura. La
-     selección elige nombres que de verdad ocupan 2 líneas */
-  @media (max-width:520px), (min-width:900px) {
+  /* En escritorio las 4 cards van en una fila: el nombre reserva 2
+     líneas para que los tiles arranquen a la misma altura. En móvil
+     no hace falta — cada fila junta dos nombres del mismo largo */
+  @media (min-width:900px) {
     .oc .bcname { min-height:2.6em; line-height:1.3; display:flex;
             flex-direction:column; justify-content:flex-end; }
   }

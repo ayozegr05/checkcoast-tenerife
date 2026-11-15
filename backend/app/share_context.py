@@ -3136,84 +3136,56 @@ def home_context(db: Session, demo: bool = False) -> dict:
             t[0].id,
         )
     )
-    # Muestra variada por perfiles (4 huecos):
-    #   1. no autorizado · riesgo alto · ZEC · el que vierte más lejos
-    #      y hondo
-    #   2. no autorizado · riesgo alto · vierte en la misma orilla
-    #   3. en trámite · riesgo medio
-    #   4. autorizado · riesgo bajo · ZEC si lo hay
-    # Cada hueco tiene una cadena de filtros de estricto a laxo.
-    # Prioridad a nombres de 31-44 caracteres: ocupan 2 líneas reales
-    # en móvil y en escritorio, así la reserva de 2 líneas del título
-    # nunca queda en blanco. Municipios distintos si se puede.
+    # Muestra variada (4 huecos):
+    #   1. no autorizado · riesgo alto · ZEC · vierte lejos y hondo
+    #   2. no autorizado · riesgo alto · ZEC · vierte cerca de la orilla
+    #   3. en trámite · el de menor riesgo
+    #   4. autorizado · el de menor riesgo
+    # Los dos de arriba comparten fila: nombres de 31-44 caracteres,
+    # que ocupan 2 líneas reales — las dos cards quedan parejas sin
+    # reservar hueco. Los de abajo, nombres cortos de una línea.
+    # Municipios distintos si se puede.
     osel: list[tuple[Outfall, str, float | None, float | None]] = []
     _rk = {t[0].id: _outfall_risk(t[0])["level"] for t in ocands}
 
-    def _nlen(t) -> int:
-        # distancia al rango: fuera de él gana el más cercano
-        n = len(t[0].name or "")
-        return max(31 - n, n - 44, 0)
+    def _two_lines(t) -> bool:
+        return 31 <= len(t[0].name or "") <= 44
 
-    def _otake(preds, key) -> None:
-        for pred in preds:
-            rest = sorted(
-                (
-                    t
-                    for t in ocands
-                    if t not in osel and _ocomplete(t[0]) == 0 and pred(t)
-                ),
-                key=lambda t: (_nlen(t), *key(t), t[0].id),
-            )
-            for t in rest:
-                if t[0].municipality not in {x[0].municipality for x in osel}:
-                    osel.append(t)
-                    return
-            if rest:
-                osel.append(rest[0])
-                return
-
-    def _zec(t) -> bool:
-        return bool(t[0].protected_area)
-
-    def _ill_hi(t) -> bool:
-        return t[1] == "illegal" and _rk[t[0].id] == "alto"
-
-    _otake(
-        [
-            lambda t: _ill_hi(t) and _zec(t),
-            _ill_hi,
-            lambda t: t[1] == "illegal",
-        ],
-        lambda t: (-(t[0].shore_m or 0),),
-    )
-    _otake(
-        [
-            lambda t: _ill_hi(t) and (t[0].shore_m or 0) <= 10,
-            _ill_hi,
-            lambda t: t[1] == "illegal",
-        ],
-        lambda t: (t[0].shore_m or 0,),
-    )
-    _otake(
-        [
-            # sin ZEC: así la fila de abajo empareja dos cards sin
-            # tile 'protegido' y la de arriba dos con él
-            lambda t: (
-                t[1] == "unknown" and _rk[t[0].id] == "medio" and not _zec(t)
+    def _otake(pred, key) -> None:
+        rest = sorted(
+            (
+                t
+                for t in ocands
+                if t not in osel and _ocomplete(t[0]) == 0 and pred(t)
             ),
-            lambda t: t[1] == "unknown" and _rk[t[0].id] == "medio",
-            lambda t: t[1] == "unknown",
-        ],
-        lambda t: (1 if _zec(t) else 0, -onews.get(t[0].id, 0)),
+            key=lambda t: (*key(t), t[0].id),
+        )
+        used = {x[0].municipality for x in osel}
+        pick = next((t for t in rest if t[0].municipality not in used), None)
+        if pick or rest:
+            osel.append(pick or rest[0])
+
+    def _top(t, near: bool) -> bool:
+        return (
+            t[1] == "illegal"
+            and _rk[t[0].id] == "alto"
+            and bool(t[0].protected_area)
+            and _two_lines(t)
+            and ((t[0].shore_m or 0) <= 50) == near
+        )
+
+    _otake(lambda t: _top(t, near=False), lambda t: (-(t[0].shore_m or 0),))
+    _otake(lambda t: _top(t, near=True), lambda t: (t[0].shore_m or 0,))
+    # Contraste de menor riesgo: bajo primero, sin ZEC (la fila de
+    # abajo junta dos cards sin tile 'protegido'), desempate por prensa
+    _low = lambda t: (  # noqa: E731
+        -_RLEV[_rk[t[0].id]],
+        1 if t[0].protected_area else 0,
+        -onews.get(t[0].id, 0),
+        len(t[0].name or ""),
     )
-    _otake(
-        [
-            lambda t: t[1] == "legal" and _rk[t[0].id] == "bajo" and _zec(t),
-            lambda t: t[1] == "legal" and _rk[t[0].id] == "bajo",
-            lambda t: t[1] == "legal",
-        ],
-        lambda t: (-onews.get(t[0].id, 0),),
-    )
+    _otake(lambda t: t[1] == "unknown", _low)
+    _otake(lambda t: t[1] == "legal", _low)
     for t in ocands:
         if len(osel) >= 4:
             break

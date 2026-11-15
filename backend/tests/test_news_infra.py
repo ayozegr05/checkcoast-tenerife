@@ -536,3 +536,36 @@ def test_news_by_year_family_fallback_other_and_sin_fecha():
     )
     assert groups[0]["year"] is None
     assert groups[0]["families"][0]["family"] == "Otros sucesos"
+
+
+def test_local_toponym_el_palmar():
+    """El censo trae el nombre comercial; se guarda el topónimo local."""
+    from app.names import local_toponyms
+
+    assert (
+        local_toponyms("Aliviadero EBAR Palm-Mar")
+        == "Aliviadero EBAR El Palmar"
+    )
+    assert (
+        local_toponyms("Conducción de desagüe de Palm-Mar")
+        == "Conducción de desagüe de El Palmar"
+    )
+    assert local_toponyms('junto a la "EBAR del Palm-Mar"') == (
+        'junto a la "EBAR de El Palmar"'
+    )
+    assert (
+        local_toponyms("Urbanización El Palm-Mar") == "Urbanización El Palmar"
+    )
+    assert local_toponyms(None) is None
+
+
+def test_el_palmar_still_matches_press_palm_mar():
+    """La prensa dice "Palm-Mar": el punto renombrado sigue casando."""
+    o = _FakeOutfall(102, "Aliviadero EBAR El Palmar", municipality="Arona")
+    assert "palm mar" in outfall_keys(o)
+    assert (
+        infra_outfall_for_text(
+            "Nuevo vertido en el aliviadero de Palm-Mar", [o]
+        )
+        == 102
+    )

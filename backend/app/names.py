@@ -32,6 +32,24 @@ def normalize_beach_name(name: str) -> str:
     return PM_SUFFIX.sub("", normalize_text(name))
 
 
+# Topónimos como los dice la gente de la isla, no el nombre comercial
+# que trae el censo: "Palm-Mar" (Arona) es El Palmar. Se aplica al
+# ingerir el censo y lo replica la migración de datos 0a1b2c3d4e5f
+_LOCAL_TOPONYMS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\b(?:el\s+)?palm-?\s?mar\b", re.IGNORECASE), "El Palmar"),
+]
+
+
+def local_toponyms(s: str | None) -> str | None:
+    """'Conducción de desagüe de Palm-Mar' → '… de El Palmar';
+    'EBAR del Palm-Mar' → 'EBAR de El Palmar'."""
+    if not s:
+        return s
+    for rx, local in _LOCAL_TOPONYMS:
+        s = rx.sub(local, s)
+    return re.sub(r"\bdel El\b", "de El", s)
+
+
 # Calas del mismo arenal con nombre propio en el censo: MITECO
 # bautizó cada punto ("MEDANO-CHICA", "MEDANO-LEOCADIO MACHADO")
 # aunque comparten el mismo arenal — agrupan como zonas de la raíz.

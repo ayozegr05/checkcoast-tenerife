@@ -20,6 +20,7 @@ from shapely.ops import unary_union
 
 from app.db import SessionLocal
 from app.models import Outfall, OutfallStatus
+from app.names import local_toponyms
 
 DATASET_URL = (
     "https://opendata.sitcan.es/dataset/"
@@ -129,7 +130,7 @@ def main() -> None:
             else:
                 updated += 1
 
-            obj.name = rec["Denomina"]
+            obj.name = local_toponyms(rec["Denomina"])
             obj.municipality = rec["Municipio"] or None
             obj.kind = rec["TipoCond"]
             obj.status = _STATUS_MAP.get(
@@ -142,12 +143,12 @@ def main() -> None:
                 None if estado_func is None else estado_func == "Activo"
             )
             obj.condition = _clean(rec["EstadoGral"])
-            obj.origin = _clean(rec["ProcedVert"])
+            obj.origin = local_toponyms(_clean(rec["ProcedVert"]))
             obj.entity = _clean(rec["Entidad"])
             obj.protected_area = _clean(rec["EspProtDet"])
-            obj.settlement = _clean(rec["NucleoUrb"])
-            obj.location = _clean(rec["Localiz"])
-            obj.zone_desc = _clean(rec["DescrZona"])
+            obj.settlement = local_toponyms(_clean(rec["NucleoUrb"]))
+            obj.location = local_toponyms(_clean(rec["Localiz"]))
+            obj.zone_desc = local_toponyms(_clean(rec["DescrZona"]))
             obj.manager = _clean(rec["GestSan"])
             obj.length_m = _num(rec["Longitud"])
             obj.outfall_depth = _num(rec["CotaVert"])

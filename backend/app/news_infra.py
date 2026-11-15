@@ -300,6 +300,11 @@ def outfall_keys(outfall) -> set[str]:
             key = _toponym_fragment(part)
             if key:
                 keys.add(key)
+    # La prensa escribe el nombre comercial que el censo (y la app)
+    # ya muestran con su topónimo local: El Palmar ← "Palm-Mar"
+    for k in list(keys):
+        if re.search(r"\bpalmar\b", k):
+            keys.add(re.sub(r"\b(?:el )?palmar\b", "palm mar", k))
     muni = norm_txt(outfall.municipality)
     return {k for k in keys if not muni or (k not in muni and muni not in k)}
 
