@@ -127,11 +127,11 @@ const TOPICS: Topic[] = [
             style={{
               width: '70%',
               height: '100%',
-              backgroundColor: colors.status.closed,
+              backgroundColor: colors.primary,
             }}
           />
         </View>,
-        'La barra de cada municipio dice cómo está: cuanto más larga y más roja, peor',
+        'La barra indica qué municipio acumula más cierres',
       ],
       [
         require('../assets/icons/icon-layers.png'),
