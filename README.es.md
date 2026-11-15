@@ -19,18 +19,26 @@ interactivas en `/docs`, página web pública por playa en `/b/{id}` y
 por emisario en `/o/{id}` (los enlaces que comparte la app), más una
 landing con el mapa en vivo.
 
-| Mapa de la isla — estado en vivo | Cierres que Náyade no explica | Emisario: ilegal, sin depurar, zona protegida | Emisarios sin permiso vs calidad del agua |
-|:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/01-mapa.jpg" width="200" height="446"> | <img src="docs/screenshots/03-benijo-prensa.jpg" width="200" height="446"> | <img src="docs/screenshots/04-emisario-puntablanca.jpg" width="200" height="446"> | <img src="docs/screenshots/06-jardin-emisarios-calidad.jpg" width="200" height="446"> |
+<table>
+<tr>
+<td width="25%"><img src="docs/screenshots/01-mapa.jpg"><br><sub>Mapa de la isla — estado en vivo</sub></td>
+<td width="25%"><img src="docs/screenshots/03-benijo-prensa.jpg"><br><sub>Cierres que Náyade no explica</sub></td>
+<td width="25%"><img src="docs/screenshots/04-emisario-puntablanca.jpg"><br><sub>Emisario: ilegal, sin depurar, zona protegida</sub></td>
+<td width="25%"><img src="docs/screenshots/06-jardin-emisarios-calidad.jpg"><br><sub>Emisarios sin permiso vs calidad del agua</sub></td>
+</tr>
+</table>
 
 <details>
 <summary><b>Más capturas</b></summary>
 <br>
-
-| Alertas activas | Emisario precario, a 23 m de la orilla | Ranking por municipio | Los ~180 puntos de vertido |
-|:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/02-alertas.jpg" width="200" height="446"> | <img src="docs/screenshots/05-emisario-sanjuan.jpg" width="200" height="446"> | <img src="docs/screenshots/07-municipios.jpg" width="200" height="446"> | <img src="docs/screenshots/08-mapa-emisarios.jpg" width="200" height="446"> |
-
+<table>
+<tr>
+<td width="25%"><img src="docs/screenshots/02-alertas.jpg"><br><sub>Alertas activas</sub></td>
+<td width="25%"><img src="docs/screenshots/05-emisario-sanjuan.jpg"><br><sub>Emisario precario, a 23 m de la orilla</sub></td>
+<td width="25%"><img src="docs/screenshots/07-municipios.jpg"><br><sub>Ranking por municipio</sub></td>
+<td width="25%"><img src="docs/screenshots/08-mapa-emisarios.jpg"><br><sub>Los ~180 puntos de vertido</sub></td>
+</tr>
+</table>
 </details>
 
 ## Qué hace

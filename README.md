@@ -21,18 +21,26 @@ at `/docs`, a public web page per beach at `/b/{id}` and per outfall
 at `/o/{id}` (the links the app shares), plus a landing page with the
 live map.
 
-| Island map — live status | Closures Náyade doesn't explain | Outfall: illegal, unfiltered, protected zone | Unauthorized outfalls vs water quality |
-|:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/01-mapa.jpg" width="200" height="446"> | <img src="docs/screenshots/03-benijo-prensa.jpg" width="200" height="446"> | <img src="docs/screenshots/04-emisario-puntablanca.jpg" width="200" height="446"> | <img src="docs/screenshots/06-jardin-emisarios-calidad.jpg" width="200" height="446"> |
+<table>
+<tr>
+<td width="25%"><img src="docs/screenshots/01-mapa.jpg"><br><sub>Island map — live status</sub></td>
+<td width="25%"><img src="docs/screenshots/03-benijo-prensa.jpg"><br><sub>Closures Náyade doesn't explain</sub></td>
+<td width="25%"><img src="docs/screenshots/04-emisario-puntablanca.jpg"><br><sub>Outfall: illegal, unfiltered, protected zone</sub></td>
+<td width="25%"><img src="docs/screenshots/06-jardin-emisarios-calidad.jpg"><br><sub>Unauthorized outfalls vs water quality</sub></td>
+</tr>
+</table>
 
 <details>
 <summary><b>More screenshots</b></summary>
 <br>
-
-| Active alerts | Precarious outfall, 23 m offshore | Municipality ranking | All ~180 discharge points |
-|:-:|:-:|:-:|:-:|
-| <img src="docs/screenshots/02-alertas.jpg" width="200" height="446"> | <img src="docs/screenshots/05-emisario-sanjuan.jpg" width="200" height="446"> | <img src="docs/screenshots/07-municipios.jpg" width="200" height="446"> | <img src="docs/screenshots/08-mapa-emisarios.jpg" width="200" height="446"> |
-
+<table>
+<tr>
+<td width="25%"><img src="docs/screenshots/02-alertas.jpg"><br><sub>Active alerts</sub></td>
+<td width="25%"><img src="docs/screenshots/05-emisario-sanjuan.jpg"><br><sub>Precarious outfall, 23 m offshore</sub></td>
+<td width="25%"><img src="docs/screenshots/07-municipios.jpg"><br><sub>Municipality ranking</sub></td>
+<td width="25%"><img src="docs/screenshots/08-mapa-emisarios.jpg"><br><sub>All ~180 discharge points</sub></td>
+</tr>
+</table>
 </details>
 
 ## Features
