@@ -1,0 +1,11 @@
+# No subir artefactos nativos/locales a EAS — el worker hace prebuild limpio.
+# Este archivo debe vivir en la RAIZ del repo: eas-cli empaqueta todo el
+# repositorio y solo honra los ignore de la raiz (el .easignore de
+# frontend/ no se lee — por eso android/ con rutas Windows colo y
+# rompio el build de desarrollo).
+node_modules
+android
+.expo
+.venv
+__pycache__
+*.log
