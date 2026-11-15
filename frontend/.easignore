@@ -1,0 +1,7 @@
+# No subir artefactos nativos/locales a EAS — el worker hace prebuild limpio
+# (la carpeta android/ local contiene rutas absolutas de Windows que rompen
+# el build en Linux, y android/app/build pesa GBs)
+node_modules
+android
+.expo
+*.log
