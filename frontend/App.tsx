@@ -28,18 +28,13 @@ import IntroCard from './components/IntroCard';
 import MunicipalityStats from './components/MunicipalityStats';
 import OutfallList from './components/OutfallList';
 import {
-  Alert,
   EpisodeFocus,
   FeatureCollection,
   GeoFeature,
-  MunicipalityIncident,
-  fetchAlerts,
-  fetchBeaches,
-  fetchEpisodes,
-  fetchOutfalls,
 } from './lib/api';
 import { beachPointLabel, pointLongLabel } from './lib/format';
 import { groupKeyOf } from './lib/beachGroups';
+import { useBeachData } from './lib/useBeachData';
 import { setupPushNotifications } from './lib/notifications';
 import { storage } from './lib/storage';
 import { colors, fonts } from './lib/theme';
@@ -58,12 +53,10 @@ export default function App() {
     Nunito_700Bold,
     Nunito_800ExtraBold,
   });
-  const [outfalls, setOutfalls] = useState<FeatureCollection>(EMPTY_FC);
-  const [beaches, setBeaches] = useState<FeatureCollection>(EMPTY_FC);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [episodes, setEpisodes] = useState<MunicipalityIncident[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Datos vivos (fetch inicial + polling 5 min + status inyectado):
+  // lib/useBeachData.ts
+  const { outfalls, beachesFC, episodes, loading, error, reload } =
+    useBeachData();
   const [selection, setSelection] = useState<Selection | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const [muniOpen, setMuniOpen] = useState(false);
@@ -118,50 +111,6 @@ export default function App() {
   // red): Ayuda lo muestra con opción de reintentar
   const [pushFailed, setPushFailed] = useState(false);
 
-  const fetchAll = () =>
-    Promise.all([
-      fetchOutfalls(),
-      fetchBeaches(),
-      fetchAlerts(),
-      fetchEpisodes(),
-    ])
-      .then(([o, b, a, ep]) => {
-        setOutfalls(o);
-        setBeaches(b);
-        setAlerts(a);
-        setEpisodes(ep);
-      })
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
-
-  const loadData = () => {
-    setError(null);
-    setLoading(true);
-    fetchAll();
-  };
-
-  useEffect(() => {
-    fetchAll();
-
-    // Refresco periódico: alertas + playas (estado/incidencias nuevas
-    // sin reiniciar la app — la API las sincroniza con Náyade)
-    const timer = setInterval(
-      () => {
-        fetchAlerts()
-          .then(setAlerts)
-          .catch(() => {});
-        fetchBeaches()
-          .then(setBeaches)
-          .catch(() => {});
-        fetchEpisodes()
-          .then(setEpisodes)
-          .catch(() => {});
-      },
-      5 * 60 * 1000,
-    );
-    return () => clearInterval(timer);
-  }, []);
-
   // La card de bienvenida solo se muestra en el primer arranque;
   // la ayuda bajo demanda vive en HelpHub (botón "?" del mapa)
   useEffect(() => {
@@ -176,22 +125,6 @@ export default function App() {
     setIntroVisible(false);
     if (dontShow) storage?.setItem(INTRO_SEEN_KEY, '1').catch(() => {});
   };
-
-  // Inyecta `alert` y el status vivo (de /alerts) en cada feature de playa
-  const beachesFC = useMemo<FeatureCollection>(() => {
-    const byId = new Map(alerts.map((a) => [a.beach_id, a.status]));
-    return {
-      ...beaches,
-      features: beaches.features.map((f) => ({
-        ...f,
-        properties: {
-          ...f.properties,
-          status: byId.get(f.id) ?? f.properties.status,
-          alert: byId.has(f.id),
-        },
-      })),
-    };
-  }, [beaches, alerts]);
 
   // Puntos de muestreo pintados en el mapa mientras la card de una
   // playa agrupada está abierta (selector de PMs o ficha de un PM).
@@ -597,7 +530,7 @@ export default function App() {
               styles.retryBtn,
               pressed && styles.pressFx,
             ]}
-            onPress={loadData}
+            onPress={reload}
             accessibilityRole="button"
             accessibilityLabel="Reintentar cargar datos"
           >
