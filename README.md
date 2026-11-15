@@ -24,7 +24,7 @@ live map.
 <table>
 <tr>
 <td width="25%"><b>The whole island, one map</b></td>
-<td width="25%"><b>Closures — and the why Sanidad doesn't tell</b></td>
+<td width="25%"><b>Closures Náyade doesn't explain</b></td>
 <td width="25%"><b>Illegal outfall, unfiltered, in a protected zone</b></td>
 <td width="25%"><b>Outfalls near the beach</b></td>
 </tr>

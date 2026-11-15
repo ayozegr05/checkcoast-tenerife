@@ -22,7 +22,7 @@ landing con el mapa en vivo.
 <table>
 <tr>
 <td width="25%"><b>Toda la isla en un mapa</b></td>
-<td width="25%"><b>Cierres — y el porqué que Sanidad no cuenta</b></td>
+<td width="25%"><b>Cierres que Náyade no explica</b></td>
 <td width="25%"><b>Emisario ilegal, sin depurar, en zona protegida</b></td>
 <td width="25%"><b>Emisarios cerca de la playa</b></td>
 </tr>
