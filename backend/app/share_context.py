@@ -3136,36 +3136,84 @@ def home_context(db: Session, demo: bool = False) -> dict:
             t[0].id,
         )
     )
-    # Muestra variada: 2 no autorizados de mayor riesgo + 1 en
-    # trámite + 1 autorizado — se ven los tres estados del triaje.
-    # Municipios distintos si se puede; se rellena con lo mejor.
+    # Muestra variada por perfiles (4 huecos):
+    #   1. no autorizado · riesgo alto · ZEC · el que vierte más lejos
+    #      y hondo
+    #   2. no autorizado · riesgo alto · vierte en la misma orilla
+    #   3. en trámite · riesgo medio
+    #   4. autorizado · riesgo bajo · ZEC si lo hay
+    # Cada hueco tiene una cadena de filtros de estricto a laxo.
+    # Prioridad a nombres de 31-44 caracteres: ocupan 2 líneas reales
+    # en móvil y en escritorio, así la reserva de 2 líneas del título
+    # nunca queda en blanco. Municipios distintos si se puede.
     osel: list[tuple[Outfall, str, float | None, float | None]] = []
+    _rk = {t[0].id: _outfall_risk(t[0])["level"] for t in ocands}
 
-    def _otake(pred, low: bool = False) -> None:
-        rest = [t for t in ocands if t not in osel and pred(t)]
-        if low:
-            # contraste de menor riesgo: bajo/medio primero,
-            # con los 4 tiles si se puede, desempate por prensa
-            rest.sort(
-                key=lambda t: (
-                    -_RLEV[_outfall_risk(t[0])["level"]],
-                    _ocomplete(t[0]),
-                    -onews.get(t[0].id, 0),
-                    len(t[0].name or ""),
-                    t[0].id,
-                )
+    def _nlen(t) -> int:
+        # distancia al rango: fuera de él gana el más cercano
+        n = len(t[0].name or "")
+        return max(31 - n, n - 44, 0)
+
+    def _otake(preds, key) -> None:
+        for pred in preds:
+            rest = sorted(
+                (
+                    t
+                    for t in ocands
+                    if t not in osel and _ocomplete(t[0]) == 0 and pred(t)
+                ),
+                key=lambda t: (_nlen(t), *key(t), t[0].id),
             )
-        for t in rest:
-            if t[0].municipality not in {x[0].municipality for x in osel}:
-                osel.append(t)
+            for t in rest:
+                if t[0].municipality not in {x[0].municipality for x in osel}:
+                    osel.append(t)
+                    return
+            if rest:
+                osel.append(rest[0])
                 return
-        if rest:
-            osel.append(rest[0])
 
-    _otake(lambda t: t[1] == "illegal")
-    _otake(lambda t: t[1] == "illegal")
-    _otake(lambda t: t[1] == "unknown", low=True)
-    _otake(lambda t: t[1] == "legal", low=True)
+    def _zec(t) -> bool:
+        return bool(t[0].protected_area)
+
+    def _ill_hi(t) -> bool:
+        return t[1] == "illegal" and _rk[t[0].id] == "alto"
+
+    _otake(
+        [
+            lambda t: _ill_hi(t) and _zec(t),
+            _ill_hi,
+            lambda t: t[1] == "illegal",
+        ],
+        lambda t: (-(t[0].shore_m or 0),),
+    )
+    _otake(
+        [
+            lambda t: _ill_hi(t) and (t[0].shore_m or 0) <= 10,
+            _ill_hi,
+            lambda t: t[1] == "illegal",
+        ],
+        lambda t: (t[0].shore_m or 0,),
+    )
+    _otake(
+        [
+            # sin ZEC: así la fila de abajo empareja dos cards sin
+            # tile 'protegido' y la de arriba dos con él
+            lambda t: (
+                t[1] == "unknown" and _rk[t[0].id] == "medio" and not _zec(t)
+            ),
+            lambda t: t[1] == "unknown" and _rk[t[0].id] == "medio",
+            lambda t: t[1] == "unknown",
+        ],
+        lambda t: (1 if _zec(t) else 0, -onews.get(t[0].id, 0)),
+    )
+    _otake(
+        [
+            lambda t: t[1] == "legal" and _rk[t[0].id] == "bajo" and _zec(t),
+            lambda t: t[1] == "legal" and _rk[t[0].id] == "bajo",
+            lambda t: t[1] == "legal",
+        ],
+        lambda t: (-onews.get(t[0].id, 0),),
+    )
     for t in ocands:
         if len(osel) >= 4:
             break
@@ -3202,8 +3250,9 @@ def home_context(db: Session, demo: bool = False) -> dict:
         risk = _outfall_risk(o)
         op = _operation_short(o.is_active, o.continuity)
         nat = (o.nature or "").strip()
+        vert_label = "vierte"
         if op == "Ahora no vierte":
-            vert_main = "Ahora no vierte"
+            vert_label, vert_main = "ahora", "No vierte"
         elif nat:
             vert_main = _cap1(nat.lower())
         else:
@@ -3246,6 +3295,7 @@ def home_context(db: Session, demo: bool = False) -> dict:
                     else None
                 ),
                 "vert_main": vert_main,
+                "vert_label": vert_label,
                 # 'ZEC Sebadales del Sur de Tenerife. nº ZEC 73_TF…'
                 # → tile 'espacio protegido': 🛡 ZEC + nombre de la
                 # zona en línea secundaria

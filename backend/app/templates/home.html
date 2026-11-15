@@ -440,11 +440,14 @@
           to { transform:scale(1); opacity:0; } }
   /* Cards de emisario: nombre y municipio centrados */
   .oc .bcname, .oc .bcmuni { text-align:center; }
-  @media (max-width:520px) {
-    /* En móvil el nombre reserva 2 líneas: los tiles de las dos
-       cards de una fila arrancan a la misma altura */
+  /* En móvil y en escritorio (4 columnas) el nombre reserva 2
+     líneas: los tiles de una fila arrancan a la misma altura. La
+     selección elige nombres que de verdad ocupan 2 líneas */
+  @media (max-width:520px), (min-width:900px) {
     .oc .bcname { min-height:2.6em; line-height:1.3; display:flex;
             flex-direction:column; justify-content:flex-end; }
+  }
+  @media (max-width:520px) {
     /* Los 3 chips del censo caben en una sola fila */
     .sec-o { gap:5px; }
     .sec-o .secn { font-size:9.5px; padding:1px 6px; }
@@ -753,7 +756,7 @@
           {%- if o.depth %}<div class="okpi"><span>vierte a</span><b>{{
             o.depth.v }}</b><span>{{ o.depth.l }}</span></div>{%- endif %}
           {%- if o.vert_main %}<div class="okpi{% if not o.zec_kind
-            %} okwide{% endif %}"><span>vierte</span><b>{{
+            %} okwide{% endif %}"><span>{{ o.vert_label }}</span><b>{{
             o.vert_main }}</b></div>{%- endif %}
           {%- if o.zec_kind %}<div class="okpi"><span>protegido</span><b style="color:#075276">🛡 {{
             o.zec_kind }}</b></div>{%- endif %}
