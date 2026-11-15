@@ -83,8 +83,7 @@ landing con el mapa en vivo.
   agrupa puntos de muestreo por playa
 - 🔗 **Páginas web compartibles** — cada playa y emisario tiene página
   pública (`/b/{id}`, `/o/{id}`) con tarjeta social; la web pública
-  muestra el mapa y los cierres en vivo — futuro punto de descarga
-  de la app
+  muestra el mapa y los cierres en vivo — punto de descarga de la app
 
 ## Arquitectura
 
