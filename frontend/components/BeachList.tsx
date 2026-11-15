@@ -1,25 +1,20 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
-  Image,
   ImageBackground,
   Keyboard,
   Modal,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { SafeGradient } from './SafeGradient';
 
-import BeachDetail from './BeachDetail';
+import BeachListDetail from './beachList/BeachListDetail';
+import BeachRow from './beachList/BeachRow';
 import SearchHeader from './beachList/SearchHeader';
-import { thumbUrl } from './SatelliteShot';
 import {
   BeachStats,
   GeoFeature,
@@ -27,46 +22,16 @@ import {
   fetchBeachStats,
   fetchEpisodes,
 } from '../lib/api';
-import { pointLongLabel, displayBeachName, beachBaseName } from '../lib/format';
 import { colors, fonts } from '../lib/theme';
 import {
   STATUS_ORDER,
-  BeachGroup,
   SortMode,
   buildGroups,
-  evalShort,
   groupKeyOf,
   isImpecableGroup,
   statusOf,
-  worstEvalOf,
   worstStatusOf,
 } from '../lib/beachGroups';
-import { PM_SUFFIX } from '../lib/pm';
-import { BEACH_STATE_LABEL } from '../lib/structural';
-
-const STATUS_LABELS = BEACH_STATE_LABEL;
-
-const STATUS_COLORS = colors.status;
-
-const displayName = (name: string) =>
-  displayBeachName(name.replace(PM_SUFFIX, ''));
-
-// Evaluación oficial de la última muestra, resumida para la sub-fila
-const evalLabel = (evaluation: string | null) => {
-  if (!evaluation) return null;
-  if (/prohib/i.test(evaluation)) return 'Prohibido';
-  if (/pendiente|valoraci/i.test(evaluation)) return 'Pendiente';
-  if (/calificar/i.test(evaluation)) return 'Sin calificar';
-  if (/apta/i.test(evaluation)) return 'Apta';
-  if (/recomend/i.test(evaluation)) return 'Recomendación';
-  // Nunca mostrar el texto administrativo crudo de Náyade
-  return null;
-};
-
-const fmtShort = (iso: string) => {
-  const [, m, d] = iso.split('-');
-  return `${d}/${m}`;
-};
 
 export default function BeachList({
   beaches,
@@ -101,31 +66,10 @@ export default function BeachList({
   const [episodes, setEpisodes] = useState<MunicipalityIncident[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [detail, setDetail] = useState<GeoFeature | null>(null);
-  // Scroll del detalle: BeachDetail baja a "Ver titulares" al expandir
-  const detailScrollRef = useRef<ScrollView>(null);
-  // "Ver más" del detalle: visible mientras quede contenido bajo el
-  // viewport — misma mecánica que la card del mapa
-  const [showMore, setShowMore] = useState(false);
-  const scrollMetrics = useRef({ y: 0, vh: 0, ch: 0 });
-  const recomputeMore = () => {
-    const m = scrollMetrics.current;
-    setShowMore(m.vh > 0 && m.ch > m.vh + 8 && m.y + m.vh < m.ch - 32);
-  };
-  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
-    scrollMetrics.current = {
-      y: contentOffset.y,
-      vh: layoutMeasurement.height,
-      ch: contentSize.height,
-    };
-    recomputeMore();
-  };
 
   // Abrir ficha: el teclado del buscador podía quedar sobre el overlay
   const openDetail = (f: GeoFeature) => {
     Keyboard.dismiss();
-    scrollMetrics.current = { y: 0, vh: 0, ch: 0 };
-    setShowMore(false);
     // Si la ficha es de un PM de grupo, al volver debe verse la lista
     // de PMs expandida — solo si el grupo tiene más de un miembro,
     // si no queda un "punto 1" suelto colgando de la fila
@@ -243,16 +187,6 @@ export default function BeachList({
       ),
     [beaches],
   );
-
-  const statSum = (
-    g: BeachGroup,
-    k:
-      | 'closures'
-      | 'warnings'
-      | 'closures_last_year'
-      | 'bad_samples'
-      | 'reconstructed',
-  ) => g.members.reduce((s, m) => s + (stats.get(m.id)?.[k] ?? 0), 0);
 
   const groups = useMemo(
     () =>
@@ -383,208 +317,18 @@ export default function BeachList({
             // retira el teclado sin esperar a un tap
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            renderItem={({ item: g }) => {
-              const status = worstStatusOf(g);
-              const expanded = expandedKey === g.key;
-              // Cabecera del grupo: totales DEDUPLICADOS por playa
-              // física — un cierre de prensa replicado en los 3 PMs
-              // cuenta una vez (Jardín: 5 eventos reales, no 11)
-              const closures =
-                statSum(g, 'closures') + statSum(g, 'reconstructed');
-              const warnings = statSum(g, 'warnings');
-              const badSamples = statSum(g, 'bad_samples');
-              return (
-                <View style={styles.row}>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.rowMain,
-                      pressed && styles.pressFx,
-                    ]}
-                    onPress={() =>
-                      g.members.length === 1
-                        ? openDetail(g.members[0])
-                        : setExpandedKey(expanded ? null : g.key)
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={`${displayName(g.name)}, ${
-                      g.municipality ?? 'sin municipio'
-                    }, ${STATUS_LABELS[status]}${
-                      g.members.length > 1
-                        ? `, ${g.members.length} puntos de muestreo`
-                        : ''
-                    }`}
-                    accessibilityHint={
-                      g.members.length > 1
-                        ? 'Toca para ver los puntos de muestreo'
-                        : 'Toca para abrir la ficha'
-                    }
-                    accessibilityState={
-                      g.members.length > 1 ? { expanded } : undefined
-                    }
-                  >
-                    {/* Miniatura satélite del arenal: reconocer la
-                        playa de un vistazo en la lista — la misma
-                        foto Esri que la ficha (máximo zoom legible).
-                        En grupos multipunto se usa el primer PM */}
-                    <Image
-                      source={{
-                        uri: thumbUrl(
-                          g.members[0].geometry.coordinates as [number, number],
-                          160,
-                          0.5,
-                        ),
-                      }}
-                      style={styles.rowThumb}
-                      accessibilityElementsHidden
-                      importantForAccessibility="no"
-                    />
-                    <View style={styles.rowText}>
-                      <Text style={styles.rowName}>{displayName(g.name)}</Text>
-                      <Text style={styles.rowSub}>
-                        {g.municipality ?? 'Sin municipio'}
-                        {g.members.length > 1
-                          ? ` · ${g.members.length} zonas`
-                          : ''}
-                        {[
-                          closures > 0
-                            ? `${closures} ${
-                                closures === 1 ? 'cierre' : 'cierres'
-                              }`
-                            : null,
-                          warnings > 0
-                            ? `${warnings} ${
-                                warnings === 1 ? 'aviso' : 'avisos'
-                              }`
-                            : null,
-                        ]
-                          .filter(Boolean)
-                          .map((s) => ` · ${s}`)}
-                        {sortMode === 'calidad' && worstEvalOf(g, stats) != null
-                          ? ` · última: ${evalShort(worstEvalOf(g, stats))}`
-                          : ''}
-                        {badSamples > 0
-                          ? ` · ${badSamples} muestras no aptas`
-                          : ''}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.badge,
-                        { backgroundColor: STATUS_COLORS[status] },
-                      ]}
-                    >
-                      <Text style={styles.badgeText}>
-                        {STATUS_LABELS[status]}
-                      </Text>
-                    </View>
-                  </Pressable>
-                  {expanded &&
-                    g.members.map((f) => {
-                      const fStatus = statusOf(f);
-                      const st = stats.get(f.id);
-                      const ev = evalLabel(st?.latest_evaluation ?? null);
-                      const pmSub = [
-                        st?.latest_sampled_at
-                          ? fmtShort(st.latest_sampled_at)
-                          : null,
-                        ev,
-                        // Conteo canónico del punto: los mismos
-                        // episodios por cala que la fila general e
-                        // Incidencias — la prensa genérica replicada
-                        // a todos los PM no infla cada zona
-                        // (agua no apta va aparte: nunca es cierre)
-                        st &&
-                        (st.closures ?? 0) +
-                          (st.reconstructed ?? 0) +
-                          (st.warnings ?? 0) +
-                          (st.lab_episodes ?? 0) >
-                          0
-                          ? [
-                              (st.closures ?? 0) + (st.reconstructed ?? 0) > 0
-                                ? `${
-                                    (st.closures ?? 0) + (st.reconstructed ?? 0)
-                                  } ${
-                                    (st.closures ?? 0) +
-                                      (st.reconstructed ?? 0) ===
-                                    1
-                                      ? 'cierre'
-                                      : 'cierres'
-                                  }`
-                                : null,
-                              (st.warnings ?? 0) > 0
-                                ? `${st.warnings} ${
-                                    st.warnings === 1 ? 'aviso' : 'avisos'
-                                  }`
-                                : null,
-                              (st.lab_episodes ?? 0) > 0
-                                ? `${st.lab_episodes} muestra${
-                                    st.lab_episodes === 1
-                                      ? ' no apta'
-                                      : 's no aptas'
-                                  }`
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(' · ')
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ');
-                      return (
-                        <Pressable
-                          key={f.id}
-                          style={({ pressed }) => [
-                            styles.pmRow,
-                            pressed && styles.pressFx,
-                          ]}
-                          onPress={() => openDetail(f)}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${
-                            pointLongLabel(f.properties.name) ??
-                            displayName(f.properties.name)
-                          }, ${STATUS_LABELS[fStatus]}`}
-                          accessibilityHint="Abrir ficha del punto de muestreo"
-                        >
-                          {/* Miniatura del punto concreto: cada PM
-                              tiene su coordenada — en zonas separadas
-                              (Jardín) se ve que NO son la misma cala */}
-                          <Image
-                            source={{
-                              uri: thumbUrl(
-                                f.geometry.coordinates as [number, number],
-                                80,
-                                0.5,
-                              ),
-                            }}
-                            style={styles.pmThumb}
-                            accessibilityElementsHidden
-                            importantForAccessibility="no"
-                          />
-                          <View style={styles.pmText}>
-                            <Text style={styles.pmName}>
-                              {pointLongLabel(f.properties.name) ??
-                                displayName(f.properties.name)}
-                            </Text>
-                            {pmSub ? (
-                              <Text style={styles.pmSub}>{pmSub}</Text>
-                            ) : null}
-                          </View>
-                          <View
-                            style={[
-                              styles.badge,
-                              { backgroundColor: STATUS_COLORS[fStatus] },
-                            ]}
-                          >
-                            <Text style={styles.badgeText}>
-                              {STATUS_LABELS[fStatus]}
-                            </Text>
-                          </View>
-                        </Pressable>
-                      );
-                    })}
-                </View>
-              );
-            }}
+            renderItem={({ item: g }) => (
+              <BeachRow
+                group={g}
+                expanded={expandedKey === g.key}
+                stats={stats}
+                sortMode={sortMode}
+                onToggle={() =>
+                  setExpandedKey(expandedKey === g.key ? null : g.key)
+                }
+                onOpenDetail={openDetail}
+              />
+            )}
             ListEmptyComponent={
               <Text style={styles.empty}>Sin resultados</Text>
             }
@@ -592,126 +336,21 @@ export default function BeachList({
         </>
 
         {/* Ficha del PM como overlay: la lista queda montada debajo y
+        {/* Ficha del PM como overlay: la lista queda montada debajo y
             conserva scroll + expansión al volver atrás */}
         {detail && (
-          <View style={styles.detailOverlay}>
-            <ImageBackground
-              source={require('../assets/gradient-sea.png')}
-              style={styles.header}
-              resizeMode="cover"
-            >
-              <View style={styles.detailHeaderRow}>
-                <Pressable
-                  onPress={closeDetail}
-                  hitSlop={12}
-                  style={({ pressed }) => [
-                    styles.backBtn,
-                    pressed && styles.pressFx,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Volver a la lista de playas"
-                >
-                  <Text style={styles.backText}>‹</Text>
-                </Pressable>
-                <Text
-                  style={[styles.title, { flex: 1, textAlign: 'center' }]}
-                  numberOfLines={2}
-                >
-                  {(() => {
-                    const base = displayBeachName(
-                      beachBaseName(detail.properties.name),
-                    );
-                    // En multipunto el título dice la zona, no la
-                    // sigla del censo: "Playa Jardín · Punta Brava".
-                    // En una playa de UN solo punto no hay zonas que
-                    // distinguir — "San Telmo · Zona 1" sería ruido
-                    const z =
-                      detailMembers.length > 1
-                        ? pointLongLabel(detail.properties.name)
-                        : null;
-                    return z ? `${base} · ${z}` : base;
-                  })()}
-                  {detail.properties.municipality
-                    ? ` · ${detail.properties.municipality}`
-                    : ''}
-                </Text>
-                {/* Simétrico al ‹ para que el título quede centrado */}
-                <View style={styles.backBtn} />
-              </View>
-            </ImageBackground>
-            <ScrollView
-              ref={detailScrollRef}
-              style={styles.detailScroll}
-              // flexGrow: el contenido corto (playas sin monitorizar)
-              // estira el cuerpo para que el pie quede anclado abajo
-              contentContainerStyle={{ flexGrow: 1 }}
-              onLayout={(e) => {
-                scrollMetrics.current.vh = e.nativeEvent.layout.height;
-                recomputeMore();
-              }}
-              onContentSizeChange={(_w, ch) => {
-                scrollMetrics.current.ch = ch;
-                recomputeMore();
-              }}
-              onScroll={handleScroll}
-              onMomentumScrollEnd={handleScroll}
-              scrollEventThrottle={80}
-            >
-              <View style={styles.detailBody}>
-                <BeachDetail
-                  feature={detail}
-                  hasAlert={detail.properties.alert === true}
-                  outfalls={outfalls}
-                  members={detailMembers}
-                  onViewOnMap={() => onSelect(detail)}
-                  onSelectOutfall={
-                    onSelectOutfall
-                      ? (f) => onSelectOutfall(f, detail)
-                      : undefined
-                  }
-                />
-              </View>
-            </ScrollView>
-            {/* "Ver más": insinúa que hay contenido debajo; autoscroll
-                hasta el final y se oculta al llegar abajo. Mismo
-                tratamiento que la card del mapa: scrim nativo que
-                funde el contenido + píldora con arte de mar */}
-            {showMore && (
-              <>
-                <SafeGradient
-                  colors={['rgba(242,247,248,0)', 'rgba(242,247,248,0.97)']}
-                  locations={[0, 0.8]}
-                  style={styles.moreFade}
-                  pointerEvents="none"
-                />
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.moreBtn,
-                    pressed && styles.pressFx,
-                  ]}
-                  onPress={() => {
-                    detailScrollRef.current?.scrollToEnd({
-                      animated: true,
-                    });
-                    setTimeout(() => {
-                      const m = scrollMetrics.current;
-                      if (m.ch > 0 && m.y + m.vh >= m.ch - 120)
-                        setShowMore(false);
-                    }, 1200);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Ver más contenido de la ficha"
-                >
-                  <ImageBackground
-                    source={require('../assets/gradient-sea.png')}
-                    style={StyleSheet.absoluteFill}
-                    imageStyle={styles.moreBtnImg}
-                  />
-                  <Text style={styles.moreText}>Ver más</Text>
-                </Pressable>
-              </>
-            )}
-          </View>
+          <BeachListDetail
+            // key por playa: remount limpio de scroll + «Ver más»
+            key={detail.id}
+            detail={detail}
+            members={detailMembers}
+            outfalls={outfalls}
+            onBack={closeDetail}
+            onViewOnMap={() => onSelect(detail)}
+            onSelectOutfall={
+              onSelectOutfall ? (f) => onSelectOutfall(f, detail) : undefined
+            }
+          />
         )}
       </View>
     </Modal>
@@ -742,68 +381,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-  },
-  detailHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backBtn: {
-    marginRight: 4,
-  },
-  backText: {
-    fontSize: 26,
-    fontFamily: fonts.semibold,
-    color: colors.onColor,
-    marginTop: -4,
-  },
-  detailScroll: {
-    flex: 1,
-  },
-  // Cubre toda la modal (lista incluida) — la lista sigue montada debajo
-  detailOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.background,
-  },
-  detailBody: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingBottom: Platform.OS === 'android' ? 44 : 24,
-  },
-  // Scrim: misma geometría que FeatureSheet (44px de fundido que
-  // abraza la píldora) pero fundiendo al fondo de esta vista
-  // (#f2f7f8) — a blanco puro se vería una mancha sobre el gris
-  moreFade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: Platform.OS === 'android' ? 42 : 4,
-    height: 48,
-  },
-  // Sin sombra proyectada: sobre el scrim se leía como un
-  // "subrayado" claro pegado al texto (mismo fix que FeatureSheet)
-  moreBtn: {
-    position: 'absolute',
-    // Por encima de la barra de gestos/botones nativos de Android,
-    // igual que la card del mapa (CARD_BOTTOM ≈ 44)
-    bottom: Platform.OS === 'android' ? 49 : 12,
-    alignSelf: 'center',
-    paddingHorizontal: 13,
-    paddingVertical: 6,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  moreBtnImg: {
-    borderRadius: 12,
-    opacity: 0.7,
-  },
-  moreText: {
-    fontSize: 12,
-    fontFamily: fonts.bold,
-    color: colors.onColor,
   },
   title: {
     fontSize: 18,
@@ -837,85 +414,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: Platform.OS === 'android' ? 34 : 8, // barra de gestos
-  },
-  row: {
-    backgroundColor: colors.surface,
-    marginHorizontal: 12,
-    marginBottom: 6,
-    borderRadius: 10,
-    elevation: 1,
-  },
-  rowMain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-  },
-  pmRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingLeft: 24,
-    paddingRight: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  pmText: {
-    flex: 1,
-  },
-  pmName: {
-    fontSize: 13,
-    fontFamily: fonts.semibold,
-    color: colors.textMuted,
-  },
-  pmSub: {
-    fontSize: 11,
-    fontFamily: fonts.regular,
-    color: colors.textFaint,
-    marginTop: 1,
-  },
-  // Miniatura Esri del arenal: cuadrada, tamaño de fila — vende la
-  // playa mejor que el nombre (misma fuente que la ficha)
-  rowThumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 8,
-    marginRight: 10,
-    backgroundColor: colors.border,
-  },
-  // Versión reducida para las sub-filas de PM (jerarquía: el grupo
-  // pesa más que sus puntos)
-  pmThumb: {
-    width: 40,
-    height: 40,
-    borderRadius: 7,
-    marginRight: 10,
-    backgroundColor: colors.border,
-  },
-  rowText: {
-    flex: 1,
-  },
-  rowName: {
-    fontSize: 15,
-    fontFamily: fonts.bold,
-    color: colors.text,
-  },
-  rowSub: {
-    fontSize: 12,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  badge: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginLeft: 8,
-  },
-  badgeText: {
-    color: colors.onColor,
-    fontSize: 11,
-    fontFamily: fonts.bold,
   },
   empty: {
     textAlign: 'center',
