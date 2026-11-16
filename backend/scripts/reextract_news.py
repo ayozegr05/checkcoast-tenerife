@@ -50,6 +50,12 @@ def main() -> None:
         default=None,
         help="solo ítems publicados en ese año",
     )
+    ap.add_argument(
+        "--apply-demotions",
+        action="store_true",
+        help="aplicar degradaciones relevant->no / closure->otro "
+        "(por defecto se retienen para revisión humana)",
+    )
     args = ap.parse_args()
 
     if not settings.gemini_api_key:
@@ -62,6 +68,7 @@ def main() -> None:
 
     db = SessionLocal()
     updated = bodies = 0
+    demotions: list[tuple[int, int | None, str, str | None, str | None]] = []
     try:
         q = db.query(NewsItem).order_by(
             NewsItem.published_at.desc().nulls_last()
@@ -137,6 +144,35 @@ def main() -> None:
                     f"(titular no relevante, cuerpo inaccesible)"
                 )
                 continue
+            # Degradación = mutar evidencia existente: un ítem que era
+            # relevante no pasa a no-relevante a ciegas, ni un 'closure'
+            # baja a warning/other/nada (una reapertura SÍ es info
+            # nueva legítima). Se retiene la URL entera y se lista —
+            # la evidencia de un estado visible no se borra sola.
+            held = [
+                r
+                for r in rows
+                if r.relevant
+                and (
+                    not ext.relevant
+                    or (
+                        r.event_type == "closure"
+                        and ext.event_type not in ("closure", "reopening")
+                    )
+                )
+            ]
+            if held and not args.apply_demotions:
+                for r in held:
+                    demotions.append(
+                        (
+                            r.id,
+                            r.beach_id,
+                            r.title[:60],
+                            r.event_type,
+                            ext.event_type if ext.relevant else "no relevante",
+                        )
+                    )
+                continue
             for row in rows:
                 row.relevant = ext.relevant
                 row.event_type = ext.event_type
@@ -203,6 +239,13 @@ def main() -> None:
             )
             time.sleep(2)
 
+        if demotions:
+            print(
+                f"!! {len(demotions)} degradaciones retenidas para "
+                f"revisión (--apply-demotions para aplicarlas):"
+            )
+            for rid, bid, title, old, new in demotions:
+                print(f"  · item {rid} playa {bid}: {old} -> {new} | {title}")
         rematched = _rematch_pending(db, beaches, {})
         print(
             f"Re-extracción: {updated} URLs procesadas "
