@@ -2,7 +2,7 @@ import re
 import unicodedata
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from app.models import (
@@ -312,7 +312,7 @@ def _episode_params(its: list[NewsItem]) -> set[str]:
     """Parámetros citados por los titulares que cambian estado."""
     found: set[str] = set()
     for i in its:
-        if i.event_type not in ("closure", "warning", "pollution"):
+        if _voting_type(i) not in ("closure", "warning", "pollution"):
             continue
         found |= _params_in_text(i.cause)
     return found
@@ -326,7 +326,7 @@ def _press_cause(its: list[NewsItem]) -> str | None:
     parámetros fecales se muestran juntos: "E. coli y enterococos"."""
     counts: dict[str, int] = {}
     for i in its:
-        if i.event_type not in ("closure", "warning", "pollution"):
+        if _voting_type(i) not in ("closure", "warning", "pollution"):
             continue
         c = _short_cause(i.cause)
         if c:
@@ -348,7 +348,7 @@ def _majority_cause(its: list[NewsItem]) -> str | None:
     no debe eternizar un episodio de contaminación (Candelaria)."""
     counts: dict[str, int] = {}
     for i in its:
-        if i.event_type not in ("closure", "warning", "pollution"):
+        if _voting_type(i) not in ("closure", "warning", "pollution"):
             continue
         c = _short_cause(i.cause)
         if c:
@@ -410,6 +410,13 @@ def stale_official_ids(db: Session) -> set[int]:
             NewsItem.relevant.is_(True),
             NewsItem.beach_id.in_(ids),
             NewsItem.event_type == "closure",
+            # Solo un cierre de playa (whole/NULL) bloquea la
+            # reapertura: un acceso, tramo o instalación vallada no
+            # es una clausura nueva
+            or_(
+                NewsItem.scope.is_(None),
+                NewsItem.scope == "whole",
+            ),
             NewsItem.published_at.isnot(None),
         )
         .all()
@@ -488,20 +495,36 @@ def _adverse_evaluation(ev: str | None) -> bool:
     )
 
 
+def _voting_type(item: NewsItem) -> str | None:
+    """event_type efectivo para decidir estado: un 'closure' cuyo scope
+    lo limita NO cierra la playa — 'partial' (tramo acotado, playa
+    usable) vota como warning; 'access_point' (una entrada vallada,
+    zona accesible) y 'facility' (charco/piscina/sendero anexo) son
+    contexto y no votan estado. NULL en scope = 'whole' conservador."""
+    if item.event_type == "closure":
+        # getattr: los stubs de test no siempre traen el atributo
+        scope = getattr(item, "scope", None)
+        if scope in ("access_point", "facility"):
+            return "other"
+        if scope == "partial":
+            return "warning"
+    return item.event_type
+
+
 def _press_event(items: list[NewsItem]) -> NewsItem | None:
     """Titular que decide el estado según prensa (items ordenados desc
     por fecha): el último closure/reopening decide; si no hay, un
     warning/pollution da 'warning'. Un 'other' (obras, política) nunca
     deshace un cierre."""
     change = next(
-        (i for i in items if i.event_type in ("closure", "reopening")),
+        (i for i in items if _voting_type(i) in ("closure", "reopening")),
         None,
     )
     warn = next(
-        (i for i in items if i.event_type in ("warning", "pollution")),
+        (i for i in items if _voting_type(i) in ("warning", "pollution")),
         None,
     )
-    if change and change.event_type == "closure":
+    if change and _voting_type(change) == "closure":
         return change
     if warn and (
         change is None
@@ -525,9 +548,10 @@ def _episode_items(
     out = []
     prev = None
     for i in its:
-        if i.event_type in ("closure", "warning", "pollution", "reopening"):
+        vt = _voting_type(i)
+        if vt in ("closure", "warning", "pollution", "reopening"):
             pub = i.published_at or _EPOCH
-            if i.event_type == "reopening" or (
+            if vt == "reopening" or (
                 gap is not None and prev is not None and prev - pub > gap
             ):
                 break
@@ -601,7 +625,7 @@ def effective_states(db: Session) -> dict[int, dict]:
             (
                 i.published_at
                 for i in its
-                if i.event_type
+                if _voting_type(i)
                 in ("closure", "warning", "pollution", "reopening")
             ),
             None,
@@ -621,7 +645,7 @@ def effective_states(db: Session) -> dict[int, dict]:
         ev = _press_event(its)
         persists = (
             ev is not None
-            and ev.event_type == "closure"
+            and _voting_type(ev) == "closure"
             and _majority_cause(ep) in _STRUCTURAL_CAUSES
         )
         if not persists and newest < cutoff:
@@ -629,7 +653,7 @@ def effective_states(db: Session) -> dict[int, dict]:
         press_cause[beach_id] = cause
         if ev is not None:
             press_state[beach_id] = (
-                "closed" if ev.event_type == "closure" else "warning"
+                "closed" if _voting_type(ev) == "closure" else "warning"
             )
             press_when[beach_id] = ev.published_at
         # Dominante sirve para escalar warning->closed en playas con
@@ -637,14 +661,15 @@ def effective_states(db: Session) -> dict[int, dict]:
         # equivale a reabierta (Gaviotas sigue cerrada con obras)
         counts: dict[str, int] = {}
         for i in ep:
-            if i.event_type and i.event_type != "other":
-                counts[i.event_type] = counts.get(i.event_type, 0) + 1
+            vt = _voting_type(i)
+            if vt and vt != "other":
+                counts[vt] = counts.get(vt, 0) + 1
         if counts:
             best = max(counts.values())
             press_dominant[beach_id] = next(
-                i.event_type
+                vt
                 for i in ep
-                if i.event_type in counts and counts[i.event_type] == best
+                if (vt := _voting_type(i)) in counts and counts[vt] == best
             )
 
     stale_ids = stale_official_ids(db)

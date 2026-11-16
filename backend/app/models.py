@@ -233,6 +233,15 @@ class NewsItem(Base):
     # julio de 2024"), no la fecha de publicación. ISO parcial:
     # "YYYY-MM-DD", "YYYY-MM" o "YYYY" según lo que afirme la fuente
     closed_since: Mapped[str | None] = mapped_column(String(10))
+    # Alcance del cierre (solo tiene sentido con event_type='closure'):
+    # 'whole' = playa no usable (clausura total, baño prohibido o su
+    # único acceso cortado); 'partial' = tramo/zona acotada pero la
+    # playa sigue usable; 'access_point' = una sola entrada/escalera
+    # vallada y la zona accesible por otros puntos; 'facility' = lo
+    # cerrado es un anexo (charco, piscina, sendero). NULL se trata
+    # como 'whole' (conservador: lo extraído antes del campo es lo
+    # que ya cerraba la playa)
+    scope: Mapped[str | None] = mapped_column(String(20))
     extracted_beach: Mapped[str | None] = mapped_column(String(255))
     extracted_municipality: Mapped[str | None] = mapped_column(String(120))
     confidence: Mapped[float | None] = mapped_column(Float)

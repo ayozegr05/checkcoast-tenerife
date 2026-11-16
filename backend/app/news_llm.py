@@ -29,6 +29,9 @@ class EventExtraction:
     # closure | reopening | warning | pollution | other
     event_type: str | None = None
     cause: str | None = None
+    # Alcance del cierre (solo event_type='closure'): whole | partial |
+    # access_point | facility. None se trata como 'whole'
+    scope: str | None = None
     # Inicio real del evento según el texto ("cerrada desde julio de
     # 2024" → "2024-07"), no la fecha de publicación. ISO parcial
     closed_since: str | None = None
@@ -48,6 +51,7 @@ SCHEMA = {
         "municipality": {"type": "STRING", "nullable": True},
         "event_type": {"type": "STRING", "nullable": True},
         "cause": {"type": "STRING", "nullable": True},
+        "scope": {"type": "STRING", "nullable": True},
         "closed_since": {"type": "STRING", "nullable": True},
         "confidence": {"type": "NUMBER"},
     },
@@ -105,6 +109,20 @@ Si relevant=true extrae:
     los cierres", "un año del cierre de...") no es un cierre nuevo →
     "other"; solo vale "closure" si el texto afirma explícitamente que
     la playa SIGUE cerrada hoy
+- scope: SOLO cuando event_type="closure" — qué cerró exactamente:
+  · "whole": la playa NO se puede usar — prohibición de baño, clausura
+    total de la playa, o corte de su ÚNICO acceso (calas y barrancos
+    con una sola entrada: cerrar el acceso = cerrar la playa)
+  · "partial": un tramo o zona queda acotado e inaccesible, pero el
+    resto de la playa sigue abierta y usable ("cierran el último
+    tramo", "acotan la zona sur")
+  · "access_point": SOLO se cerró un acceso concreto (una escalera,
+    bajada o entrada vallada) y la zona sigue siendo accesible por
+    otros puntos — la playa NO está cerrada
+  · "facility": lo cerrado es una instalación anexa y no la playa:
+    charco, piscina natural, sendero, paseo marítimo
+  En la duda entre "whole" y un alcance menor, elige el menor. null
+  para otros event_type
 - cause: la RAZÓN del cierre/aviso para el bañista — el evento que
   afectó al agua o al acceso ("vertido de aguas residuales",
   "bacterias fecales", "gasoil", "riesgo de desprendimientos",
@@ -238,6 +256,7 @@ class GeminiExtractor:
                 ("beach_name", 255),
                 ("municipality", 120),
                 ("event_type", 20),
+                ("scope", 20),
                 ("closed_since", 10),
             ):
                 v = data.get(key)
@@ -258,6 +277,16 @@ class GeminiExtractor:
                 "infra",
             ):
                 closed_since = None
+            scope = data.get("scope")
+            # scope solo acompaña a un cierre; además se acota a los
+            # valores del vocabulario — cualquier otra cosa es ruido
+            if data.get("event_type") != "closure" or scope not in (
+                "whole",
+                "partial",
+                "access_point",
+                "facility",
+            ):
+                scope = None
             return EventExtraction(
                 relevant=bool(data["relevant"]),
                 confidence=float(data.get("confidence") or 0.0),
@@ -265,6 +294,7 @@ class GeminiExtractor:
                 municipality=data.get("municipality"),
                 event_type=data.get("event_type"),
                 cause=data.get("cause"),
+                scope=scope,
                 closed_since=closed_since,
             )
         except (

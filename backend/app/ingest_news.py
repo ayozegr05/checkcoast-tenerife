@@ -55,7 +55,7 @@ from app.news_sources import (
     source_excluded,
 )
 from app.news_zones import narrow_hits_by_zone
-from app.queries import _short_cause, is_sea_state_cause
+from app.queries import _short_cause, _voting_type, is_sea_state_cause
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
@@ -412,12 +412,17 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
                 continue
             # Estado del mar (oleaje/temporal) no despierta push:
             # la app avisa de agua/vertidos, no es un parte meteo
+            vt = _voting_type(item) or ""
             if not is_sea_state_cause(item.cause) and _press_push_candidate(
-                db, b, item.event_type, item.published_at, exclude_id=item.id
+                db,
+                b,
+                vt,
+                item.published_at,
+                exclude_id=item.id,
             ):
                 item.push_pending = True
-                key = _push_key(b, item.event_type)
-                to_notify.setdefault(key, (b, item.event_type, []))
+                key = _push_key(b, vt)
+                to_notify.setdefault(key, (b, vt, []))
                 to_notify[key][2].append(item)
     if rematched:
         db.commit()
@@ -477,6 +482,7 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
                 row.relevant = ext.relevant
                 row.event_type = ext.event_type
                 row.cause = ext.cause
+                row.scope = ext.scope
                 row.closed_since = ext.closed_since
                 row.extracted_beach = ext.beach_name
                 row.extracted_municipality = ext.municipality
@@ -505,6 +511,7 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
                             beach_id=b.id,
                             event_type=ext.event_type,
                             cause=ext.cause,
+                            scope=ext.scope,
                             closed_since=ext.closed_since,
                             extracted_beach=ext.beach_name,
                             extracted_municipality=ext.municipality,
@@ -526,6 +533,7 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
                         beach_id=beach.id if beach else None,
                         event_type=ext.event_type,
                         cause=ext.cause,
+                        scope=ext.scope,
                         closed_since=ext.closed_since,
                         extracted_beach=ext.beach_name,
                         extracted_municipality=ext.municipality,
@@ -769,6 +777,7 @@ def run(
                     beach_id=beach.id if beach else None,
                     event_type=ext.event_type,
                     cause=ext.cause,
+                    scope=ext.scope,
                     closed_since=ext.closed_since,
                     extracted_beach=ext.beach_name,
                     extracted_municipality=ext.municipality,
@@ -786,12 +795,13 @@ def run(
                     # app avisa de agua y vertidos, no de meteo
                     and not is_sea_state_cause(ext.cause)
                     and _press_push_candidate(
-                        db, beach, ext.event_type, art.published_at
+                        db, beach, _voting_type(item), art.published_at
                     )
                 ):
                     item.push_pending = True
-                    key = _push_key(beach, ext.event_type)
-                    to_notify.setdefault(key, (beach, ext.event_type, []))
+                    vt = _voting_type(item) or ""
+                    key = _push_key(beach, vt)
+                    to_notify.setdefault(key, (beach, vt, []))
                     to_notify[key][2].append(item)
                 db.add(item)
             try:
@@ -835,13 +845,14 @@ def run(
                 # reintento: marcado para no volver a encolarse
                 if (
                     b is None
-                    or it.event_type is None
+                    or _voting_type(it) not in _PRESS_PUSH_EVENTS
                     or is_sea_state_cause(it.cause)
                 ):
                     it.pushed_at = datetime.now(UTC)  # nunca saldrá
                     continue
-                key = _push_key(b, it.event_type)
-                to_notify.setdefault(key, (b, it.event_type, []))
+                vt = _voting_type(it) or ""
+                key = _push_key(b, vt)
+                to_notify.setdefault(key, (b, vt, []))
                 to_notify[key][2].append(it)
 
             now = datetime.now(UTC)

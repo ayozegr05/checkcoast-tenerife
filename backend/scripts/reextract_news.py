@@ -141,6 +141,7 @@ def main() -> None:
                 row.relevant = ext.relevant
                 row.event_type = ext.event_type
                 row.cause = ext.cause
+                row.scope = ext.scope
                 row.closed_since = ext.closed_since
                 row.extracted_beach = ext.beach_name
                 row.extracted_municipality = ext.municipality
@@ -173,6 +174,7 @@ def main() -> None:
                                     beach_id=beach.id,
                                     event_type=ext.event_type,
                                     cause=ext.cause,
+                                    scope=ext.scope,
                                     closed_since=ext.closed_since,
                                     extracted_beach=ext.beach_name,
                                     extracted_municipality=ext.municipality,
