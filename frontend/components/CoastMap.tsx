@@ -17,6 +17,7 @@ import {
 import {
   Camera,
   Map,
+  UserLocation,
   type PressEventWithFeatures,
   type StyleSpecification,
 } from '@maplibre/maplibre-react-native';
@@ -296,10 +297,19 @@ export default function CoastMap({
   // playa que tengo delante?" → vuela a tu posición a zoom de costa
   const [locating, setLocating] = useState(false);
   const [locOk, setLocOk] = useState(false);
+  // Permiso ya concedido → el puck azul de posición vive en el mapa
+  // desde el arranque (como en cualquier app de mapas), no solo tras ⌖
+  const [locGranted, setLocGranted] = useState(false);
   useEffect(() => {
     let alive = true;
     loadLocation().then((m) => {
-      if (alive && m) setLocOk(true);
+      if (!alive || !m) return;
+      setLocOk(true);
+      // Consulta sin diálogo: si el permiso ya fue dado en otra sesión,
+      // el dot aparece solo sin exigir un primer toque al botón ⌖
+      m.getForegroundPermissionsAsync().then((p) => {
+        if (alive && p.granted) setLocGranted(true);
+      });
     });
     return () => {
       alive = false;
@@ -319,6 +329,9 @@ export default function CoastMap({
         );
         return;
       }
+      // Monta el puck nativo de posición (punto azul + halo de
+      // precisión): vuela Y te ves — antes solo volaba la cámara
+      setLocGranted(true);
       const pos = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
@@ -952,6 +965,11 @@ export default function CoastMap({
           onPressFeature={handlePress}
           onPressZoneDot={handleZoneDot}
         />
+
+        {/* Punto azul de tu posición: solo con permiso concedido —
+            montarlo sin permiso arrancaría el GPS nativo en seco.
+            Va tras MapLayers para pintar por encima de los pins */}
+        {locGranted && <UserLocation accuracy />}
       </Map>
 
       <View style={styles.topBlock} pointerEvents="box-none">
