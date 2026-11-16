@@ -78,7 +78,11 @@ App cívica para avisar al bañista del estado de las playas de Tenerife
     ("acceso prohibido") ni respuesta ("obras de emergencia");
     `closed_since` = inicio real afirmado por el texto ("cerrada desde
     julio de 2024" → "2024-07", ISO parcial YYYY[-MM[-DD]], solo si el
-    cierre sigue vigente); 429 PerDay → salta a
+    cierre sigue vigente); `scope` = alcance del cierre
+    (whole|partial|access_point|facility, solo event_type='closure'):
+    whole/NULL cierra la playa, partial avisa (warning), access_point
+    y facility solo dan contexto — Punta Larga marcó la regla (una
+    escalera vallada ≠ playa cerrada); 429 PerDay → salta a
     `gemini_fallback_model` (cuota aparte por modelo; los -lite no
     aceptan thinkingConfig); acepta `article.body`; titulares que
     niegan el suceso ("descartan un vertido") → `relevant=false`
