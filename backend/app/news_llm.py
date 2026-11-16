@@ -93,6 +93,15 @@ Marca relevant=false cuando:
   episodio de calidad del agua ni de seguridad del baño → relevant=false
   (aunque el titular diga literalmente "cierran la playa")
 
+PERO OJO: un titular que AFIRMA que la playa sigue cerrada o afectada
+HOY es relevant=true aunque el encuadre sea retrospectivo, de denuncia
+o político — el cierre vigente ES el evento: "la playa cumple 13 años
+cerrada", "crece el malestar por el cierre", "siete playas siguen
+clausuradas por desprendimientos", "piden verla solo de lejos". Lo que
+no vale es historia pura sin afirmación del estado actual: "un año del
+cierre de...", "el verano de los cierres", aniversarios o balances que
+no dicen si sigue cerrada hoy.
+
 Si relevant=true extrae:
 - beach_name: nombre de la playa tal como aparece en el titular
 - municipality: municipio de Tenerife SOLO si se menciona en el titular;
@@ -111,14 +120,18 @@ Si relevant=true extrae:
     la playa SIGUE cerrada hoy
 - scope: SOLO cuando event_type="closure" — qué cerró exactamente:
   · "whole": la playa NO se puede usar — prohibición de baño, clausura
-    total de la playa, o corte de su ÚNICO acceso (calas y barrancos
-    con una sola entrada: cerrar el acceso = cerrar la playa)
+    total de la playa, o corte de su ÚNICO acceso. Calas escondidas,
+    barrancos y playas cuya única entrada es una escalera o sendero de
+    bajada: "cierran el acceso a la playa de Los Patos/Benijo" = whole
+    (cerrar la entrada = cerrar la playa). Si el texto habla de "el
+    acceso" en singular como LA vía de bajada → whole
   · "partial": un tramo o zona queda acotado e inaccesible, pero el
     resto de la playa sigue abierta y usable ("cierran el último
     tramo", "acotan la zona sur")
   · "access_point": SOLO se cerró un acceso concreto (una escalera,
-    bajada o entrada vallada) y la zona sigue siendo accesible por
-    otros puntos — la playa NO está cerrada
+    bajada o entrada vallada) en una playa urbana o con varias
+    entradas, y la zona sigue siendo accesible por otros puntos —
+    la playa NO está cerrada
   · "facility": lo cerrado es una instalación anexa y no la playa:
     charco, piscina natural, sendero, paseo marítimo
   En la duda entre "whole" y un alcance menor, elige el menor. null
