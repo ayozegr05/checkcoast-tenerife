@@ -44,7 +44,12 @@ from app.news_llm import (
     GeminiExtractor,
     extract_event,
 )
-from app.news_matching import _MIN_NAME_LEN, _press_key, match_beaches
+from app.news_matching import (
+    _MIN_NAME_LEN,
+    _press_key,
+    candidate_beaches,
+    match_beaches,
+)
 from app.news_resolve import resolve_and_fetch
 from app.news_sources import (
     GUIA_SOURCE,
@@ -299,7 +304,11 @@ def _enrich_with_body(
         body = resolve_and_fetch(art.url)
         if not body:
             return None, hits, True, False, None
-        ext2 = extract_event(replace(art, body=body), extractor)
+        ext2 = extract_event(
+            replace(art, body=body),
+            extractor,
+            candidates=candidate_beaches(beaches, art.title, body),
+        )
         time.sleep(2)
         if ext2 is not None and ext2.relevant:
             return (
@@ -325,7 +334,11 @@ def _enrich_with_body(
     body = resolve_and_fetch(art.url)
     if not body:
         return ext, hits, True, False, None
-    ext2 = extract_event(replace(art, body=body), extractor)
+    ext2 = extract_event(
+        replace(art, body=body),
+        extractor,
+        candidates=candidate_beaches(beaches, art.title, body),
+    )
     time.sleep(2)  # segunda llamada LLM: respirar igual que la primera
     if ext2 is None:
         # Fallo del proveedor: no convertirlo en una extracción confirmada.
@@ -494,7 +507,11 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
             published_at=lastmod,
             body=body,
         )
-        ext = extract_event(art, extractor)
+        ext = extract_event(
+            art,
+            extractor,
+            candidates=candidate_beaches(beaches, title, body),
+        )
         if ext is None:
             continue  # fallo del proveedor: reintento la próxima pasada
         hits = match_beaches(ext, beaches, title=title) if ext.relevant else []
@@ -672,7 +689,11 @@ def run(
 
         for art in fresh[:llm_left]:
             processed += 1
-            ext = extract_event(art, extractor)
+            ext = extract_event(
+                art,
+                extractor,
+                candidates=candidate_beaches(beaches, art.title),
+            )
             if ext is None:
                 llm_errors += 1  # fallo del proveedor (cuota, 5xx, parse)
                 continue  # se reintenta la próxima pasada

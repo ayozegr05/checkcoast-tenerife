@@ -14,7 +14,8 @@ from dataclasses import asdict
 from app import news_llm
 from app.config import settings
 from app.db import SessionLocal
-from app.models import NewsItem
+from app.models import Beach, NewsItem
+from app.news_matching import candidate_beaches
 from app.news_resolve import resolve_and_fetch
 from app.news_sources import RawArticle
 
@@ -40,6 +41,7 @@ def main():
     else:
         modules = {"candidate": news_llm}
     with SessionLocal() as db:
+        beaches = db.query(Beach).all()
         for item_id in map(int, args.ids.split(",")):
             row = db.get(NewsItem, item_id)
             if row is None:
@@ -73,7 +75,15 @@ def main():
                             else {}
                         ),
                     )
-                    ext = ex.extract(art)
+                    try:
+                        ext = ex.extract(
+                            art,
+                            candidates=candidate_beaches(
+                                beaches, row.title, body
+                            ),
+                        )
+                    except TypeError:
+                        ext = ex.extract(art)
                     result[name] = asdict(ext) if ext else None
                     if ext is None:
                         result[name + "_error"] = getattr(

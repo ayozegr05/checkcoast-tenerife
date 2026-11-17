@@ -45,7 +45,10 @@ class EventExtraction:
 
 class NewsExtractor(Protocol):
     def extract(
-        self, article: RawArticle, prompt: str | None = None
+        self,
+        article: RawArticle,
+        prompt: str | None = None,
+        candidates: list | None = None,
     ) -> EventExtraction | None: ...
 
 
@@ -394,7 +397,10 @@ class GeminiExtractor:
         return resp
 
     def extract(
-        self, article: RawArticle, prompt: str | None = None
+        self,
+        article: RawArticle,
+        prompt: str | None = None,
+        candidates: list | None = None,
     ) -> EventExtraction | None:
         # prompt alternativo para la segunda vía de extracción
         # (Hito 11.2, PROMPT_INFRA en news_infra); por defecto el de
@@ -409,6 +415,27 @@ class GeminiExtractor:
             text += f"\nFecha de publicación: {article.published_at:%Y-%m-%d}"
         if article.body:
             text += f'\nTexto de la noticia (extracto):\n"{article.body[:BODY_LIMIT]}"'
+        if candidates:
+            lines = "\n".join(
+                f'- "{b.name}" ({b.municipality})'
+                + (
+                    " — piscina natural/charco (el punto ES la instalación)"
+                    if re.search(r"PISCINA|CHARCO", b.name, re.IGNORECASE)
+                    else ""
+                )
+                for b in candidates
+            )
+            text += (
+                "\n\nPuntos monitorizados del censo que el filtro léxico "
+                "ve en el texto — pueden ser varios, uno o ninguno:\n"
+                + lines
+                + "\nSi la noticia trata de un punto del censo, ES un "
+                "punto de baño aunque sea piscina natural o charco: su "
+                "cierre o reapertura es relevant y, si afecta a todo el "
+                "punto, scope=whole — facility solo cuando lo cerrado es "
+                "anexo a un punto distinto (paseo, acceso, chiringuito). "
+                "Si ninguno casa, extrae beach_name del texto igualmente."
+            )
         resp = self._post(text)
         # Ante indisponibilidad del principal el resto de esta pasada
         # usa el respaldo. En la próxima pasada se prueba el principal.
@@ -497,14 +524,19 @@ class GeminiExtractor:
 
 
 def extract_event(
-    article: RawArticle, extractor: NewsExtractor | None = None
+    article: RawArticle,
+    extractor: NewsExtractor | None = None,
+    candidates: list | None = None,
 ) -> EventExtraction | None:
     """Extrae el evento de playa de un titular. None si el proveedor
-    falla (el artículo se reintenta en la siguiente pasada)."""
+    falla (el artículo se reintenta en la siguiente pasada).
+    `candidates` son los puntos del censo que el matching léxico ve en
+    el texto — contexto para que el modelo sepa que la piscina o el
+    charco nombrado ES un punto monitorizado."""
     if extractor is None:
         extractor = GeminiExtractor(
             api_key=settings.gemini_api_key or "",
             model=settings.gemini_model,
             fallback_model=settings.gemini_fallback_model,
         )
-    return extractor.extract(article)
+    return extractor.extract(article, candidates=candidates)

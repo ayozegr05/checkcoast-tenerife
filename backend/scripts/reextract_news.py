@@ -29,7 +29,7 @@ from app.news_llm import (
     extract_event,
     supported_event,
 )
-from app.news_matching import match_beaches
+from app.news_matching import candidate_beaches, match_beaches
 from app.news_resolve import resolve_and_fetch
 from app.news_sources import GUIA_SOURCE, RawArticle
 from app.news_zones import narrow_hits_by_zone
@@ -253,7 +253,13 @@ def audit(db, extractor, args) -> int:
                     published_at=row.published_at,
                     body=body,
                 )
-                ext = extract_event(art, extractor)
+                ext = extract_event(
+                    art,
+                    extractor,
+                    candidates=candidate_beaches(
+                        beaches, art.title, art.body or ""
+                    ),
+                )
                 if ext is None:
                     record.status = "failed"
                     record.reason = (

@@ -184,7 +184,7 @@ def test_body_rejecting_title_closure_does_not_keep_false_closure(monkeypatch):
     )
     monkeypatch.setattr(
         "app.ingest_news.extract_event",
-        lambda *a: EventExtraction(relevant=False, confidence=0.9),
+        lambda *a, **k: EventExtraction(relevant=False, confidence=0.9),
     )
     monkeypatch.setattr("app.ingest_news.time.sleep", lambda _: None)
     result, _, used, verified, _ = _enrich_with_body(
@@ -340,3 +340,42 @@ def test_body_closure_of_other_thing_does_not_ground():
         ).event_type
         == "other"
     )
+
+
+def _beach(name, municipality="Garachico"):
+    from app.models import Beach
+
+    b = Beach()
+    b.id = 1
+    b.name = name
+    b.municipality = municipality
+    return b
+
+
+def test_candidates_block_lists_census_points():
+    """El prompt nombra los puntos del censo candidatos para que el
+    modelo sepa que la piscina natural ES el punto monitorizado."""
+    cands = [
+        _beach("PISCINAS NATURALES DE BAJAMAR PM1", "La Laguna"),
+        _beach("PLAYA DE BENIJO", "Taganana"),
+    ]
+    with patch(
+        "app.news_llm.requests.post", return_value=_fake_resp(EXTRACTION)
+    ) as post:
+        extract_event(
+            ARTICLE, GeminiExtractor("key", "model"), candidates=cands
+        )
+    text = post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"]
+    assert "PISCINAS NATURALES DE BAJAMAR PM1" in text
+    assert "PLAYA DE BENIJO" in text
+    assert "La Laguna" in text
+    assert "el punto ES la instalaci" in text  # flag piscina natural
+
+
+def test_no_candidates_keeps_prompt_unchanged():
+    with patch(
+        "app.news_llm.requests.post", return_value=_fake_resp(EXTRACTION)
+    ) as post:
+        extract_event(ARTICLE, GeminiExtractor("key", "model"))
+    text = post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"]
+    assert "censo" not in text

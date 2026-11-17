@@ -87,7 +87,7 @@ def setup_extractor(monkeypatch, beach, result):
         last_error = "HTTP 503"
         calls = 0
 
-        def extract(self, article):
+        def extract(self, article, prompt=None, candidates=None):
             self.calls += 1
             return result
 

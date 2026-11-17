@@ -21,10 +21,10 @@ const ZONE_NAMES: Record<string, Record<string, string>> = {
     PM5: 'El Charcón',
     PM4: 'Punta Brava',
   },
-  // Valleseco (Santa Cruz): el tramo de Los Charcos — su PM hermano
-  // "Valleseco-El Bloque" es otra playa base, no compite en el grupo
+  // Valleseco (Santa Cruz): Los Charcos es playa propia en el censo
+  // desde nov-2026 — este PM queda como Playa Valleseco a secas
   'PLAYA VALLESECO': {
-    PM1: 'Los Charcos',
+    PM1: 'Playa Valleseco',
   },
   'PLAYA VALLESECO- EL BLOQUE': {
     PM1: 'El Bloque',

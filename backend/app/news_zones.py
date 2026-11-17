@@ -50,12 +50,14 @@ _ZONE_GROUPS: dict[tuple[str, str], dict[str, dict]] = {
             "weak_aliases": ("PUNTA BRAVA",),
         },
     },
-    # Valleseco (Santa Cruz): Los Charcos (PM1) y El Bloque (PM1),
-    # dos tramos del mismo litoral con nombre base distinto
+    # Valleseco (Santa Cruz): Playa Valleseco (PM1) y El Bloque (PM1),
+    # dos tramos del mismo litoral con nombre base distinto. Los
+    # Charcos es punto propio del censo desde nov-2026 — sus alias
+    # viven en press_aliases de esa playa, no aquí
     ("PLAYA VALLESECO", "SANTA CRUZ DE TENERIFE"): {
         "PM1": {
-            "name": "Los Charcos",
-            "aliases": ("LOS CHARCOS", "CHARCOS DE VALLESECO"),
+            "name": "Playa Valleseco",
+            "aliases": (),
             "weak_aliases": (),
         },
     },

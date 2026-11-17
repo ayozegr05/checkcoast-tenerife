@@ -738,3 +738,20 @@ def match_beaches(
     if len(pool) >= 1 and len(bases) == 1:
         return _merge([b for b, _ in pool])
     return _merge(_multi_beach_hits(pool, _normalize(title), title_map))
+
+
+def candidate_beaches(
+    beaches: list[Beach], title: str, body: str = ""
+) -> list[Beach]:
+    """Puntos del censo plausibles para dar contexto al extractor.
+
+    Matching literal sin nombre extraído: los puntos cuyo nombre o
+    alias aparece en el texto. Es presección para el prompt, no el
+    matching definitivo — puede devolver de más sin coste (el modelo
+    decide si alguno es realmente de la noticia)."""
+    probe = EventExtraction(relevant=True, confidence=1.0)
+    hits = {b.id: b for b in match_beaches(probe, beaches, title=title)}
+    if body:
+        for b in match_beaches(probe, beaches, title=body[:3000]):
+            hits.setdefault(b.id, b)
+    return list(hits.values())
