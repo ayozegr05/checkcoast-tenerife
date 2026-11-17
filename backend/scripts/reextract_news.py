@@ -110,6 +110,11 @@ def main() -> None:
         beaches = db.query(Beach).all()
 
         for url, rows in list(by_url.items())[: args.max]:
+            # Curaduría manual: si CUALQUIER fila de la URL está
+            # locked, el artículo entero queda congelado — re-extraer
+            # pisaría la corrección humana o desataría sus réplicas
+            if any(r.locked for r in rows):
+                continue
             art = RawArticle(
                 title=rows[0].title,
                 url=url,

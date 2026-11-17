@@ -265,6 +265,11 @@ class NewsItem(Base):
         DateTime(timezone=True)
     )
     infra_cause: Mapped[str | None] = mapped_column(Text)
+    # Curaduría manual: una fila con locked=True está congelada — la
+    # re-extracción la omite y _rematch_pending no la recasa. Protege
+    # las correcciones humanas (beach_id NULL deliberado, scope/cause
+    # revisados) de ser pisadas por el pipeline automático
+    locked: Mapped[bool] = mapped_column(default=False)
     # Push: el envío es fire-and-forget en la ingesta — estas marcas
     # permiten reintentar en la siguiente pasada lo que no salió
     push_pending: Mapped[bool] = mapped_column(default=False)

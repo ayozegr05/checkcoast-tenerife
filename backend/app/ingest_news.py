@@ -350,7 +350,13 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
     sin gasto LLM (usa lo ya extraído)."""
     pending = (
         db.query(NewsItem)
-        .filter(NewsItem.relevant.is_(True), NewsItem.beach_id.is_(None))
+        .filter(
+            NewsItem.relevant.is_(True),
+            NewsItem.beach_id.is_(None),
+            # Los NULL con locked=True son curaduría manual (p.ej. un
+            # titular sin playa nombrada no se casa por proximidad)
+            NewsItem.locked.is_(False),
+        )
         .all()
     )
     rematched = 0
