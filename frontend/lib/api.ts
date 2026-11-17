@@ -131,7 +131,7 @@ export type MunicipalityIncident = {
   last_news_at?: string | null;
   // Causa normalizada ("Contaminación", "Desprendimientos"...) — el
   // backend la infiere de la prensa en ventana; un cierre de Sanidad
-  // sin contexto es Contaminación por definición
+  // sin contexto no permite atribuir una causa: se muestra sin confirmar
   cause?: string | null;
   // Evidencia de prensa del episodio — la fila del timeline la
   // despliega ("Ver titulares"), igual que en la ficha de playa.

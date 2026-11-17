@@ -9,15 +9,18 @@ con el mismo método `extract`.
 """
 
 import json
+import logging
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Protocol
 
 import requests
 
 from app.config import settings
 from app.news_sources import RawArticle
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -35,6 +38,9 @@ class EventExtraction:
     # Inicio real del evento según el texto ("cerrada desde julio de
     # 2024" → "2024-07"), no la fecha de publicación. ISO parcial
     closed_since: str | None = None
+    # Cita literal comprobada contra el texto enviado, no una explicación
+    # inventada por el modelo. Se conserva para poder revisar la decisión.
+    evidence_quote: str | None = None
 
 
 class NewsExtractor(Protocol):
@@ -54,12 +60,57 @@ SCHEMA = {
         "scope": {"type": "STRING", "nullable": True},
         "closed_since": {"type": "STRING", "nullable": True},
         "confidence": {"type": "NUMBER"},
+        "evidence_quote": {"type": "STRING", "nullable": True},
     },
     "required": ["relevant", "confidence"],
 }
 
 # ISO parcial: "2024", "2024-07" o "2024-07-15" — nada más se acepta
 _CLOSED_SINCE_RE = re.compile(r"^\d{4}(-\d{2})?(-\d{2})?$")
+BODY_LIMIT = 6000
+
+
+def literal_evidence(quote: object, article: RawArticle) -> str | None:
+    """Solo admite citas presentes en el texto que realmente vio el modelo."""
+    if not isinstance(quote, str) or not 12 <= len(quote) <= 1000:
+        return None
+
+    def normalize(s: str) -> str:
+        return " ".join(s.split()).casefold()
+
+    needle = normalize(quote)
+    if any(
+        needle in normalize(text)
+        for text in (article.title, (article.body or "")[:BODY_LIMIT])
+    ):
+        return quote.strip()
+    return None
+
+
+def supported_event(ext: EventExtraction) -> EventExtraction:
+    """Una afirmación de cierre/reapertura sin cita no decide el estado.
+
+    Se conserva como contexto; la falta de cita nunca borra una noticia.
+    La reextracción histórica retiene esta propuesta para revisión.
+    """
+    # Es una condición necesaria, no un verificador semántico completo.
+    # "Encara el camino de regreso" es una cita literal pero no prueba cierre.
+    markers = {
+        "closure": r"cerrad|cierr[ae]|clausur|prohib|no\s+(?:está|se)\s+permit",
+        "reopening": r"\breabr(?:e|en|ió|ieron)\b|reabiert|"
+        r"levant\w*.{0,50}(?:prohibici|restricci)|"
+        r"autoriz\w*.{0,30}(?:baño|bano)",
+    }
+    if (
+        ext.event_type is not None
+        and ext.event_type in markers
+        and not re.search(
+            markers[ext.event_type], ext.evidence_quote or "", re.IGNORECASE
+        )
+    ):
+        return replace(ext, event_type="other", scope=None, closed_since=None)
+    return ext
+
 
 PROMPT = """\
 Eres un extractor de eventos para una app que monitoriza el estado de las
@@ -173,6 +224,31 @@ Si relevant=true extrae:
 - confidence: 0-1, confianza en que el titular describe ese evento en esa playa
 """
 
+# Se evalúa primero en la auditoría: exigir la cita puede reducir cobertura.
+# La ingesta conserva PROMPT hasta validar la candidata con casos reales.
+EVIDENCE_PROMPT = (
+    PROMPT
+    + """
+- evidence_quote: copia una frase LITERAL del titular o del cuerpo suministrado
+  que justifique el evento y su alcance. No la reformules ni completes.
+  Para closure/reopening es obligatoria: debe afirmar el cierre/prohibición
+  o la reapertura YA efectiva de la playa identificada, o de su acceso.
+  Un desprendimiento cerca de una playa no demuestra que se haya cerrado.
+  "Una avenida se cerró en 2023" no prueba un cierre actual de la playa.
+  Distingue la playa del paseo, aparcamiento, barranco o charco.
+  Una promesa de reabrir no demuestra reapertura: conserva el contexto
+  como other. Si no hay frase que justifique closure/reopening, no asignes
+  esos tipos; usa other si hay contexto útil, o relevant=false si no lo hay.
+  En artículos con varias playas no traslades el evento, la causa ni el
+  alcance de una a otra. Si no puedes separar los hechos, usa other.
+  La cita no necesita repetir la causa: si esta no se indica, cause=null.
+  Devuelve siempre evidence_quote (null si no procede). Si usas el titular,
+  cópialo tal como se ha suministrado, sin corregir sus comillas ni palabras.
+  Cuando hay cuerpo, el nombre de playa y municipio pueden proceder del
+  cuerpo, siempre de forma explícita; no los inventes por conocimiento externo.
+"""
+)
+
 
 class GeminiExtractor:
     def __init__(
@@ -180,6 +256,7 @@ class GeminiExtractor:
         api_key: str,
         model: str,
         fallback_model: str | None = None,
+        require_evidence: bool = False,
     ) -> None:
         base = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -190,19 +267,29 @@ class GeminiExtractor:
             base.format(fallback_model) if fallback_model else None
         )
         self.api_key = api_key
+        self.last_error: str | None = None
+        self.failures = 0
+        self.require_evidence = require_evidence
 
     def _post(self, text: str):
-        """POST con retries ante 429/5xx. La cuota DIARIA agotada no se
-        arregla esperando: se corta el retry en el primer 429 PerDay."""
+        """Una petición acotada y un reintento corto para fallos transitorios.
+
+        El caller también prueba el respaldo ante timeout/5xx, no solo
+        ante cuota diaria. Nunca registra URLs con claves ni cuerpos HTTP.
+        """
         # los modelos -lite no aceptan thinkingConfig
         gen_cfg: dict[str, Any] = {
             "responseMimeType": "application/json",
-            "responseSchema": SCHEMA,
+            "responseSchema": (
+                {**SCHEMA, "required": [*SCHEMA["required"], "evidence_quote"]}
+                if self.require_evidence
+                else SCHEMA
+            ),
         }
         if "-lite" not in self.url:
             gen_cfg["thinkingConfig"] = {"thinkingBudget": 0}
         resp = None
-        for attempt in range(4):
+        for attempt in range(2):
             try:
                 resp = requests.post(
                     self.url,
@@ -214,17 +301,22 @@ class GeminiExtractor:
                         "contents": [{"parts": [{"text": text}]}],
                         "generationConfig": gen_cfg,
                     },
-                    timeout=60,
+                    timeout=(5, 20),
                 )
-            except requests.RequestException:
+            except requests.RequestException as exc:
+                self.last_error = type(exc).__name__
                 resp = None
-                time.sleep(10 * (attempt + 1))
-                continue
-            if resp.status_code not in (429, 500, 503):
-                break
-            if resp.status_code == 429 and "PerDay" in resp.text:
-                break
-            time.sleep(10 * (attempt + 1))
+            else:
+                if resp.ok:
+                    self.last_error = None
+                    return resp
+                self.last_error = f"HTTP {resp.status_code}"
+                if resp.status_code not in (429, 500, 502, 503, 504):
+                    return resp
+                if resp.status_code == 429:
+                    return resp
+            if attempt == 0:
+                time.sleep(1)
         return resp
 
     def extract(
@@ -233,31 +325,33 @@ class GeminiExtractor:
         # prompt alternativo para la segunda vía de extracción
         # (Hito 11.2, PROMPT_INFRA en news_infra); por defecto el de
         # playas
-        text = (prompt or PROMPT) + (
-            f'\nTitular: "{article.title}"\nMedio: "{article.source or ""}"'
-        )
+        text = (
+            prompt or (EVIDENCE_PROMPT if self.require_evidence else PROMPT)
+        ) + (f'\nTitular: "{article.title}"\nMedio: "{article.source or ""}"')
         if article.published_at:
             # Ancla temporal: "este miércoles"/"ayer" se resuelven con
             # la fecha real de la noticia — sin ella el modelo inventa
             # el año en closed_since
             text += f"\nFecha de publicación: {article.published_at:%Y-%m-%d}"
         if article.body:
-            text += (
-                f'\nTexto de la noticia (extracto):\n"{article.body[:3000]}"'
-            )
+            text += f'\nTexto de la noticia (extracto):\n"{article.body[:BODY_LIMIT]}"'
         resp = self._post(text)
-        # Cuota diaria del modelo principal agotada → el resto de la
-        # pasada va directo al fallback (cuota aparte por modelo)
+        # Ante indisponibilidad del principal el resto de esta pasada
+        # usa el respaldo. En la próxima pasada se prueba el principal.
         if (
-            resp is not None
-            and resp.status_code == 429
-            and "PerDay" in resp.text
+            (resp is None or resp.status_code in (429, 500, 502, 503, 504))
             and self.fallback_url
             and self.url != self.fallback_url
         ):
+            log.warning(
+                "Gemini principal no disponible (%s); probando respaldo",
+                self.last_error,
+            )
             self.url = self.fallback_url
             resp = self._post(text)
         if resp is None or not resp.ok:
+            self.failures += 1
+            log.warning("Extracción Gemini fallida: %s", self.last_error)
             return None
         try:
             body = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
@@ -274,6 +368,8 @@ class GeminiExtractor:
             ):
                 v = data.get(key)
                 if isinstance(v, str) and len(v) > limit:
+                    self.last_error = f"campo demasiado largo: {key}"
+                    self.failures += 1
                     return None
             closed_since = data.get("closed_since")
             if closed_since is not None and not _CLOSED_SINCE_RE.match(
@@ -309,6 +405,9 @@ class GeminiExtractor:
                 cause=data.get("cause"),
                 scope=scope,
                 closed_since=closed_since,
+                evidence_quote=literal_evidence(
+                    data.get("evidence_quote"), article
+                ),
             )
         except (
             json.JSONDecodeError,
@@ -317,6 +416,9 @@ class GeminiExtractor:
             TypeError,
             ValueError,
         ):
+            self.last_error = "respuesta JSON inválida"
+            self.failures += 1
+            log.warning("Extracción Gemini fallida: %s", self.last_error)
             return None
 
 

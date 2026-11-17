@@ -262,7 +262,7 @@ export default function IncidentHistory({
         causes.join(' · ') || null
       : muteLab
         ? 'Agua no apta'
-        : causes.join(' · ') || 'Contaminación';
+        : causes.join(' · ') || 'Causa sin confirmar';
     // En un cierre la evidencia útil es el ciclo cierre→reapertura:
     // avisos y piezas de contexto ("mala calidad del agua") no
     // cuentan el episodio y ensucian la lista de titulares

@@ -43,7 +43,7 @@ def test_rematch_pending_skips_locked(db):
     db.add_all([locked, free])
     db.commit()
     try:
-        _rematch_pending(db, db.query(Beach).all(), {})
+        _rematch_pending(db, [beach], {})
         db.commit()
         db.refresh(locked)
         db.refresh(free)
@@ -54,4 +54,49 @@ def test_rematch_pending_skips_locked(db):
             NewsItem.url.like("https://test.ci/locked-%")
         ).delete()
         db.delete(beach)
+        db.commit()
+
+
+def test_rematch_preserves_facility_scope_and_respects_url_lock(db):
+    """Una réplica no convierte un paseo cerrado en una playa cerrada."""
+    beaches = [
+        Beach(
+            name=f"PLAYA LOCKEDTEST PM{i}",
+            municipality="Garachico",
+            monitored=True,
+            geom=WKTElement("POINT(-16.76 28.37)", srid=4326),
+        )
+        for i in (1, 2)
+    ]
+    db.add_all(beaches)
+    db.flush()
+    common = dict(
+        title="Cierran el paseo de la playa de Lockedtest",
+        source="test",
+        relevant=True,
+        event_type="closure",
+        scope="facility",
+        extracted_beach="Playa de Lockedtest",
+        evidence_quote="Cierran el paseo de la playa de Lockedtest",
+    )
+    free = NewsItem(url="https://test.ci/locked-scope", **common)
+    blocked = NewsItem(url="https://test.ci/locked-url", **common)
+    curated = NewsItem(
+        url=blocked.url, beach_id=beaches[0].id, locked=True, **common
+    )
+    db.add_all([free, blocked, curated])
+    db.commit()
+    try:
+        _rematch_pending(db, beaches, {})
+        db.refresh(blocked)
+        assert blocked.beach_id is None
+        copies = db.query(NewsItem).filter_by(url=free.url).all()
+        assert len(copies) == 2
+        assert all(r.scope == "facility" and r.evidence_quote for r in copies)
+    finally:
+        db.query(NewsItem).filter(
+            NewsItem.url.in_([free.url, blocked.url])
+        ).delete(synchronize_session=False)
+        for beach in beaches:
+            db.delete(beach)
         db.commit()

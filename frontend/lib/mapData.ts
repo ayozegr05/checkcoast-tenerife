@@ -41,7 +41,7 @@ export type LayerState = [string, string, string];
 export const BEACH_STATES: LayerState[] = [
   [colors.status.open, BEACH_STATE_LABEL.open, 'open'],
   [colors.status.warning, BEACH_STATE_LABEL.warning, 'warning'],
-  [colors.status.closed, 'Cerrada · contaminación', 'closed'],
+  [colors.status.closed, 'Cerrada', 'closed'],
   [colors.status.fauna, BEACH_STATE_LABEL.fauna, 'fauna'],
   [colors.status.structural, BEACH_STATE_LABEL.structural, 'structural'],
   [colors.status.unmonitored, BEACH_STATE_LABEL.unmonitored, 'unmonitored'],

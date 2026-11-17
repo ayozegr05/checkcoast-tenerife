@@ -1,264 +1,397 @@
-"""Re-extracción de news_items tras cambios de prompt/pipeline.
+"""Auditoría reanudable de prensa; los cambios de estado son propuestas.
 
-Re-corre el LLM sobre ítems ya guardados (titular, y cuerpo cuando el
-titular no aclara — misma segunda pasada que la ingesta) y actualiza
-relevant/event_type/cause/extracted_* en todas las filas que comparten
-URL (la misma noticia replicada por PM se extrae una sola vez). Al
-final re-casa los pendientes con los campos nuevos — sin push, las
-ventanas temporales ya filtran noticias viejas.
+python -m scripts.reextract_news --year 2025 --max 20
+python -m scripts.reextract_news --report
+python -m scripts.reextract_news --accept ID  # aplica la propuesta guardada
+python -m scripts.reextract_news --reject ID  # conserva la clasificación
 
-Uso: python -m scripts.reextract_news [--max N] [--all] [--beach TXT] [--year AAAA]
-  --max N      tope de URLs distintas a procesar (defecto 40)
-  --all        incluir también las marcadas no relevantes (pueden volver)
-  --beach TXT  solo ítems de playas cuyo nombre contiene TXT
-  --year AAAA  solo ítems publicados ese año (p.ej. rehacer el backfill 2024)
+La campaña depende del prompt, esquema, modelo y versión del proceso.
+El progreso y las propuestas viven en PostgreSQL, no en el contenedor.
+No llama al rematch global ni aplica cambios de estado automáticamente.
 """
 
 import argparse
-import sys
-import time
+import hashlib
+import json
+from dataclasses import asdict
+from datetime import UTC, datetime
 
-from sqlalchemy import extract, or_
+from sqlalchemy import extract, or_, text
 
 from app.config import settings
 from app.db import SessionLocal
-from app.ingest_news import _enrich_with_body, _rematch_pending
-from app.models import Beach, NewsItem
+from app.models import Beach, NewsExtractionReview, NewsItem
 from app.news_infra import INFRA_EVENT_TYPE
-from app.news_llm import GeminiExtractor, extract_event
+from app.news_llm import (
+    EVIDENCE_PROMPT,
+    SCHEMA,
+    GeminiExtractor,
+    extract_event,
+    supported_event,
+)
 from app.news_matching import match_beaches
+from app.news_resolve import resolve_and_fetch
 from app.news_sources import GUIA_SOURCE, RawArticle
 from app.news_zones import narrow_hits_by_zone
 
+TERMINAL = {
+    "unchanged",
+    "review",
+    "locked",
+    "unavailable",
+    "accepted",
+    "rejected",
+}
+STATE_FIELDS = ("relevant", "event_type", "cause", "scope", "closed_since")
+EXTRACTED_FIELDS = (
+    *STATE_FIELDS,
+    "extracted_beach",
+    "extracted_municipality",
+    "confidence",
+    "body_verified",
+    "evidence_quote",
+)
+SNAPSHOT_FIELDS = (
+    "id",
+    "beach_id",
+    "locked",
+    "title",
+    "source",
+    *EXTRACTED_FIELDS,
+)
+AUDIT_LOCK = 71400317
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "--max", type=int, default=40, help="tope de URLs distintas a procesar"
-    )
-    ap.add_argument(
-        "--all", action="store_true", help="incluir también las no relevantes"
-    )
-    ap.add_argument(
-        "--beach",
-        default=None,
-        help="solo ítems de playas cuyo nombre contiene TXT",
-    )
-    ap.add_argument(
-        "--year",
-        type=int,
-        default=None,
-        help="solo ítems publicados en ese año",
-    )
-    ap.add_argument(
-        "--apply-demotions",
-        action="store_true",
-        help="aplicar degradaciones relevant->no / closure->otro "
-        "(por defecto se retienen para revisión humana)",
-    )
-    args = ap.parse_args()
 
-    if not settings.gemini_api_key:
-        sys.exit("GEMINI_API_KEY no configurada")
-    extractor = GeminiExtractor(
-        api_key=settings.gemini_api_key,
-        model=settings.gemini_model,
-        fallback_model=settings.gemini_fallback_model,
-    )
+def campaign_key(model: str, fallback: str | None) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            ["review-v1", EVIDENCE_PROMPT, SCHEMA, model, fallback],
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
 
-    db = SessionLocal()
-    updated = bodies = 0
-    demotions: list[tuple[int, int | None, str, str | None, str | None]] = []
-    try:
-        q = db.query(NewsItem).order_by(
-            NewsItem.published_at.desc().nulls_last()
-        )
-        # Las fichas de la Guía se extraen siempre con cuerpo en
-        # _sync_guia (cuando cambia lastmod); re-extraerlas solo con
-        # el titular las degradaría a "no relevante"
-        q = q.filter(NewsItem.source != GUIA_SOURCE)
-        # Los ítems de infraestructura se extrajeron con PROMPT_INFRA:
-        # el prompt de playa los degradaría a no relevantes
-        q = q.filter(
-            or_(
-                NewsItem.event_type.is_(None),
-                NewsItem.event_type != INFRA_EVENT_TYPE,
+
+def snapshot(rows: list[NewsItem]) -> list[dict]:
+    return [
+        {field: getattr(row, field) for field in SNAPSHOT_FIELDS}
+        for row in sorted(rows, key=lambda r: r.id)
+    ]
+
+
+def review_reasons(rows: list[NewsItem], proposal: dict) -> list[str]:
+    """Conservar valores revisados, reaperturas, causas y asociaciones."""
+    fields = proposal["fields"]
+    reasons = []
+    if {r.beach_id for r in rows} != set(proposal["beach_ids"]):
+        reasons.append("cambio de asociación con playas")
+    for field in STATE_FIELDS:
+        if any(getattr(row, field) != fields[field] for row in rows):
+            reasons.append(f"cambio de {field}")
+    for field in ("extracted_beach", "extracted_municipality"):
+        if any(getattr(row, field) != fields[field] for row in rows):
+            reasons.append(f"cambio de {field}")
+    if fields["event_type"] == "reopening" and any(
+        row.body_verified != fields["body_verified"] for row in rows
+    ):
+        reasons.append("cambio de corroboración de reapertura")
+    if (
+        proposal["raw_event"] in ("closure", "reopening")
+        and fields["event_type"] != proposal["raw_event"]
+    ):
+        reasons.append("cierre/reapertura sin cita literal suficiente")
+    return reasons
+
+
+def make_proposal(ext, hits, verified: bool) -> dict:
+    grounded = supported_event(ext)
+    fields = asdict(grounded)
+    fields["extracted_beach"] = fields.pop("beach_name")
+    fields["extracted_municipality"] = fields.pop("municipality")
+    fields["body_verified"] = verified
+    return {
+        "fields": fields,
+        "beach_ids": sorted({b.id for b in hits}) or [None],
+        "raw_event": ext.event_type,
+    }
+
+
+def apply_proposal(db, rows: list[NewsItem], proposal: dict, lock=False):
+    """Aplica la propuesta ya revisada, sin volver a llamar al LLM."""
+    source = rows[0]
+    targets = proposal["beach_ids"]
+    # Conserva ids de las réplicas que siguen casadas. Borra primero las
+    # sobrantes para respetar UNIQUE(url, beach_id) NULLS NOT DISTINCT.
+    keep = {r.beach_id: r for r in rows if r.beach_id in targets}
+    for row in rows:
+        if row.beach_id not in targets:
+            db.delete(row)
+    db.flush()
+    for bid in targets:
+        row = keep.get(bid)
+        if row is None:
+            row = NewsItem(
+                url=source.url,
+                title=source.title,
+                source=source.source,
+                published_at=source.published_at,
+                beach_id=bid,
+                infra_outfall_id=source.infra_outfall_id,
+                infra_checked_at=source.infra_checked_at,
+                infra_cause=source.infra_cause,
             )
-        )
-        if not args.all:
-            q = q.filter(NewsItem.relevant.is_(True))
-        if args.beach:
-            q = q.join(Beach, NewsItem.beach_id == Beach.id).filter(
-                Beach.name.ilike(f"%{args.beach}%")
-            )
-        if args.year:
-            q = q.filter(extract("year", NewsItem.published_at) == args.year)
-        # El filtro por playa elige QUÉ URLs se procesan, pero cada
-        # URL se actualiza con TODAS sus réplicas (la misma noticia
-        # casada a varios PMs/playas) — si solo cargáramos las filas
-        # filtradas, el re-match pisaría réplicas ajenas y violaría
-        # el unique (url, beach_id)
-        sel = q.all()
-        urls = {it.url for it in sel}
-        by_url: dict[str, list[NewsItem]] = {}
-        for it in (
-            db.query(NewsItem).filter(NewsItem.url.in_(urls)).all()
-            if urls
-            else []
-        ):
-            by_url.setdefault(it.url, []).append(it)
-        beaches = db.query(Beach).all()
+            db.add(row)
+        for field in EXTRACTED_FIELDS:
+            setattr(row, field, proposal["fields"][field])
+        if lock:
+            row.locked = True
+        # Una corrección del histórico nunca debe despertar notificaciones.
+        if lock:
+            row.push_pending = False
 
-        for url, rows in list(by_url.items())[: args.max]:
-            # Curaduría manual: si CUALQUIER fila de la URL está
-            # locked, el artículo entero queda congelado — re-extraer
-            # pisaría la corrección humana o desataría sus réplicas
-            if any(r.locked for r in rows):
-                continue
-            art = RawArticle(
-                title=rows[0].title,
+
+def decide(db, review_id: int, accept: bool) -> None:
+    review = db.get(NewsExtractionReview, review_id)
+    if review is None or review.status != "review" or not review.proposal:
+        raise ValueError("La propuesta no existe o ya no está pendiente")
+    rows = (
+        db.query(NewsItem)
+        .filter(NewsItem.url == review.url)
+        .order_by(NewsItem.id)
+        .with_for_update()
+        .all()
+    )
+    if snapshot(rows) != review.before or any(r.locked for r in rows):
+        raise ValueError(
+            "La evidencia cambió; no se aplica una propuesta obsoleta"
+        )
+    if accept:
+        apply_proposal(db, rows, review.proposal, lock=True)
+        review.status = "accepted"
+    else:
+        for row in rows:
+            row.locked = True
+        review.status = "rejected"
+    review.updated_at = datetime.now(UTC)
+    db.commit()
+
+
+def audit(db, extractor, args) -> int:
+    campaign = campaign_key(args.model, args.fallback)
+    print(f"Campaña: {campaign}", flush=True)
+    q = db.query(NewsItem).filter(
+        NewsItem.source != GUIA_SOURCE,
+        or_(
+            NewsItem.event_type.is_(None),
+            NewsItem.event_type != INFRA_EVENT_TYPE,
+        ),
+    )
+    if not args.all:
+        q = q.filter(NewsItem.relevant.is_(True))
+    if args.year:
+        q = q.filter(extract("year", NewsItem.published_at) == args.year)
+    if args.beach:
+        q = q.join(Beach).filter(Beach.name.ilike(f"%{args.beach}%"))
+    # Orden estable y límite DESPUÉS de excluir URLs ya terminadas/curadas.
+    selected = q.order_by(
+        NewsItem.published_at.desc().nulls_last(), NewsItem.id
+    ).all()
+    urls = list(dict.fromkeys(n.url for n in selected))
+    records = {
+        r.url: r
+        for r in db.query(NewsExtractionReview)
+        .filter(NewsExtractionReview.campaign == campaign)
+        .all()
+    }
+    beaches = db.query(Beach).all()
+    counts = dict(attempted=0, unchanged=0, review=0, locked=0, unavailable=0)
+    for url in urls:
+        record = records.get(url)
+        if record and record.status in TERMINAL:
+            continue
+        if counts["attempted"] >= args.max:
+            break
+        rows = (
+            db.query(NewsItem)
+            .filter(NewsItem.url == url)
+            .order_by(NewsItem.id)
+            .all()
+        )
+        before = snapshot(rows)
+        if record is None:
+            record = NewsExtractionReview(
+                campaign=campaign,
                 url=url,
-                source=rows[0].source,
-                published_at=rows[0].published_at,
+                status="pending",
+                before=before,
+                attempts=0,
             )
-            ext = extract_event(art, extractor)
-            if ext is None:
-                continue  # fallo del proveedor: la fila queda como estaba
-            hits = (
-                match_beaches(ext, beaches, title=art.title)
-                if ext.relevant
-                else []
-            )
-            ext, hits, used, verified, _body = _enrich_with_body(
-                art,
-                ext,
-                hits,
-                beaches,
-                extractor,
-                rescue=any(r.relevant for r in rows),
-            )
-            bodies += used
-            if ext is not None:
-                # Complejo multi-cala: solo los PMs cuya zona aparece
-                hits = narrow_hits_by_zone(
-                    hits, ext.beach_name, art.title, all_beaches=beaches
+        record.before = before
+        record.updated_at = datetime.now(UTC)
+        record.proposal = None
+        record.reason = None
+        if any(r.locked for r in rows):
+            record.status = "locked"
+            counts["locked"] += 1
+        else:
+            counts["attempted"] += 1
+            record.attempts += 1
+            # Histórico siempre con cuerpo: el titular solo no debe
+            # reemplazar una extracción que pudo basarse en el artículo.
+            body = resolve_and_fetch(url)
+            if not body:
+                record.status = "unavailable"
+                record.reason = "Cuerpo inaccesible; requiere revisión manual"
+                counts["unavailable"] += 1
+            else:
+                row = rows[0]
+                art = RawArticle(
+                    title=row.title,
+                    url=url,
+                    source=row.source,
+                    published_at=row.published_at,
+                    body=body,
                 )
-            if ext is None:
-                print(
-                    f"  [keep] {rows[0].title[:70]} "
-                    f"(titular no relevante, cuerpo inaccesible)"
-                )
-                continue
-            # Degradación = mutar evidencia existente: un ítem que era
-            # relevante no pasa a no-relevante a ciegas, ni un 'closure'
-            # baja a warning/other/nada (una reapertura SÍ es info
-            # nueva legítima). Se retiene la URL entera y se lista —
-            # la evidencia de un estado visible no se borra sola.
-            held = [
-                r
-                for r in rows
-                if r.relevant
-                and (
-                    not ext.relevant
-                    or (
-                        r.event_type == "closure"
-                        and ext.event_type not in ("closure", "reopening")
+                ext = extract_event(art, extractor)
+                if ext is None:
+                    record.status = "failed"
+                    record.reason = (
+                        extractor.last_error or "Extracción fallida"
                     )
+                    if not args.dry_run:
+                        db.add(record)
+                        db.commit()
+                    print(
+                        f"STOP proveedor: {record.reason}; URL pendiente, "
+                        f"sin cambios. {counts}",
+                        flush=True,
+                    )
+                    return 2
+                hits = (
+                    match_beaches(ext, beaches, title=art.title)
+                    if ext.relevant
+                    else []
                 )
-            ]
-            if held and not args.apply_demotions:
-                for r in held:
-                    demotions.append(
-                        (
-                            r.id,
-                            r.beach_id,
-                            r.title[:60],
-                            r.event_type,
-                            ext.event_type if ext.relevant else "no relevante",
+                hits = narrow_hits_by_zone(
+                    hits,
+                    ext.beach_name,
+                    art.title,
+                    body=body,
+                    all_beaches=beaches,
+                )
+                proposal = make_proposal(ext, hits, verified=True)
+                reasons = review_reasons(rows, proposal)
+                # Releer antes de aplicar: la ingesta/curaduría pudo cambiar
+                # el artículo mientras esperábamos al proveedor.
+                current = (
+                    db.query(NewsItem)
+                    .filter(NewsItem.url == url)
+                    .order_by(NewsItem.id)
+                    .populate_existing()
+                    .with_for_update()
+                    .all()
+                )
+                if snapshot(current) != before:
+                    record.status = "failed"
+                    record.reason = "La evidencia cambió durante la extracción"
+                    if not args.dry_run:
+                        db.add(record)
+                        db.commit()
+                    return 2
+                record.proposal = proposal
+                if reasons:
+                    record.status = "review"
+                    record.reason = "; ".join(reasons)
+                    counts["review"] += 1
+                else:
+                    record.status = "unchanged"
+                    counts["unchanged"] += 1
+                    if not args.dry_run:
+                        apply_proposal(db, current, proposal)
+        if not args.dry_run:
+            db.add(record)
+            db.commit()
+        print(
+            f"[{record.status}] review={record.id} {rows[0].title[:80]} "
+            f"{record.reason or ''}",
+            flush=True,
+        )
+        if args.dry_run:
+            db.rollback()
+    print(f"Resumen: {counts}", flush=True)
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--year", type=int)
+    ap.add_argument("--beach")
+    ap.add_argument("--max", type=int, default=20)
+    ap.add_argument("--all", action="store_true", help="incluir no relevantes")
+    ap.add_argument(
+        "--dry-run", action="store_true", help="sin escrituras ni progreso"
+    )
+    ap.add_argument("--model", default=settings.gemini_model)
+    ap.add_argument("--fallback", default=settings.gemini_fallback_model)
+    decision = ap.add_mutually_exclusive_group()
+    decision.add_argument("--accept", type=int, metavar="ID")
+    decision.add_argument("--reject", type=int, metavar="ID")
+    decision.add_argument("--report", action="store_true")
+    args = ap.parse_args()
+    if args.max < 1:
+        ap.error("--max debe ser positivo")
+    if args.dry_run and (args.accept or args.reject):
+        ap.error("--dry-run no se combina con decisiones")
+    # Lock en conexión dedicada: los commits del trabajo no lo liberan.
+    with SessionLocal() as db, db.bind.connect() as lock:
+        if not lock.execute(
+            text("SELECT pg_try_advisory_lock(:key)"), {"key": AUDIT_LOCK}
+        ).scalar():
+            print("Ya hay una auditoría en marcha", flush=True)
+            return 3
+        try:
+            if args.report:
+                for r in (
+                    db.query(NewsExtractionReview)
+                    .filter(
+                        NewsExtractionReview.status.in_(
+                            ["review", "failed", "unavailable"]
                         )
                     )
-                continue
-            for row in rows:
-                row.relevant = ext.relevant
-                row.event_type = ext.event_type
-                row.cause = ext.cause
-                row.scope = ext.scope
-                row.closed_since = ext.closed_since
-                row.extracted_beach = ext.beach_name
-                row.extracted_municipality = ext.municipality
-                row.confidence = ext.confidence
-                row.body_verified = verified
-            # Re-casar filas ya casadas: el cuerpo puede corregir la
-            # playa ("una playa de El Médano" era Leocadio Machado) —
-            # extracted_beach nuevo sin beach_id nuevo es el bug que
-            # dejaba la noticia en la playa equivocada
-            if ext.relevant:
-                hit_ids = {b.id for b in hits}
-                if hit_ids != {r.beach_id for r in rows}:
-                    # Reasignar sin violar (url, beach_id): las filas ya
-                    # bien casadas se quedan; solo las que perdieron su
-                    # playa se mueven a hits sin fila o quedan libres
-                    free_rows = [r for r in rows if r.beach_id not in hit_ids]
-                    for beach in hits:
-                        if any(r.beach_id == beach.id for r in rows):
-                            continue
-                        if free_rows:
-                            free_rows.pop(0).beach_id = beach.id
-                        else:
-                            db.add(
-                                NewsItem(
-                                    url=url,
-                                    title=rows[0].title,
-                                    source=rows[0].source,
-                                    published_at=rows[0].published_at,
-                                    relevant=True,
-                                    beach_id=beach.id,
-                                    event_type=ext.event_type,
-                                    cause=ext.cause,
-                                    scope=ext.scope,
-                                    closed_since=ext.closed_since,
-                                    extracted_beach=ext.beach_name,
-                                    extracted_municipality=ext.municipality,
-                                    confidence=ext.confidence,
-                                    body_verified=verified,
-                                )
-                            )
-                    # (url, beach_id) es unique con NULLS NOT DISTINCT:
-                    # solo puede quedar una fila libre por URL. Si ya hay
-                    # una (o la creamos ahora), el resto de réplicas
-                    # sobrantes se borran — son copias del mismo artículo
-                    already_free = any(r.beach_id is None for r in rows)
-                    for row in free_rows:
-                        if row.beach_id is None:
-                            continue
-                        if already_free:
-                            db.delete(row)
-                        else:
-                            row.beach_id = None
-                            already_free = True
-            db.commit()
-            updated += 1
-            print(
-                f"  [{updated}] {rows[0].title[:70]} "
-                f"-> {ext.event_type} / {ext.cause} / cs={ext.closed_since}"
+                    .order_by(NewsExtractionReview.id)
+                ):
+                    print(
+                        json.dumps(
+                            {
+                                "id": r.id,
+                                "status": r.status,
+                                "url": r.url,
+                                "before": r.before,
+                                "proposal": r.proposal,
+                                "reason": r.reason,
+                            },
+                            ensure_ascii=False,
+                        )
+                    )
+                return 0
+            if args.accept or args.reject:
+                decide(
+                    db, args.accept or args.reject, accept=bool(args.accept)
+                )
+                return 0
+            if not settings.gemini_api_key:
+                ap.error("GEMINI_API_KEY no configurada")
+            extractor = GeminiExtractor(
+                api_key=settings.gemini_api_key,
+                model=args.model,
+                fallback_model=args.fallback,
+                require_evidence=True,
             )
-            time.sleep(2)
-
-        if demotions:
-            print(
-                f"!! {len(demotions)} degradaciones retenidas para "
-                f"revisión (--apply-demotions para aplicarlas):"
+            return audit(db, extractor, args)
+        finally:
+            lock.execute(
+                text("SELECT pg_advisory_unlock(:key)"), {"key": AUDIT_LOCK}
             )
-            for rid, bid, title, old, new in demotions:
-                print(f"  · item {rid} playa {bid}: {old} -> {new} | {title}")
-        rematched = _rematch_pending(db, beaches, {})
-        print(
-            f"Re-extracción: {updated} URLs procesadas "
-            f"({bodies} con cuerpo), {rematched} recasadas"
-        )
-    finally:
-        db.close()
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

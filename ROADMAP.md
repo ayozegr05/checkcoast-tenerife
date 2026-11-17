@@ -307,6 +307,28 @@ emergencia") como si fueran la causa, y la moda amplificaba el ruido
   `/alerts` muestra **Desprendimientos** (`7dfb681`, `febdb01`,
   `00c8696`)
 
+### Revisión de prensa y auditoría histórica (17-nov-2026)
+
+- [x] San Marcos: el desprendimiento de octubre no acredita un cierre de
+  playa. Noticia conservada como `other`, bloqueada contra reextracción.
+- [x] Auditoría reanudable por URL en `news_extraction_reviews`: guarda
+  original, propuesta, motivo y resultado. Cambios de tipo, causa, alcance,
+  fechas o playa requieren revisión, incluidas las promociones a cierre.
+  Un fallo del proveedor detiene el lote; no se cuenta como URL terminada.
+- [x] Gemini: respaldo también ante timeout/5xx, intentos acotados y errores
+  visibles. La ingesta cuenta fallos de la segunda pasada y de infraestructura.
+- [x] Citas literales: candidata `EVIDENCE_PROMPT` habilitada en auditoría,
+  **no como requisito en ingesta automática**. La evaluación detectó fallos
+  en Garañona y artículos multi-playa; una cita literal no garantiza que
+  el evento esté bien interpretado. Resultados en
+  `backend/scripts/data/news_evidence_evaluation_20261117.md`.
+- [ ] Completar y revisar histórico: `python -m scripts.reextract_news --report`.
+  El cron usa `scripts/reextract_backlog.sh`; nunca aplica propuestas.
+- [ ] Validar con el usuario los pins de La Consolación/El Guincho (147)
+  y Las Arenas/Las Arenitas (217).
+- [ ] Publicar en una futura build móvil el texto genérico para causas
+  desconocidas; no atribuirles contaminación por defecto.
+
 ## Hito 8.10 — Filtros de capa y caducidad por causa ✅
 
 - [x] **Panel «Capas» con checkboxes** (`CoastMap.tsx`): botón flotante

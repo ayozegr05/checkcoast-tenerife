@@ -39,7 +39,11 @@ from app.news_infra import (
     extract_infra_event,
     infra_outfall_for_text,
 )
-from app.news_llm import EventExtraction, GeminiExtractor, extract_event
+from app.news_llm import (
+    EventExtraction,
+    GeminiExtractor,
+    extract_event,
+)
 from app.news_matching import _MIN_NAME_LEN, _press_key, match_beaches
 from app.news_resolve import resolve_and_fetch
 from app.news_sources import (
@@ -311,7 +315,7 @@ def _enrich_with_body(
     cause = _short_cause(ext.cause)
     if (
         hits
-        and ext.event_type != "reopening"
+        and ext.event_type not in ("closure", "reopening")
         and cause is not None
         and cause != "Obras"
         and not _cause_is_generic(ext.cause)
@@ -323,10 +327,19 @@ def _enrich_with_body(
         return ext, hits, True, False, None
     ext2 = extract_event(replace(art, body=body), extractor)
     time.sleep(2)  # segunda llamada LLM: respirar igual que la primera
-    if ext2 is None or not ext2.relevant:
-        # el titular parecía relevante: no degradar por un cuerpo quizá
-        # truncado o de paywall
-        return ext, hits, True, False, body
+    if ext2 is None:
+        # Fallo del proveedor: no convertirlo en una extracción confirmada.
+        return None, hits, True, False, body
+    if not ext2.relevant:
+        # El cuerpo no confirma el evento del titular. Conservar contexto
+        # evita tanto inventar un cierre como perder la noticia por paywall.
+        return (
+            replace(ext, event_type="other", scope=None, closed_since=None),
+            hits,
+            True,
+            False,
+            body,
+        )
     return (
         ext2,
         match_beaches(ext2, beaches, title=art.title),
@@ -356,6 +369,9 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
             # Los NULL con locked=True son curaduría manual (p.ej. un
             # titular sin playa nombrada no se casa por proximidad)
             NewsItem.locked.is_(False),
+            NewsItem.url.notin_(
+                db.query(NewsItem.url).filter(NewsItem.locked.is_(True))
+            ),
         )
         .all()
     )
@@ -400,6 +416,8 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
                     beach_id=b.id,
                     event_type=item.event_type,
                     cause=item.cause,
+                    scope=item.scope,
+                    evidence_quote=item.evidence_quote,
                     closed_since=item.closed_since,
                     extracted_beach=item.extracted_beach,
                     extracted_municipality=item.extracted_municipality,
@@ -458,6 +476,8 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
             .filter(NewsItem.url == url, NewsItem.source == GUIA_SOURCE)
             .all()
         )
+        if any(r.locked for r in rows):
+            continue
         if rows and all(
             r.published_at is not None and r.published_at >= lastmod
             for r in rows
@@ -489,6 +509,7 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
                 row.event_type = ext.event_type
                 row.cause = ext.cause
                 row.scope = ext.scope
+                row.evidence_quote = ext.evidence_quote
                 row.closed_since = ext.closed_since
                 row.extracted_beach = ext.beach_name
                 row.extracted_municipality = ext.municipality
@@ -518,6 +539,7 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
                             event_type=ext.event_type,
                             cause=ext.cause,
                             scope=ext.scope,
+                            evidence_quote=ext.evidence_quote,
                             closed_since=ext.closed_since,
                             extracted_beach=ext.beach_name,
                             extracted_municipality=ext.municipality,
@@ -784,6 +806,7 @@ def run(
                     event_type=ext.event_type,
                     cause=ext.cause,
                     scope=ext.scope,
+                    evidence_quote=ext.evidence_quote,
                     closed_since=ext.closed_since,
                     extracted_beach=ext.beach_name,
                     extracted_municipality=ext.municipality,
@@ -873,7 +896,13 @@ def run(
                         it.pushed_at = now
                         it.push_pending = False
                     db.commit()
-        return inserted, processed, rematched, llm_errors
+        # Incluye errores en la segunda pasada y en la vía de infra.
+        return (
+            inserted,
+            processed,
+            rematched,
+            max(llm_errors, extractor.failures),
+        )
     except Exception:
         db.rollback()
         raise

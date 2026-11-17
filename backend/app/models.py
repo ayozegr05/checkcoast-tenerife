@@ -242,6 +242,7 @@ class NewsItem(Base):
     # como 'whole' (conservador: lo extraído antes del campo es lo
     # que ya cerraba la playa)
     scope: Mapped[str | None] = mapped_column(String(20))
+    evidence_quote: Mapped[str | None] = mapped_column(Text)
     extracted_beach: Mapped[str | None] = mapped_column(String(255))
     extracted_municipality: Mapped[str | None] = mapped_column(String(120))
     confidence: Mapped[float | None] = mapped_column(Float)
@@ -278,6 +279,30 @@ class NewsItem(Base):
     # beach_id es nullable (ítems no casados): la relación puede ser None
     beach: Mapped[Beach | None] = relationship(
         back_populates="news_items", passive_deletes=True
+    )
+
+
+class NewsExtractionReview(Base):
+    """Progreso y propuestas del histórico; una URL por campaña versionada."""
+
+    __tablename__ = "news_extraction_reviews"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign", "url", name="uq_news_review_campaign_url"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    campaign: Mapped[str] = mapped_column(String(64), index=True)
+    url: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(30))
+    # Incluye causa/alcance/asociaciones ANTES y extracción propuesta.
+    before: Mapped[list] = mapped_column(JSONB)
+    proposal: Mapped[dict | None] = mapped_column(JSONB)
+    reason: Mapped[str | None] = mapped_column(Text)
+    attempts: Mapped[int] = mapped_column(default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
     )
 
 
