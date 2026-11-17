@@ -87,29 +87,100 @@ def literal_evidence(quote: object, article: RawArticle) -> str | None:
     return None
 
 
-def supported_event(ext: EventExtraction) -> EventExtraction:
+# Palabras de modalidad/futuro: un cierre anunciado o en estudio no es un
+# evento efectivo ("estudia cerrar", "podría cerrar", "para reabrir").
+_MODAL_WORDS = (
+    r"estudia\w*|estudian|planea\w*|prev[ée]\w*|prever|podrí\w*|posible|"
+    r"pretend\w*|valor\w*|intenci[óo]n|proyecto|a punto de|a la espera|"
+    r"para|antes de"
+)
+# Futuro en la propia palabra marcada: "cerrará", "reabrirán" no son hechos.
+_FUTURE_SUFFIX = r"(?:rar|rir)[áa]n?$"
+# Verbos que invierten el sentido: "retirada la bandera roja" NO prueba un
+# cierre aunque contenga "bandera roja". Se comprueban igual que la modalidad.
+_REVERSE_WORDS = r"retir\w*|levant\w*|baj\w*|quit\w*|elimin\w*|levantan"
+# Referencias genéricas a la playa/baño para la comprobación del cuerpo.
+_BEACH_REFS = (
+    r"la playa|las playas|el baño|al baño|del baño|el litoral|"
+    r"zona de baño|el arenal|la cala|piscina natural|charco"
+)
+
+
+def _grounded(pattern: str, text: str, anti: str = "") -> bool:
+    """Un marcador prueba el evento salvo modalidad, futuro o dirección
+    contraria (`anti`: "retirada la bandera roja" no prueba un cierre)."""
+    for m in re.finditer(pattern, text, re.IGNORECASE):
+        word = re.match(r"\w+", text[m.start() :])
+        if word and re.search(_FUTURE_SUFFIX, word.group(0), re.IGNORECASE):
+            continue
+        before = text[max(0, m.start() - 80) : m.start()]
+        if re.search(
+            rf"(?:{_MODAL_WORDS})(?:\W+\w+){{0,4}}\W*$", before, re.IGNORECASE
+        ):
+            continue
+        if anti and re.search(
+            rf"(?:{anti})(?:\W+\w+){{0,4}}\W*$", before, re.IGNORECASE
+        ):
+            continue
+        return True
+    return False
+
+
+def _body_supports(
+    pattern: str, body: str, beach_key: str, anti: str = ""
+) -> bool:
+    """Una frase del cuerpo prueba el evento si nombra la playa o el baño.
+
+    El cuerpo entero no vale: San Marcos mencionaba una avenida cerrada.
+    Exigir la referencia a playa en la MISMA frase descarta ese caso.
+    """
+    refs = _BEACH_REFS
+    key = " ".join(
+        w
+        for w in (beach_key or "").casefold().split()
+        if w not in {"playa", "de", "del", "el", "la", "los", "las", "en"}
+    )
+    if key:
+        refs = re.escape(key) + "|" + refs
+    for sent in re.split(r"(?<=[.!?])\s+|\n+", body):
+        if re.search(refs, sent, re.IGNORECASE) and _grounded(
+            pattern, sent, anti
+        ):
+            return True
+    return False
+
+
+def supported_event(
+    ext: EventExtraction, title: str = "", body: str = ""
+) -> EventExtraction:
     """Una afirmación de cierre/reapertura sin cita no decide el estado.
 
     Se conserva como contexto; la falta de cita nunca borra una noticia.
     La reextracción histórica retiene esta propuesta para revisión.
+    El titular también sirve de evidencia: es texto que el modelo vio y
+    suele afirmar el evento aunque la cita elegida no repita el verbo.
+    Del cuerpo solo prueban frases que nombran la playa o el baño:
+    San Marcos mencionaba una avenida cerrada, no la playa.
     """
     # Es una condición necesaria, no un verificador semántico completo.
     # "Encara el camino de regreso" es una cita literal pero no prueba cierre.
     markers = {
-        "closure": r"cerrad|cierr[ae]|clausur|prohib|no\s+(?:está|se)\s+permit",
-        "reopening": r"\breabr(?:e|en|ió|ieron)\b|reabiert|"
-        r"levant\w*.{0,50}(?:prohibici|restricci)|"
+        "closure": r"cerr(?:ar|ad[oa]s?|ó)|cierr[ae]|clausur|precint|"
+        r"prohib|bandera\s+roja|no\s+(?:está|se)\s+permit",
+        "reopening": r"\breabr(?:e|en|ió|ieron)\b|reabiert|abier\w*\s+al\s+bañ|"
+        r"(?:retir|levant|baj)\w*.{0,50}(?:prohibici|restricci|bandera)|"
         r"autoriz\w*.{0,30}(?:baño|bano)",
     }
-    if (
-        ext.event_type is not None
-        and ext.event_type in markers
-        and not re.search(
-            markers[ext.event_type], ext.evidence_quote or "", re.IGNORECASE
-        )
-    ):
-        return replace(ext, event_type="other", scope=None, closed_since=None)
-    return ext
+    pattern = markers.get(ext.event_type or "")
+    if not pattern:
+        return ext
+    # "retirada la bandera roja" contiene "bandera roja" pero no es cierre.
+    anti = _REVERSE_WORDS if ext.event_type == "closure" else ""
+    if _grounded(pattern, f"{ext.evidence_quote or ''}\n{title}", anti):
+        return ext
+    if _body_supports(pattern, body, ext.beach_name or "", anti):
+        return ext
+    return replace(ext, event_type="other", scope=None, closed_since=None)
 
 
 PROMPT = """\
@@ -233,6 +304,9 @@ EVIDENCE_PROMPT = (
   que justifique el evento y su alcance. No la reformules ni completes.
   Para closure/reopening es obligatoria: debe afirmar el cierre/prohibición
   o la reapertura YA efectiva de la playa identificada, o de su acceso.
+  Prefiere la frase más corta que contenga la acción del evento (cerrar,
+  precintar, prohibir, reabrir, retirar la bandera roja, abrir al baño);
+  el propio titular puede ser la cita si la afirma.
   Un desprendimiento cerca de una playa no demuestra que se haya cerrado.
   "Una avenida se cerró en 2023" no prueba un cierre actual de la playa.
   Distingue la playa del paseo, aparcamiento, barranco o charco.

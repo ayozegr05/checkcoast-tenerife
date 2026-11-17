@@ -102,8 +102,10 @@ def review_reasons(rows: list[NewsItem], proposal: dict) -> list[str]:
     return reasons
 
 
-def make_proposal(ext, hits, verified: bool) -> dict:
-    grounded = supported_event(ext)
+def make_proposal(
+    ext, hits, verified: bool, title: str = "", body: str = ""
+) -> dict:
+    grounded = supported_event(ext, title, body)
     fields = asdict(grounded)
     fields["extracted_beach"] = fields.pop("beach_name")
     fields["extracted_municipality"] = fields.pop("municipality")
@@ -278,7 +280,13 @@ def audit(db, extractor, args) -> int:
                     body=body,
                     all_beaches=beaches,
                 )
-                proposal = make_proposal(ext, hits, verified=True)
+                proposal = make_proposal(
+                    ext,
+                    hits,
+                    verified=True,
+                    title=art.title,
+                    body=art.body or "",
+                )
                 reasons = review_reasons(rows, proposal)
                 # Releer antes de aplicar: la ingesta/curaduría pudo cambiar
                 # el artículo mientras esperábamos al proveedor.

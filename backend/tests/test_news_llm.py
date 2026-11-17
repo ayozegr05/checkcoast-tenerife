@@ -203,3 +203,140 @@ def test_literal_quote_alone_is_not_evidence_of_closure():
         evidence_quote="La playa de Benijo encara ahora el camino de regreso.",
     )
     assert supported_event(ext).event_type == "other"
+
+
+def test_title_supports_closure_when_quote_lacks_the_verb():
+    ext = EventExtraction(
+        relevant=True,
+        confidence=0.95,
+        event_type="closure",
+        scope="whole",
+        evidence_quote="Se tomaron muestras del agua esta mañana.",
+    )
+    assert (
+        supported_event(
+            ext, "Precintan la Playa de Los Guanches tras un vertido"
+        ).event_type
+        == "closure"
+    )
+    assert (
+        supported_event(
+            ext, "Un desprendimiento sin consecuencias en San Marcos"
+        ).event_type
+        == "other"
+    )
+
+
+def test_title_supports_reopening_variants():
+    ext = EventExtraction(
+        relevant=True,
+        confidence=0.9,
+        event_type="reopening",
+        evidence_quote="Los resultados analíticos fueron favorables.",
+    )
+    assert (
+        supported_event(
+            ext, "Retirada la bandera roja en Valleseco"
+        ).event_type
+        == "reopening"
+    )
+    assert (
+        supported_event(ext, "Abierta al baño el litoral").event_type
+        == "reopening"
+    )
+    assert supported_event(ext, "Balance del verano").event_type == "other"
+
+
+def test_modal_or_future_marker_does_not_ground():
+    closure = EventExtraction(
+        relevant=True,
+        confidence=0.9,
+        event_type="closure",
+        evidence_quote="Se estudia la situación.",
+    )
+    assert (
+        supported_event(
+            closure, "El Ayuntamiento estudia cerrar la playa"
+        ).event_type
+        == "other"
+    )
+    assert (
+        supported_event(
+            closure, "La playa podría cerrar por el temporal"
+        ).event_type
+        == "other"
+    )
+    assert (
+        supported_event(
+            EventExtraction(
+                relevant=True,
+                confidence=0.9,
+                event_type="reopening",
+            ),
+            "La playa de Benijo reabrirá tras dos años cerrada",
+        ).event_type
+        == "other"
+    )
+
+
+def test_reverse_direction_marker_does_not_ground_closure():
+    ext = EventExtraction(
+        relevant=True,
+        confidence=0.9,
+        event_type="closure",
+        evidence_quote="El incidente quedó resuelto.",
+    )
+    assert (
+        supported_event(
+            ext, "Retirada la bandera roja en Valleseco"
+        ).event_type
+        == "other"
+    )
+    assert (
+        supported_event(
+            ext, "Izan bandera roja en el litoral de Valleseco"
+        ).event_type
+        == "closure"
+    )
+
+
+def test_body_sentence_with_beach_reference_grounds_closure():
+    ext = EventExtraction(
+        relevant=True,
+        confidence=0.9,
+        event_type="closure",
+        scope="whole",
+        beach_name="Playa de Los Guanches",
+        evidence_quote="Se tomaron muestras esta mañana.",
+    )
+    body = (
+        "El vertido quedó detenido. "
+        "La Playa de Los Guanches permanece cerrada por precaución. "
+        "Las analíticas llegarán el lunes."
+    )
+    assert (
+        supported_event(ext, "Vertido detenido en Candelaria", body).event_type
+        == "closure"
+    )
+
+
+def test_body_closure_of_other_thing_does_not_ground():
+    ext = EventExtraction(
+        relevant=True,
+        confidence=0.9,
+        event_type="closure",
+        scope="whole",
+        beach_name="Playa de San Marcos",
+        evidence_quote="Un desprendimiento sorprende a los vecinos.",
+    )
+    body = (
+        "El derrumbe ocurrió junto a una pequeña avenida "
+        "que ya se cerró al paso en el verano de 2023. "
+        "No hubo heridos."
+    )
+    assert (
+        supported_event(
+            ext, "Un desprendimiento en la playa de San Marcos", body
+        ).event_type
+        == "other"
+    )

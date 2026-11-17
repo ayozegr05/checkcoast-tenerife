@@ -80,9 +80,13 @@ def main():
                             ex, "last_error", "proveedor/parse"
                         )
                     elif hasattr(module, "supported_event"):
-                        result[name + "_supported"] = asdict(
-                            module.supported_event(ext)
-                        )
+                        try:
+                            grounded = module.supported_event(
+                                ext, row.title, body
+                            )
+                        except TypeError:
+                            grounded = module.supported_event(ext)
+                        result[name + "_supported"] = asdict(grounded)
             print(json.dumps(result, ensure_ascii=False), flush=True)
 
 
