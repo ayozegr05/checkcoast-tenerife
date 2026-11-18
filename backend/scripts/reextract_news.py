@@ -41,6 +41,7 @@ TERMINAL = {
     "unavailable",
     "accepted",
     "rejected",
+    "auto_accepted",
 }
 STATE_FIELDS = ("relevant", "event_type", "cause", "scope", "closed_since")
 EXTRACTED_FIELDS = (
@@ -100,6 +101,33 @@ def review_reasons(rows: list[NewsItem], proposal: dict) -> list[str]:
     ):
         reasons.append("cierre/reapertura sin cita literal suficiente")
     return reasons
+
+
+def auto_safe(rows: list[NewsItem], proposal: dict) -> bool:
+    """Propuesta aplicable sin revisión: no toca nada estructural.
+
+    Mismo relevant/event_type/scope y mismas beach_ids en todas las
+    réplicas; cause, closed_since y body_verified solo pueden pasar
+    de vacío a valor (rellenar), nunca cambiar ni vaciar lo que ya
+    había. Los metadatos cosméticos (extracted_beach/municipality,
+    evidence_quote, confidence) quedan libres: no alteran evidencia.
+    Cualquier otra diferencia sigue yendo a revisión humana.
+    """
+    fields = proposal["fields"]
+    if {r.beach_id for r in rows} != set(proposal["beach_ids"]):
+        return False
+    for row in rows:
+        if (
+            row.relevant != fields["relevant"]
+            or row.event_type != fields["event_type"]
+            or row.scope != fields["scope"]
+        ):
+            return False
+        for fill in ("cause", "closed_since", "body_verified"):
+            old, new = getattr(row, fill), fields[fill]
+            if old != new and old:
+                return False
+    return True
 
 
 def make_proposal(
@@ -205,7 +233,14 @@ def audit(db, extractor, args) -> int:
         .all()
     }
     beaches = db.query(Beach).all()
-    counts = dict(attempted=0, unchanged=0, review=0, locked=0, unavailable=0)
+    counts = dict(
+        attempted=0,
+        unchanged=0,
+        review=0,
+        auto_accepted=0,
+        locked=0,
+        unavailable=0,
+    )
     for url in urls:
         record = records.get(url)
         if record and record.status in TERMINAL:
@@ -313,9 +348,19 @@ def audit(db, extractor, args) -> int:
                     return 2
                 record.proposal = proposal
                 if reasons:
-                    record.status = "review"
-                    record.reason = "; ".join(reasons)
-                    counts["review"] += 1
+                    if auto_safe(current, proposal):
+                        # Sin decisión estructural: solo rellena o
+                        # normaliza. Se aplica con lock como un
+                        # accepted, pero queda marcada para auditoría.
+                        record.status = "auto_accepted"
+                        record.reason = "; ".join(reasons)
+                        counts["auto_accepted"] += 1
+                        if not args.dry_run:
+                            apply_proposal(db, current, proposal, lock=True)
+                    else:
+                        record.status = "review"
+                        record.reason = "; ".join(reasons)
+                        counts["review"] += 1
                 else:
                     record.status = "unchanged"
                     counts["unchanged"] += 1

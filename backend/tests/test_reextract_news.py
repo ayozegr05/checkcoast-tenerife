@@ -210,3 +210,71 @@ def test_locked_url_does_not_consume_batch_limit(sample, monkeypatch):
         db.query(NewsExtractionReview).filter_by(url=row.url).one().status
         == "locked"
     )
+
+
+def _row(**kw):
+    defaults = dict(
+        beach_id=1,
+        relevant=True,
+        event_type="closure",
+        scope="whole",
+        cause="vertido",
+        closed_since=None,
+        body_verified=True,
+    )
+    defaults.update(kw)
+    return SimpleNamespace(**defaults)
+
+
+def _proposal(row, fields=None, beach_ids=(1,)):
+    f = dict(
+        relevant=row.relevant,
+        confidence=0.9,
+        event_type=row.event_type,
+        scope=row.scope,
+        cause=row.cause,
+        closed_since=row.closed_since,
+        extracted_beach="Otra playa",
+        extracted_municipality="Otro municipio",
+        evidence_quote=None,
+        body_verified=row.body_verified,
+    )
+    f.update(fields or {})
+    return {
+        "fields": f,
+        "beach_ids": list(beach_ids),
+        "raw_event": f["event_type"],
+    }
+
+
+def test_auto_safe_accepts_cosmetic_and_fills():
+    row = _row()
+    assert audit.auto_safe([row], _proposal(row))
+    assert audit.auto_safe(
+        [row], _proposal(row, {"evidence_quote": "la playa sigue"})
+    )
+    empty = _row(cause=None)
+    assert audit.auto_safe([empty], _proposal(empty, {"cause": "enterococos"}))
+    undated = _row(closed_since=None)
+    assert audit.auto_safe(
+        [undated], _proposal(undated, {"closed_since": "2026-10"})
+    )
+
+
+def test_auto_safe_rejects_any_structural_change():
+    row = _row()
+    for fields in (
+        {"event_type": "other"},
+        {"scope": "partial"},
+        {"relevant": False},
+        {"cause": "otra causa distinta"},
+        {"cause": None},
+        {"body_verified": False},
+    ):
+        assert not audit.auto_safe([row], _proposal(row, fields))
+    assert not audit.auto_safe([row], _proposal(row, beach_ids=(1, 2)))
+    assert not audit.auto_safe([row], _proposal(row, beach_ids=()))
+    dated = _row(closed_since="2026-10")
+    assert not audit.auto_safe(
+        [dated], _proposal(dated, {"closed_since": "2026-09"})
+    )
