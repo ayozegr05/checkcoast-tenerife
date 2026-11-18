@@ -66,6 +66,21 @@ def test_zone_alias_in_body():
     assert [b.id for b in hits] == [43]
 
 
+def test_named_zone_blocks_body_episode_bleed():
+    """La extracción nombra la cala del evento actual ("Playa Grande")
+    y el cuerpo cita un episodio PASADO en otra cala ("El Charcón"):
+    solo PM4 — las zonas del episodio viejo no se cuelan como hits."""
+    body = (
+        "La medida afecta a la zona de Playa Grande. El pasado 3 de "
+        "septiembre, Playa Grande y El Charcón fueron cerradas "
+        "preventivamente tras unos resultados no favorables."
+    )
+    hits = narrow_hits_by_zone(
+        JARDIN, "Playa Grande", "Cierran Playa Jardín", body=body
+    )
+    assert [b.id for b in hits] == [42]
+
+
 def test_body_ignores_contextual_aliases():
     """ "Punta Brava" en el cuerpo suele ser el barrio/emisario, no la
     cala — alias débil: no cuenta en cuerpo, sí en titular."""

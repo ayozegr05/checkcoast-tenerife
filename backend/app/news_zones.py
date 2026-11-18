@@ -251,17 +251,22 @@ def narrow_hits_by_zone(
                     for a in aliases
                 ):
                     wanted.add(b.id)
-        t = _normalize(body or "")
-        if t:
-            for b in members:
-                zone = _zone_entry(b)
-                if zone is None:
-                    continue
-                if any(
-                    len(a) >= _MIN_NAME_LEN and _name_in_title(a, t)
-                    for a in zone["aliases"]
-                ):
-                    wanted.add(b.id)
+        # El cuerpo solo aporta zonas cuando el titular/extracted no
+        # nombró ninguna: si la extracción ya dice la cala afectada
+        # ("Playa Grande"), las zonas de episodios pasados citadas
+        # como historia en el cuerpo no deben colarse como hits.
+        if not wanted:
+            t = _normalize(body or "")
+            if t:
+                for b in members:
+                    zone = _zone_entry(b)
+                    if zone is None:
+                        continue
+                    if any(
+                        len(a) >= _MIN_NAME_LEN and _name_in_title(a, t)
+                        for a in zone["aliases"]
+                    ):
+                        wanted.add(b.id)
         out.extend(
             (b for b in members if b.id in wanted) if wanted else comp_hits
         )

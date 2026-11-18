@@ -228,7 +228,12 @@ cierre de...", "el verano de los cierres", aniversarios o balances que
 no dicen si sigue cerrada hoy.
 
 Si relevant=true extrae:
-- beach_name: nombre de la playa tal como aparece en el titular
+- beach_name: nombre de la playa tal como aparece en el titular. Si
+  el texto nombra la cala o zona concreta afectada dentro de un
+  complejo ("Playa Grande" dentro de "Playa Jardín"), usa la cala,
+  no el nombre genérico. Las playas o zonas de episodios ANTERIORES
+  citadas como historia ("el pasado 3 de septiembre…") no forman
+  parte del evento actual: no las incluyas
 - municipality: municipio de Tenerife SOLO si se menciona en el titular;
   nunca lo deduzcas por la playa (hay playas homónimas en varios
   municipios: "El Cabezo" existe en Güímar, Granadilla y Adeje)
@@ -259,8 +264,11 @@ Si relevant=true extrae:
     la playa NO está cerrada
   · "facility": lo cerrado es una instalación anexa y no la playa:
     charco, piscina natural, sendero, paseo marítimo
-  En la duda entre "whole" y un alcance menor, elige el menor. null
-  para otros event_type
+  El scope se mide respecto al punto afectado, no respecto al
+  complejo: si la cala o zona nombrada cerró entera ("prohíben el
+  baño en Playa Grande"), es whole aunque sea parte de un complejo
+  mayor ("Playa Jardín"). En la duda entre "whole" y un alcance
+  menor, elige el menor. null para otros event_type
 - cause: la RAZÓN del cierre/aviso para el bañista — el evento que
   afectó al agua o al acceso ("vertido de aguas residuales",
   "bacterias fecales", "gasoil", "riesgo de desprendimientos",
