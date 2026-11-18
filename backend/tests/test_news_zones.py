@@ -55,13 +55,28 @@ def test_title_names_two_zones():
 
 def test_zone_alias_in_body():
     """El titular es genérico pero el cuerpo cita el bando:
-    "Charcón derecha" → solo PM5."""
+    "Charcón derecha" es la ubicación oficial Náyade de PM1 (la poza
+    junto al castillo) → solo PM1, no la cala del medio."""
     body = (
         "El bando municipal prohíbe el baño en la zona de Charcón "
         "derecha del complejo turístico de Playa Jardín."
     )
     hits = narrow_hits_by_zone(
         JARDIN, "Playa Jardín", "Cierran Playa Jardín", body=body
+    )
+    assert [b.id for b in hits] == [41]
+
+
+def test_long_alias_shadows_short():
+    """Precedencia del alias largo: "Charcón derecha" casa CHARCON
+    DERECHA (PM1) y CHARCON (PM5); solo debe quedar PM1. "El Charcón"
+    a secas sigue siendo la cala del medio (PM5)."""
+    hits = narrow_hits_by_zone(
+        JARDIN, "Playa Jardín", "Seguimiento en Charcón derecha"
+    )
+    assert [b.id for b in hits] == [41]
+    hits = narrow_hits_by_zone(
+        JARDIN, "Playa Jardín", "Cerrada la cala de El Charcón"
     )
     assert [b.id for b in hits] == [43]
 

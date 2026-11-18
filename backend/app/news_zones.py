@@ -26,6 +26,21 @@ from app.names import normalize_beach_name as _normalize
 from app.names import zone_tag as _tag_of
 from app.news_matching import _MIN_NAME_LEN, _name_in_title, _norm_muni
 
+
+def _drop_shadowed[T](matches: list[tuple[T, str]]) -> set[T]:
+    """Claves cuyo alias casado no es sub-alias de otro hit.
+
+    El alias más largo gana: "CHARCON DERECHA" (PM1) y "CHARCON"
+    (PM5) casan a la vez en el texto "Charcón derecha" — la mención
+    específica decide y la genérica no replica en la cala vecina."""
+    hit_aliases = {a for _, a in matches}
+    return {
+        key
+        for key, a in matches
+        if not any(a != other and a in other for other in hit_aliases)
+    }
+
+
 # aliases: inequívocos, valen en titular/extracted Y en cuerpo.
 # weak_aliases: topónimos que el cuerpo suele citar como contexto — el
 # barrio, el emisario, el castillo ("...el emisario de Punta Brava",
@@ -36,7 +51,10 @@ _ZONE_GROUPS: dict[tuple[str, str], dict[str, dict]] = {
     ("PLAYA JARDIN", "PUERTO DE LA CRUZ"): {
         "PM1": {
             "name": "El Castillo",
-            "aliases": ("PLAYA DEL CASTILLO",),
+            # "Charcón derecha" es la ubicación oficial Náyade del
+            # punto (la poza junto al castillo); un bando que cita el
+            # nombre sanitario no debe caer en PM5 por "Charcón"
+            "aliases": ("PLAYA DEL CASTILLO", "CHARCON DERECHA"),
             "weak_aliases": ("SAN FELIPE", "EL CASTILLO"),
         },
         "PM5": {
@@ -235,6 +253,7 @@ def narrow_hits_by_zone(
             t = _normalize(text or "")
             if not t:
                 continue
+            matches: list[tuple[int, str]] = []
             for b in members:
                 zone = _zone_entry(b)
                 if zone is None:
@@ -246,11 +265,12 @@ def narrow_hits_by_zone(
                     if b.id in hit_ids
                     else zone["aliases"]
                 )
-                if any(
-                    len(a) >= _MIN_NAME_LEN and _name_in_title(a, t)
+                matches.extend(
+                    (b.id, a)
                     for a in aliases
-                ):
-                    wanted.add(b.id)
+                    if len(a) >= _MIN_NAME_LEN and _name_in_title(a, t)
+                )
+            wanted |= _drop_shadowed(matches)
         # El cuerpo solo aporta zonas cuando el titular/extracted no
         # nombró ninguna: si la extracción ya dice la cala afectada
         # ("Playa Grande"), las zonas de episodios pasados citadas
@@ -258,15 +278,14 @@ def narrow_hits_by_zone(
         if not wanted:
             t = _normalize(body or "")
             if t:
-                for b in members:
-                    zone = _zone_entry(b)
-                    if zone is None:
-                        continue
-                    if any(
-                        len(a) >= _MIN_NAME_LEN and _name_in_title(a, t)
-                        for a in zone["aliases"]
-                    ):
-                        wanted.add(b.id)
+                matches = [
+                    (b.id, a)
+                    for b in members
+                    if (zone := _zone_entry(b)) is not None
+                    for a in zone["aliases"]
+                    if len(a) >= _MIN_NAME_LEN and _name_in_title(a, t)
+                ]
+                wanted = _drop_shadowed(matches)
         out.extend(
             (b for b in members if b.id in wanted) if wanted else comp_hits
         )
@@ -290,12 +309,13 @@ def named_zones(titles: list, base: str, municipality: str | None) -> set[str]:
         nt = _normalize(t or "")
         if not nt:
             continue
-        for pm, z in zones.items():
-            if any(
-                len(a) >= _MIN_NAME_LEN and _name_in_title(a, nt)
-                for a in (*z["aliases"], *z.get("weak_aliases", ()))
-            ):
-                out.add(pm)
+        matches = [
+            (pm, a)
+            for pm, z in zones.items()
+            for a in (*z["aliases"], *z.get("weak_aliases", ()))
+            if len(a) >= _MIN_NAME_LEN and _name_in_title(a, nt)
+        ]
+        out |= _drop_shadowed(matches)
     return out
 
 
