@@ -272,7 +272,11 @@ Si relevant=true extrae:
   (E. coli, Escherichia coli, enterococos, gasoil, microalgas...),
   nómbrala en la causa — "niveles de E. coli" y no "bacterias
   fecales"; la etiqueta visible debe ser lo más específica que el
-  texto permita. Si el texto da la cifra medida, inclúyela:
+  texto permita. La causa puede proceder del TITULAR aunque la
+  evidence_quote salga del cuerpo: toma la formulación más específica
+  de todo el texto suministrado (titular incluido); no la degrades a
+  la fórmula institucional de la frase que uses como cita. Si el
+  texto da la cifra medida, inclúyela:
   "E. coli >800 UFC/100 mL", "enterococos 410 UFC/100 mL". Si cita
   varios parámetros, nómbralos TODOS: "E. coli y enterococos".
   NO son causa:
