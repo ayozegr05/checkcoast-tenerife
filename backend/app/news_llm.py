@@ -170,7 +170,8 @@ def supported_event(
     markers = {
         "closure": r"cerr(?:ar|ad[oa]s?|ó)|cierr[ae]|clausur|precint|"
         r"prohib|bandera\s+roja|no\s+(?:está|se)\s+permit",
-        "reopening": r"\breabr(?:e|en|ió|ieron)\b|reabiert|abier\w*\s+al\s+bañ|"
+        "reopening": r"\breabr(?:e|en|ió|ieron)\b|reabiert|reapertur|"
+        r"abier\w*\s+al\s+bañ|abrir\s+al\s+bañ|vuelve\s+a\s+abrir|"
         r"(?:retir|levant|baj)\w*.{0,50}(?:prohibici|restricci|bandera)|"
         r"autoriz\w*.{0,30}(?:baño|bano)",
     }

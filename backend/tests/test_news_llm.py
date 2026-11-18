@@ -244,6 +244,29 @@ def test_title_supports_reopening_variants():
         supported_event(ext, "Abierta al baño el litoral").event_type
         == "reopening"
     )
+    # "reapertura" (sustantivo) y "vuelve a abrir" también prueban —
+    # AtlánticoHoy usaba esas dos formas y la reapertura se degradaba.
+    assert (
+        supported_event(
+            ext, "Playa Jardín vuelve a abrir al baño tras otro episodio"
+        ).event_type
+        == "reopening"
+    )
+    assert (
+        supported_event(
+            ext,
+            "La playa sigue cerrada",
+            "el ayuntamiento anunció la reapertura al baño de la playa",
+        ).event_type
+        == "reopening"
+    )
+    # …pero estudiar o poder reaperturar sigue sin pruebas
+    assert (
+        supported_event(
+            ext, "Salud Pública estudia la reapertura de la playa"
+        ).event_type
+        == "other"
+    )
     assert supported_event(ext, "Balance del verano").event_type == "other"
 
 
