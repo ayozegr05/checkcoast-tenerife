@@ -233,7 +233,11 @@ Si relevant=true extrae:
   complejo ("Playa Grande" dentro de "Playa Jardín"), usa la cala,
   no el nombre genérico. Las playas o zonas de episodios ANTERIORES
   citadas como historia ("el pasado 3 de septiembre…") no forman
-  parte del evento actual: no las incluyas
+  parte del evento actual: no las incluyas.
+  Si el evento actual afecta a VARIAS playas distintas (no calas de
+  un mismo complejo, sino playas separadas — incluso en municipios
+  distintos), devuélvelas TODAS separadas por " y " o comas:
+  "El Socorro y El Médano". Solo playas del evento actual
 - municipality: municipio de Tenerife SOLO si se menciona en el titular;
   nunca lo deduzcas por la playa (hay playas homónimas en varios
   municipios: "El Cabezo" existe en Güímar, Granadilla y Adeje)
