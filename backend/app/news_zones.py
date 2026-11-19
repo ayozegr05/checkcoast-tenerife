@@ -165,6 +165,43 @@ _ZONE_GROUPS: dict[tuple[str, str], dict[str, dict]] = {
             "weak_aliases": (),
         },
     },
+    # Bajamar (La Laguna): el arenal del Castillo/San Juan y las
+    # piscinas naturales son zonas de baño distintas del mismo
+    # núcleo. La prensa dice "la playa de Bajamar" para el arenal —
+    # el 10-jul-2020 el bando cerró "la playa" y "el resto de las
+    # zonas de baño" (las pozas) siguió abierto — y "las piscinas
+    # (naturales) de Bajamar" para las pozas. "Bajamar" a secas no
+    # nombra zona: réplica a todas (conservador)
+    ("PLAYA CASTILLO-BAJAMAR (SAN JUAN)", "SAN CRISTOBAL DE LA LAGUNA"): {
+        "PM1": {
+            "name": "Playa de Bajamar",
+            "ref": "playa de Bajamar",
+            "aliases": ("PLAYA DE BAJAMAR", "PLAYA DEL CASTILLO"),
+            "weak_aliases": (),
+        },
+    },
+    ("PLAYA PISCINAS NATURALES DE BAJAMAR", "SAN CRISTOBAL DE LA LAGUNA"): {
+        "PM1": {
+            "name": "Piscinas naturales",
+            "ref": "piscinas naturales",
+            "aliases": (
+                "PISCINAS NATURALES DE BAJAMAR",
+                "PISCINAS DE BAJAMAR",
+                "PISCINA NATURAL DE BAJAMAR",
+            ),
+            "weak_aliases": (),
+        },
+        "PM2": {
+            "name": "Piscinas naturales",
+            "ref": "piscinas naturales",
+            "aliases": (
+                "PISCINAS NATURALES DE BAJAMAR",
+                "PISCINAS DE BAJAMAR",
+                "PISCINA NATURAL DE BAJAMAR",
+            ),
+            "weak_aliases": (),
+        },
+    },
 }
 
 # Playas hermanas del mismo litoral con nombre base distinto: forman
@@ -172,6 +209,16 @@ _ZONE_GROUPS: dict[tuple[str, str], dict[str, dict]] = {
 _ZONE_COMPLEXES: dict[str, list[frozenset[str]]] = {
     "SANTA CRUZ DE TENERIFE": [
         frozenset({"PLAYA VALLESECO", "PLAYA VALLESECO- EL BLOQUE"}),
+    ],
+    # Bajamar: el arenal (Castillo-Bajamar) y las piscinas naturales
+    # compiten como zonas del mismo núcleo aunque el base difiera
+    "SAN CRISTOBAL DE LA LAGUNA": [
+        frozenset(
+            {
+                "PLAYA CASTILLO-BAJAMAR (SAN JUAN)",
+                "PLAYA PISCINAS NATURALES DE BAJAMAR",
+            }
+        ),
     ],
 }
 

@@ -262,6 +262,61 @@ def test_cross_base_complex_narrows_both():
     assert {b.id for b in hits} == {58, 59}
 
 
+BAJAMAR = [
+    SimpleNamespace(
+        id=49,
+        name="PLAYA CASTILLO-BAJAMAR (SAN JUAN) PM1",
+        municipality="San Cristóbal de La Laguna",
+    ),
+    SimpleNamespace(
+        id=51,
+        name="PLAYA PISCINAS NATURALES DE BAJAMAR PM1",
+        municipality="San Cristóbal de La Laguna",
+    ),
+    SimpleNamespace(
+        id=52,
+        name="PLAYA PISCINAS NATURALES DE BAJAMAR PM2",
+        municipality="San Cristóbal de La Laguna",
+    ),
+]
+
+
+def test_bajamar_playa_narrows_to_castillo():
+    """ "la playa de Bajamar" es el arenal (Castillo/San Juan), no las
+    pozas: el bando del 10-jul-2020 cerró "la playa" y "el resto de
+    las zonas de baño" siguió abierto."""
+    hits = narrow_hits_by_zone(
+        BAJAMAR,
+        "Bajamar",
+        "La Laguna cierra la playa de Bajamar por contaminación",
+        all_beaches=BAJAMAR,
+    )
+    assert [b.id for b in hits] == [49]
+
+
+def test_bajamar_piscinas_narrows_to_pools():
+    """ "las piscinas naturales de Bajamar" nombra las pozas, las dos."""
+    hits = narrow_hits_by_zone(
+        BAJAMAR,
+        "piscinas naturales de Bajamar y Punta del Hidalgo",
+        "Cierran las piscinas naturales de Bajamar y Punta del Hidalgo",
+        all_beaches=BAJAMAR,
+    )
+    assert {b.id for b in hits} == {51, 52}
+
+
+def test_bajamar_bare_toponym_keeps_all():
+    """ "Bajamar" a secas no nombra zona: fallback conservador a todo
+    el núcleo (playa + pozas)."""
+    hits = narrow_hits_by_zone(
+        BAJAMAR,
+        "Bajamar",
+        "Bajamar vuelve a abrir al baño tras confirmarse que el agua es apta",
+        all_beaches=BAJAMAR,
+    )
+    assert {b.id for b in hits} == {49, 51, 52}
+
+
 def test_push_display_name_uses_zone():
     """El push muestra la cala, no el PM censal: 'Playa Jardin · El
     Charcón' en vez de 'Playa Jardin PM5'."""

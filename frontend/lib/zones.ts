@@ -53,6 +53,16 @@ const ZONE_NAMES: Record<string, Record<string, string>> = {
     CHICA: 'Playa Chica',
     'LEOCADIO MACHADO': 'Leocadio Machado',
   },
+  // Bajamar (La Laguna): el arenal del Castillo/San Juan y las
+  // piscinas naturales son zonas distintas del mismo núcleo — la
+  // prensa dice "la playa de Bajamar" para el arenal
+  'PLAYA CASTILLO-BAJAMAR (SAN JUAN)': {
+    PM1: 'Playa de Bajamar',
+  },
+  'PLAYA PISCINAS NATURALES DE BAJAMAR': {
+    PM1: 'Piscinas naturales',
+    PM2: 'Piscinas naturales',
+  },
 };
 
 // Referencia narrativa cuando el nombre a secas no lee bien:
@@ -68,6 +78,13 @@ const ZONE_REFS: Record<string, Record<string, string>> = {
     PM3: 'playa central',
     CHICA: 'playa Chica',
     'LEOCADIO MACHADO': 'playa de Leocadio Machado',
+  },
+  'PLAYA CASTILLO-BAJAMAR (SAN JUAN)': {
+    PM1: 'playa de Bajamar',
+  },
+  'PLAYA PISCINAS NATURALES DE BAJAMAR': {
+    PM1: 'piscinas naturales',
+    PM2: 'piscinas naturales',
   },
 };
 
