@@ -26,6 +26,7 @@ from app.news_llm import (
     EVIDENCE_PROMPT,
     SCHEMA,
     GeminiExtractor,
+    canonicalize_cause,
     extract_event,
     supported_event,
 )
@@ -86,7 +87,16 @@ def review_reasons(rows: list[NewsItem], proposal: dict) -> list[str]:
     if {r.beach_id for r in rows} != set(proposal["beach_ids"]):
         reasons.append("cambio de asociación con playas")
     for field in STATE_FIELDS:
-        if any(getattr(row, field) != fields[field] for row in rows):
+        # La causa se compara en forma canónica: "E. Coli" → "E. coli"
+        # no es un cambio, es la misma grafía con otro disfraz
+        if field == "cause":
+            if any(
+                canonicalize_cause(getattr(row, field))
+                != canonicalize_cause(fields[field])
+                for row in rows
+            ):
+                reasons.append(f"cambio de {field}")
+        elif any(getattr(row, field) != fields[field] for row in rows):
             reasons.append(f"cambio de {field}")
     for field in ("extracted_beach", "extracted_municipality"):
         if any(getattr(row, field) != fields[field] for row in rows):
@@ -125,6 +135,10 @@ def auto_safe(rows: list[NewsItem], proposal: dict) -> bool:
             return False
         for fill in ("cause", "closed_since", "body_verified"):
             old, new = getattr(row, fill), fields[fill]
+            if fill == "cause" and canonicalize_cause(
+                old
+            ) == canonicalize_cause(new):
+                continue
             if old != new and old:
                 return False
     return True

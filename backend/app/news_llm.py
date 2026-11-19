@@ -52,6 +52,91 @@ class NewsExtractor(Protocol):
     ) -> EventExtraction | None: ...
 
 
+_CAUSE_REWRITES: tuple[tuple[re.Pattern, str], ...] = (
+    # El parámetro es siempre "E. coli" — el modelo alterna grafías
+    # ("Escherichia coli", "E-coli", "niveles de E. Coli") que son
+    # ruido en la ficha y en la cola de revisión
+    (
+        re.compile(r"escherichia\s+coli|\be[\s.\-]*coli\b", re.IGNORECASE),
+        "E. coli",
+    ),
+    # Raíz "enterococ-": enterococos/enterococo terminan en -o/-os,
+    # enterococcus lleva -cus
+    (
+        re.compile(
+            r"enterococos\s+intestinales|enterococ(?:cus|os?)\b",
+            re.IGNORECASE,
+        ),
+        "enterococos",
+    ),
+    # "210 ufc/100 ml" → "210 UFC/100 mL" (el número se conserva)
+    (re.compile(r"ufc\s*/\s*100\s*m\.?l\.?", re.IGNORECASE), "UFC/100 mL"),
+    (re.compile(r"\bufc\b", re.IGNORECASE), "UFC"),
+    # "E. coli (E. coli)" — paréntesis redundante tras canonizar
+    (re.compile(r"\b(E\. coli|enterococos)\s*\(\1\)", re.IGNORECASE), r"\1"),
+)
+
+# Lista de organismos: "bacterias fecales, Enterococos y E. coli" es lo
+# mismo que "E. coli y enterococos" — las etiquetas vacías ("bacterias",
+# "contaminación fecal") no añaden nada cuando el organismo ya está
+# nombrado. Solo colapsa si TODA la causa son organismos y etiquetas:
+# "E. coli y vertido de aguas residuales" conserva el vertido porque
+# aporta información que no es un organismo
+_CAUSE_TOKEN_FILLER = re.compile(
+    r"^(?:bacterias?|contaminaci[óo]n)(?:\s+fecales?)?$", re.IGNORECASE
+)
+_CAUSE_TOKEN_PREFIX = re.compile(
+    r"^(?:bacterias?|contaminaci[óo]n)(?:\s+fecales?)?\s+", re.IGNORECASE
+)
+_CAUSE_ORGANISM = re.compile(
+    r"^\(?\s*(E\. coli|enterococos)\s*\)?$", re.IGNORECASE
+)
+_CAUSE_ORGANISM_DISPLAY = {"e. coli": "E. coli", "enterococos": "enterococos"}
+
+
+def _collapse_organism_list(s: str) -> str:
+    parts = [p for p in re.split(r"[,;]|\s+y\s+|\s+e\s+", s) if p.strip()]
+    found = []
+    for part in parts:
+        token = part.strip()
+        if _CAUSE_TOKEN_FILLER.match(token):
+            continue
+        m = _CAUSE_ORGANISM.match(_CAUSE_TOKEN_PREFIX.sub("", token))
+        if not m:
+            return s
+        found.append(m.group(1).lower())
+    if not found:
+        return s
+    return " y ".join(_CAUSE_ORGANISM_DISPLAY[o] for o in sorted(set(found)))
+
+
+# Envolturas vacías que solo admiten colapsar si el organismo es TODO
+# lo que queda: "niveles de E. coli" → "E. coli", pero "niveles de
+# E. coli superiores a lo permitido" conserva su matiz
+_CAUSE_FILLER_RE = re.compile(
+    r"^(?:altos\s+|elevados\s+)?"
+    r"(?:niveles|presencia|concentraci[óo]n|exceso|[íi]ndices|valores)"
+    r"\s+de\s+(?=(?:E\. coli|enterococos)\s*$)",
+    re.IGNORECASE,
+)
+
+
+def canonicalize_cause(cause: str | None) -> str | None:
+    """Causa en forma canónica: mismo hecho, una sola redacción.
+
+    La extracción elige cada vez una grafía distinta para el mismo
+    parámetro; normalizarla evita fichas inconsistentes y reviews
+    que solo difieren en la escritura."""
+    if not cause:
+        return cause
+    s = cause.strip()
+    for pattern, repl in _CAUSE_REWRITES:
+        s = pattern.sub(repl, s)
+    s = _CAUSE_FILLER_RE.sub("", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return _collapse_organism_list(s)
+
+
 SCHEMA = {
     "type": "OBJECT",
     "properties": {
@@ -520,7 +605,7 @@ class GeminiExtractor:
                 beach_name=data.get("beach_name"),
                 municipality=data.get("municipality"),
                 event_type=data.get("event_type"),
-                cause=data.get("cause"),
+                cause=canonicalize_cause(data.get("cause")),
                 scope=scope,
                 closed_since=closed_since,
                 evidence_quote=literal_evidence(

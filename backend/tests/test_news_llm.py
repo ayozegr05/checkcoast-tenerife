@@ -9,6 +9,7 @@ import requests
 from app.news_llm import (
     EventExtraction,
     GeminiExtractor,
+    canonicalize_cause,
     extract_event,
     literal_evidence,
     supported_event,
@@ -402,3 +403,59 @@ def test_no_candidates_keeps_prompt_unchanged():
         extract_event(ARTICLE, GeminiExtractor("key", "model"))
     text = post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"]
     assert "censo" not in text
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (None, None),
+        ("", ""),
+        ("vertido de aguas residuales", "vertido de aguas residuales"),
+        # El parámetro, una sola grafía
+        ("E. Coli", "E. coli"),
+        ("E.Coli", "E. coli"),
+        ("E-coli", "E. coli"),
+        ("E.  coli", "E. coli"),
+        ("Escherichia coli", "E. coli"),
+        ("Escherichia coli (E. coli)", "E. coli"),
+        ("Enterococos (enterococos)", "enterococos"),
+        # Envoltura vacía colapsa solo si el organismo es todo lo que hay
+        ("niveles de E. coli", "E. coli"),
+        ("exceso de enterococos", "enterococos"),
+        ("presencia de Escherichia coli", "E. coli"),
+        ("índices de E-coli superiores", "índices de E. coli superiores"),
+        ("enterococos", "enterococos"),
+        ("enterococo", "enterococos"),
+        ("Enterococos intestinales", "enterococos"),
+        ("enterococcus faecalis", "enterococos faecalis"),
+        ("bacterias fecales: enterococos", "bacterias fecales: enterococos"),
+        # Unidades: el número se conserva, el formato se fija
+        ("enterococos 210 ufc/100 ml", "enterococos 210 UFC/100 mL"),
+        ("E. coli >800 UFC/100 mL", "E. coli >800 UFC/100 mL"),
+        ("410 UFC/100 ml", "410 UFC/100 mL"),
+        ("enterococos 310", "enterococos 310"),
+        # Lista de organismos: se reordena y las etiquetas vacías caen
+        ("Enterococos y E. coli", "E. coli y enterococos"),
+        ("bacterias fecales, Enterococos y E. coli", "E. coli y enterococos"),
+        ("bacterias Enterococos y E. coli", "E. coli y enterococos"),
+        ("enterococos y escherichia coli", "E. coli y enterococos"),
+        ("bacterias fecales (E. coli)", "E. coli"),
+        # …pero solo si TODO son organismos o etiquetas
+        (
+            "E. coli en Troya I y enterococos en El Puertito",
+            "E. coli en Troya I y enterococos en El Puertito",
+        ),
+        (
+            "E. coli y vertido de aguas residuales",
+            "E. coli y vertido de aguas residuales",
+        ),
+        ("bacterias", "bacterias"),
+    ],
+)
+def test_canonicalize_cause(raw, expected):
+    assert canonicalize_cause(raw) == expected
+
+
+def test_canonicalize_cause_does_not_eat_other_words():
+    # "the coli" no es "E. coli" — la frontera de palabra importa
+    assert canonicalize_cause("the coli outbreak") == "the coli outbreak"
