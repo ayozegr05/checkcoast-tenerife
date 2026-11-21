@@ -287,6 +287,37 @@ def test_superseded_by_reopening_stale_sample():
     assert _superseded_by_reopening(beach, pm) is True
 
 
+def test_superseded_by_resolved_stale_sample():
+    """'resolved' (episodio terminado sin cierre ejecutado) levanta un
+    oficial rezagado igual que una reapertura: la muestra mala anterior
+    al titular pertenece al mismo episodio ya resuelto — Teresitas:
+    E. coli sobre límite + 4 medios documentan que no se cerró."""
+    from datetime import datetime
+    from types import SimpleNamespace
+
+    from app.ingest_beach_status import _superseded_by_reopening
+
+    beach = SimpleNamespace(
+        news_items=[
+            SimpleNamespace(
+                relevant=True,
+                event_type="resolved",
+                published_at=datetime(2026, 11, 20, tzinfo=UTC),
+            )
+        ]
+    )
+    meas = MEAS_ROW.format(
+        fecha="16/11/2026",
+        ecoli="800",
+        entero="6",
+        obs="Zona donde queda prohibido el baño temporalmente",
+    )
+    pm = _parse_pms(
+        PM_TMPL.format(name="PLAYA TEST PM1", rows="", meas_rows=meas)
+    )["PLAYA TEST PM1"]
+    assert _superseded_by_reopening(beach, pm) is True
+
+
 def test_superseded_by_reopening_fresh_sample_closes():
     """Muestra mala tomada DESPUÉS de la reapertura: contaminación
     nueva, no es rezago -> el estado cambia a cerrada."""

@@ -44,6 +44,7 @@ export const anchorIsNewClosureWave = (
 const NEWS_EVENT_LINE: Record<string, [string, string, string]> = {
   closure: ['Cerrada', 'por', 'desde el'],
   reopening: ['Reapertura', 'tras', 'el'],
+  resolved: ['Episodio resuelto', 'tras', 'el'],
   warning: ['Aviso', 'por', 'desde el'],
   pollution: ['Contaminación', 'por', 'el'],
   other: ['Noticias', 'sobre', 'el'],

@@ -29,7 +29,7 @@ class EventExtraction:
     confidence: float
     beach_name: str | None = None
     municipality: str | None = None
-    # closure | reopening | warning | pollution | other
+    # closure | reopening | resolved | warning | pollution | other
     event_type: str | None = None
     cause: str | None = None
     # Alcance del cierre (solo event_type='closure'): whole | partial |
@@ -259,6 +259,11 @@ def supported_event(
         r"abier\w*\s+al\s+bañ|abrir\s+al\s+bañ|vuelve\s+a\s+abrir|"
         r"(?:retir|levant|baj)\w*.{0,50}(?:prohibici|restricci|bandera)|"
         r"autoriz\w*.{0,30}(?:baño|bano)",
+        # "episodio resuelto sin cierre": la cita debe afirmar la
+        # no-ejecución o la normalización, si no cae a 'other'
+        "resolved": r"no\s+se\s+cerr|sigui\w+\s+abiert|manteni\w*\s+abiert|"
+        r"mantuv\w*\s+abiert|sin\s+cerrar|no\s+decret|no\s+lleg\w*\s+a\s+cerrar|"
+        r"normaliz|se\s+resolvi|resuelt",
     }
     pattern = markers.get(ext.event_type or "")
     if not pattern:
@@ -288,11 +293,17 @@ Marca relevant=false cuando:
 - la playa no se nombra de forma identificable
 - es un estado rutinario sin evento ("calidad del agua hoy en tu playa")
 - la norma citada es general (prohibido fumar, horarios) sin incidencia del agua
-- el titular NIEGA o DESCARTA el problema ("descartan un vertido",
-  "desmienten la contaminación", "no hay evidencia de", "confirman que
-  es un fenómeno natural") — presta especial atención a estas
-  negaciones: el titular puede contener la palabra del problema
-  ("vertido", "contaminación") pero decir justo lo contrario
+- el titular NIEGA que el problema EXISTIÓ ("descartan un vertido",
+  "desmienten la contaminación", "no hay evidencia de") — presta
+  especial atención a estas negaciones: el titular puede contener la
+  palabra del problema ("vertido", "contaminación") pero decir justo
+  lo contrario. OJO: si el suceso SÍ existió, la negación NO lo
+  descarta:
+  · "detectan E. coli y no se cerró", "se normalizó sin cierre" →
+    el motivo era real pero nadie actuó — la no-ejecución ES la
+    noticia → relevant=true, event_type="resolved"
+  · "mancha de algas, Sanidad descarta vertido" → el fenómeno es
+    real aunque no fuera contaminación → relevant=true, "other"
 - lo que cierra o se restringe es un servicio anexo y NO el baño:
   aparcamiento por aforo completo, chiringuito, paseo marítimo,
   duchas. Si el texto dice que la playa o el baño siguen abiertos,
@@ -327,7 +338,14 @@ Si relevant=true extrae:
 - municipality: municipio de Tenerife SOLO si se menciona en el titular;
   nunca lo deduzcas por la playa (hay playas homónimas en varios
   municipios: "El Cabezo" existe en Güímar, Granadilla y Adeje)
-- event_type: "closure" | "reopening" | "warning" | "pollution" | "other"
+- event_type: "closure" | "reopening" | "resolved" | "warning" |
+  "pollution" | "other"
+  · "resolved": el episodio terminó SIN que se ejecutara el cierre que
+    el motivo exigía — había motivo formal documentado (muestra sobre
+    el límite, positivo confirmado) pero el texto afirma que la playa
+    siguió abierta o que el episodio se resolvió sin cierre ("detectan
+    E. coli y la playa no se cerró", "se normalizó antes de cualquier
+    prohibición"). NO es una reapertura: nunca llegó a cerrarse
   · "reopening" SOLO si la playa YA está abierta de nuevo al baño.
     Obras autorizadas, anunciadas o en curso "para reabrir" no son
     reapertura → "other" (p.ej. "Costas autoriza obras para reabrir el

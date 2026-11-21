@@ -196,7 +196,8 @@ export type BeachNews = {
   url: string;
   source: string | null;
   published_at: string | null; // ISO datetime
-  event_type: string | null; // closure|reopening|warning|pollution|other
+  // closure|reopening|resolved|warning|pollution|other
+  event_type: string | null;
   cause: string | null;
 };
 

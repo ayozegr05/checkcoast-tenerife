@@ -476,8 +476,9 @@ def synthesize_events(
             current.last_closure = max(current.last_closure or pub, pub)
             if n.cause:
                 current.causes.append(n.cause)
-        elif _voting_type(n) == "reopening":
-            # Toda reapertura marca frontera temporal: un cierre
+        elif _voting_type(n) in ("reopening", "resolved"):
+            # Toda reapertura (o 'resolved': episodio terminado sin
+            # cierre ejecutado) marca frontera temporal: un cierre
             # posterior ya no es "la misma" cobertura aunque esta
             # reapertura resuelva una ventana oficial/analítica — salvo
             # que sea anterior a la última mención del clúster vigente
@@ -496,9 +497,13 @@ def synthesize_events(
                 None,
             )
             if hit is not None:
-                hit.press_confirmed = True
+                # press_confirmed = "la prensa probó que hubo cierre" —
+                # un 'resolved' afirma lo contrario: queda como
+                # evidencia adjunta pero no escala el episodio a cierre
+                if _voting_type(n) == "reopening":
+                    hit.press_confirmed = True
+                    hit.reopenings_in_window.append(pub)
                 _add_press(hit, n, pub)
-                hit.reopenings_in_window.append(pub)
                 continue
             # Una reapertura dentro de la ventana de una incidencia
             # oficial resuelve ESE episodio: no cierra el clúster de
@@ -605,7 +610,8 @@ def synthesize_events(
     # cierre (obras del paseo de Olegario resucitaban un episodio
     # de contaminación de 16 meses atrás — mismo corte que /alerts)
     fresh = any(
-        _voting_type(n) in ("closure", "warning", "pollution", "reopening")
+        _voting_type(n)
+        in ("closure", "warning", "pollution", "reopening", "resolved")
         and n.published_at is not None
         and n.published_at.date() >= today - PRESS_STALE
         for n in items
@@ -614,7 +620,7 @@ def synthesize_events(
         (
             n
             for n in reversed(items)
-            if _voting_type(n) in ("closure", "reopening")
+            if _voting_type(n) in ("closure", "reopening", "resolved")
         ),
         None,
     )
@@ -659,7 +665,9 @@ def synthesize_events(
             if ev.closed_at is None:
                 return False
             reopen_items = [
-                i for i in ev.press_items if _voting_type(i) == "reopening"
+                i
+                for i in ev.press_items
+                if _voting_type(i) in ("reopening", "resolved")
             ]
             reopen_press = {i.source for i in reopen_items if i.source}
             return (
@@ -994,7 +1002,7 @@ def _fuse_acta_ok(a, b, news_items) -> bool:
         and n.published_at
         and a.closed_at < n.published_at.date() <= b.opened_at
     ]
-    if any(_voting_type(n) == "reopening" for n in mid):
+    if any(_voting_type(n) in ("reopening", "resolved") for n in mid):
         return False
     return any(
         _voting_type(n) == "closure"

@@ -919,6 +919,61 @@ def test_effective_status_suppresses_stale_official(seed_data):
         db.close()
 
 
+def test_effective_status_resolved_suppresses_stale_official(seed_data):
+    """Un 'resolved' de prensa (episodio terminado sin cierre ejecutado)
+    posterior a toda la evidencia oficial también suprime el oficial
+    rezagado — caso Teresitas: E. coli sobre el límite + la prensa
+    documenta que el cierre nunca se ejecutó."""
+    from datetime import date, datetime, timedelta
+
+    from app.db import SessionLocal
+    from app.models import (
+        BeachMeasurement,
+        BeachState,
+        BeachStatus,
+        NewsItem,
+    )
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    now = datetime.now(UTC)
+    status = BeachStatus(
+        beach_id=beach_id,
+        status=BeachState.closed,
+        reported_at=now,
+    )
+    meas = BeachMeasurement(
+        beach_id=beach_id,
+        sampled_at=date.today() - timedelta(days=4),
+        evaluation="Zona donde queda prohibido el baño temporalmente",
+    )
+    resolved = NewsItem(
+        url="https://news.google.com/rss/articles/pytest-resolved",
+        title="Detectan E. coli y la playa no se cerró",
+        source="Test Press",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="resolved",
+        published_at=now - timedelta(days=2),
+    )
+    db.add_all([status, meas, resolved])
+    db.commit()
+    try:
+        features = client.get("/beaches").json()["features"]
+        feat = next(f for f in features if f["id"] == beach_id)
+        assert feat["properties"]["status"] == "open"
+        body = client.get(f"/beaches/{beach_id}/status").json()
+        assert body["status"] == "open"
+        raw = db.get(BeachStatus, status.id)
+        assert raw.status == BeachState.closed
+    finally:
+        db.delete(status)
+        db.delete(meas)
+        db.delete(resolved)
+        db.commit()
+        db.close()
+
+
 def test_sea_state_reopening_does_not_suppress_official(seed_data):
     """Un "reabre tras el temporal" no es evidencia de reapertura por
     calidad del agua: el cierre preventivo por oleaje quedó fuera del

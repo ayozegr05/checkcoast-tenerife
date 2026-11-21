@@ -386,7 +386,7 @@ def stale_official_ids(db: Session) -> set[int]:
         .filter(
             NewsItem.relevant.is_(True),
             NewsItem.beach_id.isnot(None),
-            NewsItem.event_type == "reopening",
+            NewsItem.event_type.in_(("reopening", "resolved")),
             NewsItem.published_at.isnot(None),
         )
         .all()
@@ -513,11 +513,15 @@ def _voting_type(item: NewsItem) -> str | None:
 
 def _press_event(items: list[NewsItem]) -> NewsItem | None:
     """Titular que decide el estado según prensa (items ordenados desc
-    por fecha): el último closure/reopening decide; si no hay, un
-    warning/pollution da 'warning'. Un 'other' (obras, política) nunca
-    deshace un cierre."""
+    por fecha): el último closure/reopening/resolved decide; si no hay,
+    un warning/pollution da 'warning'. Un 'other' (obras, política)
+    nunca deshace un cierre."""
     change = next(
-        (i for i in items if _voting_type(i) in ("closure", "reopening")),
+        (
+            i
+            for i in items
+            if _voting_type(i) in ("closure", "reopening", "resolved")
+        ),
         None,
     )
     warn = next(
@@ -538,7 +542,8 @@ def _episode_items(
     its: list[NewsItem], gap: timedelta | None = None
 ) -> list[NewsItem]:
     """Items que forman el episodio vigente (la lista viene desc por
-    fecha). Una reapertura cierra el episodio — lo anterior es otra
+    fecha). Una reapertura o un 'resolved' cierran el episodio — lo
+    anterior es otra
     historia; con `gap`, un silencio largo entre menciones consecutivas
     también la corta (mismo criterio que el clustering de events.py).
 
@@ -549,9 +554,9 @@ def _episode_items(
     prev = None
     for i in its:
         vt = _voting_type(i)
-        if vt in ("closure", "warning", "pollution", "reopening"):
+        if vt in ("closure", "warning", "pollution", "reopening", "resolved"):
             pub = i.published_at or _EPOCH
-            if vt == "reopening" or (
+            if vt in ("reopening", "resolved") or (
                 gap is not None and prev is not None and prev - pub > gap
             ):
                 break
@@ -626,7 +631,7 @@ def effective_states(db: Session) -> dict[int, dict]:
                 i.published_at
                 for i in its
                 if _voting_type(i)
-                in ("closure", "warning", "pollution", "reopening")
+                in ("closure", "warning", "pollution", "reopening", "resolved")
             ),
             None,
         )

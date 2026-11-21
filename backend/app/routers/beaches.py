@@ -323,7 +323,8 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
             it.published_at.date()
             for it in beach.news_items
             if it.relevant
-            and it.event_type in ("closure", "warning", "pollution")
+            and it.event_type
+            in ("closure", "warning", "pollution", "resolved")
             and _short_cause(it.cause) in CONTAMINATION_CAUSES
             and it.published_at
             and not any(
@@ -952,7 +953,8 @@ def beach_incidents(
         press_items = [_news_out(n) for n in press_rows]
         obs = _display_obs(row.observations, _incident_kind(row, press_items))
         if is_ungraded_note(row.observations) and any(
-            n.event_type in ("closure", "reopening", "warning", "pollution")
+            n.event_type
+            in ("closure", "reopening", "resolved", "warning", "pollution")
             for n in press_rows
         ):
             # Nota "Sin calificar" con prensa que documenta el suceso:
@@ -1016,7 +1018,9 @@ def beach_incidents(
     reopen_days = {
         n.published_at.date()
         for n in beach.news_items
-        if n.relevant and n.event_type == "reopening" and n.published_at
+        if n.relevant
+        and n.event_type in ("reopening", "resolved")
+        and n.published_at
     }
 
     def _merge_target(ev: SynthEvent) -> int | None:

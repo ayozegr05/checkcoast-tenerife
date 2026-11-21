@@ -717,7 +717,14 @@ def beach_row(db: Session, beach_id: int):
     )
 
 
-_PRESS_GROUP_ORDER = ["closure", "warning", "pollution", "reopening", "other"]
+_PRESS_GROUP_ORDER = [
+    "closure",
+    "warning",
+    "pollution",
+    "resolved",
+    "reopening",
+    "other",
+]
 
 # Causas de la familia estructural — tiñen la fila del historial en
 # granate (como el pin/chip de cierre estructural), no en el rojo de
@@ -742,6 +749,7 @@ _PRESS_GROUP_LABEL = {
     "closure": "Cierre",
     "warning": "Aviso",
     "pollution": "Contaminación",
+    "resolved": "Episodio resuelto",
     "reopening": "Reapertura",
     "other": "Noticia",
 }
@@ -801,7 +809,8 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
         return re.search(
             r"sin\s*calificar", i.observations or "", re.I
         ) is not None and not any(
-            p.event_type in ("closure", "reopening", "warning", "pollution")
+            p.event_type
+            in ("closure", "reopening", "resolved", "warning", "pollution")
             for p in i.press_items
         )
 
@@ -831,7 +840,9 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             out.append(
                 {
                     "color": (
-                        _PRESS_REOPEN_COLOR if t == "reopening" else accent
+                        _PRESS_REOPEN_COLOR
+                        if t in ("reopening", "resolved")
+                        else accent
                     ),
                     "label": (
                         f"{label} · {phrase}".upper()
@@ -960,7 +971,7 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             [
                 p
                 for p in i.press_items
-                if p.event_type in ("closure", "reopening")
+                if p.event_type in ("closure", "reopening", "resolved")
             ]
             if closure
             else i.press_items
@@ -1475,6 +1486,7 @@ def beach_context(
             "closure": "Cerrada",
             "warning": "Aviso en",
             "pollution": "Contaminación en",
+            "resolved": "Episodio resuelto en",
             "reopening": "Reabierta",
         }.get(dom or "", "Mencionada")
         if dom == "closure" and state not in ("closed", "structural"):

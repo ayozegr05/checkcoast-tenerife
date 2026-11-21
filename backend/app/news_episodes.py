@@ -155,7 +155,8 @@ def press_episode_summary(
         (
             d
             for r in rows
-            if r.event_type == "reopening" and (d := r.published_at)
+            if r.event_type in ("reopening", "resolved")
+            and (d := r.published_at)
         ),
         default=None,
     )
@@ -169,7 +170,7 @@ def press_episode_summary(
     reopen_dates = sorted(
         d
         for r in rows
-        if r.event_type == "reopening" and (d := r.published_at)
+        if r.event_type in ("reopening", "resolved") and (d := r.published_at)
     )
 
     # Cierre "retrospectivo": publicado DESPUÉS de la reapertura pero

@@ -42,6 +42,7 @@ export const isUnclassified = (inc: BeachIncident) =>
     (p) =>
       p.event_type === 'closure' ||
       p.event_type === 'reopening' ||
+      p.event_type === 'resolved' ||
       p.event_type === 'warning' ||
       p.event_type === 'pollution',
   );

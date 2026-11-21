@@ -301,13 +301,13 @@ def _superseded_by_reopening(beach: Beach, pm: PmData) -> bool:
         n
         for n in beach.news_items
         if n.relevant
-        and n.event_type in ("closure", "reopening")
+        and n.event_type in ("closure", "reopening", "resolved")
         and n.published_at is not None
     ]
     if not changes:
         return False
     latest_change = max(changes, key=lambda n: cast(datetime, n.published_at))
-    if latest_change.event_type != "reopening":
+    if latest_change.event_type not in ("reopening", "resolved"):
         return False
     reopen_ts = cast(datetime, latest_change.published_at)
     reopen_d = reopen_ts.date()
@@ -333,7 +333,7 @@ def _superseded_by_reopening(beach: Beach, pm: PmData) -> bool:
             getattr(n, "source", None)
             for n in beach.news_items
             if n.relevant
-            and n.event_type == "reopening"
+            and n.event_type in ("reopening", "resolved")
             and getattr(n, "source", None)
             and n.published_at is not None
             and n.published_at >= reopen_ts - window
@@ -414,9 +414,14 @@ def _persist(
                 )
             )
 
-    existing_meas = {m.sampled_at for m in beach.measurements}
+    # La evaluación la corrige Salud Pública días después ("Pendiente
+    # Valoración" → "prohibido"): refrescar la guardada, no solo insertar
+    # fechas nuevas — si no, la copia se queda desfasada del portal y la
+    # matriz de supersede no encuentra la evidencia oficial real
+    existing_meas = {m.sampled_at: m for m in beach.measurements}
     for meas in pm.measurements:
-        if meas.sampled not in existing_meas:
+        stored = existing_meas.get(meas.sampled)
+        if stored is None:
             db.add(
                 BeachMeasurement(
                     beach_id=beach.id,
@@ -427,6 +432,8 @@ def _persist(
                     source_url=SOURCE_URL,
                 )
             )
+        elif (stored.evaluation or "") != (meas.evaluation or ""):
+            stored.evaluation = meas.evaluation
 
     state = _derive_state(pm)
     # Muestra rezagada anterior a una reapertura de prensa: mismo

@@ -8,17 +8,21 @@ import { colors } from './theme';
 export const NEWS_EVENT_LABELS: Record<string, string> = {
   closure: 'Cierre',
   reopening: 'Reapertura',
+  resolved: 'Episodio resuelto',
   warning: 'Aviso',
   pollution: 'Contaminación',
   other: 'Noticia',
 };
 
 // Fases de un episodio en orden narrativo: se cerró, hubo avisos o
-// vertidos, y finalmente se reabrió
+// vertidos, y finalmente se resolvió o se reabrió ('resolved' =
+// episodio terminado sin cierre ejecutado, p.ej. muestra mala que
+// quedó sin cierre decretado — nunca afirma que hubo cierre)
 export const NEWS_GROUP_ORDER = [
   'closure',
   'warning',
   'pollution',
+  'resolved',
   'reopening',
   'other',
 ];
@@ -200,6 +204,7 @@ export const NEWS_PHASE_COLOR: Record<string, string> = {
   closure: colors.status.closed,
   pollution: colors.status.closed,
   warning: colors.status.warning,
+  resolved: colors.status.open,
   reopening: colors.status.open,
   other: colors.status.warning,
 };
