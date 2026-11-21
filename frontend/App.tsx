@@ -106,6 +106,9 @@ export default function App() {
   // Registro push fallido (permiso denegado, sin projectId o error de
   // red): Ayuda lo muestra con opción de reintentar
   const [pushFailed, setPushFailed] = useState(false);
+  // Playa pendiente de abrir por tap de push — se resuelve cuando el
+  // fetch de playas aporta las features (arranque en frío)
+  const [pendingBeachId, setPendingBeachId] = useState<number | null>(null);
 
   // La card de bienvenida solo se muestra en el primer arranque;
   // la ayuda bajo demanda vive en HelpHub (botón "?" del mapa)
@@ -233,17 +236,46 @@ export default function App() {
 
   useEffect(() => {
     setupPushNotifications().then((ok) => setPushFailed(!ok));
+    const idFrom = (resp: Notifications.NotificationResponse | null) =>
+      (
+        resp?.notification.request.content.data as
+          { beach_id?: number } | undefined
+      )?.beach_id ?? null;
+    // Tap con la app cerrada: la respuesta que la arrancó puede no
+    // llegar al listener (se registra tras el evento) — se recupera
+    // con getLastNotificationResponseAsync y se consume para que un
+    // tap viejo no vuelva a abrirse en el siguiente arranque
+    void Notifications.getLastNotificationResponseAsync()
+      .then(async (resp) => {
+        const id = idFrom(resp);
+        if (id != null) {
+          setPendingBeachId(id);
+          await Notifications.clearLastNotificationResponseAsync();
+        }
+      })
+      .catch(() => {});
     const sub = Notifications.addNotificationResponseReceivedListener(
       (resp) => {
-        const id = (
-          resp.notification.request.content.data as
-            { beach_id?: number } | undefined
-        )?.beach_id;
-        if (id != null) openBeachRef.current(id);
+        const id = idFrom(resp);
+        if (id != null) setPendingBeachId(id);
       },
     );
     return () => sub.remove();
   }, []);
+
+  // El tap del push puede llegar antes del fetch de playas (arranque
+  // en frío): se guarda el id y la ficha abre cuando hay datos —
+  // sin esto la búsqueda fallaba en vacío y la app se quedaba en el
+  // mapa general aunque la notificación llevara beach_id
+  useEffect(() => {
+    if (pendingBeachId == null || !beachesFC.features.length) return;
+    const id = pendingBeachId;
+    const raf = requestAnimationFrame(() => {
+      openBeachRef.current(id);
+      setPendingBeachId(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [pendingBeachId, beachesFC]);
 
   // Deep-links compartidos: checkcoast://beach/123, el equivalente del
   // dev-client (exp+...://...beach/123) y los App Links https
