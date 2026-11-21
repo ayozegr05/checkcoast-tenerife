@@ -38,6 +38,11 @@ TENERIFE_BBOX = (27.9, -17.0, 28.7, -16.0)
 # Distancia (m) bajo la cual una playa OSM se considera ya cubierta por
 # un punto de muestreo oficial
 COVERED_DISTANCE_M = 400.0
+# Duplicado contra cualquier pin existente (manual u OSM previo): las
+# calas sin monitorizar también cubren. 150 m caza la misma cala con
+# dos fichas (La Sabina/El Guincho, 8 m) sin tragarse calas vecinas
+# (La Consolación, 340 m)
+NEAR_DUP_DISTANCE_M = 150.0
 
 QUERY = """
 [out:json][timeout:60];
@@ -134,12 +139,31 @@ def _official_beaches(db: Session) -> list[tuple[float, float, str]]:
     return [(lat, lon, _normalize(name)) for lat, lon, name in rows]
 
 
+def _near_point(
+    lat: float, lon: float, points: list[tuple[float, float]]
+) -> bool:
+    """True si el punto cae a <NEAR_DUP_DISTANCE_M de otro pin."""
+    return any(
+        _haversine_m(lat, lon, plat, plon) < NEAR_DUP_DISTANCE_M
+        for plat, plon in points
+    )
+
+
+def _all_beach_points(db: Session) -> list[tuple[float, float]]:
+    """(lat, lon) de TODAS las playas, monitorizadas o no."""
+    from sqlalchemy import func
+
+    rows = db.query(func.ST_Y(Beach.geom), func.ST_X(Beach.geom)).all()
+    return [(lat, lon) for lat, lon in rows]
+
+
 def main() -> None:
     elements = _fetch_osm_beaches()
     db = SessionLocal()
     created = updated = skipped = 0
     try:
         officials = _official_beaches(db)
+        existing_points = _all_beach_points(db)
         existing = {
             b.external_id
             for b in db.query(Beach.external_id)
@@ -152,6 +176,9 @@ def main() -> None:
                 continue
             if el["external_id"] in existing:
                 updated += 1
+                continue
+            if _near_point(el["lat"], el["lon"], existing_points):
+                skipped += 1
                 continue
             db.add(
                 Beach(

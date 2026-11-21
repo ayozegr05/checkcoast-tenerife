@@ -1,6 +1,6 @@
 """Tests de la lógica de dedup de la ingesta OSM."""
 
-from scripts.ingest_osm_beaches import _is_covered, _normalize
+from scripts.ingest_osm_beaches import _is_covered, _near_point, _normalize
 
 OFFICIALS = [
     (28.1397, -16.4357, _normalize("PLAYA JARDIN PM1")),
@@ -25,3 +25,15 @@ def test_covered_by_distance():
 
 def test_not_covered_remote_beach():
     assert not _is_covered(28.0, -16.8, "Playa Remota", OFFICIALS)
+
+
+def test_near_point_catches_same_cala():
+    # La Sabina (OSM) cayó a ~8 m del pin manual de El Guincho
+    guincho = (28.378097, -16.740523)
+    assert _near_point(28.378172, -16.740422, [guincho])
+
+
+def test_near_point_keeps_neighbour_cala():
+    # La Consolación está a ~340 m del Guincho: cala distinta, no dup
+    guincho = (28.378097, -16.740523)
+    assert not _near_point(28.375884, -16.742712, [guincho])
