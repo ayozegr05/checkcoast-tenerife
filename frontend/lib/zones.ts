@@ -38,11 +38,13 @@ const ZONE_NAMES: Record<string, Record<string, string>> = {
   },
   // Las Teresitas (Santa Cruz): los cierres parciales se anuncian por
   // acceso numerado (0-11 desde San Andrés hacia el dique); el acceso
-  // 8 corresponde al tramo de PM2 (verificado in situ). El resto de
-  // PMs no tiene nombre común conocido — el fallback "Zona N" sirve
+  // 8 corresponde al tramo de PM2 (verificado in situ) — "acceso 8"
+  // queda como alias de prensa en el backend, la ficha muestra solo
+  // "Zona 2". El resto de PMs no tiene nombre común conocido — el
+  // fallback "Zona N" sirve
   'PLAYA TERESITAS (LAS)': {
     PM1: 'Zona 1',
-    PM2: 'Zona 2 · acceso 8',
+    PM2: 'Zona 2',
     PM3: 'Zona 3',
     PM4: 'Zona 4',
   },
@@ -70,6 +72,9 @@ const ZONE_NAMES: Record<string, Record<string, string>> = {
 // dice "la playa Chica". Sin artículo: la frase aporta el suyo
 // ("En la {ref}", "La {ref} sigue cerrada")
 const ZONE_REFS: Record<string, Record<string, string>> = {
+  'PLAYA TERESITAS (LAS)': {
+    PM2: 'zona 2',
+  },
   'PLAYA CABEZO (EL)-PASEO DE LAS PALMERAS': {
     PM1: 'playa de los Perros',
     PM4: 'playa de El Cabezo',
