@@ -94,6 +94,9 @@ class Beach(Base):
     name: Mapped[str] = mapped_column(String(255))
     municipality: Mapped[str | None] = mapped_column(String(120))
     monitored: Mapped[bool] = mapped_column(default=True)
+    # Cala diminuta: su pin solo aparece a zoom de costa para no
+    # saturar el mapa general (Bajanuda, Callao, La Grieta…)
+    small: Mapped[bool] = mapped_column(default=False)
     # Nombres populares que usa la prensa ("Los Guanches" → PLAYA
     # CANDELARIA): el matching de noticias los consulta además del
     # nombre oficial del censo

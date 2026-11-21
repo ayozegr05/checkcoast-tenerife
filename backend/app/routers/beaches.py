@@ -196,6 +196,7 @@ def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
                     "name": beach.name,
                     "municipality": beach.municipality,
                     "monitored": beach.monitored,
+                    "small": beach.small,
                     "source_url": beach.source_url,
                     "status": eff.get(beach.id, {}).get(
                         "status",

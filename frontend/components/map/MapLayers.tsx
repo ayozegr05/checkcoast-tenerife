@@ -10,6 +10,7 @@ import {
 import type { FeatureCollection } from '../../lib/api';
 import {
   FAUNA_CAUSES,
+  SMALL_BEACH_MINZOOM,
   STRUCTURAL_CAUSES,
   ZONE_SPLIT_ZOOM,
 } from '../../lib/mapData';
@@ -24,6 +25,9 @@ type Props = {
   // calas nombradas (se apaga a ZONE_SPLIT_ZOOM, donde entran
   // los dots de zoneDots con su nombre propio)
   visibleBeaches: FeatureCollection;
+  // Calas diminutas: mismas capas pero con minzoom — no saturan la
+  // vista general, aparecen solo a zoom de costa
+  smallBeaches: FeatureCollection;
   expandableBeaches: FeatureCollection;
   zoneDots: FeatureCollection;
   // Pulsos a nivel de cala para los grupos expandidos (el anillo
@@ -108,8 +112,16 @@ const pinIconClosed = {
 // pines únicos y la de grupos expandibles — que son las mismas
 // capas pero con maxzoom: pasado ZONE_SPLIT_ZOOM ceden el sitio a
 // los dots de cala
-function beachPinLayers(prefix: string, pmShown: boolean, maxzoom?: number) {
-  const mz = maxzoom != null ? { maxzoom } : {};
+function beachPinLayers(
+  prefix: string,
+  pmShown: boolean,
+  maxzoom?: number,
+  minzoom?: number,
+) {
+  const mz = {
+    ...(maxzoom != null ? { maxzoom } : {}),
+    ...(minzoom != null ? { minzoom } : {}),
+  };
   // Array, no fragmento: GeoJSONSource clona cada hijo directo para
   // inyectarle `source` y un <React.Fragment> no acepta props —
   // React 19 lo registra como error en dev
@@ -230,7 +242,7 @@ function beachPinLayers(prefix: string, pmShown: boolean, maxzoom?: number) {
       id={`${prefix}-labels`}
       type="symbol"
       {...mz}
-      minzoom={12}
+      minzoom={Math.max(12, minzoom ?? 0)}
       layout={{
         'text-field': ['get', 'label'],
         'text-size': ['case', ['==', ['get', 'sel'], true], 13, 11],
@@ -261,6 +273,7 @@ function beachPinLayers(prefix: string, pmShown: boolean, maxzoom?: number) {
 // puro — la lógica (cámara, selección, filtros) queda en CoastMap.
 export default function MapLayers({
   visibleBeaches,
+  smallBeaches,
   expandableBeaches,
   zoneDots,
   zoneAlertPulse,
@@ -543,6 +556,18 @@ export default function MapLayers({
           onPress={(e) => onPressFeature('beach', e)}
         >
           {beachPinLayers('beach', pmShown)}
+        </GeoJSONSource>
+      )}
+
+      {/* Calas diminutas: mismas capas de pin pero con minzoom —
+          no aparecen hasta zoom de costa (SMALL_BEACH_MINZOOM) */}
+      {showBeaches && smallBeaches.features.length > 0 && (
+        <GeoJSONSource
+          id="beaches-small"
+          data={smallBeaches}
+          onPress={(e) => onPressFeature('beach', e)}
+        >
+          {beachPinLayers('small', pmShown, undefined, SMALL_BEACH_MINZOOM)}
         </GeoJSONSource>
       )}
 

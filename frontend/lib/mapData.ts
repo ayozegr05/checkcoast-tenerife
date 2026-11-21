@@ -31,6 +31,10 @@ export const FAUNA_SECTION = 'Fauna marina';
 // sigue abriendo el selector (Teresitas, Valleseco parcial)
 export const ZONE_SPLIT_ZOOM = 14.5;
 
+// Calas diminutas (beaches.small): su pin no aparece hasta zoom
+// de costa para no saturar la vista general de la isla
+export const SMALL_BEACH_MINZOOM = 13.5;
+
 // Re-exportados desde lib/structural (módulo hoja compartido con
 // beachGroups — evita el ciclo mapData↔beachGroups)
 export { isStructuralClosure, isFaunaClosure, STRUCTURAL_CAUSES, FAUNA_CAUSES };

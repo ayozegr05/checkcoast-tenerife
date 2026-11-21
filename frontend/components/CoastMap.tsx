@@ -525,7 +525,20 @@ export default function CoastMap({
     () => ({
       type: 'FeatureCollection',
       features: visibleBeaches.features.filter(
-        (f) => (f.properties as { expandable?: boolean }).expandable !== true,
+        (f) =>
+          (f.properties as { expandable?: boolean }).expandable !== true &&
+          (f.properties as { small?: boolean }).small !== true,
+      ),
+    }),
+    [visibleBeaches],
+  );
+  // Calas diminutas: fuente propia con minzoom — no saturan la
+  // vista de isla, aparecen solo al acercarse a la costa
+  const smallBeaches = useMemo<FeatureCollection>(
+    () => ({
+      type: 'FeatureCollection',
+      features: visibleBeaches.features.filter(
+        (f) => (f.properties as { small?: boolean }).small === true,
       ),
     }),
     [visibleBeaches],
@@ -635,13 +648,17 @@ export default function CoastMap({
     return pointLongLabel(f.properties.name);
   };
 
-  // El pulso respeta el filtro; la lista del banner no (es global)
+  // El pulso respeta el filtro; la lista del banner no (es global).
+  // Las calas small quedan fuera: un halo sin pin debajo (aún no
+  // llega su minzoom) sería un anillo huérfano flotando en la costa
   const visibleAlertBeaches = useMemo<FeatureCollection>(
     () => ({
       type: 'FeatureCollection',
       features: visibleBeaches.features.filter(
         (f) =>
-          f.properties.status === 'closed' || f.properties.status === 'warning',
+          (f.properties.status === 'closed' ||
+            f.properties.status === 'warning') &&
+          (f.properties as { small?: boolean }).small !== true,
       ),
     }),
     [visibleBeaches],
@@ -948,6 +965,7 @@ export default function CoastMap({
             la lógica queda aquí */}
         <MapLayers
           visibleBeaches={pinBeaches}
+          smallBeaches={smallBeaches}
           expandableBeaches={expandableBeaches}
           zoneDots={zoneDots}
           zoneAlertPulse={zonePulses.alert}
