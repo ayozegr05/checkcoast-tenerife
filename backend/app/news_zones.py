@@ -118,7 +118,7 @@ _ZONE_GROUPS: dict[tuple[str, str], dict[str, dict]] = {
             "weak_aliases": (),
         },
         "PM2": {
-            "name": "Acceso 8",
+            "name": "Zona 2 · acceso 8",
             "ref": "acceso 8",
             "aliases": (
                 "ACCESO 8",

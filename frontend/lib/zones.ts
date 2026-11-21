@@ -42,7 +42,7 @@ const ZONE_NAMES: Record<string, Record<string, string>> = {
   // PMs no tiene nombre común conocido — el fallback "Zona N" sirve
   'PLAYA TERESITAS (LAS)': {
     PM1: 'Zona 1',
-    PM2: 'Acceso 8',
+    PM2: 'Zona 2 · acceso 8',
     PM3: 'Zona 3',
     PM4: 'Zona 4',
   },
