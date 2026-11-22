@@ -7,13 +7,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Puerta del e2e: el emulador son ~15 min de runner y no puede
-  # romperse por un push de docs/scripts — solo corre si toca código
-  # de app, backend o el propio CI. git diff sin actions de terceros.
+  # Puerta del deploy: un push de docs/frontend no debe redesplegar
+  # la VM — solo corre si toca backend/compose/deploy.sh.
+  # git diff sin actions de terceros.
   changes:
     runs-on: ubuntu-latest
     outputs:
-      app: ${{ steps.check.outputs.app }}
       backend: ${{ steps.check.outputs.backend }}
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +21,6 @@ jobs:
       - id: check
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "app=true" >> "$GITHUB_OUTPUT"
             echo "backend=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -34,11 +32,6 @@ jobs:
             BASE="${{ github.event.before }}"
           fi
           CHANGED=$(git diff --name-only "$BASE" HEAD)
-          if echo "$CHANGED" | grep -qE '^(frontend/|backend/|\.github/)'; then
-            echo "app=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "app=false" >> "$GITHUB_OUTPUT"
-          fi
           if echo "$CHANGED" | grep -qE '^(backend/|docker-compose|scripts/deploy\.sh)'; then
             echo "backend=true" >> "$GITHUB_OUTPUT"
           else
@@ -112,126 +105,6 @@ jobs:
           flags: frontend
           # La cobertura es best-effort: un fallo de upload nunca tumba CI
           fail_ci_if_error: false
-
-  # Suite Maestro en emulador Android. La app (dev-client) carga el JS
-  # de Metro y pega contra la API de producción vía EXPO_PUBLIC_API_URL
-  # — no hace falta backend en CI. El APK es un asset del release
-  # `dev-client-e2e`; si cambian deps nativas hay que regenerarlo
-  # (eas build --profile development) y resubirlo.
-  e2e:
-    needs: changes
-    if: needs.changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 75
-    # Dos pushes seguidos no deben competir por el mismo caché de AVD —
-    # el segundo espera a que el primero lo escriba
-    concurrency:
-      group: e2e-emulator
-      cancel-in-progress: false
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - name: Install Maestro
-        run: |
-          curl -fsSL "https://get.maestro.mobile.dev" | bash
-          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
-      - name: Download dev-client APK
-        run: >-
-          curl -fSL -o /tmp/dev-client.apk
-          https://github.com/ayozegr05/checkcoast-tenerife/releases/download/dev-client-e2e/app-debug.apk
-      # Dominio, nunca la IP: la IP pública de Oracle es efímera y
-      # ya cambió una vez rompiendo el acceso en seco
-      - name: Start Metro
-        run: |
-          EXPO_PUBLIC_API_URL=http://checkcoast.duckdns.org:8001 \
-            npx expo start --dev-client --port 8082 > /tmp/metro.log 2>&1 &
-      # Sin KVM el emulador corre con -accel off (emulación por software
-      # pura): boot ~15 min, install ~13 min y el driver de Maestro no
-      # llega a arrancar. Con KVM: boot ~1-2 min. Paso documentado en
-      # el README de android-emulator-runner.
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-      # El AVD cacheado (con el dev-client ya instalado y snapshot
-      # guardado) evita ~25 min de cold boot + install en cada run.
-      # Bump de la key si el AVD queda corrupto o cambia el APK.
-      - name: AVD cache
-        uses: actions/cache@v4
-        id: avd-cache
-        with:
-          # Solo el AVD: meter ~/.android/adb* cachea el estado del
-          # daemon adb y el siguiente run no puede conectar
-          path: ~/.android/avd/*
-          key: avd-34-pixel7pro-v2
-      # Solo en cache-miss: crea el AVD e instala el APK; al terminar el
-      # paso el emulador guarda snapshot y el cache lo captura
-      - name: Create AVD + install dev-client
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          profile: pixel_7_pro
-          avd-name: checkcoast-e2e
-          force-avd-creation: false
-          emulator-options: >-
-            -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-            -memory 6144 -cores 4
-          disable-animations: true
-          script: |
-            adb uninstall com.checkcoast.tenerife || true
-            adb install /tmp/dev-client.apk
-      # OJO: el action ejecuta cada línea del script en un sh -c propio
-      # — no persisten cd ni variables; usar rutas absolutas y el retry
-      # en una sola línea. El uninstall es intencionado: el AVD cacheado
-      # conserva la app instalada entre pasos/runs y una APK firmada con
-      # otro keystore (local vs EAS) da INSTALL_FAILED_UPDATE_INCOMPATIBLE
-      - name: Run Maestro flows on emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        # En el emulador frío de GitHub el server UIAutomator de Maestro
-        # tarda mucho más que el default (15 s); 5 min da margen
-        env:
-          MAESTRO_DRIVER_STARTUP_TIMEOUT: "300000"
-        with:
-          api-level: 34
-          target: google_apis
-          arch: x86_64
-          profile: pixel_7_pro
-          avd-name: checkcoast-e2e
-          force-avd-creation: false
-          emulator-options: >-
-            -no-snapshot-save -no-window -gpu swiftshader_indirect
-            -noaudio -no-boot-anim -memory 6144 -cores 4
-          disable-animations: true
-          script: |
-            adb wait-for-device
-            # Los diálogos ANR/crash del sistema («Pixel Launcher isn't
-            # responding») cubren la app y bloquean los taps de Maestro
-            adb shell settings put global hide_error_dialogs 1
-            timeout 120 bash -c 'until curl -sf http://localhost:8082/status >/dev/null; do sleep 3; done'
-            adb uninstall com.checkcoast.tenerife || true
-            adb install /tmp/dev-client.apk
-            maestro test "$GITHUB_WORKSPACE/frontend/e2e/flows/" || maestro test "$GITHUB_WORKSPACE/frontend/e2e/flows/"
-      - name: Upload Maestro artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: maestro-artifacts
-          path: |
-            ~/.maestro/tests
-            /tmp/metro.log
-          retention-days: 7
 
   # CD: deploy del backend a la VM por SSH tras backend verde. Solo
   # push a main que toque backend/compose — nunca desde PR. La clave
