@@ -147,9 +147,11 @@ jobs:
         run: >-
           curl -fSL -o /tmp/dev-client.apk
           https://github.com/ayozegr05/checkcoast-tenerife/releases/download/dev-client-e2e/app-debug.apk
+      # Dominio, nunca la IP: la IP pública de Oracle es efímera y
+      # ya cambió una vez rompiendo el acceso en seco
       - name: Start Metro
         run: |
-          EXPO_PUBLIC_API_URL=http://130.110.233.198:8001 \
+          EXPO_PUBLIC_API_URL=http://checkcoast.duckdns.org:8001 \
             npx expo start --dev-client --port 8082 > /tmp/metro.log 2>&1 &
       # Sin KVM el emulador corre con -accel off (emulación por software
       # pura): boot ~15 min, install ~13 min y el driver de Maestro no
@@ -214,6 +216,9 @@ jobs:
           disable-animations: true
           script: |
             adb wait-for-device
+            # Los diálogos ANR/crash del sistema («Pixel Launcher isn't
+            # responding») cubren la app y bloquean los taps de Maestro
+            adb shell settings put global hide_error_dialogs 1
             timeout 120 bash -c 'until curl -sf http://localhost:8082/status >/dev/null; do sleep 3; done'
             adb uninstall com.checkcoast.tenerife || true
             adb install /tmp/dev-client.apk
