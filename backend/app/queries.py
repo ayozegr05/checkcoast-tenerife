@@ -53,6 +53,12 @@ _CAUSE_CLUSTER_GAP = timedelta(days=45)
 # persiste hasta reapertura explícita (Benijo: ~2 años cerrada por
 # desprendimientos, solo prensa administrativa esporádica)
 PRESS_ALERT_MAX_AGE = timedelta(days=21)
+# Los 'warning' son señales débiles (susto sin confirmar: medusas,
+# mancha, muestra mala sin cierre): la condición que describen es
+# transitoria — se diluye en días — y el silencio los mata antes.
+# Los hechos confirmados ('pollution', 'closure') aguantan la ventana
+# completa: un vertido real puede ser un problema crónico del emisario
+PRESS_WARN_MAX_AGE = timedelta(days=14)
 # Ventana de gracia: un cierre de prensa fresco gana a un 'open' de
 # Náyade porque los cierres municipales tardan en llegar a Sanidad;
 # pasada la ventana sin seguimiento, gana Sanidad
@@ -538,6 +544,26 @@ def _press_event(items: list[NewsItem]) -> NewsItem | None:
     return None
 
 
+_VOTING_TYPES = ("closure", "warning", "pollution", "reopening", "resolved")
+
+
+def _still_fresh(item: NewsItem, now: datetime) -> bool:
+    """¿Sigue contando el ítem como evidencia vigente? Caducidad por
+    tipo de voto: las señales débiles ('warning' — incluido el cierre
+    'partial' que _voting_type rebaja a warning) mueren a los
+    PRESS_WARN_MAX_AGE días sin seguimiento; los hechos confirmados
+    ('pollution', 'closure', 'reopening', 'resolved') aguantan la
+    ventana PRESS_ALERT_MAX_AGE."""
+    if item.published_at is None:
+        return False
+    max_age = (
+        PRESS_WARN_MAX_AGE
+        if _voting_type(item) == "warning"
+        else PRESS_ALERT_MAX_AGE
+    )
+    return item.published_at >= now - max_age
+
+
 def _episode_items(
     its: list[NewsItem], gap: timedelta | None = None
 ) -> list[NewsItem]:
@@ -615,28 +641,13 @@ def effective_states(db: Session) -> dict[int, dict]:
     # (no aviso) por causa estructural, que persiste sin caducar: ni
     # Sanidad ni la prensa repiten la misma noticia cada mes mientras
     # dura una obra o un desprendimiento
-    cutoff = datetime.now(UTC) - PRESS_ALERT_MAX_AGE
+    now = datetime.now(UTC)
     press_state: dict[int, str] = {}
     press_when: dict[int, datetime | None] = {}
     press_cause: dict[int, str | None] = {}
     press_dominant: dict[int, str] = {}
     ep_items: dict[int, list[NewsItem]] = {}
     for beach_id, its in by_beach.items():
-        # Frescura = última noticia que AFIRMA algo del estado (vota):
-        # una mención 'other'/'infra' no prorroga una alerta — las
-        # noticias de las obras del paseo de Olegario (oct-2026)
-        # mantenían vivo un cierre por contaminación de jun-2025
-        newest = next(
-            (
-                i.published_at
-                for i in its
-                if _voting_type(i)
-                in ("closure", "warning", "pollution", "reopening", "resolved")
-            ),
-            None,
-        )
-        if newest is None:
-            continue
         # El episodio vigente arranca tras la última reapertura; el
         # histórico anterior es otra historia y no debe votar la causa
         # ni decidir la persistencia del cierre actual. Para la
@@ -645,16 +656,29 @@ def effective_states(db: Session) -> dict[int, dict]:
         # carabelas no etiqueta un cierre por contaminación)
         ep = _episode_items(its)
         cluster = _episode_items(its, _CAUSE_CLUSTER_GAP)
-        ep_items[beach_id] = ep
-        cause = _press_cause(cluster)
         ev = _press_event(its)
         persists = (
             ev is not None
             and _voting_type(ev) == "closure"
             and _majority_cause(ep) in _STRUCTURAL_CAUSES
         )
-        if not persists and newest < cutoff:
+        # Frescura = última noticia que AFIRMA algo del estado y sigue
+        # dentro de la ventana de su tipo (warning 14 d, resto 21 d):
+        # una mención 'other'/'infra' no prorroga una alerta — las
+        # noticias de las obras del paseo de Olegario (oct-2026)
+        # mantenían vivo un cierre por contaminación de jun-2025
+        newest = next(
+            (
+                i.published_at
+                for i in its
+                if _voting_type(i) in _VOTING_TYPES and _still_fresh(i, now)
+            ),
+            None,
+        )
+        if not persists and newest is None:
             continue
+        ep_items[beach_id] = ep
+        cause = _press_cause(cluster)
         press_cause[beach_id] = cause
         if ev is not None:
             press_state[beach_id] = (

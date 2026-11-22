@@ -46,6 +46,9 @@ PRESS_CLUSTER_GAP = timedelta(days=45)
 # Mismo umbral que PRESS_ALERT_MAX_AGE en /alerts: un cierre de prensa
 # sin reapertura ni mención reciente no se muestra como "activo"
 PRESS_STALE = timedelta(days=21)
+# Y la misma escala por tipo que /alerts: una señal débil ('warning')
+# se da por muerta antes — sustos transitorios, no hechos confirmados
+PRESS_WARN_STALE = timedelta(days=14)
 # Techo de la exención estructural: una obra viva aguanta silencios
 # de meses sin cobertura (nadie repite la misma noticia mientras
 # dura), pero un hueco >6 meses es indistinguible de una reapertura
@@ -245,6 +248,32 @@ def _is_structural(ev: "SynthEvent") -> bool:
     if not cats:
         return False
     return Counter(cats).most_common(1)[0][0] in _STRUCTURAL_CAUSES
+
+
+def _press_stale_for(voting_type: str | None) -> timedelta:
+    """Ventana de silencio por tipo de voto: las señales débiles
+    ('warning') se dan por muertas antes — misma escala que /alerts
+    (PRESS_WARN_MAX_AGE vs PRESS_ALERT_MAX_AGE)."""
+    return PRESS_WARN_STALE if voting_type == "warning" else PRESS_STALE
+
+
+def _ev_stale(ev: "SynthEvent") -> timedelta:
+    """Ventana de silencio del episodio: estructural aguanta
+    STRUCT_STALE; si la última evidencia que votó fue un warning
+    débil, la ventana corta; resto, la larga."""
+    if _is_structural(ev):
+        return STRUCT_STALE
+    latest = max(
+        (
+            n
+            for n in ev.press_items
+            if _voting_type(n)
+            in ("closure", "warning", "pollution", "reopening", "resolved")
+        ),
+        key=lambda n: n.published_at.date() if n.published_at else date.min,
+        default=None,
+    )
+    return _press_stale_for(_voting_type(latest) if latest else "closure")
 
 
 def _overlaps(
@@ -613,7 +642,7 @@ def synthesize_events(
         _voting_type(n)
         in ("closure", "warning", "pollution", "reopening", "resolved")
         and n.published_at is not None
-        and n.published_at.date() >= today - PRESS_STALE
+        and n.published_at.date() >= today - _press_stale_for(_voting_type(n))
         for n in items
     )
     latest_change = next(
@@ -650,7 +679,7 @@ def synthesize_events(
                 if ev is latest_ev and _is_structural(ev):
                     continue
                 last = ev.last_closure or ev.opened_at
-                stale = STRUCT_STALE if _is_structural(ev) else PRESS_STALE
+                stale = _ev_stale(ev)
                 if today - last > stale:
                     ev.closed_at = last
                     ev.end_estimated = True
@@ -726,7 +755,7 @@ def synthesize_events(
         # nadie lo repita) pero tampoco indefinidamente — STRUCT_STALE
         for ev in open_press:
             last = ev.last_closure or ev.opened_at
-            stale = STRUCT_STALE if _is_structural(ev) else PRESS_STALE
+            stale = _ev_stale(ev)
             if today - last > stale:
                 ev.closed_at = last
                 ev.end_estimated = True
