@@ -113,8 +113,11 @@ export function useMapCamera({
   const outfallBottomFor = (sheetOccupied: number, lines: number) => {
     // Aire bajo la etiqueta: 39px para 1-2 líneas; los nombres de 3+
     // aprietan un pelín (quedaban ~13px altos — la etiqueta larga
-    // llena el hueco sola y no necesita el mismo margen)
-    const reserve = lines * 16 + (lines <= 2 ? 39 : 26);
+    // llena el hueco sola y no necesita el mismo margen). Los de 4+
+    // líneas aprietan otro pelín: el grupo pin+etiqueta quedaba tan
+    // alto que el pin mordía el banner superior
+    const margin = lines <= 2 ? 39 : lines === 3 ? 26 : 19;
+    const reserve = lines * 16 + margin;
     const target = viewH - sheetOccupied - reserve;
     return Math.min(viewH - 2 * target + 120, viewH - 180);
   };
