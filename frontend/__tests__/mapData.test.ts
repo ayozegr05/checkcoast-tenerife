@@ -245,6 +245,16 @@ describe('searchMap', () => {
     expect(res[0].members).toHaveLength(3);
   });
 
+  it('token-prefijo: "playa li" encuentra "Playa de Lima" sin casar Caletillas', () => {
+    const lima = [
+      feat('PLAYA LIMA PM1', { municipality: 'Arafo' }),
+      feat('PLAYA CALETILLAS PM1', { municipality: 'Candelaria' }),
+    ];
+    const res = searchMap('playa li', buildBeachGroups(lima), [], lima);
+    expect(res).toHaveLength(1);
+    expect(res[0].label).toMatch(/Lima/);
+  });
+
   it('corta a 8 resultados', () => {
     const many = Array.from({ length: 12 }, (_, i) =>
       feat(`CALA ${String.fromCharCode(65 + i)}`, { municipality: `M${i}` }),

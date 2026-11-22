@@ -8,6 +8,7 @@ import {
   beachBaseName,
   beachPointLabel,
   displayBeachName,
+  matchQuery,
   searchNorm,
 } from './format';
 import {
@@ -206,10 +207,8 @@ export function searchMap(
   // (casa también por el nombre de cualquiera de sus PMs)
   for (const [key, g] of Object.entries(beachGroups)) {
     const label = displayBeachName(beachBaseName(g.rep.properties.name));
-    const hay = searchNorm(
-      [label, ...g.members.map((m) => m.properties.name)].join(' '),
-    );
-    if (hay.includes(q)) {
+    const hay = [label, ...g.members.map((m) => m.properties.name)].join(' ');
+    if (matchQuery(hay, q)) {
       items.push({
         key: `b${key}`,
         kind: 'beach',
@@ -229,7 +228,7 @@ export function searchMap(
     if (g.members.length > 1) {
       for (const m of g.members) {
         const zone = zoneName(m.properties.name);
-        if (zone && searchNorm(zone).includes(q)) {
+        if (zone && matchQuery(zone, q)) {
           items.push({
             key: `z${m.id}`,
             kind: 'beach',
@@ -245,7 +244,7 @@ export function searchMap(
     }
   }
   for (const f of outfalls) {
-    if (searchNorm(f.properties.name ?? '').includes(q)) {
+    if (matchQuery(f.properties.name ?? '', q)) {
       items.push({
         key: `o${f.id}`,
         kind: 'outfall',
@@ -261,7 +260,7 @@ export function searchMap(
       .filter((m): m is string => !!m),
   );
   for (const m of munis) {
-    if (searchNorm(m).includes(q)) {
+    if (matchQuery(m, q)) {
       const pts = beaches.filter((f) => f.properties.municipality === m);
       items.push({
         key: `m${m}`,

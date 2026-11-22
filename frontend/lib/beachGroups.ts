@@ -2,7 +2,7 @@
 // PMs → una fila por playa (nombre base + municipio), orden por estado.
 
 import type { BeachStats, GeoFeature } from './api';
-import { beachBaseName, beachGroupKey, searchNorm } from './format';
+import { beachBaseName, beachGroupKey, matchQuery, searchNorm } from './format';
 import { beachStateKey } from './structural';
 import { zoneName } from './zones';
 
@@ -156,9 +156,10 @@ export const buildGroups = (
   if (q) {
     arr = arr.filter((g) =>
       g.members.some((m) =>
-        searchNorm(
+        matchQuery(
           `${m.properties.name} ${zoneName(m.properties.name) ?? ''}`,
-        ).includes(q),
+          q,
+        ),
       ),
     );
   }

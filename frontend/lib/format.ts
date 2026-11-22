@@ -286,6 +286,19 @@ export const searchNorm = (s: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+// Match de búsqueda por token-prefijo: cada palabra de la query
+// debe coincidir con el inicio de alguna palabra del nombre. El
+// substring simple exigía contigüidad y fallaba en "playa li" →
+// "Playa de Lima" (la "de" se interponía); el includes-por-token
+// casaba demasiado ("li" → Caletillas). Prefijo es el punto medio
+export const matchQuery = (haystack: string, q: string) => {
+  const words = searchNorm(haystack).split(' ');
+  return searchNorm(q)
+    .split(' ')
+    .filter(Boolean)
+    .every((t) => words.some((w) => w.startsWith(t)));
+};
+
 // Etiqueta del punto de muestreo dentro de su playa: "PM3"; si la
 // playa se subdivide por romano (Troya I/II) se antepone: "II · PM3"
 export const beachPointLabel = (name: string) => {

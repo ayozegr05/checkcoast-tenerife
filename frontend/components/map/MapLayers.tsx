@@ -817,11 +817,15 @@ export default function MapLayers({
           y ningún pin/etiqueta lo tapa (antes vivía dentro de la
           fuente de emisarios, que pinta antes que todas las de playa)
           — tamaño fijo grande, igual que el pin de playa seleccionada */}
+      {/* El pin seleccionado se dibuja solo en esta fuente (la base
+          excluye sel para no duplicar): sin onPress propio el pin
+          grande quedaba ciego al tap — no reabría la ficha */}
       {showOutfalls && (
         <GeoJSONSource
           id="outfall-selected"
           key={selMountKey}
           data={visibleOutfalls}
+          onPress={(e) => onPressFeature('outfall', e)}
         >
           <Layer
             id="outfall-icon-selected"
