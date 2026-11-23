@@ -984,6 +984,20 @@ def beach_incidents(
     for grp in groups:
         row = grp[-1]  # el acta más reciente aporta obs y url
         opened, closed = grp[0].opened_at, row.closed_at
+        # Náyade escribe un par por acta: la prohibición + una nota
+        # "Sin Calificar" con las mismas fechas. La nota que sombrea
+        # un acta real es el mismo episodio — como fila propia
+        # duplicaba el historial entero (Jardín: cada cierre, dos
+        # veces). Solo sobrevive la nota sin acta hermana (Gaviotas:
+        # es el único registro oficial del suceso)
+        if is_ungraded_note(row.observations) and any(
+            other is not row
+            and not is_ungraded_note(other.observations)
+            and other.opened_at <= (closed or today)
+            and (other.closed_at or today) >= opened
+            for other in rows
+        ):
+            continue
         # Titulares de la ventana ±7 d que corroboran la
         # incidencia oficial — la fila los despliega como
         # evidencia ("según prensa")
