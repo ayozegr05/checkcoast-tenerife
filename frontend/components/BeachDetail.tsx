@@ -320,7 +320,9 @@ export default function BeachDetail({
   const statusText =
     unmonitored && !hasAlert
       ? BEACH_STATE_LABEL_LONG.unmonitored
-      : (BEACH_STATE_LABEL_LONG[beachKey] ?? 'Sin datos oficiales');
+      : p.not_enforced
+        ? 'Cierre no ejecutado'
+        : (BEACH_STATE_LABEL_LONG[beachKey] ?? 'Sin datos oficiales');
   const statusColor =
     unmonitored && !hasAlert
       ? colors.status.unmonitored
@@ -375,6 +377,14 @@ export default function BeachDetail({
     news?.summary.event_type === 'closure' &&
     !pressStillClosed &&
     !pressEpisodeOpen;
+  // Cierre de papel: algún titular del episodio afirma que la playa
+  // nunca se cerró ("sigue abierta al baño") — la reapertura se narra
+  // como levantamiento de la prohibición, no como playa reabierta
+  const pressNotEnforced = (
+    news?.episode_items && news.episode_items.length > 0
+      ? news.episode_items
+      : (news?.items ?? [])
+  ).some((n) => n.closure_not_enforced);
   const press =
     news !== null &&
     news.items.length > 0 &&
@@ -385,6 +395,7 @@ export default function BeachDetail({
           episodeStart: pressEpisodeSpan?.start ?? null,
           siblingPm: news.summary.attributed_pm,
           beachName: p.name,
+          notEnforced: pressNotEnforced,
         })
       : null;
   const pressReopened = press?.tone === 'reopened';
@@ -493,6 +504,15 @@ export default function BeachDetail({
           </Pressable>
         )}
       </View>
+
+      {/* Cierre de papel: el estado efectivo ya es aviso (naranja)
+          pero el chip dice por qué — Sanidad prohibió y la prensa
+          documenta que el ayuntamiento nunca la cerró */}
+      {p.not_enforced ? (
+        <Text style={styles.notEnforcedNote}>
+          Sanidad prohibió el baño · según prensa el ayuntamiento nunca la cerró
+        </Text>
+      ) : null}
 
       {press !== null && (
         <PressBanner
@@ -635,6 +655,12 @@ const styles = StyleSheet.create({
   shareIcon: {
     width: 13,
     height: 13,
+  },
+  notEnforcedNote: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 6,
   },
   qualityCard: {
     marginTop: 10,

@@ -38,6 +38,10 @@ class EventExtraction:
     # Inicio real del evento según el texto ("cerrada desde julio de
     # 2024" → "2024-07"), no la fecha de publicación. ISO parcial
     closed_since: str | None = None
+    # El texto afirma que el cierre/prohibición declarado NUNCA se
+    # ejecutó en la playa ("sigue abierta al baño", "sin que se haya
+    # cerrado"): el cierre existió en el registro, no en la arena
+    closure_not_enforced: bool | None = None
     # Cita literal comprobada contra el texto enviado, no una explicación
     # inventada por el modelo. Se conserva para poder revisar la decisión.
     evidence_quote: str | None = None
@@ -147,6 +151,7 @@ SCHEMA = {
         "cause": {"type": "STRING", "nullable": True},
         "scope": {"type": "STRING", "nullable": True},
         "closed_since": {"type": "STRING", "nullable": True},
+        "closure_not_enforced": {"type": "BOOLEAN", "nullable": True},
         "confidence": {"type": "NUMBER"},
         "evidence_quote": {"type": "STRING", "nullable": True},
     },
@@ -274,7 +279,13 @@ def supported_event(
         return ext
     if _body_supports(pattern, body, ext.beach_name or "", anti):
         return ext
-    return replace(ext, event_type="other", scope=None, closed_since=None)
+    return replace(
+        ext,
+        event_type="other",
+        scope=None,
+        closed_since=None,
+        closure_not_enforced=None,
+    )
 
 
 PROMPT = """\
@@ -415,6 +426,13 @@ Si relevant=true extrae:
   closed_since: marca event_type según el estado actual del texto
   (reopening si ya está abierta, other si es mera historia). Si no se
   indica → null
+- closure_not_enforced: TRUE solo cuando el texto afirma que la playa
+  SIGUIÓ ABIERTA pese a un cierre o prohibición declarado — la
+  autoridad no llegó a ejecutarlo ("sigue abierta al baño", "sin que
+  se haya cerrado", "no llegó a cerrarse", "permaneció abierta", "el
+  ayuntamiento no la cerró"). Es una afirmación fuerte contra el
+  registro oficial: exige que el texto lo diga explícitamente, no
+  basta con que no se mencione el cierre. null en cualquier otro caso
 - confidence: 0-1, confianza en que el titular describe ese evento en esa playa
 """
 
@@ -617,6 +635,7 @@ class GeminiExtractor:
                 "facility",
             ):
                 scope = None
+            cne = data.get("closure_not_enforced")
             return EventExtraction(
                 relevant=bool(data["relevant"]),
                 confidence=float(data.get("confidence") or 0.0),
@@ -626,6 +645,7 @@ class GeminiExtractor:
                 cause=canonicalize_cause(data.get("cause")),
                 scope=scope,
                 closed_since=closed_since,
+                closure_not_enforced=cne if isinstance(cne, bool) else None,
                 evidence_quote=literal_evidence(
                     data.get("evidence_quote"), article
                 ),

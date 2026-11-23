@@ -78,6 +78,42 @@ describe('pressSummary — ciclo de vida del cierre', () => {
     );
   });
 
+  it('cierre de papel: "prohibición levantada", nunca "reabierta"', () => {
+    // Teresitas PM2: la prensa documenta que el ayuntamiento nunca
+    // ejecutó la prohibición — "reabierta" afirmaría un cierre que
+    // no existió
+    const r = pressSummary(
+      summary({ cause: 'contaminación', since: '2026-11-16T08:00:00Z' }),
+      {
+        stillClosed: false,
+        reopenedAt: '2026-11-23',
+        notEnforced: true,
+        now: new Date('2026-11-24T12:00:00Z'),
+      },
+    );
+    expect(r.tone).toBe('reopened');
+    expect(r.main).toBe('Prohibición levantada el 23/11/2026');
+    expect(r.sub).toBe(
+      'según prensa · 9 medios · el ayuntamiento nunca la cerró',
+    );
+  });
+
+  it('cierre de papel en zona hermana nombra la cala', () => {
+    const r = pressSummary(
+      summary({ cause: 'contaminación', since: '2026-11-16T08:00:00Z' }),
+      {
+        stillClosed: false,
+        reopenedAt: '2026-11-23',
+        notEnforced: true,
+        siblingPm: 'PM4',
+        beachName: 'PLAYA JARDIN PM1',
+        now: new Date('2026-11-24T12:00:00Z'),
+      },
+    );
+    expect(r.main).toContain('prohibición levantada el 23/11/2026');
+    expect(r.main).not.toContain('reabrió');
+  });
+
   it('reapertura de hace >7d: vuelve al modo pasado normal', () => {
     const r = pressSummary(summary({}), {
       stillClosed: false,

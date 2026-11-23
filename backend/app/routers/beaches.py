@@ -219,6 +219,11 @@ def list_beaches(db: Session = Depends(get_db)) -> FeatureCollection:
                     "alert_structural": eff.get(beach.id, {}).get(
                         "structural", False
                     ),
+                    # Cierre de papel: ≥2 medios afirman que nunca se
+                    # ejecutó — pin naranja con etiqueta propia
+                    "not_enforced": eff.get(beach.id, {}).get(
+                        "not_enforced", False
+                    ),
                     "reported_at": (
                         status.reported_at.isoformat() if status else None
                     ),
@@ -370,6 +375,7 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                     "last_year": 0,
                     "recon": 0,
                     "lab": 0,
+                    "not_enforced": 0,
                 },
             )
             if not any(e.via == "official" for e in g):
@@ -382,6 +388,8 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                     c["lab"] += 1
             elif any(e.kind == "closure" for e in g):
                 c["closures"] += 1
+                if any(e.not_enforced for e in g):
+                    c["not_enforced"] += 1
                 if min(e.start for e in g) >= year_ago:
                     c["last_year"] += 1
             else:
@@ -396,6 +404,7 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                 "last_year": 0,
                 "recon": 0,
                 "lab": 0,
+                "not_enforced": 0,
             },
         )
         bad = sum(
@@ -427,6 +436,7 @@ def beach_stats(db: Session = Depends(get_db)) -> list[BeachStatsOut]:
                 latest_sampled_at=latest.sampled_at if latest else None,
                 reconstructed=c["recon"],
                 lab_episodes=c["lab"],
+                not_enforced_closures=c["not_enforced"],
                 own_closures=own_counts.get(beach.id, {}).get("closures", 0),
                 own_warnings=own_counts.get(beach.id, {}).get("warnings", 0),
                 own_lab=own_counts.get(beach.id, {}).get("lab", 0),
@@ -479,6 +489,7 @@ def _news_out(n: NewsItem) -> NewsItemOut:
         # Sin cifras de laboratorio: el valor vive en la gráfica, en
         # etiquetas y banners solo ensucia
         cause=clean_cause_text(n.cause),
+        closure_not_enforced=n.closure_not_enforced,
     )
 
 
@@ -710,6 +721,11 @@ def _collect_episodes(
                     ),
                     titles=frozenset(n.title for n in press_items if n.title),
                     press_items=list(press_items),
+                    # La prensa de la ventana afirma que el cierre
+                    # declarado nunca se ejecutó en la playa
+                    not_enforced=any(
+                        n.closure_not_enforced for n in press_items
+                    ),
                 )
             )
     synth_id = -1
@@ -754,6 +770,9 @@ def _collect_episodes(
                         n.title for n in ev.press_items if n.title
                     ),
                     press_items=list(ev.press_items),
+                    not_enforced=any(
+                        n.closure_not_enforced for n in ev.press_items
+                    ),
                 )
             )
             synth_id -= 1
@@ -877,6 +896,7 @@ def _merged_episode_rows(
                 ),
                 default=None,
             ),
+            not_enforced=m.not_enforced,
             press_items=(
                 [_news_out(n) for n in m.press_items] if with_press else []
             ),
@@ -978,6 +998,7 @@ def beach_incidents(
                 observations=obs,
                 source_url=row.source_url,
                 press_items=press_items,
+                not_enforced=any(n.closure_not_enforced for n in press_rows),
             )
         )
     synth_id = -1
@@ -1132,6 +1153,9 @@ def beach_incidents(
                         reverse=True,
                     )
                 ],
+                not_enforced=any(
+                    n.closure_not_enforced for n in ev.press_items
+                ),
             )
         )
         synth_id -= 1

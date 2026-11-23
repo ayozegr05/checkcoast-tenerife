@@ -98,12 +98,23 @@ def _messages(
     ]
 
 
-def notify_beach_status(db: Session, beach: Beach, state: BeachState) -> int:
+def notify_beach_status(
+    db: Session,
+    beach: Beach,
+    state: BeachState,
+    not_enforced: bool = False,
+) -> int:
     """Push a todos los dispositivos registrados al cambiar el estado
     oficial de una playa."""
-    tokens, messages = _messages(
-        db, beach, f"{_STATE_LABEL[state]} · {{muni}}"
-    )
+    # Cierre de papel levantado: "reapertura" afirmaría un cierre
+    # físico que la prensa dice que nunca se ejecutó
+    if state is BeachState.open and not_enforced:
+        body = (
+            "Prohibición levantada — el ayuntamiento nunca la cerró · {muni}"
+        )
+    else:
+        body = f"{_STATE_LABEL[state]} · {{muni}}"
+    tokens, messages = _messages(db, beach, body)
     return _send(db, tokens, messages) if tokens else 0
 
 
@@ -128,7 +139,9 @@ def _batch_body(beaches: list[Beach]) -> str:
 
 
 def notify_beach_states(
-    db: Session, changes: list[tuple[Beach, BeachState]]
+    db: Session,
+    changes: list[tuple[Beach, BeachState]],
+    not_enforced_ids: set[int] | None = None,
 ) -> int:
     """Push de una pasada de cambios oficiales. ≤3 playas del mismo
     tipo → push individual por playa; ≥4 → un único push agregado
@@ -141,7 +154,14 @@ def notify_beach_states(
     for state, beaches in groups.items():
         if len(beaches) < _AGG_MIN:
             for b in beaches:
-                sent += notify_beach_status(db, b, state)
+                sent += notify_beach_status(
+                    db,
+                    b,
+                    state,
+                    not_enforced=bool(
+                        not_enforced_ids and b.id in not_enforced_ids
+                    ),
+                )
             continue
         tokens = [t for (t,) in db.query(DeviceToken.token).all()]
         if not tokens:

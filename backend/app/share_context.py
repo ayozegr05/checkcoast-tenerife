@@ -956,6 +956,8 @@ def _incident_ctxs(beach: Beach, db: Session) -> dict | None:
             notes.append(
                 f"Ocurrió en la {_sibling_zone_ref(beach, i.attributed_pm)}"
             )
+        if getattr(i, "not_enforced", False):
+            notes.append("El ayto. no la cerró (según prensa)")
         if i.observations:
             if not re.search(r"sin\s*calificar", i.observations, re.I):
                 # Una cláusula por línea: la fila respira y ninguna
@@ -1135,6 +1137,11 @@ def beach_context(
     )
 
     label, color = _STATUS.get(state, _STATUS["unknown"])
+    # Cierre de papel: la matriz ya bajó el rojo a aviso (naranja),
+    # pero "Aviso activo" no cuenta por qué — la etiqueta nombra el
+    # hecho (la prensa documenta que el ayto. nunca la cerró)
+    if eff is not None and eff.get("not_enforced") and state == "warning":
+        label = "Cierre no ejecutado"
 
     measurements = (
         db.query(BeachMeasurement)
@@ -1554,6 +1561,12 @@ def beach_context(
         closed_after = (
             reopening_grp[-1].closed_at if reopening_grp else press_reopen
         )
+        # Cierre de papel: la prensa del episodio afirma que el
+        # ayuntamiento nunca ejecutó la prohibición — "reabrió"
+        # afirmaría un cierre físico que no existió
+        ep_not_enforced = any(
+            getattr(it, "closure_not_enforced", None) for it in banner_items
+        )
         if (
             reopening_grp
             and reopening_grp[0].opened_at
@@ -1568,11 +1581,19 @@ def beach_context(
             # el fin lo documenta un acta; en episodios solo-prensa la
             # reapertura la contaron los medios (la etiqueta del banner
             # ya dice "según prensa")
-            line += (
-                f" · Sanidad la reabrió el {closed_after.strftime('%d/%m/%Y')}"
-                if reopening_grp
-                else f" · reabrió el {closed_after.strftime('%d/%m/%Y')}"
-            )
+            if ep_not_enforced:
+                line += (
+                    " · Sanidad levantó la prohibición el"
+                    f" {closed_after.strftime('%d/%m/%Y')} — el"
+                    " ayuntamiento nunca la cerró"
+                )
+            else:
+                line += (
+                    " · Sanidad la reabrió el"
+                    f" {closed_after.strftime('%d/%m/%Y')}"
+                    if reopening_grp
+                    else f" · reabrió el {closed_after.strftime('%d/%m/%Y')}"
+                )
         # Espejo de la app: un CIERRE ya resuelto no se narra arriba
         # cuando la reapertura tiene >7 d — el episodio vive en
         # Episodios y enseñarlo en caja repetía la tarjeta y leía
@@ -3058,7 +3079,15 @@ def home_context(db: Session, demo: bool = False) -> dict:
             {
                 "beach_id": n.beach_id,
                 "name": dname,
-                "when": _alert_when("reabierta", n.published_at, now),
+                "when": _alert_when(
+                    (
+                        "prohibición levantada · el ayto. no la cerró"
+                        if n.closure_not_enforced
+                        else "reabierta"
+                    ),
+                    n.published_at,
+                    now,
+                ),
             }
         )
         if len(reopened) >= 6:

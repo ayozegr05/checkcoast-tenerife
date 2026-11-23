@@ -45,6 +45,10 @@ class NewsItemOut(BaseModel):
     published_at: datetime | None
     event_type: str | None
     cause: str | None
+    # El texto afirma que el cierre declarado nunca se ejecutó
+    # ("siguió abierta al baño") — la UI lo cuenta como evidencia
+    # "según prensa" del cierre de papel
+    closure_not_enforced: bool | None = None
 
 
 class BeachIncidentOut(BaseModel):
@@ -78,6 +82,9 @@ class BeachIncidentOut(BaseModel):
     # opened_at original del acta cuando start_via_press adelantó el
     # inicio — procedencia completa a la vista
     official_opened_at: date | None = None
+    # La prensa documenta que el cierre declarado nunca se ejecutó —
+    # la fila del historial lo etiqueta "el ayto. no la cerró"
+    not_enforced: bool = False
 
 
 class MunicipalityIncidentOut(BaseModel):
@@ -120,6 +127,9 @@ class MunicipalityIncidentOut(BaseModel):
     # caduca, y la UI avisa "sin noticias desde 2018" para que el
     # lector juzgue la vigencia
     last_news_at: date | None = None
+    # La prensa del episodio afirma que el cierre nunca se ejecutó —
+    # la UI lo etiqueta y no lo cuenta como cierre real
+    not_enforced: bool = False
 
 
 class BeachMeasurementOut(BaseModel):
@@ -158,6 +168,9 @@ class BeachStatsOut(BaseModel):
     # multi-PM (Playa Jardín) comparten la prensa replicada — cada
     # sub-fila de la lista muestra lo suyo
     own_closures: int = 0
+    # Cierres contados cuya prensa afirma que nunca se ejecutaron —
+    # el contador los distingue: "N cierres (M nunca ejecutados)"
+    not_enforced_closures: int = 0
     own_warnings: int = 0
     own_lab: int = 0
     # Episodios de agua del PM: incidencias oficiales (Sanidad solo
@@ -331,3 +344,6 @@ class AlertOut(BaseModel):
     source_url: str | None
     longitude: float
     latitude: float
+    # Cierre declarado que la prensa dice que nunca se ejecutó —
+    # llega como warning con esta marca para la etiqueta propia
+    not_enforced: bool = False

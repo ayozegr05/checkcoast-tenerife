@@ -312,7 +312,11 @@ export default function AlertsBanner({
                   accessibilityRole="button"
                   accessibilityLabel={`${displayBeachName(
                     ep.beach_name,
-                  )}${zone ? ` · ${zone}` : ''}, reabierta`}
+                  )}${zone ? ` · ${zone}` : ''}, ${
+                    ep.not_enforced
+                      ? 'prohibición levantada, el ayuntamiento nunca la cerró'
+                      : 'reabierta'
+                  }`}
                 >
                   <View
                     style={[
@@ -333,11 +337,12 @@ export default function AlertsBanner({
                     <Text
                       style={[styles.alertState, { color: colors.status.open }]}
                     >
-                      Reabierta
+                      {ep.not_enforced ? 'Levantada' : 'Reabierta'}
                     </Text>
                     <Text style={styles.alertCause} numberOfLines={1}>
-                      {ep.closed_at ? fmtDate(ep.closed_at) : ''} ·{' '}
-                      {formatDays(resolvedDays(ep))} cerrada
+                      {ep.not_enforced
+                        ? `${ep.closed_at ? fmtDate(ep.closed_at) : ''} · el ayto. no la cerró`
+                        : `${ep.closed_at ? fmtDate(ep.closed_at) : ''} · ${formatDays(resolvedDays(ep))} cerrada`}
                     </Text>
                   </View>
                 </Pressable>

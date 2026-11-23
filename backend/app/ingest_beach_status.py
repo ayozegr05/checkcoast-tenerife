@@ -537,14 +537,18 @@ def run() -> tuple[int, int]:
         # warning mientras la prensa la mantiene cerrada
         from app.notify import notify_beach_states
 
+        eff_now = effective_states(db)
         eff_changes = [
             (beaches_by_id[bid], BeachState(s["status"]))
-            for bid, s in effective_states(db).items()
+            for bid, s in eff_now.items()
             if eff_before.get(bid) != s["status"]
             and s["status"] in BeachState._value2member_map_
             and bid in beaches_by_id
         ]
-        notify_beach_states(db, eff_changes)
+        # Cierre de papel que se levanta: el push no dice "reapertura"
+        # — la prensa documenta que el ayuntamiento nunca la cerró
+        ne_ids = {bid for bid, s in eff_now.items() if s.get("not_enforced")}
+        notify_beach_states(db, eff_changes, not_enforced_ids=ne_ids)
     except Exception:
         db.rollback()
         raise

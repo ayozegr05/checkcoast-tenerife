@@ -42,6 +42,10 @@ export type GeoFeature = {
     // causa oficial) — distinto de alert_cause, que gana por
     // especificidad y puede nombrar una causa minoritaria
     alert_structural?: boolean | null;
+    // Cierre de papel: Sanidad la declaró cerrada pero ≥2 medios
+    // afirman que el ayuntamiento nunca la cerró — naranja con
+    // etiqueta propia, no rojo
+    not_enforced?: boolean | null;
     source_url?: string | null;
     fetched_at?: string | null;
     reported_at?: string | null;
@@ -85,6 +89,9 @@ export type BeachIncident = {
   // opened_at original del acta cuando start_via_press adelantó el
   // inicio — procedencia completa a la vista
   official_opened_at?: string | null;
+  // La prensa documenta que el cierre declarado nunca se ejecutó —
+  // la fila lo etiqueta "el ayto. no la cerró"
+  not_enforced?: boolean;
 };
 
 export type BeachMeasurement = {
@@ -137,6 +144,9 @@ export type MunicipalityIncident = {
   // despliega ("Ver titulares"), igual que en la ficha de playa.
   // Solo /incidents la emite; /episodes insular va sin ella
   press_items?: BeachNews[];
+  // La prensa del episodio afirma que el cierre nunca se ejecutó —
+  // la fila lo etiqueta y no cuenta como cierre real
+  not_enforced?: boolean;
 };
 
 // Objetivo de deep-link dentro de la ficha de playa: el episodio
@@ -177,6 +187,9 @@ export type BeachStats = {
   own_closures?: number;
   own_warnings?: number;
   own_lab?: number;
+  // Cierres cuya prensa afirma que nunca se ejecutaron — el contador
+  // los distingue ("N cierres (M nunca ejecutados)")
+  not_enforced_closures?: number;
 };
 
 export type BeachNearbyOutfall = {
@@ -199,6 +212,9 @@ export type BeachNews = {
   // closure|reopening|resolved|warning|pollution|other
   event_type: string | null;
   cause: string | null;
+  // El titular afirma que el cierre declarado nunca se ejecutó
+  // ("sigue abierta al baño") — evidencia del cierre de papel
+  closure_not_enforced?: boolean | null;
 };
 
 export type BeachNewsSummary = {
@@ -311,6 +327,9 @@ export type Alert = {
   municipality: string | null;
   status: 'closed' | 'warning';
   via?: 'official' | 'press'; // press = cierre dominante en noticias
+  // Cierre declarado que la prensa dice que nunca se ejecutó —
+  // llega como warning con esta marca para la etiqueta propia
+  not_enforced?: boolean;
   reported_at: string | null;
   source_url: string | null;
   longitude: number;

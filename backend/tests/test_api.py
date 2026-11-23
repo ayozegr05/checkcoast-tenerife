@@ -974,6 +974,130 @@ def test_effective_status_resolved_suppresses_stale_official(seed_data):
         db.close()
 
 
+def test_closure_not_enforced_downgrades_to_warning(seed_data):
+    """Cierre de papel: oficial 'closed' vigente + ≥2 medios del
+    episodio afirmando que el ayuntamiento nunca la cerró ("sigue
+    abierta al baño") → efectivo 'warning' con marca, no 'closed'
+    — el rojo afirmaría una playa inaccesible que la prensa niega.
+    Un solo medio no basta para desactivar una prohibición."""
+    from datetime import date, datetime, timedelta
+
+    from app.db import SessionLocal
+    from app.models import (
+        BeachMeasurement,
+        BeachState,
+        BeachStatus,
+        NewsItem,
+    )
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    now = datetime.now(UTC)
+    status = BeachStatus(
+        beach_id=beach_id,
+        status=BeachState.closed,
+        reported_at=now,
+    )
+    meas = BeachMeasurement(
+        beach_id=beach_id,
+        sampled_at=date.today() - timedelta(days=2),
+        evaluation="Zona donde queda prohibido el baño temporalmente",
+    )
+    ne1 = NewsItem(
+        url="https://news.test/pytest-ne-1",
+        title="E. coli por encima del límite y sigue abierta al baño",
+        source="Medio Uno",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="warning",
+        cause="contaminación",
+        closure_not_enforced=True,
+        published_at=now - timedelta(days=1),
+    )
+    ne2 = NewsItem(
+        url="https://news.test/pytest-ne-2",
+        title="La playa permanece abierta pese a la prohibición",
+        source="Medio Dos",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="warning",
+        cause="contaminación",
+        closure_not_enforced=True,
+        published_at=now - timedelta(hours=12),
+    )
+    db.add_all([status, meas, ne1, ne2])
+    db.commit()
+    try:
+        features = client.get("/beaches").json()["features"]
+        feat = next(f for f in features if f["id"] == beach_id)
+        assert feat["properties"]["status"] == "warning"
+        assert feat["properties"]["not_enforced"] is True
+        alerts = client.get("/alerts").json()
+        hit = next((a for a in alerts if a["beach_id"] == beach_id), None)
+        assert hit is not None
+        assert hit["status"] == "warning"
+        assert hit["not_enforced"] is True
+    finally:
+        db.delete(status)
+        db.delete(meas)
+        db.delete(ne1)
+        db.delete(ne2)
+        db.commit()
+        db.close()
+
+
+def test_closure_not_enforced_single_outlet_keeps_closed(seed_data):
+    """El flag exige corroboración (≥2 medios): un solo titular
+    "sigue abierta" no desactiva una prohibición sanitaria."""
+    from datetime import date, datetime, timedelta
+
+    from app.db import SessionLocal
+    from app.models import (
+        BeachMeasurement,
+        BeachState,
+        BeachStatus,
+        NewsItem,
+    )
+
+    beach_id = seed_data["beach_id"]
+    db = SessionLocal()
+    now = datetime.now(UTC)
+    status = BeachStatus(
+        beach_id=beach_id,
+        status=BeachState.closed,
+        reported_at=now,
+    )
+    meas = BeachMeasurement(
+        beach_id=beach_id,
+        sampled_at=date.today() - timedelta(days=2),
+        evaluation="Zona donde queda prohibido el baño temporalmente",
+    )
+    ne = NewsItem(
+        url="https://news.test/pytest-ne-solo",
+        title="Sigue abierta al baño pese al aviso",
+        source="Medio Uno",
+        relevant=True,
+        beach_id=beach_id,
+        event_type="warning",
+        cause="contaminación",
+        closure_not_enforced=True,
+        published_at=now - timedelta(days=1),
+    )
+    db.add_all([status, meas, ne])
+    db.commit()
+    try:
+        features = client.get("/beaches").json()["features"]
+        feat = next(f for f in features if f["id"] == beach_id)
+        assert feat["properties"]["status"] == "closed"
+        assert feat["properties"]["not_enforced"] is False
+    finally:
+        db.delete(status)
+        db.delete(meas)
+        db.delete(ne)
+        db.commit()
+        db.close()
+
+
 def test_sea_state_reopening_does_not_suppress_official(seed_data):
     """Un "reabre tras el temporal" no es evidencia de reapertura por
     calidad del agua: el cierre preventivo por oleaje quedó fuera del
@@ -1501,7 +1625,7 @@ def test_push_aggregates_many_closures(monkeypatch):
     monkeypatch.setattr(
         notify,
         "notify_beach_status",
-        lambda db_, b, s: individual.append(s) or 1,
+        lambda db_, b, s, **kw: individual.append(s) or 1,
     )
 
     changes = [(_beach(i), BeachState.closed) for i in range(5)]
@@ -1531,7 +1655,7 @@ def test_push_few_changes_stay_individual(monkeypatch):
     monkeypatch.setattr(
         notify,
         "notify_beach_status",
-        lambda db_, b, s: individual.append(s) or 1,
+        lambda db_, b, s, **kw: individual.append(s) or 1,
     )
     db = SessionLocal()
     try:

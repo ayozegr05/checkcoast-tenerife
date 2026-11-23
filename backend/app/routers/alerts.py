@@ -57,6 +57,7 @@ def list_alerts(db: Session = Depends(get_db)) -> list[AlertOut]:
                 source_url=e["source_url"],
                 longitude=lon,
                 latitude=lat,
+                not_enforced=e.get("not_enforced", False),
             )
         )
     return alerts

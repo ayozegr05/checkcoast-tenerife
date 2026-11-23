@@ -245,6 +245,11 @@ class NewsItem(Base):
     # como 'whole' (conservador: lo extraído antes del campo es lo
     # que ya cerraba la playa)
     scope: Mapped[str | None] = mapped_column(String(20))
+    # El texto afirma que el cierre/prohibición declarado nunca se
+    # ejecutó ("sigue abierta al baño", "sin que se haya cerrado"):
+    # el cierre existió en el registro, no en la arena. NULL = el
+    # texto no dice nada al respecto (la inmensa mayoría)
+    closure_not_enforced: Mapped[bool | None] = mapped_column()
     evidence_quote: Mapped[str | None] = mapped_column(Text)
     extracted_beach: Mapped[str | None] = mapped_column(String(255))
     extracted_municipality: Mapped[str | None] = mapped_column(String(120))

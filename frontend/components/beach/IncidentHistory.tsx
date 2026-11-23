@@ -335,6 +335,13 @@ export default function IncidentHistory({
                 {`Inicio según prensa${inc.official_opened_at ? ` · acta ${fmtDate(inc.official_opened_at)}` : ''}`}
               </Text>
             ) : null}
+            {/* Cierre de papel: la prensa documenta que el ayuntamiento
+                nunca ejecutó la prohibición declarada por Sanidad */}
+            {inc.not_enforced ? (
+              <Text style={styles.incidentObs}>
+                El ayto. no la cerró (según prensa)
+              </Text>
+            ) : null}
             {/* Evidencia del episodio: titulares que lo
               sustentan (prensa) o lo corroboraron (oficial) */}
             {pressItems.length > 0 && (
@@ -426,6 +433,10 @@ export default function IncidentHistory({
   // afirmaría un acto administrativo que no podemos demostrar
   const labN = own.filter(isMuteLab).length;
   const totalC = own.filter(isClosure).length;
+  // Cierres de papel dentro del propio conteo: la prensa documenta
+  // que nunca se ejecutaron — van matizados aparte, no inflan la
+  // cifra de cierres reales sin contexto
+  const neAll = own.filter((i) => isClosure(i) && i.not_enforced).length;
   const totalW = own.filter(
     (i) => !isClosure(i) && !isUnclassified(i) && !isMuteLab(i),
   ).length;
@@ -497,6 +508,8 @@ export default function IncidentHistory({
                 {' sin calificar'}
               </>
             )}
+            {neAll > 0 &&
+              ` · ${neAll} nunca ejecutado${neAll === 1 ? '' : 's'} según prensa`}
           </Text>
         ) : (
           <>
@@ -521,6 +534,12 @@ export default function IncidentHistory({
                 <Text style={styles.historyStat}>
                   <Text style={styles.historySummaryNum}>{uncl}</Text>
                   {` sin calificar`}
+                </Text>
+              )}
+              {neAll > 0 && (
+                <Text style={styles.historyStat}>
+                  <Text style={styles.historySummaryNum}>{neAll}</Text>
+                  {` nunca ejecutado${neAll === 1 ? '' : 's'} (según prensa)`}
                 </Text>
               )}
             </View>

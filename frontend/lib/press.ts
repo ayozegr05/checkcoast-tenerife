@@ -70,6 +70,10 @@ export const pressSummary = (
     // volvería a mezclar afirmaciones sin filtrar (Jardín: la orden
     // de cierre de junio nunca ejecutada colaría un inicio falso)
     episodeStart?: string | null;
+    // La prensa del episodio documenta que el cierre declarado nunca
+    // se ejecutó (ayuntamiento no cerró) — la "reapertura" se narra
+    // como levantamiento de la prohibición, no como playa reabierta
+    notEnforced?: boolean;
   },
 ) => {
   const [noun, prep, dmark] = NEWS_EVENT_LINE[s.event_type ?? 'other'] ?? [
@@ -124,6 +128,17 @@ export const pressSummary = (
     const dur = startIso
       ? ` · ~${formatDays(Math.max(1, Math.round((Date.parse(opts.reopenedAt!.slice(0, 10)) - Date.parse(startIso)) / 86_400_000) + 1))}`
       : '';
+    if (opts.notEnforced) {
+      // Cierre de papel: la prensa dice que el ayuntamiento nunca la
+      // cerró — "reabierta" afirmaría un cierre que no existió
+      return {
+        main: pmShort
+          ? `La ${pmShort}: prohibición levantada el ${fmtDate(opts.reopenedAt!.slice(0, 10))}`
+          : `Prohibición levantada el ${fmtDate(opts.reopenedAt!.slice(0, 10))}`,
+        sub: `según prensa · ${medios} · el ayuntamiento nunca la cerró`,
+        tone: 'reopened' as const,
+      };
+    }
     return {
       main: pmShort
         ? `La ${pmShort} reabrió el ${fmtDate(opts.reopenedAt!.slice(0, 10))}`

@@ -733,9 +733,25 @@ def effective_states(db: Session) -> dict[int, dict]:
                     "cause_via": None,
                 }
                 continue
+            # Cierre "de papel": ≥2 medios del episodio afirman que
+            # el ayuntamiento nunca ejecutó la prohibición declarada
+            # por Sanidad ("sigue abierta al baño"). No desaparece la
+            # alerta — el agua salió mal — pero el rojo afirmaría una
+            # playa inaccesible que la prensa niega: naranja
+            ne_outlets = {
+                i.source
+                for i in ep_items.get(beach.id, [])
+                if i.closure_not_enforced and i.source
+            }
+            not_enforced = (
+                status.status == BeachState.closed and len(ne_outlets) >= 2
+            )
             result[beach.id] = {
+                "not_enforced": not_enforced,
                 # warning oficial + prensa dice cerrada = closed
-                "status": "closed"
+                "status": "warning"
+                if not_enforced
+                else "closed"
                 if press_state.get(beach.id) == "closed"
                 or press_dominant.get(beach.id) == "closure"
                 else status.status.value,

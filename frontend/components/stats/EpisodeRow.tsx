@@ -83,10 +83,16 @@ export default function EpisodeRow({
                 style={[
                   styles.badge,
                   styles.badgeTail,
-                  ep.kind === 'closure' ? badgeTone : styles.badgeWarning,
+                  ep.kind === 'closure' && !ep.not_enforced
+                    ? badgeTone
+                    : styles.badgeWarning,
                 ]}
               >
-                {ep.kind === 'closure' ? 'Cierre vigente' : 'Aviso vigente'}
+                {ep.kind === 'closure'
+                  ? ep.not_enforced
+                    ? 'Prohibición vigente'
+                    : 'Cierre vigente'
+                  : 'Aviso vigente'}
               </Text>
             )}
           </View>
@@ -95,6 +101,7 @@ export default function EpisodeRow({
             {ep.municipality ?? 'Sin municipio'} · {span}
             {open ? '' : ` · ${formatDays(episodeDays(ep))}`}
             {ep.cause ? ` · ${displayCause(ep.cause)}` : ''}
+            {ep.not_enforced ? ' · el ayto. no la cerró' : ''}
             {ep.via === 'press' ? ' · según prensa' : ''}
             {stale ? ` · ${stale}` : ''}
           </Text>

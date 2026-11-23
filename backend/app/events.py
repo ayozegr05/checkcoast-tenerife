@@ -814,6 +814,11 @@ class Episode:
     # temporal municipal los emite como evidencia desplegable
     # ("según prensa"), igual que la fila de Episodios de la ficha
     press_items: list = field(default_factory=list)
+    # La prensa del episodio afirma que el cierre declarado nunca se
+    # ejecutó ("siguió abierta", "el ayuntamiento no la cerró"): el
+    # episodio existe en el registro, no en la arena — la fila lo
+    # etiqueta y no cuenta como cierre real
+    not_enforced: bool = False
     # PMs de las zonas que la prensa nombró en el episodio (complejo
     # multipunto): vacío si el episodio fue genérico — la fila dice
     # la playa a secas solo si el suceso fue de toda la playa
@@ -988,6 +993,9 @@ def merged_episode(g: list[Episode]) -> Episode:
             {n.id: n for e in g for n in e.press_items}.values(),
             key=lambda n: n.published_at or datetime.min,
         ),
+        # Basta un tramo con cierre-no-ejecutado para que el episodio
+        # fusionado lo herede — el flag se contagia al total
+        not_enforced=any(e.not_enforced for e in g),
     )
 
 

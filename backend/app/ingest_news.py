@@ -347,7 +347,13 @@ def _enrich_with_body(
         # El cuerpo no confirma el evento del titular. Conservar contexto
         # evita tanto inventar un cierre como perder la noticia por paywall.
         return (
-            replace(ext, event_type="other", scope=None, closed_since=None),
+            replace(
+                ext,
+                event_type="other",
+                scope=None,
+                closed_since=None,
+                closure_not_enforced=None,
+            ),
             hits,
             True,
             False,
@@ -432,6 +438,7 @@ def _rematch_pending(db, beaches: list[Beach], to_notify: dict) -> int:
                     scope=item.scope,
                     evidence_quote=item.evidence_quote,
                     closed_since=item.closed_since,
+                    closure_not_enforced=item.closure_not_enforced,
                     extracted_beach=item.extracted_beach,
                     extracted_municipality=item.extracted_municipality,
                     confidence=item.confidence,
@@ -558,6 +565,7 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
                             scope=ext.scope,
                             evidence_quote=ext.evidence_quote,
                             closed_since=ext.closed_since,
+                            closure_not_enforced=ext.closure_not_enforced,
                             extracted_beach=ext.beach_name,
                             extracted_municipality=ext.municipality,
                             confidence=ext.confidence,
@@ -580,6 +588,7 @@ def _sync_guia(db, beaches: list[Beach], extractor) -> int:
                         cause=ext.cause,
                         scope=ext.scope,
                         closed_since=ext.closed_since,
+                        closure_not_enforced=ext.closure_not_enforced,
                         extracted_beach=ext.beach_name,
                         extracted_municipality=ext.municipality,
                         confidence=ext.confidence,
@@ -829,6 +838,7 @@ def run(
                     scope=ext.scope,
                     evidence_quote=ext.evidence_quote,
                     closed_since=ext.closed_since,
+                    closure_not_enforced=ext.closure_not_enforced,
                     extracted_beach=ext.beach_name,
                     extracted_municipality=ext.municipality,
                     confidence=ext.confidence,

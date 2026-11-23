@@ -242,6 +242,7 @@ def main() -> None:
                                     event_type=INFRA_EVENT_TYPE,
                                     cause=ext.cause,
                                     closed_since=ext.closed_since,
+                                    closure_not_enforced=ext.closure_not_enforced,
                                     extracted_beach=ext.beach_name,
                                     extracted_municipality=ext.municipality,
                                     confidence=ext.confidence,
