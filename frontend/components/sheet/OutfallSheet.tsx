@@ -50,6 +50,7 @@ import {
   clusterSpan,
   clusterHeadline,
   singleNewsBeach,
+  kindLabel,
   newsCoverageSynthesis,
   denunciaLead,
   FlatNewsItem,
@@ -695,9 +696,7 @@ export default function OutfallSheet({
         .map((s) => s.t)
         .join('')
         .replace(/\.$/, '')
-    : p.kind
-      ? p.kind[0].toUpperCase() + p.kind.slice(1)
-      : null;
+    : kindLabel(p.kind);
 
   // La descripción del censo queda como lead narrativo en gris —
   // es prosa (no un dato atómico) y disfrazarla de fila solo la

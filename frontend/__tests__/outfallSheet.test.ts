@@ -230,6 +230,15 @@ describe('natureParts', () => {
     expect(parts[0].verdictBad).toBe(false);
   });
 
+  it('el veredicto no juzga impacto: depurada a secas, bruto sin tratar', () => {
+    const [t] = natureParts('Residual urbana', 'ETAR X', null, null);
+    expect(t.verdict).toBe('Sale depurada.');
+    expect(t.verdictBad).toBe(false);
+    const [r] = natureParts('Residual urbana', 'EBAR X', null, null);
+    expect(r.verdict).toContain('en bruto (sin tratar)');
+    expect(r.verdictBad).toBe(true);
+  });
+
   it('pretratamiento detectado en la descripción → no es depuradora', () => {
     const parts = natureParts(
       'Residual urbana',

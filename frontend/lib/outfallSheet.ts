@@ -88,6 +88,16 @@ export const protectedAreaNote = (s: string) =>
 // (b) para la negrita. La distancia a la orilla (shore_m, derivada)
 // es lo que importa — el largo del tubo puede empezar tierra
 // adentro y despistar
+// "Instalación/Vertido DPMT" es jerga del censo (dominio público
+// marítimo-terrestre): para el lector es una instalación sobre la
+// propia franja costera
+export const kindLabel = (kind: string | null | undefined): string | null =>
+  kind == null
+    ? null
+    : /dpmt/i.test(kind)
+      ? 'Instalación en la franja costera'
+      : kind[0].toUpperCase() + kind.slice(1);
+
 export const conduitSegs = (
   kind: string | null | undefined,
   shore: number | null | undefined,
@@ -95,7 +105,7 @@ export const conduitSegs = (
   depth: number | null | undefined,
 ): { t: string; b?: boolean }[] | null => {
   const segs: { t: string; b?: boolean }[] = [];
-  if (kind) segs.push({ t: kind[0].toUpperCase() + kind.slice(1) });
+  if (kind) segs.push({ t: kindLabel(kind)! });
   else if (shore != null || length != null || depth != null)
     segs.push({ t: 'La conducción' });
   if (!segs.length) return null;
@@ -148,7 +158,7 @@ export const kpiSegs = (
       l: depth < 0 ? 'bajo el mar' : 'sobre el mar',
     });
   if (!tiles.length) return null;
-  const label = kind ? kind[0].toUpperCase() + kind.slice(1) : 'La conducción';
+  const label = kindLabel(kind) ?? 'La conducción';
   return { lead: `${label} vierte a:`, tiles };
 };
 
@@ -291,15 +301,15 @@ export const natureParts = (
           ? 'solo filtra lo grueso (sólidos, arenas y grasas).'
           : treated || raw
             ? null
-            : 'el riesgo depende del tratamiento: depurada es leve, en bruto es contaminación fecal.',
+            : 'el impacto depende del tratamiento: depurada es menos dañina, en bruto es contaminación fecal.',
       verdict: industrialOnly
         ? null
         : pretreated
           ? 'El agua sale sin depurar.'
           : treated
-            ? 'Sale depurada: impacto leve sobre el agua.'
+            ? 'Sale depurada.'
             : raw
-              ? 'Vierte en bruto: puede llevar contaminación fecal.'
+              ? 'Vierte al mar en bruto (sin tratar): puede llevar contaminación fecal.'
               : null,
       verdictBad: pretreated || raw,
     });

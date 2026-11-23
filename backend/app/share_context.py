@@ -1775,6 +1775,18 @@ def _cap1(s: str) -> str:
     return s[0].upper() + s[1:] if s else s
 
 
+def _kind_label(kind: str | None) -> str | None:
+    """Tipo de conducción para el lector — el censo dice
+    'Instalación/Vertido DPMT' (dominio público marítimo-terrestre):
+    para la ficha es una instalación sobre la franja costera.
+    (port de kindLabel de la app)"""
+    if kind is None:
+        return None
+    if "dpmt" in kind.lower():
+        return "Instalación en la franja costera"
+    return _cap1(kind)
+
+
 def _origin_kind_label(t: str) -> str | None:
     """Sigla del censo -> tipo de instalacion."""
     if t.startswith("EBAR"):
@@ -1871,7 +1883,7 @@ def _conduit_segs(
     profundidad.' — segmentos con marca b=negrita."""
     segs: list[dict] = []
     if kind:
-        segs.append({"t": _cap1(kind)})
+        segs.append({"t": _kind_label(kind)})
     elif shore is not None or length is not None or depth is not None:
         segs.append({"t": "La conducción"})
     if not segs:
@@ -1964,17 +1976,18 @@ def _nature_parts(
                     if pretreated
                     else None
                     if treated or raw
-                    else "el riesgo depende del tratamiento: depurada"
-                    " es leve, en bruto es contaminación fecal."
+                    else "el impacto depende del tratamiento: depurada"
+                    " es menos dañina, en bruto es contaminación fecal."
                 ),
                 "verdict": (
                     None
                     if industrial_only
                     else "El agua sale sin depurar."
                     if pretreated
-                    else "Sale depurada: impacto leve sobre el agua."
+                    else "Sale depurada."
                     if treated
-                    else "Vierte en bruto: puede llevar contaminación fecal."
+                    else "Vierte al mar en bruto (sin tratar): puede"
+                    " llevar contaminación fecal."
                     if raw
                     else None
                 ),
@@ -2521,7 +2534,7 @@ def outfall_context(
     conduit_row = (
         [s for s in conduit if s["t"] != "."]
         if conduit
-        else [{"t": _cap1(outfall.kind)}]
+        else [{"t": _kind_label(outfall.kind)}]
         if outfall.kind
         else None
     )
