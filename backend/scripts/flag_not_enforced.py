@@ -39,6 +39,13 @@ def main() -> int:
     ap.add_argument(
         "--ids", help="ids concretas separadas por coma (salta el regex)"
     )
+    ap.add_argument(
+        "--full",
+        action="store_true",
+        help="aplica la extracción completa (event_type, causa, etc.), "
+        "no solo la marca — para ítems clasificados antes de que "
+        "existiera event_type",
+    )
     args = ap.parse_args()
 
     if not settings.gemini_api_key:
@@ -80,7 +87,23 @@ def main() -> int:
                 f"{it.closure_not_enforced} -> {new} · "
                 f"{(it.title or '')[:80]}"
             )
-            if new != bool(it.closure_not_enforced):
+            if args.full:
+                # Re-extracción completa: el ítem viejo gana tipo y
+                # causa — sin tipo no se casa a ningún episodio y la
+                # marca quedaba huérfana (San Juan PM5)
+                changed += 1
+                if not args.dry_run:
+                    it.event_type = ext.event_type
+                    it.cause = ext.cause
+                    it.closed_since = ext.closed_since
+                    it.scope = ext.scope
+                    it.closure_not_enforced = new
+                    it.extracted_beach = ext.beach_name
+                    it.extracted_municipality = ext.municipality
+                    it.confidence = ext.confidence
+                    it.evidence_quote = ext.evidence_quote
+                    print(f"      tipo={ext.event_type} causa={ext.cause}")
+            elif new != bool(it.closure_not_enforced):
                 changed += 1
                 if not args.dry_run:
                     it.closure_not_enforced = new

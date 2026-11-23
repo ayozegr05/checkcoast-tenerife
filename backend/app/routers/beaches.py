@@ -728,6 +728,28 @@ def _collect_episodes(
                     ),
                 )
             )
+        # Una afirmación retrospectiva del no-cierre puede llegar
+        # semanas después del acta ("permaneció abierta en San Juan",
+        # 34 d después): fuera de la ventana ±7 d no se casa a la
+        # evidencia del episodio, pero SÍ lo documenta. Se atribuye
+        # al cierre oficial dentro de la ventana de cobertura de
+        # prensa (PRESS_CLUSTER_GAP = 45 d) — más allá hablaría de
+        # otro suceso
+        flagged = [
+            n
+            for n in beach.news_items
+            if n.relevant and n.closure_not_enforced and n.published_at
+        ]
+        for ep in episodes:
+            if ep.not_enforced or ep.end is None or ep.via != "official":
+                continue
+            ep.not_enforced = any(
+                n.published_at is not None
+                and ep.start - timedelta(days=7)
+                <= n.published_at.date()
+                <= ep.end + PRESS_CLUSTER_GAP
+                for n in flagged
+            )
     synth_id = -1
     for beach in beaches:
         if beach.id in twins:
@@ -1000,6 +1022,25 @@ def beach_incidents(
                 press_items=press_items,
                 not_enforced=any(n.closure_not_enforced for n in press_rows),
             )
+        )
+    # Afirmación retrospectiva del no-cierre: una pieza que llega
+    # semanas después del acta también lo documenta ("permaneció
+    # abierta en San Juan", 34 d después) — misma ventana de
+    # cobertura de prensa que _collect_episodes (45 d)
+    flagged_ne = [
+        n
+        for n in beach.news_items
+        if n.relevant and n.closure_not_enforced and n.published_at
+    ]
+    for r in out:
+        if r.not_enforced or r.closed_at is None:
+            continue
+        r.not_enforced = any(
+            n.published_at is not None
+            and r.opened_at - timedelta(days=7)
+            <= n.published_at.date()
+            <= r.closed_at + PRESS_CLUSTER_GAP
+            for n in flagged_ne
         )
     synth_id = -1
     live_closed = _latest_closed(db, beach_id)
