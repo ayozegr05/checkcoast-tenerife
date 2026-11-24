@@ -493,6 +493,13 @@ def _news_out(n: NewsItem) -> NewsItemOut:
     )
 
 
+def _no_closure_press(items) -> bool:
+    """Ningún titular del episodio documenta un cierre: si la prensa
+    narró que cerró, un "nunca se ejecutó" general no puede
+    desdecirlo — el sello solo vale donde la evidencia lo respalda."""
+    return not any(n.event_type == "closure" for n in items)
+
+
 def _incident_kind(inc, press_items) -> str:
     """'prohibido' en la observación → cierre. Además, si la prensa de
     la ventana habla de cierre el episodio es un cierre aunque Náyade
@@ -725,7 +732,8 @@ def _collect_episodes(
                     # declarado nunca se ejecutó en la playa
                     not_enforced=any(
                         n.closure_not_enforced for n in press_items
-                    ),
+                    )
+                    and _no_closure_press(press_items),
                 )
             )
         # Una afirmación retrospectiva del no-cierre puede llegar
@@ -741,7 +749,12 @@ def _collect_episodes(
             if n.relevant and n.closure_not_enforced and n.published_at
         ]
         for ep in episodes:
-            if ep.not_enforced or ep.end is None or ep.via != "official":
+            if (
+                ep.not_enforced
+                or ep.end is None
+                or ep.via != "official"
+                or not _no_closure_press(ep.press_items)
+            ):
                 continue
             ep.not_enforced = any(
                 n.published_at is not None
@@ -794,7 +807,8 @@ def _collect_episodes(
                     press_items=list(ev.press_items),
                     not_enforced=any(
                         n.closure_not_enforced for n in ev.press_items
-                    ),
+                    )
+                    and _no_closure_press(ev.press_items),
                 )
             )
             synth_id -= 1
@@ -1034,7 +1048,8 @@ def beach_incidents(
                 observations=obs,
                 source_url=row.source_url,
                 press_items=press_items,
-                not_enforced=any(n.closure_not_enforced for n in press_rows),
+                not_enforced=any(n.closure_not_enforced for n in press_rows)
+                and _no_closure_press(press_rows),
             )
         )
     # Afirmación retrospectiva del no-cierre: una pieza que llega
@@ -1047,7 +1062,11 @@ def beach_incidents(
         if n.relevant and n.closure_not_enforced and n.published_at
     ]
     for r in out:
-        if r.not_enforced or r.closed_at is None:
+        if (
+            r.not_enforced
+            or r.closed_at is None
+            or not _no_closure_press(r.press_items)
+        ):
             continue
         r.not_enforced = any(
             n.published_at is not None
@@ -1210,7 +1229,8 @@ def beach_incidents(
                 ],
                 not_enforced=any(
                     n.closure_not_enforced for n in ev.press_items
-                ),
+                )
+                and _no_closure_press(ev.press_items),
             )
         )
         synth_id -= 1
